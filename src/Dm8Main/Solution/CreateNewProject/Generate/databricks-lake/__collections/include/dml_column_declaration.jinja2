@@ -1,0 +1,21 @@
+{%- set data_type_object = model.data_types.get_data_type(column.type) %}
+    {%- set data_type = data_type_object.parquetType.upper() %}
+    {%- set precision_scale = "" %}
+    {%- if data_type_object.hasPrecision %}
+        {%- set precision_scale = "(%s" % column.precision %}
+        {%- if data_type_object.hasScale %}
+            {%- set precision_scale = precision_scale + ", %s" % column.scale %}
+        {%- endif %}
+        {%- set precision_scale = precision_scale + ")" %}
+    {%- endif %}
+    -- {{column.name}}
+    TRY_CAST({{column.name}} AS {{data_type}}{{precision_scale}}) AS {{column.name}},
+    CASE
+        {%- if column.nullable %}
+        WHEN {{column.name}} IS NULL THEN 0 -- NULLable COLUMN
+        {%- else %}
+        WHEN {{column.name}} IS NULL THEN  1 -- NOT NULL COLUMN
+        {%- endif %}
+        WHEN TRY_CAST({{column.name}} AS {{data_type}}{{precision_scale}}) IS NULL THEN 1 -- NOT ABLE TO CAST
+        ELSE 0 -- ALL GOOD
+    END AS {{column.name}}_hasCastError,

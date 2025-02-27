@@ -1,0 +1,386 @@
+{
+  "type": "stage",
+  "entity": {
+    "dataProduct": "internal",
+    "dataModule": "erp",
+    "name": "DimCustomer",
+    "displayName": "DimCustomer",
+    "tags": ["Test","Nochmal"],
+    "attribute": [
+    {
+            "name": "CustomerKey",
+            "type": "int",
+                  
+                              
+            
+            "precision": 10,
+            
+            
+            "scale": 0,
+            
+            "nullable": false,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "GeographyKey",
+            "type": "int",
+                  
+                              
+            
+            "precision": 10,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "CustomerAlternateKey",
+            "type": "string",
+            
+            "charLength": 15,
+                  
+                              
+            
+            
+            "nullable": false,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "Title",
+            "type": "string",
+            
+            "charLength": 8,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "FirstName",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "MiddleName",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "LastName",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "NameStyle",
+            "type": "bit",
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "BirthDate",
+            "type": "date",
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "MaritalStatus",
+            "type": "string",
+            
+            "charLength": 1,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "Suffix",
+            "type": "string",
+            
+            "charLength": 10,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "Gender",
+            "type": "string",
+            
+            "charLength": 1,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "EmailAddress",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "YearlyIncome",
+            "type": "double",
+                  
+                              
+            
+            "precision": 19,
+            
+            
+            "scale": 4,
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "TotalChildren",
+            "type": "byte",
+                  
+                              
+            
+            "precision": 3,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "NumberChildrenAtHome",
+            "type": "byte",
+                  
+                              
+            
+            "precision": 3,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "EnglishEducation",
+            "type": "string",
+            
+            "charLength": 40,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "SpanishEducation",
+            "type": "string",
+            
+            "charLength": 40,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "FrenchEducation",
+            "type": "string",
+            
+            "charLength": 40,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "EnglishOccupation",
+            "type": "string",
+            
+            "charLength": 100,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "SpanishOccupation",
+            "type": "string",
+            
+            "charLength": 100,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "FrenchOccupation",
+            "type": "string",
+            
+            "charLength": 100,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "HouseOwnerFlag",
+            "type": "string",
+            
+            "charLength": 1,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "NumberCarsOwned",
+            "type": "byte",
+                  
+                              
+            
+            "precision": 3,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "AddressLine",
+            "type": "string",
+            
+            "charLength": 120,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "Phone",
+            "type": "string",
+            
+            "charLength": 20,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "DateFirstPurchase",
+            "type": "date",
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        },{
+            "name": "CommuteDistance",
+            "type": "string",
+            
+            "charLength": 15,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["Test","Nochmal"]
+        }]
+  },
+  "function": {
+    "dataSource": "localDwh",
+    "sourceLocation": "[dbo].[DimCustomer]"
+  }
+}

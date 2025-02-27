@@ -1,0 +1,69 @@
+﻿<Window x:Class="Dm8LakeConnector.Views.ConfigureView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Dm8LakeConnector.Views"
+        mc:Ignorable="d"
+        Title="Configure" 
+        Height="357" 
+        Width="567" 
+        ShowInTaskbar="False" 
+        WindowStartupLocation="CenterOwner" 
+        ForceCursor="True" Topmost="True"
+        >
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="13*"/>
+                <ColumnDefinition Width="38*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Label Grid.Row="0" Grid.Column="0">Data Source Name:</Label>
+            <Label Grid.Row="1" Grid.Column="0">Server Name:</Label>
+            <Label Grid.Row="2" Grid.Column="0">Database Name:</Label>
+            <Label Grid.Row="3" Grid.Column="0">Authentication:</Label>
+            <Label Grid.Row="4" Grid.Column="0" Name="txtUserName">User Name:</Label>
+            <Label Grid.Row="5" Grid.Column="0" Name="txtPassword">Password:</Label>
+            <Label Grid.Row="7" Grid.Column="0">Encrypt:</Label>
+            <Label Grid.Row="8" Grid.Column="0">Trust Server Certificate:</Label>
+
+            <TextBox Grid.Row="0" Grid.Column="1" Name="DataSourceName" VerticalAlignment="Center" ForceCursor="True" TextChanged="OnControlChanged"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Name="ServerName" VerticalAlignment="Center" TextChanged="OnControlChanged"/>
+            <ComboBox Grid.Row="2" Grid.Column="1" Name="DatabaseName" VerticalAlignment="Center" SelectionChanged="OnControlChanged" IsEditable="True" TextInput="OnControlChanged" DropDownOpened="DatabaseName_DropDownOpened" DropDownClosed="DatabaseName_DropDownClosed"/>
+            <ComboBox Grid.Row="3" Grid.Column="1" Name="Authentication" VerticalAlignment="Center" SelectionChanged="OnControlChanged"/>
+            <TextBox Grid.Row="4" Grid.Column="1" Name="UserName" VerticalAlignment="Center" TextChanged="OnControlChanged"/>
+            <PasswordBox Grid.Row="5" Grid.Column="1" Name="Password" VerticalAlignment="Center"/>
+            <CheckBox Grid.Row="6" Grid.Column="1" Name="RememberPassword" VerticalAlignment="Center" HorizontalAlignment="Left">Remember Password</CheckBox>
+            <ComboBox Grid.Row="7" Grid.Column="1" Name="Encrypt" VerticalAlignment="Center" SelectionChanged="OnControlChanged"/>
+            <ComboBox Grid.Row="8" Grid.Column="1" Name="TrustServerCertificate" VerticalAlignment="Center" SelectionChanged="OnControlChanged"/>
+        </Grid>
+        <StackPanel Grid.Column="0" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="TestConnectionButton" Content="Test Connection"  VerticalAlignment="Center" Width="120" Height="25" IsEnabled="False" Click="TestConnectionButton_Click"/>
+            <Button x:Name="OkButton" Content="OK"  Grid.Row="4" VerticalAlignment="Center" Width="80" Margin="40,0,8,0" Height="25" IsDefault="True" IsEnabled="False" Click="OkButton_Click"/>
+            <Button x:Name="CancelButton" Content="Cancel"  Grid.Row="4" VerticalAlignment="Center" Height="25" Width="80" IsCancel="True" Click="CancelButton_Click"/>
+        </StackPanel>
+
+    </Grid>
+</Window>

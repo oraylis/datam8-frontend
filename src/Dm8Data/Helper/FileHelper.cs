@@ -1,0 +1,114 @@
+﻿using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Dm8Data.Helper
+{
+#pragma warning disable CA2200 // Rethrow to preserve stack details
+    public class FileHelper
+    {
+        static bool IsFileInUse(string path)
+        {
+            try
+            {
+                using (FileStream fs = new FileStream(path, FileMode.Open))
+                {
+                    return !fs.CanRead;
+                }
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+        }
+
+        public static async Task<string> ReadFileAsync(string filePath, bool tryOnlyOnceIfNotExists = false)
+        {
+            Exception exception = null;
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    return await File.ReadAllTextAsync(filePath);
+                }
+                catch (FileNotFoundException ex1)
+                {
+                    if (tryOnlyOnceIfNotExists)
+                    {
+#pragma warning disable CA2200 // Rethrow to preserve stack details
+                        throw ex1;
+#pragma warning restore CA2200 // Rethrow to preserve stack details
+                    }
+                    else
+                    {
+                        System.Threading.Thread.Sleep(250);
+                        exception = ex1;
+                    }
+                }
+                catch (IOException ex)
+                {
+                    System.Threading.Thread.Sleep(250);
+                    exception = ex;
+                }
+            }
+
+            throw exception;
+        }
+
+        public static async Task WriteFileAsync(string filePath, string content)
+        {
+            Exception exception = null;
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    if (!Directory.Exists(Path.GetDirectoryName(filePath)))
+                        Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                    await File.WriteAllTextAsync(filePath, content);
+                    while (IsFileInUse(filePath))
+                    {
+                        System.Threading.Thread.Sleep(100);
+                    }
+                    return;
+                }
+                catch (IOException ex)
+                {
+                    System.Threading.Thread.Sleep(1000);
+                    exception = ex;
+                }
+            }
+
+            throw exception;
+        }
+        public static bool IsBinary(string filePath)
+        {
+            const int charsToCheck = 8000;
+            const char nulChar = '\0';
+            using var streamReader = new StreamReader(filePath);
+            for (var i = 0; i < charsToCheck; i++)
+            {
+                if (streamReader.EndOfStream)
+                {
+                    return false;
+                }
+
+                if ((char)streamReader.Read() == nulChar)
+                {
+
+                    return (true);
+                }
+            }
+            return (false);
+        }
+
+        public static string MakeJson(object obj)
+        {
+            string retVal  = JsonConvert.SerializeObject(obj, Formatting.Indented, new Newtonsoft.Json.Converters.StringEnumConverter());
+            return(retVal);
+        }
+    }
+}

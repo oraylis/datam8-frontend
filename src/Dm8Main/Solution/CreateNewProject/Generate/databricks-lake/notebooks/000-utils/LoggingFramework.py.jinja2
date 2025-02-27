@@ -1,0 +1,300 @@
+{% set file_path = helper.build_path("notebooks", SystemProperties().utils_folder, "LoggingFramework") %}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+import json
+import uuid
+
+
+class LoggingFramework:
+    """
+    Logging Framework for DataM8 by ORAYLIS.
+    """
+
+    @staticmethod
+    def prepare_logging_framework() -> None:
+        """
+        This method prepares the schema and all needed tables for the Logging Framework.
+        """
+        LoggingFramework.create_logging_schema()
+        LoggingFramework.create_table_logging_extractions()
+        LoggingFramework.create_table_logging_loads()
+        LoggingFramework.create_view_logging_loads_jobs()
+
+    @staticmethod
+    def remove_logging_framework() -> None:
+        """
+        This method removes the schema and all tables of the Logging Framework.
+        """
+        data_lake_name = spark.conf.get("datam8.datalake.name")
+        container_name = spark.conf.get("datam8.datalake.container.name")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+        spark.sql(
+            f"""
+            DROP SCHEMA IF EXISTS {zone} CASCADE
+            """
+        )
+        dbutils.fs.rm(
+            f"abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}/extractions", True)
+        dbutils.fs.rm(
+            f"abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}/loads", True)
+
+    @staticmethod
+    def create_logging_schema() -> None:
+        """
+        This method creates the schema for logging purposes.
+        """
+        data_lake_name = spark.conf.get("datam8.datalake.name")
+        container_name = spark.conf.get("datam8.datalake.container.name")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+        spark.sql(
+            f"""
+            CREATE SCHEMA IF NOT EXISTS {zone}
+            LOCATION "abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}"
+            """
+        )
+
+    @staticmethod
+    def create_table_logging_extractions() -> None:
+        """
+        This method creates the table for logging extractions.
+        """
+        data_lake_name = spark.conf.get("datam8.datalake.name")
+        container_name = spark.conf.get("datam8.datalake.container.name")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+        spark.sql(
+            f"""
+            CREATE TABLE IF NOT EXISTS {zone}.Extractions
+            (
+                Extraction_UUID STRING NOT NULL,
+                Table_Name STRING NOT NULL,
+                Insert_Time_UTC TIMESTAMP NOT NULL,
+                Status String NOT NULL,
+                Row_Count BIGINT
+            )
+            USING DELTA
+            CLUSTER BY (
+                Table_Name
+            )
+            LOCATION "abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}/extractions"
+            """
+        )
+
+        spark.sql(f"ALTER TABLE {zone}.Extractions SET TBLPROPERTIES ('delta.isolationLevel' = 'Serializable')")
+
+    @staticmethod
+    def create_table_logging_loads() -> None:
+        """
+        This method creates the table for logging loads.
+        """
+        data_lake_name = spark.conf.get("datam8.datalake.name")
+        container_name = spark.conf.get("datam8.datalake.container.name")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+        spark.sql(
+            f"""
+            CREATE TABLE IF NOT EXISTS {zone}.Loads
+            (
+                Load_UUID STRING NOT NULL,
+                Target_Zone STRING NOT NULL,
+                Job_Name STRING NOT NULL,
+                Table_Name STRING NOT NULL,
+                Insert_Time_UTC TIMESTAMP NOT NULL,
+                Status String NOT NULL
+            )
+            USING DELTA
+            CLUSTER BY (
+                Target_Zone,
+                Job_Name,
+                Table_Name
+            )
+            LOCATION "abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}/loads"
+            """
+        )
+
+        spark.sql(f"ALTER TABLE {zone}.Loads SET TBLPROPERTIES ('delta.isolationLevel' = 'Serializable')")
+
+    @staticmethod
+    def create_view_logging_loads_jobs() -> None:
+        """
+        This method creates the view to aggregate logging.loads on a job level.
+        """
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+
+        spark.sql("""
+            CREATE OR REPLACE VIEW %(zone)s.v_Loads_Jobs
+            AS
+            SELECT
+                loads.Load_UUID
+            ,   loads.Target_Zone
+            ,   loads.Job_Name
+            ,   min(loads.Insert_Time_UTC) as Start_Time_UTC
+            ,   max(loads.Insert_Time_UTC) as End_Time_UTC
+            ,   int(max(loads.Insert_Time_UTC)
+                    - min(loads.Insert_Time_UTC)
+                    ) as Duration_Seconds
+            ,   count(distinct loads.Table_Name)                 as Count_Tables_Processed
+            ,   coalesce(max(current_status.`Status`), 'Unkown') as `Status`
+            FROM
+                %(zone)s.loads
+            LEFT JOIN (
+                SELECT
+                    Load_UUID
+                ,   `Status`
+                ,   row_number() over(
+                        PARTITION BY Load_UUID
+                        ORDER BY Insert_Time_UTC desc
+                    ) as RANK
+                FROM %(zone)s.Loads
+            ) current_status
+                ON  current_status.Load_UUID = loads.Load_UUID
+                AND current_status.RANK = 1
+            GROUP BY
+                loads.Load_UUID
+            ,   loads.Target_Zone
+            ,   loads.Job_Name
+        """ % {"zone": zone}
+        )
+
+    @staticmethod
+    def start_extraction(table_name: str, status: str = "Started") -> str:
+        """
+        This method creates the initial logging entry for when an extraction is started.
+
+        Args:
+            table_name: Name of the table that gets extracted.
+            status: New Status for the new extraction.
+
+        Returns:
+            extraction_uuid that is used for logging this extraction.
+        """
+        spark.conf.set("spark.sql.session.timeZone", "UTC")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+        extraction_uuid = str(uuid.uuid4())
+
+        spark.sql(
+            f"""
+            INSERT INTO {zone}.Extractions (Extraction_UUID, Table_Name, Insert_Time_UTC, Status)
+            VALUES ("{extraction_uuid}", "{table_name}", current_timestamp(), '{status}')
+            """
+        )
+
+        return extraction_uuid
+
+    @staticmethod
+    def end_extraction(extraction_uuid: str, row_count: int, table_name: str, status: str = "Completed") -> None:
+        """
+        This method updates the logging entry to mark completion of an extraction.
+
+        Args:
+            extraction_uuid: UUID of the extraction record, that shall get marked as completed.
+            row_count: Number of rows that cot extracted.
+            table_name: Name of the table that gets extracted.
+            status: New Status for the given extraction.
+        """
+        spark.conf.set("spark.sql.session.timeZone", "UTC")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+
+        spark.sql(
+            f"""
+            INSERT INTO {zone}.extractions (Extraction_UUID, Table_Name, Insert_Time_UTC, Status, Row_Count)
+            VALUES ('{extraction_uuid}', '{table_name}', current_timestamp(), '{status}', {row_count})
+            """
+        )
+
+    @staticmethod
+    def start_load(target_zone: str, load_job_name: str, table_name: str = None) -> str:
+        """
+        This method creates the initial logging entry for when a load job is started.
+
+        Args:
+            target_zone: Name of the zone, that the load job targets.
+            load_job_name: Name of the load job that gets executed.
+            table_name: Name of the table that gets loaded.
+
+        Returns:
+            load_uuid that is used for logging this load job.
+        """
+        status_starting = "Starting"
+        spark.conf.set("spark.sql.session.timeZone", "UTC")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+        load_uuid = str(uuid.uuid4())
+
+        spark.sql(
+            f"""
+            INSERT INTO {zone}.Loads (Load_UUID, Target_Zone, Job_Name, Table_Name, Insert_Time_UTC, Status)
+            VALUES ('{load_uuid}', '{target_zone}', '{load_job_name}', '{table_name}', current_timestamp(), '{status_starting}')
+            """
+        )
+
+        return load_uuid
+
+    @staticmethod
+    def update_load(load_uuid: str, target_zone: str, load_job_name: str,
+                    table_name: str, status: str
+                    ) -> None:
+        """
+        This method updates the status for a given load job log entry.
+
+        Args:
+            load_uuid: UUID of the load to update.
+            status: New status to set for the given load.
+            table_name: Name of the table that gets loaded.
+        """
+        spark.conf.set("spark.sql.session.timeZone", "UTC")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+
+        spark.sql(
+            f"""
+            INSERT INTO {zone}.Loads (Load_UUID, Target_Zone, Job_Name, Table_Name, Insert_Time_UTC, Status)
+            VALUES ('{load_uuid}', '{target_zone}', '{load_job_name}', '{table_name}', current_timestamp(), '{status}')
+            """
+        )
+
+    @staticmethod
+    def complete_load(load_uuid: str, target_zone: str, load_job_name: str,
+                      table_name: str = None, status: str = "Completed"
+                      ) -> None:
+        """
+        This method marks a log entry for a given load job log entry as completed.
+
+        Args:
+            load_uuid: UUID of the load to complete.
+            status: Final status to set for the given load.
+            table_name: Name of the table that was loaded completely.
+        """
+        spark.conf.set("spark.sql.session.timeZone", "UTC")
+        zone = spark.conf.get("datam8.zone.logging.name", "logging")
+
+        spark.sql(
+            f"""
+            INSERT INTO {zone}.Loads (Load_UUID, Target_Zone, Job_Name, Table_Name, Insert_Time_UTC, Status)
+            VALUES ('{load_uuid}', '{target_zone}', '{load_job_name}', '{table_name}', current_timestamp(), '{status}')
+            """
+        )
+
+    @staticmethod
+    def get_job_name() -> str | None:
+        """
+        This method returns the job name or None, if not run in job context.
+
+        Returns:
+            job_name: Name of the job
+        """
+        for tag in json.loads(spark.conf.get("spark.databricks.clusterUsageTags.clusterAllTags")):
+            if tag["key"] == "RunName":
+                return tag["value"]
+
+        return None
+
+    @staticmethod
+    def get_value_dict() -> dict:
+        return {
+            var: dbutils.jobs.taskValues.get(
+                taskKey="Generate_Load_UUID",
+                key=var,
+                default=(-1 if var == "load_uuid" else "Debug"),
+                debugValue=(-1 if var == "load_uuid" else "Debug"),
+                )
+            for var in ("load_uuid", "target_zone", "load_job_name",)
+        }
+
+<<<<<<<<<< {{ file_path }}.py | py

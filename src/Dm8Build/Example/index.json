@@ -1,0 +1,38 @@
+{
+  "rawIndex": {
+    "entry": [
+      {
+        "locator": "Raw/internal/erp/DimAccount",
+        "name": "DimAccount",
+        "absPath": "C:\\sources\\Repos\\oraylis\\automation\\DataM8\\Dm8Build\\Example\\Raw\\internal\\erp\\DimAccount.json"
+      },
+      {
+        "locator": "Raw/internal/erp/DimCustomer",
+        "name": "DimCustomer",
+        "absPath": "C:\\sources\\Repos\\oraylis\\automation\\DataM8\\Dm8Build\\Example\\Raw\\internal\\erp\\DimCustomer.json"
+      }
+    ]
+  },
+  "stageIndex": {
+    "entry": [
+      {
+        "locator": "Stage/internal/erp/DimAccount",
+        "name": "DimAccount",
+        "absPath": "C:\\sources\\Repos\\oraylis\\automation\\DataM8\\Dm8Build\\Example\\Staging\\internal\\erp\\DimAccount.json"
+      },
+      {
+        "locator": "Stage/internal/erp/DimCustomer",
+        "name": "DimCustomer",
+        "absPath": "C:\\sources\\Repos\\oraylis\\automation\\DataM8\\Dm8Build\\Example\\Staging\\internal\\erp\\DimCustomer.json"
+      },
+      {
+        "locator": "Core/internal/erp/DimCustomer",
+        "name": "DimCustomer",
+        "absPath": "C:\\sources\\Repos\\oraylis\\automation\\DataM8\\Dm8Build\\Example\\Core\\ingest\\dwh\\DimCustomer.json"
+      }
+    ]
+  },
+  "coreIndex": {
+    "entry": []
+  }
+}

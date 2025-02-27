@@ -1,0 +1,172 @@
+﻿<controls:HamburgerMenuIconItem 
+    x:Class="Dm8Main.Views.CuratedFunctionView"
+
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:s="clr-namespace:System;assembly=mscorlib"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+    xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+    xmlns:properties="clr-namespace:Dm8Main.Properties"
+    xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+    xmlns:viewModels="clr-namespace:Dm8Main.ViewModels"
+    xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
+    d:DataContext="{d:DesignInstance viewModels:CuratedFunctionViewModel}"
+    xmlns:a="clr-namespace:Dm8Main.Avalon"
+    xmlns:pt="http://propertytools.org/wpf"
+    xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
+    xmlns:b="clr-namespace:Dm8Main.Base"
+    xmlns:local="clr-namespace:Dm8Main.Views"                       
+    mc:Ignorable="d" 
+    xmlns:services="clr-namespace:MvvmDialogs;assembly=MvvmDialogs"
+    services:DialogServiceViews.IsRegistered="True"
+    xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
+    d:DesignHeight="450" d:DesignWidth="800"
+
+    Icon="{iconPacks:Modern Kind=CellFunction, Height=28, Width=28}" IsVisible="True">
+    <controls:HamburgerMenuIconItem.Tag>
+
+        <Grid Name="FunctionGrid">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Background="{DynamicResource MahApps.HamburgerMenu.Pane.Background}" Margin="-1,0" >
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="56" />
+                </Grid.RowDefinitions>
+                <TextBlock  VerticalAlignment="Center" Margin="16,0"
+                            FontSize="20"
+                            FontWeight="SemiBold"
+                            FontFamily="Verdana"
+                            Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
+                            Text="{Binding CuratedFunction.Name, Mode=OneWay}" />
+
+                <Button 
+                    Grid.Column="1"
+                    Margin="4"                                
+                    Width="32"
+                    Height="32"
+                    ToolTip="Add Source"
+                    Command="{Binding EditCommand}"
+                    Content="{iconPacks:Coolicons Kind=Edit, Height=16, Width=16}"
+                    Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
+                    Style="{DynamicResource MahApps.Styles.Button.Circle}" />
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0"
+                >
+
+                    <TextBlock  VerticalAlignment="Center" 
+                                Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
+                                Text="Data Locator:" />
+                    <TextBox    Margin="0,15" 
+                                BorderThickness="0" 
+                                Background="Transparent" 
+                                Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
+                                VerticalAlignment="Center" 
+                                IsReadOnly="True" 
+                                Text="{Binding Item.Entity.Dm8l, Mode=OneWay}" />
+
+                </StackPanel>
+
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+
+                    <TextBlock  Grid.Column="0" Grid.Row="0" Margin="4" VerticalAlignment="Center">Function Name:</TextBlock>
+                    <TextBox    Grid.Column="1" Grid.Row="0" Margin="4" Text="{Binding CuratedFunction.Name, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock  Grid.Column="0" Grid.Row="1" Margin="4" VerticalAlignment="Center">Merge Type:</TextBlock>
+                    <ComboBox   Grid.Column="1" Grid.Row="1" Margin="4" 
+                                DisplayMemberPath="Value"
+                                SelectedValuePath="Key"
+                                SelectedValue="{Binding CuratedFunction.Merge_type, UpdateSourceTrigger=PropertyChanged}"
+                                ItemsSource="{Binding MergeList}" />
+                    
+
+                    <TextBlock  Grid.Column="0" Grid.Row="2" Margin="4" VerticalAlignment="Center">Frequency:</TextBlock>
+                    <ComboBox    Grid.Column="1" Grid.Row="2" Margin="4"                                 DisplayMemberPath="Value"
+                                 SelectedValuePath="Key"
+                                 SelectedValue="{Binding CuratedFunction.Frequency, UpdateSourceTrigger=PropertyChanged}"
+                                 ItemsSource="{Binding FrequencyList}" />
+
+                    <TextBlock  Grid.Column="0" Grid.Row="3" Margin="4" VerticalAlignment="Center">Frequency Reference:</TextBlock>
+                    <TextBox    Grid.Column="1" Grid.Row="3" Margin="4" Text="{Binding CuratedFunction.Frequency_reference, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock  Grid.Column="0" Grid.Row="6" Margin="4,12" VerticalAlignment="Top">Source Entities:</TextBlock>
+                    <DataGrid Grid.Column="1" Grid.Row="6" Margin="4" ItemsSource="{Binding CuratedFunction.Source}"
+                              dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
+                              dgext:DataGridFilter.IsAutoFilterEnabled="True"
+                              AlternationCount="2" 
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserReorderColumns="False">
+
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                        </DataGrid.ColumnHeaderStyle>
+
+                        <DataGrid.RowStyle>
+                            <Style BasedOn="{StaticResource  {x:Type DataGridRow}}" TargetType="DataGridRow">
+
+                                <Style.Triggers>
+
+                                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray.SemiTransparent}" />
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.DataGrid.Selection.Background.MouseOver}" />
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.DataGrid.Selection.Background}" />
+                                    </Trigger>
+
+                                </Style.Triggers>
+
+                            </Style>
+                        </DataGrid.RowStyle>
+
+                        <behaviors:Interaction.Behaviors>
+                            <!--dgext:ExtendedStarSizeBehavior-->
+                            <dgext:BeginEditOnCtrlEnterBehavior />
+                        </behaviors:Interaction.Behaviors>
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Dm8l}" Header="Locator" IsReadOnly="True" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                </Grid>
+            </ScrollViewer>
+
+        </Grid>
+
+    </controls:HamburgerMenuIconItem.Tag>
+</controls:HamburgerMenuIconItem>
+

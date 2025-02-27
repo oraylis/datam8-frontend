@@ -1,0 +1,474 @@
+﻿<view:MainWindowBase x:Class="Dm8Main.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:metro="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        xmlns:System="clr-namespace:System;assembly=mscorlib"
+        xmlns:p="clr-namespace:Dm8Main.Properties"
+        xmlns:pd="clr-namespace:Dm8Data.Properties;assembly=Dm8Data"
+        xmlns:prism="http://prismlibrary.com/"
+        xmlns:view="clr-namespace:Dm8Main.Views"
+        xmlns:Fluent="urn:fluent-ribbon"   
+        xmlns:controlzEx="urn:controlzex"
+        xmlns:b="clr-namespace:Dm8Main.Base"
+        xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
+        xmlns:av="clr-namespace:Dm8Main.Avalon"
+        xmlns:xcad="clr-namespace:AvalonDock;assembly=AvalonDock"
+        xmlns:xcadc="clr-namespace:AvalonDock.Controls;assembly=AvalonDock"
+        xmlns:xcadl="clr-namespace:AvalonDock.Layout;assembly=AvalonDock"
+        xmlns:xcadt="clr-namespace:AvalonDock.Themes;assembly=AvalonDock.Themes.Metro"
+        xmlns:xcadt2013="clr-namespace:AvalonDock.Themes;assembly=AvalonDock.Themes.VS2013"
+        xmlns:md="https://github.com/fantasticfiasco/mvvm-dialogs"
+        prism:ViewModelLocator.AutoWireViewModel="True"
+        xmlns:local="clr-namespace:Dm8Main" 
+        xmlns:viewModels="clr-namespace:Dm8Main.ViewModels" 
+        d:DataContext="{d:DesignInstance Type=viewModels:MainWindowViewModel}"
+        x:Name="Window"
+        mc:Ignorable="d"
+        Title="{Binding Title}" 
+        Theme="{Binding SolutionService.Theme}"
+        DocumentClosingCommand="{Binding DocumentClosingCommand}"
+        Closing="MainWindow_OnClosing"
+        Icon="/Resources/oraylis.ico"
+        ShowTitleBar="True"
+        ShowIconOnTitleBar="True"
+        ShowSystemMenuOnRightClick="True"
+        TitleCharacterCasing="Normal"
+        WindowTransitionsEnabled="True"        
+        md:DialogServiceViews.IsRegistered="True">
+
+    <metro:MetroWindow.LayoutTransform>
+        <!-- todo: netcore => was using x:Reference before -->
+        <ScaleTransform ScaleX="{Binding Zoom}" ScaleY="{Binding Zoom}" />
+    </metro:MetroWindow.LayoutTransform>
+
+    <metro:MetroWindow.Resources>
+        <ResourceDictionary>
+
+            <BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+            <b:NotBooleanToVisibilityConverter x:Key="notBoolToVisibilityConverter" />
+            <b:NullToVisibilityConverter x:Key="nullToVisibilityConverter" />
+            <b:ListToVisibilityConverter x:Key="listToVisibilityConverter" />
+            <dgext:SimpleContentFilterFactory x:Key="simpleContentFilter" />
+
+        </ResourceDictionary>
+    </metro:MetroWindow.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Modifiers="Ctrl" Key="S"/>
+        <KeyBinding Command="{Binding SaveAllCommand}" Modifiers="Ctrl+Shift" Key="S"/>
+    </Window.InputBindings>
+
+
+    <Grid Name="Grid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+
+        <Fluent:Ribbon x:Name="ribbon"
+                       AutomaticStateManagement="True"
+                       Grid.Row="0">
+            <Fluent:RibbonTabItem Header="{x:Static p:Resources.Main_Home}" KeyTip="HO">
+
+                <Fluent:RibbonGroupBox Header="{x:Static p:Resources.Main_Solution}" Visibility="{Binding IsSolutionOpen, Converter={StaticResource notBoolToVisibilityConverter}}">
+
+                    <Fluent:Button x:Name="New" 
+                                   Command="{Binding NewCommand}" 
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_New}"
+                                   ToolTip="{x:Static p:Resources.Main_New_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=Creation, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="Open" 
+                                   Command="{Binding OpenCommand}" 
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Open}"
+                                   ToolTip="{x:Static p:Resources.Main_Open_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=FolderOpen, Height=32, Width=32}"/>
+
+                </Fluent:RibbonGroupBox>
+
+
+                <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{x:Static p:Resources.Main_Project}">
+
+                    <Fluent:Button x:Name="Save" 
+                                   Command="{Binding SaveCommand}" 
+                                   IsEnabled="{Binding IsDocumentActive}"
+                                   SizeDefinition="Large"
+                                   KeyTip="Ctrl+S"
+                                   ToolTip="{x:Static p:Resources.Main_Save_ToolTip}"
+                                   Header="{x:Static p:Resources.Main_Save}"                                   
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=ContentSave, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="SaveAll" 
+                                   Command="{Binding SaveAllCommand}" 
+                                   IsEnabled="{Binding IsDocumentActive}"
+                                   SizeDefinition="Large"
+                                   KeyTip="Ctrl+Shift+S"
+                                   ToolTip="{x:Static p:Resources.Main_SaveAll_ToolTip}"
+                                   Header="{x:Static p:Resources.Main_SaveAll}"   
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=ContentSaveAll, Height=32, Width=32}"/>
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox Header="{x:Static p:Resources.Main_View}">
+
+                    <Fluent:Button x:Name="Project" 
+                                   Command="{Binding ActivateProjectCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Project}"        
+                                   ToolTip="{x:Static p:Resources.Main_Project_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   IsEnabled="{Binding IsSolutionOpen}"
+                                   LargeIcon="{iconPacks:PicolIcons Kind=Hierarchy, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="Output" 
+                                   Command="{Binding ActivateOutputCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Output}"              
+                                   ToolTip="{x:Static p:Resources.Main_Output_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   IsEnabled="{Binding IsSolutionOpen}"
+                                   LargeIcon="{iconPacks:Material Kind=ConsoleLine, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="Git" 
+                                   Command="{Binding ActivateGitCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Git}"                                   
+                                   ToolTip="{x:Static p:Resources.Main_Git_ToolTip}"
+                                   Size="Large"            
+                                   Width="0"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="DarkGray"
+                                   Visibility="Hidden"
+                                   LargeIcon="{iconPacks:Material Kind=Git, Height=32, Width=32}"/>
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{x:Static p:Resources.Main_Validate}">
+
+                    <Fluent:Button x:Name="Validate" 
+                                   Command="{Binding ValidateCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Validate}"  
+                                   ToolTip="{x:Static p:Resources.Main_Validate_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   IsEnabled="{Binding IsSolutionOpen}"
+                                   LargeIcon="{iconPacks:Material Kind=Graphql, Height=32, Width=32}"/>
+
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding RawGroupName}">
+
+                    <Fluent:Button x:Name="AddRaw" 
+                                Command="{Binding AddSourceCommand}"
+                                SizeDefinition="Large"
+                                Header="{Binding AddRawName}"
+                                Size="Large"            
+                                Width="80"
+                                Height="82"
+                                Padding="10,10,10,0"
+                                ToolTip="{x:Static p:Resources.Main_AddRaw_ToolTip}"
+                                VerticalContentAlignment="Center"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                HorizontalContentAlignment="Center"
+                                Foreground="CornflowerBlue"
+                                LargeIcon="{iconPacks:PicolIcons Kind=DatabaseAdd, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="RefreshSource" 
+                                   Command="{Binding RefreshSourceCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{Binding RefreshRawName}"                                 
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   ToolTip="{x:Static p:Resources.Main_RefreshSource_ToolTip}"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:PicolIcons Kind=DatabaseRun, Height=32, Width=32}"/>
+
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding GenerateGroupName}">
+
+                    <Fluent:Button x:Name="RunStage" 
+                                   Command="{Binding GenerateStageCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{Binding GenerateStageName}"
+                                   ToolTip="{x:Static p:Resources.MainWindow_AddStage_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=FileTableBoxMultipleOutline, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="RunOutput" 
+                                   Command="{Binding GenerateOutputCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Menu_GenerateOutput}"
+                                   ToolTip="{x:Static p:Resources.MainWindow_AddOutput_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=FileTableBoxMultipleOutline, Height=32, Width=32}"/>
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding CoreGroupName}">
+
+                    <Fluent:Button x:Name="AddCore" 
+                                   Command="{Binding AddCoreCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{Binding AddCoreName}"
+                                   ToolTip="{x:Static p:Resources.MainWindow_AddCore_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=FileTableBoxMultipleOutline, Height=32, Width=32}"/>
+
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="Curated" Visibility="Visible">
+
+                    <Fluent:Button x:Name="AddBusiness" 
+                                   SizeDefinition="Large"
+                                   Command="{Binding AddCuratedCommand}"
+                                   Header="{x:Static p:Resources.Menu_AddCurated}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   ToolTip="{x:Static p:Resources.Main_AddCurated_ToolTip}"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=FileTableBoxMultipleOutline, Height=32, Width=32}"/>
+
+                </Fluent:RibbonGroupBox>
+
+                <Fluent:RibbonGroupBox Header="Global">
+
+                    <Fluent:Button x:Name="Settings" 
+                                   Command="{Binding ActivateSettingsCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Settings}"
+                                   ToolTip="{x:Static p:Resources.Main_Settings_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=Cogs, Height=32, Width=32}"/>
+
+                    <Fluent:Button x:Name="Help" 
+                                   Command="{Binding ActivateHelpCommand}"
+                                   SizeDefinition="Large"
+                                   Header="{x:Static p:Resources.Main_Help}"   
+                                   ToolTip="{x:Static p:Resources.Main_Help_ToolTip}"
+                                   Size="Large"            
+                                   Width="80"
+                                   Height="82"
+                                   Padding="10,10,10,0"
+                                   VerticalContentAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   HorizontalContentAlignment="Center"
+                                   Foreground="CornflowerBlue"
+                                   LargeIcon="{iconPacks:Material Kind=HelpCircleOutline, Height=32, Width=32}"/>
+                </Fluent:RibbonGroupBox>
+
+
+
+
+            </Fluent:RibbonTabItem>
+        </Fluent:Ribbon>
+
+        <xcad:DockingManager x:Name="dockManager"                               
+                             AllowMixedOrientation="True"
+                             AnchorablesSource="{Binding Anchorables}"
+                             DocumentsSource="{Binding Documents}"                             
+                             ActiveContent="{Binding ActiveContent, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                             ActiveContentChanged="dockManager_ActiveContentChanged"                             
+                             DocumentClosing="dockManager_DocumentClosing"                             
+                             Grid.Row="1">
+
+            <xcad:DockingManager.LayoutUpdateStrategy>
+                <av:LayoutInitializer/>
+            </xcad:DockingManager.LayoutUpdateStrategy>
+
+
+            <xcad:DockingManager.LayoutItemTemplateSelector>
+                <av:TemplateSelector />
+            </xcad:DockingManager.LayoutItemTemplateSelector>
+
+            <xcad:DockingManager.LayoutItemContainerStyleSelector>
+                <av:ActStyleSelector>
+                    <av:ActStyleSelector.AnchorViewStyle>
+                        <Style TargetType="{x:Type xcadc:LayoutAnchorableItem}">
+                            <Setter Property="Title" Value="{Binding Model.Content.DataContext.Title}"/>
+                            <Setter Property="ContentId" Value="{Binding Model.Content.DataContext.ContentId}"/>
+                            <Setter Property="HideCommand" Value="{Binding Model.Content.DataContext.HideCommand}"/>
+                            <Setter Property="IsSelected" Value="{Binding Model.Content.DataContext.IsSelected, Mode=TwoWay}" />
+                        </Style>
+                    </av:ActStyleSelector.AnchorViewStyle>
+
+                    <av:ActStyleSelector.DocumentViewStyle>
+                        <Style TargetType="{x:Type xcadc:LayoutDocumentItem}">
+                            <Setter Property="Title" Value="{Binding Model.Content.DataContext.Title}"/>
+                            <Setter Property="ToolTip" Value="{Binding Model.Content.DataContext.ToolTip}"/>
+                            <Setter Property="ContentId" Value="{Binding Model.Content.DataContext.ContentId}"/>
+                            <Setter Property="CanClose" Value="True" />
+                            <Setter Property="IsSelected" Value="{Binding Model.Content.DataContext.IsSelected, Mode=TwoWay}" />
+                            <Setter Property="CloseCommand" Value="{Binding Model.Content.DataContext.CloseCommand}" />
+                        </Style>
+                    </av:ActStyleSelector.DocumentViewStyle>
+                </av:ActStyleSelector>
+            </xcad:DockingManager.LayoutItemContainerStyleSelector>
+
+
+
+            <xcad:DockingManager.DocumentHeaderTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <ItemsControl ItemsSource="{Binding Content.DataContext.ProjectItem.ImagesEdit}" Width="12" Height="12" Margin="4,0" />
+                        <TextBlock Text="{Binding Content.DataContext.Title}" />
+                        <TextBlock Text=" * " Visibility="{Binding Content.DataContext.IsModified, Converter={StaticResource boolToVisibilityConverter}}" />
+                    </StackPanel>
+                </DataTemplate>
+            </xcad:DockingManager.DocumentHeaderTemplate>
+
+            <xcad:DockingManager.DocumentTitleTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <ItemsControl ItemsSource="{Binding Content.DataContext.ProjectItem.ImagesEdit}" Width="12" Height="12" Margin="4,0" />
+                        <TextBlock Text="{Binding Content.DataContext.Title}" />
+                        <TextBlock Text=" * " Visibility="{Binding Content.DataContext.IsModified, Converter={StaticResource boolToVisibilityConverter}}" />
+                    </StackPanel>
+                </DataTemplate>
+            </xcad:DockingManager.DocumentTitleTemplate>
+
+            <xcad:DockingManager.AnchorableTitleTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="{Binding Content.DataContext.IconSource}" Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding Content.DataContext.Title}" />
+                        <TextBlock Text=" * " Visibility="{Binding Content.DataContext.IsModified, Converter={StaticResource boolToVisibilityConverter}}" />
+                    </StackPanel>
+                </DataTemplate>
+            </xcad:DockingManager.AnchorableTitleTemplate>
+
+            <xcad:DockingManager.AnchorableHeaderTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="{Binding Content.DataContext.IconSource}" Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding Content.DataContext.Title}" />
+                        <TextBlock Text=" * " Visibility="{Binding Content.DataContext.IsModified, Converter={StaticResource boolToVisibilityConverter}}" />
+                    </StackPanel>
+                </DataTemplate>
+            </xcad:DockingManager.AnchorableHeaderTemplate>
+
+        </xcad:DockingManager>
+
+
+        <Fluent:StatusBar Grid.Row="2">
+
+        </Fluent:StatusBar>
+
+    </Grid>
+</view:MainWindowBase>

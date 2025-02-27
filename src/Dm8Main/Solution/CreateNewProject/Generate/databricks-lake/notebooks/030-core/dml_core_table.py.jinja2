@@ -1,0 +1,278 @@
+# Macro Import ----------
+{% import 'macro/column_declaration.jinja2' as column_declaration %}
+
+{% for entity in model.get_core_entity_list() %}
+{% set table = entity.model_object.entity %}
+{% set full_table_name = entity.model_object.entity.dataProduct + "_" + entity.model_object.entity.dataModule + "_" + entity.model_object.entity.name %}
+{%- set file_path = helper.build_path("notebooks", SystemProperties().core_folder, "dml", table.dataProduct, table.dataModule, table.name)%}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # DML for {{entity.model_object.type.value}}.{{full_table_name}}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Initialize base settings
+
+# COMMAND ----------
+
+# DBTITLE 1,Initialize Logging Framework
+%run ../../../../000-utils/LoggingFramework
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+data_lake_name = spark.conf.get("datam8.datalake.name", "")
+container_name = spark.conf.get("datam8.datalake.container.name", "")
+stage_zone = spark.conf.get("datam8.zone.stage.name", "stage")
+core_zone = spark.conf.get("datam8.zone.core.name", "core")
+
+MAX_VALID_TO_DATE = "2999-12-31"
+
+# COMMAND ----------
+
+# DBTITLE 1,Get parameter values
+logging_config: dict = LoggingFramework.get_value_dict()
+logging_values: tuple = tuple(logging_config.values()) + ("{{ table.name }}", )
+
+load_uuid = logging_config["load_uuid"]
+
+print(f"Current load uuid: {load_uuid}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update load status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update load status
+LoggingFramework.update_load(*logging_values, f"Started {core_zone.upper()} processing")
+max_stage: dict = {}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Read from STAGE
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get latest data from CORE
+
+# COMMAND ----------
+{% for source in entity.model_object.function.source if source.dm8l != "#"%}
+# MAGIC %md
+# MAGIC ### Max timestamp for source table '{{source.dm8l}}'
+
+# COMMAND ----------
+
+max_stage["{{source.dm8l.replace("/", "_")[1:]}}"] = spark.sql(f"""
+SELECT
+  NVL(MAX(__InsertTimestampStageUTC), CAST("1970-01-01" AS TIMESTAMP)) AS MaxStage
+FROM `{core_zone}`.`{{full_table_name}}`
+WHERE __SourceTable_BK = "{{source.dm8l}}"
+""").first()[0]
+
+# COMMAND ----------
+{% endfor %}
+# MAGIC %md
+# MAGIC ## Get delta from STAGE
+
+# COMMAND ----------
+
+source_delta_df_list = []
+
+# COMMAND ----------
+{%- for source in entity.model_object.function.source if source.dm8l != "#" -%}
+{%- set stage_object = model.lookup_stage_entity(locator=source.dm8l) -%}
+{%- set stage_table = stage_object.model_object.entity %}
+
+# MAGIC %md
+# MAGIC ### Delta from source table '{{source.dm8l}}'
+
+# COMMAND ----------
+
+source_delta_{{ loop.index }}_df = spark.sql(f"""
+SELECT
+    -- business columns
+    {%- for col in source.mapping if col.name %}
+    `{{ col.sourceName }}` AS `{{col.name}}`,
+    {%- endfor %}
+    -- technical columns
+    "{{source.dm8l}}" AS __SourceTable_BK,
+    __InsertTimestampUTC AS __ValidFrom,
+    to_timestamp("{MAX_VALID_TO_DATE}") AS __ValidTo,
+    current_timestamp() AS __InserTimestampUTC,
+    current_timestamp() AS __UpdateTimestampUTC,
+    __InsertTimestampUTC AS __InsertTimestampStageUTC,
+    CAST('{load_uuid}' AS STRING) AS __Load_UUID,
+    __Extraction_UUID
+FROM `{stage_zone}`.`{{stage_table.dataProduct}}_{{stage_table.dataModule}}_{{helper.cleanup_name(stage_table.name) }}`
+WHERE __InsertTimestampUTC > '{max_stage["{{source.dm8l.replace("/", "_")[1:]}}"]}'
+""")
+
+source_delta_df_list.append(source_delta_{{ loop.index }}_df)
+
+# COMMAND ----------
+
+{%- endfor %}
+
+# MAGIC %md
+# MAGIC ### Union deltas from sources
+
+# COMMAND ----------
+
+for idx, df in enumerate(source_delta_df_list):
+    if idx == 0:
+        union_df = df
+    else:
+        union_df = union_df.union(df)
+
+union_df.createOrReplaceTempView("union_df")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Apply computed columns
+
+# COMMAND ----------
+
+enriched_df = spark.sql(f"""
+SELECT *
+{%- for source in entity.model_object.function.source if source.dm8l == "#" -%}
+  {%- for column in source.mapping if not column.sourceComputation == "Default" %}
+  , {{ column.sourceComputation }} AS {{ column.name }}
+  {%- endfor -%}
+{%- endfor %}
+FROM union_df
+""")
+enriched_df.createOrReplaceTempView("enriched_df")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Merge into {{entity.model_object.type.value}}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Update old SCD 2 records
+
+# COMMAND ----------
+
+spark.sql(f"""
+MERGE INTO `{core_zone}`.`{{full_table_name}}` AS tgt
+USING enriched_df AS src
+ON
+  {% for col in entity.model_object.entity.attribute if col.businessKeyNo %}
+    {%- if not loop.first -%} AND {%- endif -%}
+  tgt.`{{col.name}}` <=> src.`{{col.name}}`
+  {% endfor -%}
+  AND tgt.__SourceTable_BK <=> src.__SourceTable_BK
+WHEN MATCHED
+  AND tgt.__ValidTo = to_timestamp("{MAX_VALID_TO_DATE}")
+  -- SCD 2 columns
+  AND (
+  {%- for col in entity.model_object.entity.attribute if "SCD2" in col.tags %}
+  {% if not loop.first %} OR {% endif -%}
+  NOT tgt.`{{col.name}}` <=> src.`{{col.name}}`
+  {%- endfor %}
+  )
+THEN UPDATE SET
+  tgt.__ValidTo = src.__ValidFrom,
+  tgt.__UpdateTimestampUTC = src.__UpdateTimestampUTC
+""").display()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Insert new records
+
+# COMMAND ----------
+
+spark.sql(f"""
+MERGE INTO `{core_zone}`.`{{full_table_name}}` AS tgt
+USING enriched_df AS src
+ON
+  {%- for col in entity.model_object.entity.attribute if col.businessKeyNo %}
+  {% if not loop.first %}AND {% endif -%}
+  tgt.`{{col.name}}` <=> src.`{{col.name}}`
+  {%- endfor %}
+  AND tgt.__SourceTable_BK <=> src.__SourceTable_BK
+  AND tgt.__ValidTo = to_timestamp("{MAX_VALID_TO_DATE}")
+WHEN NOT MATCHED
+THEN INSERT (
+{%- for col in entity.model_object.entity.attribute if "SID" not in col.tags %}
+  `{{col.name}}`,
+{%- endfor %}
+  -- technical columns
+  __SourceTable_BK,
+  __ValidFrom,
+  __ValidTo,
+  __InsertTimestampUTC,
+  __UpdateTimestampUTC,
+  __InsertTimestampStageUTC,
+  __Load_UUID,
+  __Extraction_UUID
+) VALUES (
+{%- for col in entity.model_object.entity.attribute if "SID" not in col.tags %}
+  src.`{{col.name}}`,
+{%- endfor %}
+  -- technical columns
+  src.__SourceTable_BK,
+  src.__ValidFrom,
+  src.__ValidTo,
+  src.__InserTimestampUTC,
+  src.__UpdateTimestampUTC,
+  src.__InsertTimestampStageUTC,
+  src.__Load_UUID,
+  src.__Extraction_UUID
+)
+""").display()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Update SCD 1 records
+
+# COMMAND ----------
+
+spark.sql(f"""
+MERGE INTO `{core_zone}`.`{{full_table_name}}` AS tgt
+USING enriched_df AS src
+ON
+  {%- for col in entity.model_object.entity.attribute if col.businessKeyNo %}
+  {% if not loop.first %}AND {% endif -%}
+  tgt.`{{col.name}}` <=> src.`{{col.name}}`
+  {%- endfor %}
+  AND tgt.__SourceTable_BK <=> src.__SourceTable_BK
+WHEN MATCHED
+  -- SCD 1 columns
+  AND (
+  {%- for col in entity.model_object.entity.attribute if "SCD1" in col.tags %}
+  {%- if not loop.first %} OR {%- endif %}
+    NOT tgt.`{{col.name}}` <=> src.`{{col.name}}`
+  {%- endfor %}
+  )
+THEN UPDATE SET
+  {%- for col in entity.model_object.entity.attribute if "SCD1" in col.tags %}
+  tgt.`{{col.name}}` = src.`{{col.name}}`,
+  {%- endfor %}
+  tgt.__UpdateTimestampUTC = src.__UpdateTimestampUTC,
+  tgt.__Load_UUID = src.__Load_UUID,
+  tgt.__Extraction_UUID = src.__Extraction_UUID
+""").display()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update load status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update load status
+LoggingFramework.update_load(*logging_values, f"Completed {core_zone.upper()} processing")
+<<<<<<<<<< {{ file_path }}.py | py
+{%- endfor -%}

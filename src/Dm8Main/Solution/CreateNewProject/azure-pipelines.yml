@@ -1,0 +1,120 @@
+
+trigger:
+  - main
+  - feature/*
+
+variables:
+  - name: isMain
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+  - name: isDev
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/dev')]
+  - name: isRelease
+    value: $[contains(variables['Build.SourceBranch'], 'refs/heads/release')]
+  - name: isBuild
+    value: $[or(or(variables.isMain, variables.isDev), variables.isRelease)]
+  - name: DatabricksWorkspace
+    # TODO - add your databricks workspace url here (e.g. copy & paste from azure portal; sample: https://adb-7052612347418876.16.azuredatabricks.net)
+    value: yourhttpsdatabricksworkspaceurl
+  - name: solutionPath
+    # TODO - add your datam8 solutionfile name here (check/find the name directly in to folder of this file)
+    value: .\DataM8 Solution.dm8s
+
+stages:
+  - stage: build
+    displayName: Build Solution
+    jobs:
+      - job: installer
+        displayName: Build Solution
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: DownloadGitHubRelease@0
+            displayName: Download latest ORAYLIS DataM8 release from github
+            inputs:
+              connection: oraylis-github
+              userRepository: oraylis/automation
+              defaultVersionType: "latest" # 'latest' | 'specificVersion' | 'specificTag'. Required. Default version. Default: latest.
+              downloadPath: "$(System.DefaultWorkingDirectory)/DataM8" # string. Required. Destination directory. Default: $(System.ArtifactsDirectory).
+          - task: Bash@3
+            displayName: Install Dm8Data (Generator) via Python
+            inputs:
+              targetType: "inline"
+              script: |
+                pip install $(System.DefaultWorkingDirectory)/DataM8/Dm8Data-0.1.0-py3-none-any.whl
+          - task: ExtractFiles@1
+            displayName: Extract DataM8Validate
+            inputs:
+              archiveFilePatterns: "$(System.DefaultWorkingDirectory)/DataM8/DataM8Validate.linux-x64.zip"
+              destinationFolder: "$(System.DefaultWorkingDirectory)/DataM8/DataM8Validate"
+              cleanDestinationFolder: true
+              overwriteExistingFiles: false
+          - task: Bash@3
+            displayName: Trigger Validator
+            inputs:
+              targetType: "inline"
+              script: |
+                chmod a+x ./Dm8Validate
+                ./Dm8Validate -f $(solutionPath)
+              workingDirectory: "$(System.DefaultWorkingDirectory)/DataM8/DataM8Validate/"
+          - task: Bash@3
+            displayName: Trigger Dm8Data (Generator)
+            inputs:
+              targetType: "inline"
+              script: >-
+                Dm8Data
+                -a generate_template
+                -s "$(solutionPath)"
+                -src ./Generate/databricks-lake
+                -dest ./Output
+                -m ./Generate/databricks-lake/__modules
+                -c ./Generate/databricks-lake/__collections
+          - task: CopyFiles@2
+            displayName: Copy Output to binaries
+            inputs:
+              SourceFolder: $(System.DefaultWorkingDirectory)/Output
+              Contents: |
+                **
+              TargetFolder: $(Build.BinariesDirectory)
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish Artifact: generate"
+            inputs:
+              PathtoPublish: $(Build.BinariesDirectory)
+              ArtifactName: generate
+              publishLocation: Container
+  - stage: deploydev
+    displayName: Deploy to dev
+    pool:
+      vmImage: ubuntu-latest
+    condition: and(succeeded(), eq(variables.isMain, true))
+    dependsOn: build
+    jobs:
+      - deployment: deploydev
+        displayName: Deploy to Databricks
+        environment: dev_databricks
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: none
+                - task: Bash@3
+                  displayName: Install Databricks CLI
+                  inputs:
+                    targetType: "inline"
+                    script: |
+                      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                - task: AzureCLI@2
+                  displayName: Azure Login and Deploy Databricks Asset Bundle
+                  inputs:
+                    azureSubscription: "automation-dev"
+                    scriptType: "bash"
+                    scriptLocation: "inlineScript"
+                    inlineScript: |
+                      cat > ~/.databrickscfg << EOF
+                      [databricksconf]
+                      host = $(DatabricksWorkspace)
+                      EOF
+
+                      databricks bundle deploy -t prod -p databricksconf
+                    addSpnToEnvironment: true
+                    useGlobalConfig: true
+                    workingDirectory: "$(Agent.BuildDirectory)/generate/"

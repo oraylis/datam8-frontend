@@ -1,0 +1,49 @@
+>>>>>>>>>> {{helper.build_path("notebooks", SystemProperties().utils_folder, "Start_Load")}}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # Generic notebook to start a load
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Initialize base settings
+
+# COMMAND ----------
+
+# DBTITLE 1,Initialize Logging Framework
+# MAGIC %run ./LoggingFramework
+
+# COMMAND ----------
+
+# DBTITLE 1,Initialize widgets
+dbutils.widgets.text("target_zone", "", "1. Target zone")
+
+# COMMAND ----------
+
+# DBTITLE 1,Get parameter values
+target_zone = dbutils.widgets.get("target_zone")
+
+print(f"Target zone: {target_zone}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Get load job name
+load_job_name = LoggingFramework.get_job_name()
+print(f"Load job name: {load_job_name}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Start load
+
+# COMMAND ----------
+
+# DBTITLE 1,Start load and store load UUID
+load_uuid = LoggingFramework.start_load(target_zone, load_job_name)
+
+print(f"Load UUID: {load_uuid}")
+
+dbutils.jobs.taskValues.set("load_uuid", load_uuid)
+dbutils.jobs.taskValues.set("target_zone", target_zone)
+dbutils.jobs.taskValues.set("load_job_name", load_job_name)
+<<<<<<<<<< {{helper.build_path("notebooks", SystemProperties().utils_folder, "Start_Load")}}.py | py

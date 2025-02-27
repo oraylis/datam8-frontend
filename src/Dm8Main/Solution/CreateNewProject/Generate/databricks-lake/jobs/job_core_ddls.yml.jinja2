@@ -1,0 +1,52 @@
+{% import 'macro/common_tasks.jinja2' as common_tasks %}
+
+{%- set entities = model.get_core_entity_list() %}
+{%- set tables_per_job = 98 %}
+{%- for bucket_no, entities in custom_functions.create_bucket_from_list(entities, tables_per_job) %}
+    {%- for product in custom_functions.get_data_products(entities) %}
+        {%- for module in custom_functions.get_data_modules(entities, product) %}
+            {%- set last_tasks = [] %}
+            {%- set cluster_key = helper.build_name("Create", product, module, "cluster") %}
+            {%- set file_name = helper.build_name("Create", product, module, helper.str(bucket_no)) %}
+            {%- set file_path = helper.build_path("jobs", SystemProperties().core_folder, product, module, file_name) %}
+>>>>>>>>>> {{ file_path }}.yml | yaml
+resources:
+  jobs:
+    {{ helper.build_name("Create", "core", product, module, helper.str(bucket_no)) }}:
+      name: {{ helper.build_name("Create", "core", product, module, helper.str(bucket_no)) }}
+
+      # schedule:
+      #   quartz_cron_expression: '44 37 8 * * ?'
+      #   timezone_id: Europe/Berlin
+
+      tasks:
+        {{
+          common_tasks.generate_load_uuid("core", cluster_key,
+            helper.build_path(SystemProperties().utils_folder, "Start_Load")
+            ) 
+        }}
+        {%- for table in custom_functions.get_entites_for_module(product, module, entities) %}
+          {%- set last_task = last_tasks.append(table.name) %}
+          {%- set notebook_folder_path = helper.build_path(SystemProperties().core_folder, "ddl", table.dataProduct, table.dataModule) %}
+        - task_key: {{ table.name }}
+          depends_on:
+            - task_key: Generate_Load_UUID
+          notebook_task:
+            notebook_path: ${workspace.root_path}/${var.notebook_path}/{{ helper.build_path(notebook_folder_path, table.name) }}
+            base_parameters:
+              replication_integration_status_id: '1'
+              execution_status_id: '1'
+            source: WORKSPACE
+          job_cluster_key: {{ cluster_key }}
+        {% endfor %}
+        {{
+          common_tasks.complete_load(last_tasks, cluster_key,
+            helper.build_path(SystemProperties().utils_folder, "Complete_Load")
+            ) 
+        }}
+      job_clusters:
+        {% include 'jobs/includes/ddl_cluster.yml.jinja2.include' %}
+<<<<<<<<<< {{ file_path }}.yml | yaml
+        {%- endfor -%}
+    {%- endfor -%}
+{%- endfor -%}

@@ -1,0 +1,25 @@
+{%- macro generate_load_uuid(target_zone, cluster_key, notebook_path) -%}
+{%- filter indent(width=8) -%}
+- task_key: Generate_Load_UUID
+  notebook_task:
+    notebook_path: ${workspace.root_path}/${var.notebook_path}/{{ notebook_path }}
+    base_parameters:
+      target_zone: {{ target_zone }}
+    source: WORKSPACE
+  job_cluster_key: {{ cluster_key }}
+{%- endfilter %}
+{% endmacro %}
+
+{%- macro complete_load(depends_on, cluster_key, notebook_path) -%}
+{%- filter indent(width=8) -%}
+- task_key: Complete_Load
+  depends_on:
+  {%- for task in depends_on %}
+    - task_key: {{ task }}
+  {%- endfor %}
+  notebook_task:
+    notebook_path: ${workspace.root_path}/${var.notebook_path}/{{ notebook_path }}
+    source: WORKSPACE
+  job_cluster_key: {{ cluster_key }}
+{%- endfilter %}
+{% endmacro %}

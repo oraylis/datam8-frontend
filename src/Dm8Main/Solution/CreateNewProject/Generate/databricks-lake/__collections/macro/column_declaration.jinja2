@@ -1,0 +1,61 @@
+{%- macro ddl_column_declaration(model, column) -%}
+    {%- set data_type_object = model.data_types.get_data_type(column.type) -%}
+    {%- set data_type = data_type_object.parquetType.upper() -%}
+    {%- set precision_scale = "" %}
+    {%- if data_type_object.hasPrecision -%}
+        {%- set precision_scale = "(%s" % column.precision -%}
+        {%- if data_type_object.hasScale -%}
+            {%- set precision_scale = precision_scale + ", %s" % column.scale -%}
+        {%- endif %}
+        {%- set precision_scale = precision_scale + ")" -%}
+    {%- endif %}
+    {%- set nullability = "" if column.nullable else " NOT NULL" -%}
+    `{{column.name}}` {{data_type}}{{precision_scale}}{{nullability}},
+{%- endmacro -%}
+
+{%- macro core_ddl_column_declaration(model, column) -%}
+    {%- set data_type_object = model.data_types.get_data_type(column.dataType) -%}
+    {%- set data_type = data_type_object.parquetType.upper() -%}
+    {%- set precision_scale = "" -%}
+    {%- if data_type_object.hasPrecision -%}
+        {%- set precision_scale = "(%s" % column.precision -%}
+        {%- if data_type_object.hasScale -%}
+            {%- set precision_scale = precision_scale + ", %s" % column.scale -%}
+        {%- endif -%}
+        {%- set precision_scale = precision_scale + ")" -%}
+    {%- endif -%}
+    {%- set nullability = "" if column.nullable else " NOT NULL" -%}
+    `{{column.name}}` {{data_type}}{{precision_scale}}{{nullability}}
+    {%- if "SID" is in column.tags %} GENERATED ALWAYS AS IDENTITY COMMENT 'SID'
+    {%- elif "BK" is in column.tags and column.businessKeyNo %} COMMENT 'Business key {{ column.businessKeyNo }}'
+    {%- elif "SCD0" is in column.tags %} COMMENT 'SCD0'
+    {%- elif "SCD1" is in column.tags %} COMMENT 'SCD1'
+    {%- elif "SCD2" is in column.tags %} COMMENT 'SCD2'
+    {%- endif -%}
+    ,
+{%- endmacro %}
+
+{%- macro dml_column_declaration(model, column, source_name = None) -%}
+ {%- set data_type_object = model.data_types.get_data_type(column.type) -%}
+    {%- set data_type = data_type_object.parquetType.upper() -%}
+    {%- set precision_scale = "" -%}
+    {%- if data_type_object.hasPrecision -%}
+        {%- set precision_scale = "(%s" % column.precision -%}
+        {%- if data_type_object.hasScale -%}
+            {%- set precision_scale = precision_scale + ", %s" % column.scale -%}
+        {%- endif %}
+        {%- set precision_scale = precision_scale + ")" -%}
+    {%- endif %}
+    -- {{column.name}}
+    TRY_CAST(`{{source_name or column.name}}` AS {{data_type}}{{precision_scale}}) AS `{{column.name}}`,
+    CASE
+        {% if column.nullable -%}
+        WHEN `{{source_name or column.name}}` IS NULL THEN 0 -- NULLable COLUMN
+        {% else -%}
+        WHEN `{{source_name or column.name}}` IS NULL THEN  1 -- NOT NULL COLUMN
+        {%- endif %}
+        WHEN TRY_CAST(`{{source_name or column.name}}` AS {{data_type}}{{precision_scale}}) IS NULL THEN 1 -- NOT ABLE TO CAST
+        ELSE 0 -- ALL GOOD
+    END AS `{{column.name}}_hasCastError`,
+{%- endmacro -%}
+

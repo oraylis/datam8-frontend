@@ -1,0 +1,33 @@
+{
+  "type": "dataSource",
+  "items": [
+    {
+      "name": "oraylis_testing",
+      "displayName": "dsa",
+      "type": "SqlDataSource",
+      "connectionString": "Data Source=aut0sql0dev.database.windows.net;Initial Catalog=adventureworks;User Id=sqladmin;Password={{aut0kvt0dev0standard/sqladmin}}",
+      "dataTypeMapping": [
+        {
+          "sourceType": "nvarchar",
+          "targetType": "uniqueidentifier"
+        },
+        {
+          "sourceType": "fdasfs",
+          "targetType": "string"
+        }
+      ]
+    },
+    {
+      "name": "lake_test",
+      "type": "LakeSource",
+      "connectionString": "StorageAccountName=samr;StoragePath=apcoa/rl;AuthenticationMethod=AccountKey;AccessKey=\"TJyDiGSzrbcuedZVhJDSE/v/KmGqyP3BJL+sdL3ieEs+VfbYThM+oUvHkCZnhDGqUDD07r+TyA/cnp79hBvJ4w==\";TenantID=8d6e3457-dcfd-4090-9492-60cca71b39e2;OjectID=37a791ba-345a-406e-a4d0-5c4a2f2c5a9c;Secret=msH8Q~vLgg67ycbhr~dfZObos2A-KjxmMWNcdcPy",
+      "dataTypeMapping": []
+    },
+    {
+      "name": "localDwh",
+      "type": "SqlDataSource",
+      "connectionString": "Data Source=.;Initial Catalog=AdventureWorksDWH;Integrated Security=true;TrustServerCertificate=true",
+      "dataTypeMapping": []
+    }
+  ]
+}

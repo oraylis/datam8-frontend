@@ -1,0 +1,126 @@
+{%- for entity in model.get_raw_entity_list() %}
+  {%- set table = entity.model_object.entity %}
+  {%- set file_path = helper.build_path("notebooks", SystemProperties().raw_folder, "dml", table.dataProduct, table.dataModule, table.name) %}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # DML for {{entity.model_object.type.value}}.{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Initialize base settings
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Tables Tag
+{%- for tag in table.tags %}
+# MAGIC - {{tag}}
+{%- endfor %}
+
+# COMMAND ----------
+
+# DBTITLE 1,Initialize Logging Framework
+%run ../../../../000-utils/LoggingFramework
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+data_lake_name = spark.conf.get("datam8.datalake.name")
+container_name = spark.conf.get("datam8.datalake.container.name")
+raw_zone = spark.conf.get("datam8.zone.{{entity.model_object.type.value}}.name", "{{entity.model_object.type.value}}")
+
+TARGET_TABLE_PATH = f"abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{raw_zone}/{{table.dataProduct}}/{{table.dataModule}}/{{table.name}}"
+
+# COMMAND ----------
+
+# DBTITLE 1,Get parameter values
+logging_config: dict = LoggingFramework.get_value_dict()
+logging_values: tuple = tuple(logging_config.values()) + ("{{ table.name }}", )
+
+extraction_logging_table_name = f"{raw_zone.upper()}_{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}"
+load_uuid = logging_config["load_uuid"]
+extraction_uuid = LoggingFramework.start_extraction(extraction_logging_table_name)
+
+print(f"Current load uuid: {load_uuid}")
+print(f"Current extraction uuid: {extraction_uuid}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update load status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update load status
+LoggingFramework.update_load(*logging_values, f"Started {raw_zone.upper()} processing")
+
+{% set ns = namespace(delta_column = None) %}
+{%- for column in table.attribute%}
+  {%- for tag in column.tags if tag == "delta" %}
+    {%- set ns.delta_column = column.name%}
+  {%- endfor %}
+{%- endfor %}
+{%- if ns.delta_column %}
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Retrieve max delta criteria from '{{entity.model_object.type.value}}'
+
+# COMMAND ----------
+try:
+  dbutils.fs.ls(TARGET_TABLE_PATH)
+  spark.read.format("delta").load(TARGET_TABLE_PATH).createOrReplaceTempView("raw_table")
+  max_delta = spark.sql("SELECT MAX({{ns.delta_column}}) FROM raw_table").first()[0]
+  query_filter = f"WHERE {{ns.delta_column}} > '{max_delta}'"
+except:
+  query_filter = ""
+{%- endif %}
+
+{%- set entitySourceLocation = entity.model_object.function.sourceLocation %}
+{%- set entityDataSource = entity.model_object.function.dataSource %}
+{%- set dataSource = model.data_sources.get_datasource(entityDataSource) %}
+  {%- if dataSource.type == 'SqlDataSource' %}
+  {% include 'notebooks/010-raw/includes/dml_raw_table_sqldatasource.py.jinja2.include' %}
+{%- elif dataSource.type == 'LakeSource' %}
+  {% include 'notebooks/010-raw/includes/dml_raw_table_lakesource.py.jinja2.include' %}
+{%- endif %}
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Write to '{{entity.model_object.type.value}}'
+
+# COMMAND ----------
+
+(
+    table_df.write.partitionBy("__Year", "__Month", "__Day", "__InsertTimestampUTC")
+    .mode("append")
+    .format("delta")
+    .option("mergeSchema", "true")
+    .save(TARGET_TABLE_PATH)
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update extraction status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update extraction status
+count = table_df.count()
+LoggingFramework.end_extraction(extraction_uuid, count, extraction_logging_table_name)
+print(f"Extracted {count} records in extraction {extraction_uuid}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update load status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update load status
+LoggingFramework.update_load(*logging_values, f"Completed {raw_zone.upper()} processing")
+<<<<<<<<<< {{ file_path }}.py | py
+{%- endfor -%}

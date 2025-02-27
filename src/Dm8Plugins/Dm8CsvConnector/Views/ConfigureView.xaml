@@ -1,0 +1,156 @@
+﻿<Window x:Class="Dm8CSVConnector.Views.ConfigureView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Dm8CSVConnector.Views"
+        mc:Ignorable="d"
+        xmlns:pt="http://propertytools.org/wpf"
+        Title="Configure" 
+        Height="407" 
+        Width="670" 
+        ShowInTaskbar="False" 
+        WindowStartupLocation="CenterOwner" 
+        ForceCursor="True" Topmost="True"
+        >
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="38*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Label Grid.Row="0" Grid.Column="0" Name="txtDataSourceName">Data Source Name:</Label>
+            <TextBox Grid.Row="0" Grid.Column="1" Name="DataSourceName" VerticalAlignment="Center" ForceCursor="True" TextChanged="OnControlChanged"/>
+
+            <Label Grid.Row="1" Grid.Column="0">Sample File:</Label>
+            <Grid Grid.Row="1" Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Row="0" Grid.Column="0" Name="SourceFileName" VerticalAlignment="Center" TextChanged="OnControlChanged"/>
+                <Button Grid.Row="0" Grid.Column="1" x:Name="SelectFile" Content="..." HorizontalAlignment="Right" Width="18" MaxHeight="18" Margin="4,0,0,0" Click="SelectFile_OnClick"/>
+            </Grid>
+
+            <StackPanel Grid.Column="0" 
+                        Grid.Row="2" 
+                        Orientation="Vertical"
+                        Margin="10,30,0,10"
+                        HorizontalAlignment="Left">
+                <CheckBox Name="HeaderFirstLine" Checked="OnControlChanged">Header in first Line</CheckBox>
+                <ComboBox Name="FieldSeparator" Margin="0,5,0,0" SelectionChanged="OnControlChanged">
+                    <ComboBoxItem>Delimiter: ";"</ComboBoxItem>
+                    <ComboBoxItem>Delimiter: ","</ComboBoxItem>
+                    <ComboBoxItem>Delimiter: TAB</ComboBoxItem>
+                </ComboBox>
+                <ComboBox Name="OEMorANSI" Margin="0,5,0,0" SelectionChanged="OnControlChanged">
+                    <ComboBoxItem>Charset: ANSI</ComboBoxItem>
+                    <ComboBoxItem>Charset: OEM</ComboBoxItem>
+                </ComboBox>
+                <ComboBox Name="LineSeparator" Margin="0,5,0,0" SelectionChanged="OnControlChanged">
+                    <ComboBoxItem>Line separator: CRLF</ComboBoxItem>
+                    <ComboBoxItem>Line separator: CR</ComboBoxItem>
+                    <ComboBoxItem>Line separator: LF</ComboBoxItem>
+                </ComboBox>
+                <Button Name="RefreshButton" Margin="10,15,10,0" Click="RefreshButton_Click">Load Fields</Button>
+            </StackPanel>
+
+            <Grid Grid.Row="2" 
+                  Grid.Column="1" 
+                  Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="0">
+                    <Grid.Background>
+                        <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.ControlColorKey}}"/>
+                    </Grid.Background>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="30"/>
+                    </Grid.RowDefinitions>
+                    <ListBox Grid.Row="0" 
+                             Grid.Column="0" 
+                             SelectionChanged="ListBox_SelectionChanged"
+                             Margin="3,3,0,0"
+                             Name="AllFields">
+                    </ListBox>
+                    <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Stretch">
+                        <Label FontSize="10" VerticalContentAlignment="Center" Margin="5,0,0,0">Field:</Label>
+                        <Button x:Name="AddButton" Content="Add" Margin="0,0,5,0" FontSize="10" Height="16" Click="AddButton_Click"/>
+                        <Button x:Name="RemoveButton" Content="Remove" FontSize="10" Height="16" Click="RemoveButton_Click"/>
+                    </StackPanel>
+
+                </Grid>
+                <GridSplitter Grid.Column="1" 
+                              HorizontalAlignment="Stretch" 
+                              ShowsPreview="true"
+                              Width="3" 
+                />
+                <Grid Grid.Column="2"
+                      Grid.Row="0"
+                      Name="Details"
+                      Height="200"
+                      VerticalAlignment="Top"
+                      HorizontalAlignment="Stretch"
+                      Margin="10,0,5,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition Name="SizeRow"/>
+                        <RowDefinition Name="PrecisionRow"/>
+                        <RowDefinition/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Column="0" Grid.Row="0" VerticalContentAlignment="Center">Field Name</Label>
+                    <TextBox Grid.Column="1" Grid.Row="0" VerticalAlignment="Center" Name="Field_Name" TextChanged="OnTextChanged"></TextBox>
+
+                    <Label Grid.Column="0" Grid.Row="1" VerticalContentAlignment="Center">Field Type</Label>
+                    <ComboBox Grid.Column="1" Grid.Row="1" VerticalAlignment="Center" Name="Field_Type" SelectionChanged="OnSelectionChanged"/>
+
+                    <CheckBox Grid.Column="1" Grid.Row="2" VerticalAlignment="Center" Name="Field_IsNullable" Click="OnClicked">Is Field Nullable?</CheckBox>
+
+                    <Label Grid.Column="0" Grid.Row="3" VerticalContentAlignment="Center">Field Size</Label>
+                    <TextBox Grid.Column="1" Grid.Row="3" VerticalAlignment="Center" Name="Field_Size" TextChanged="OnTextChanged"></TextBox>
+
+                    <Label Grid.Column="0" Grid.Row="4" VerticalContentAlignment="Center">Field Precision</Label>
+                    <TextBox Grid.Column="1" Grid.Row="4" VerticalAlignment="Center" Name="Field_Precision" TextChanged="OnTextChanged"></TextBox>
+
+                    <Button Grid.Column="1" Grid.Row="5" Name="SampleData" Width="80" Height="20" Visibility="Hidden">Sample Data</Button>
+
+                </Grid>
+            </Grid>
+        </Grid>
+        <StackPanel Grid.Column="0" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="OkButton" Content="OK"  Grid.Row="4" VerticalAlignment="Center" Width="80" Margin="40,0,8,0" Height="25" IsDefault="True" IsEnabled="False" Click="OkButton_Click"/>
+            <Button x:Name="CancelButton" Content="Cancel"  Grid.Row="4" VerticalAlignment="Center" Height="25" Width="80" IsCancel="True" Click="CancelButton_Click"/>
+        </StackPanel>
+
+    </Grid>
+</Window>

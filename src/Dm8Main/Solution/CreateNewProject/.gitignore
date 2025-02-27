@@ -1,0 +1,11 @@
+# DataM8 local files
+datam8.user
+index.json
+[Oo]utput
+
+# Python environment local files
+.venv
+__pycache__
+
+# Visual Studio local files
+.vs

@@ -1,0 +1,267 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Layer_Base" xml:space="preserve">
+    <value>Base Definitions</value>
+  </data>
+  <data name="Layer_Core" xml:space="preserve">
+    <value>Core</value>
+    <comment>Name of core zone in resource locator</comment>
+  </data>
+  <data name="Layer_Raw" xml:space="preserve">
+    <value>Raw</value>
+    <comment>Name of Raw zone in resource locator</comment>
+  </data>
+  <data name="Layer_Stage" xml:space="preserve">
+    <value>Stage</value>
+    <comment>Name of Staging zone in resource locator</comment>
+  </data>
+  <data name="ModelReaderList_ReadFromStringAsync_Cannot_deserialize_json__0_" xml:space="preserve">
+    <value>Cannot deserialize json {0}</value>
+  </data>
+  <data name="ModelReaderList_ReadFromStringAsync_Cannot_read__0_" xml:space="preserve">
+    <value>Cannot read {0}</value>
+  </data>
+  <data name="Solution_StagingFolderPath" xml:space="preserve">
+    <value>Staging</value>
+  </data>
+  <data name="Solution_CoreFolderPath" xml:space="preserve">
+    <value>Core</value>
+  </data>
+  <data name="Solution_GenerateFolderPath" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="Solution_RawFolderPath" xml:space="preserve">
+    <value>Raw</value>
+  </data>
+  <data name="Solution_BaseFilePath" xml:space="preserve">
+    <value>Base</value>
+  </data>
+  <data name="Solution_OutputFolderPath" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Solution_DataTypesFilePath_DataTypes_json" xml:space="preserve">
+    <value>DataTypes.json</value>
+  </data>
+  <data name="Solution_AttributeTypesFilePath_AttributeTypes_json" xml:space="preserve">
+    <value>AttributeTypes.json</value>
+  </data>
+  <data name="Solution_DataSourcesFilePath_DataSources_json" xml:space="preserve">
+    <value>DataSources.json</value>
+  </data>
+  <data name="Solution_DataProductsFilePath_DataProducts_json" xml:space="preserve">
+    <value>DataProducts.json</value>
+  </data>
+  <data name="Solution_DataModulesFilePath_DataModules_json" xml:space="preserve">
+    <value>DataModules.json</value>
+  </data>
+  <data name="Folder_Attribute_Types" xml:space="preserve">
+    <value>Attribute Types</value>
+    <comment>Folder Attribute Types</comment>
+  </data>
+  <data name="Folder_Base_Definitions" xml:space="preserve">
+    <value>Base Definitions</value>
+    <comment>Folder Base Definitions</comment>
+  </data>
+  <data name="Folder_Core" xml:space="preserve">
+    <value>Core</value>
+    <comment>Folder Core</comment>
+  </data>
+  <data name="Folder_DataModules" xml:space="preserve">
+    <value>Data Modules</value>
+    <comment>Folder Data Modules</comment>
+  </data>
+  <data name="Folder_DataProducts" xml:space="preserve">
+    <value>Data Products</value>
+    <comment>Folder Data Products</comment>
+  </data>
+  <data name="Folder_Data_Sources" xml:space="preserve">
+    <value>Data Sources</value>
+    <comment>Folder Data Sources</comment>
+  </data>
+  <data name="Folder_Data_Types" xml:space="preserve">
+    <value>Data Types</value>
+    <comment>Folder Data Types</comment>
+  </data>
+  <data name="Folder_Generate" xml:space="preserve">
+    <value>Generate</value>
+    <comment>Folder Generate</comment>
+  </data>
+  <data name="Folder_Output" xml:space="preserve">
+    <value>Output</value>
+    <comment>Folder Output</comment>
+  </data>
+  <data name="Folder_Raw" xml:space="preserve">
+    <value>Raw</value>
+    <comment>Folder Raw</comment>
+  </data>
+  <data name="Folder_Staging" xml:space="preserve">
+    <value>Staging</value>
+    <comment>Folder Staging</comment>
+  </data>
+  <data name="SolutionHelper_GetOrCreateEntry_NotFound" xml:space="preserve">
+    <value>Entity {0} not found in project (validate project/refresh cache)</value>
+  </data>
+  <data name="Validate_NoError" xml:space="preserve">
+    <value>Project Valid (no issue found)</value>
+    <comment>No Error</comment>
+  </data>
+  <data name="Folder_Curated" xml:space="preserve">
+    <value>Curated</value>
+  </data>
+  <data name="Folder_Diagram" xml:space="preserve">
+    <value>Diagram</value>
+  </data>
+  <data name="Layer_Curated" xml:space="preserve">
+    <value>Curated</value>
+  </data>
+  <data name="Solution_CuratedFolderPath" xml:space="preserve">
+    <value>Curated</value>
+  </data>
+  <data name="Solution_DiagramFolderPath" xml:space="preserve">
+    <value>Diagram</value>
+  </data>
+  <data name="CuratedFunctionViewModel_self" xml:space="preserve">
+	  <value>self - Result is directly stored into the target entity</value>
+  </data>
+  <data name="CuratedFunctionViewModel_partition" xml:space="preserve">
+	  <value>partition - Replace full partitions and merge with partitions not changed</value>
+  </data>
+  <data name="CuratedFunctionViewModel_merge" xml:space="preserve">
+	  <value>merge - Merge result with content of target entity using the defined keys</value>
+  </data>
+  <data name="CuratedFunctionViewModel_replace" xml:space="preserve">
+	  <value>replace - Completely replace content of target entity with new result</value>
+  </data>
+  <data name="CuratedFunctionViewModel_no_restriction" xml:space="preserve">
+	  <value>no restriction - always computed whenever function is called</value>
+  </data>
+  <data name="CuratedFunctionViewModel_daily" xml:space="preserve">
+	  <value>daily - only computed once a day (paramter = hour:minute)</value>
+  </data>
+  <data name="CuratedFunctionViewModel_weekly" xml:space="preserve">
+	  <value>weekly - only computed once a week (paramter = day of week [Mo-Fr] + {hour:minute})</value>
+  </data>
+  <data name="CuratedFunctionViewModel_monthly" xml:space="preserve">
+	  <value>monthly - only computed once a month (paramter = day of month + {hour:minute})</value>
+  </data>
+  <data name="CuratedFunctionViewModel_yearly" xml:space="preserve">
+	  <value>yearly - only computed once a month (paramter = day of month + month + {hour:minute})</value>
+  </data>
+</root>

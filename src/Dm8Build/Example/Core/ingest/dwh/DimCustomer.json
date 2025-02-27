@@ -1,0 +1,360 @@
+{
+  "type": "core",
+  "entity": {
+    "dataModule": "erp",
+    "dataProduct": "internal",
+    "name": "DimCustomer",
+    "displayName": "DimCustomer",
+    "purpose": "V1",
+    "explanation": "E1",
+    "parameters": [
+      {
+        "name": "Test",
+        "value": "Value"
+      }
+    ],
+    "tags": [
+      "Tag"
+    ],
+    "attribute": [
+      {
+        "name": "TitleDsc",
+        "displayName": "Title",
+        "attributeType": "Dsc",
+        "dataType": "bit",
+        "businessKeyNo": 1,
+        "charLength": 8,
+        "nullable": true,
+        "unitAttribute": "",
+        "tags": []
+      },
+      {
+        "name": "CommuteDistance",
+        "displayName": "CommuteDistance",
+        "attributeType": "Currency",
+        "dataType": "int",
+        "charLength": 15,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "BirthDate",
+        "displayName": "BirthDate",
+        "attributeType": "BirthDate",
+        "dataType": "int",
+        "nullable": true,
+        "unitAttribute": "",
+        "tags": []
+      },
+      {
+        "name": "MaritalStatus",
+        "displayName": "MaritalStatus",
+        "attributeType": "Flag",
+        "dataType": "string",
+        "charLength": 1,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "Suffix",
+        "displayName": "Suffix",
+        "attributeType": "Dsc",
+        "dataType": "string",
+        "charLength": 10,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "Gender",
+        "displayName": "Gender",
+        "attributeType": "PersonalInfo",
+        "dataType": "int",
+        "charLength": 1,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "EmailAddress",
+        "displayName": "EmailAddress",
+        "attributeType": "email",
+        "dataType": "int",
+        "charLength": 50,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "YearlyIncome",
+        "displayName": "YearlyIncome",
+        "attributeType": "Amt",
+        "dataType": "short",
+        "precision": 19,
+        "scale": 4,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "CustomerKey",
+        "displayName": "CustomerKey",
+        "attributeType": "Key",
+        "dataType": "string",
+        "charLength": 10,
+        "scale": 0,
+        "nullable": true,
+        "tags": [
+          "fdsfsde",
+          "dsadsa"
+        ]
+      },
+      {
+        "name": "NumberChildrenAtHome",
+        "displayName": "NumberChildrenAtHome",
+        "attributeType": "Val",
+        "dataType": "byte",
+        "precision": 3,
+        "scale": 0,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "LastName",
+        "displayName": "LastName",
+        "attributeType": "PersonalInfo",
+        "dataType": "string",
+        "charLength": 50,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "NameStyle",
+        "displayName": "NameStyle",
+        "attributeType": "Amt",
+        "dataType": "bit",
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "EnglishEducation",
+        "displayName": "EnglishEducation",
+        "attributeType": "Dsc",
+        "dataType": "string",
+        "charLength": 40,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "FrenchEducation",
+        "displayName": "FrenchEducation",
+        "attributeType": "Dsc",
+        "dataType": "string",
+        "charLength": 40,
+        "nullable": true,
+        "tags": []
+      },
+      {
+        "name": "EnglishOccupation",
+        "displayName": "EnglishOccupation",
+        "attributeType": "Dsc",
+        "dataType": "string",
+        "charLength": 100,
+        "nullable": true,
+        "tags": []
+      }
+    ]
+  },
+  "function": {
+    "source": [
+      {
+        "adl": "#",
+        "mapping": [
+          {
+            "name": "TitleDsc",
+            "sourceComputation": "Default",
+            "sourceName": "Title"
+          },
+          {
+            "sourceComputation": "Default",
+            "sourceName": "CommuteDistance"
+          },
+          {
+            "name": "BirthDate",
+            "sourceComputation": "Default",
+            "sourceName": "BirthDate"
+          },
+          {
+            "name": "MaritalStatus",
+            "sourceComputation": "Default",
+            "sourceName": "MaritalStatus"
+          },
+          {
+            "name": "Suffix",
+            "sourceComputation": "Default",
+            "sourceName": "Suffix"
+          },
+          {
+            "name": "Gender",
+            "sourceComputation": "Default",
+            "sourceName": "Gender"
+          },
+          {
+            "name": "EmailAddress",
+            "sourceComputation": "Default",
+            "sourceName": "EmailAddress"
+          },
+          {
+            "name": "YearlyIncome",
+            "sourceComputation": "Default",
+            "sourceName": "YearlyIncome"
+          },
+          {
+            "name": "CustomerKey",
+            "sourceComputation": "Default",
+            "sourceName": "CustomerKey"
+          },
+          {
+            "name": "NumberChildrenAtHome",
+            "sourceComputation": "Default",
+            "sourceName": "NumberChildrenAtHome"
+          },
+          {
+            "sourceComputation": "Default",
+            "sourceName": "CommuteDistance"
+          },
+          {
+            "sourceComputation": "Default",
+            "sourceName": "CommuteDistance"
+          },
+          {
+            "name": "CommuteDistance",
+            "sourceComputation": "Default",
+            "sourceName": "CommuteDistance"
+          },
+          {
+            "name": "NameStyle",
+            "sourceComputation": "Default",
+            "sourceName": "NameStyle"
+          },
+          {
+            "name": "EnglishEducation",
+            "sourceComputation": "Default",
+            "sourceName": "EnglishEducation"
+          },
+          {
+            "name": "FrenchEducation",
+            "sourceComputation": "Default",
+            "sourceName": "FrenchEducation"
+          },
+          {
+            "name": "EnglishOccupation",
+            "sourceComputation": "Default",
+            "sourceName": "EnglishOccupation"
+          },
+          {
+            "name": "LastName",
+            "sourceComputation": "Default",
+            "sourceName": "LastName"
+          }
+        ]
+      },
+      {
+        "adl": "Stage/internal/erp/DimCustomer",
+        "mapping": [
+          {
+            "name": "CustomerKey",
+            "sourceComputation": "",
+            "sourceName": "CustomerKey"
+          },
+          {
+            "sourceName": "GeographyKey2"
+          },
+          {
+            "sourceName": "CustomerAlternateKey"
+          },
+          {
+            "name": "TitleDsc",
+            "sourceName": "Title"
+          },
+          {
+            "sourceName": "FirstName"
+          },
+          {
+            "sourceName": "MiddleName"
+          },
+          {
+            "name": "NameStyle",
+            "sourceName": "NameStyle"
+          },
+          {
+            "name": "BirthDate",
+            "sourceName": "BirthDate"
+          },
+          {
+            "name": "MaritalStatus",
+            "sourceName": "MaritalStatus"
+          },
+          {
+            "name": "Suffix",
+            "sourceName": "Suffix"
+          },
+          {
+            "name": "Gender",
+            "sourceName": "Gender"
+          },
+          {
+            "name": "EmailAddress",
+            "sourceName": "EmailAddress"
+          },
+          {
+            "name": "YearlyIncome",
+            "sourceName": "YearlyIncome"
+          },
+          {
+            "sourceName": "TotalChildren"
+          },
+          {
+            "name": "NumberChildrenAtHome",
+            "sourceName": "NumberChildrenAtHome"
+          },
+          {
+            "name": "EnglishEducation",
+            "sourceName": "EnglishEducation"
+          },
+          {
+            "sourceName": "SpanishEducation"
+          },
+          {
+            "name": "FrenchEducation",
+            "sourceName": "FrenchEducation"
+          },
+          {
+            "name": "EnglishOccupation",
+            "sourceName": "EnglishOccupation"
+          },
+          {
+            "sourceName": "SpanishOccupation"
+          },
+          {
+            "sourceName": "FrenchOccupation"
+          },
+          {
+            "sourceName": "HouseOwnerFlag"
+          },
+          {
+            "sourceName": "NumberCarsOwned"
+          },
+          {
+            "sourceName": "AddressLine"
+          },
+          {
+            "sourceName": "Phone2"
+          },
+          {
+            "sourceName": "CommuteDistance"
+          },
+          {
+            "sourceName": "Phone"
+          }
+        ]
+      }
+    ]
+  }
+}

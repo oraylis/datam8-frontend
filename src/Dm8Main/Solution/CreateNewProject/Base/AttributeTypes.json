@@ -1,0 +1,124 @@
+{
+  "items": [
+    {
+      "name": "Amt",
+      "displayName": "Amount",
+      "purpose": "Amount value having a currency",
+      "defaultType": "double",
+      "hasUnit": "Currency",
+      "isUnit": "NoUnit",
+      "canBeInRelation": false
+    },
+    {
+      "name": "Unit",
+      "displayName": "Unit",
+      "purpose": "Unit for amount quanities",
+      "defaultType": "string",
+      "defaultLength": 16,
+      "hasUnit": "NoUnit",
+      "isUnit": "Physical",
+      "canBeInRelation": false
+    },
+    {
+      "name": "Val",
+      "displayName": "Value",
+      "purpose": "Unit free value",
+      "defaultType": "double",
+      "hasUnit": "UnitFree",
+      "isUnit": "NoUnit",
+      "canBeInRelation": false
+    },
+    {
+      "name": "Dsc",
+      "displayName": "Description",
+      "defaultType": "string",
+      "defaultLength": 256,
+      "hasUnit": "NoUnit",
+      "isUnit": "NoUnit",
+      "canBeInRelation": false
+    },
+    {
+      "name": "Currency",
+      "displayName": "Currency Attribute",
+      "defaultType": "string",
+      "defaultLength": 3,
+      "hasUnit": "NoUnit",
+      "isUnit": "Currency",
+      "canBeInRelation": false
+    },
+    {
+      "name": "CreationDate",
+      "displayName": "Creation Date",
+      "defaultType": "datetime",
+      "hasUnit": "NoUnit",
+      "isUnit": "NoUnit",
+      "canBeInRelation": false
+    },
+    {
+      "name": "BirthDate",
+      "displayName": "Birth Date of a Person",
+      "defaultType": "datetime",
+      "canBeInRelation": false
+    },
+    {
+      "name": "email",
+      "displayName": "e-mail Address",
+      "defaultType": "string",
+      "defaultLength": 256,
+      "canBeInRelation": false
+    },
+    {
+      "name": "PersonalInfo",
+      "displayName": "Personal Information",
+      "defaultType": "string",
+      "defaultLength": 256,
+      "canBeInRelation": false
+    },
+    {
+      "name": "Flag",
+      "displayName": "Flag",
+      "defaultType": "string",
+      "defaultLength": 1,
+      "canBeInRelation": false
+    },
+    {
+      "name": "Key",
+      "displayName": "Key",
+      "defaultType": "string",
+      "defaultLength": 16,
+      "canBeInRelation": false
+    },
+    {
+      "name": "Name",
+      "displayName": "Name",
+      "defaultType": "string",
+      "canBeInRelation": false
+    },
+    {
+      "name": "ID",
+      "displayName": "ID",
+      "defaultType": "int",
+      "canBeInRelation": true
+    },
+    {
+      "name": "SID",
+      "displayName": "SID",
+      "purpose": "Identity Type for SCD2 Entities",
+      "defaultType": "int",
+      "canBeInRelation": true
+    },
+    {
+      "name": "Text",
+      "displayName": "Text",
+      "defaultType": "string",
+      "canBeInRelation": false
+    },
+    {
+      "name": "EMail",
+      "displayName": "EMail",
+      "defaultType": "string",
+      "isUnit": "NoUnit",
+      "canBeInRelation": false
+    }
+  ]
+}

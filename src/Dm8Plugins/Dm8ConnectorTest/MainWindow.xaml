@@ -1,0 +1,17 @@
+﻿<Window x:Class="Dm8ConnectorTest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Dm8ConnectorTest"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Button Name="SecretButton" Content="EnterSecret" HorizontalAlignment="Center" Margin="10" VerticalAlignment="Top" Click="EnterSecret_Click"/>
+        <Button Name="ConfigureButton" Content="Configure" HorizontalAlignment="Center" Margin="10" VerticalAlignment="Top" Click="Configure_Click"/>
+            <Button x:Name="SelectObjects" Content="SelectObjects" HorizontalAlignment="Center" Margin="10" VerticalAlignment="Top" Click="SelectObjects_OnClick_Click"/>
+        </StackPanel>
+
+    </Grid>
+</Window>

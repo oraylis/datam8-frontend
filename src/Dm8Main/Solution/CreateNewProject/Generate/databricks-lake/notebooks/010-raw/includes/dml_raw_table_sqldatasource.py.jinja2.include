@@ -1,0 +1,74 @@
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Read data from MS SQL Server
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get & assign variable values
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+DRIVER = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+
+{#- Format of connection string: f"jdbc:sqlserver://{database_host}:{database_port};database={database_name};user={database_credentials_user};password={database_credentials_password};encrypt=true;" #}
+database_connectionstring = spark.conf.get("datam8.datasource.{{entityDataSource}}.connectionstring")
+
+SOURCE_TABLE_NAME = "{{entitySourceLocation}}"
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Define query
+
+# COMMAND ----------
+
+# DBTITLE 1,Define query with technical columns
+pushdown_query = f"""
+(
+    SELECT
+        *,
+        -- Add technical columns
+        CAST(YEAR(SYSUTCDATETIME()) AS SMALLINT) AS __Year,
+        CAST(MONTH(SYSUTCDATETIME()) AS TINYINT) AS __Month,
+        CAST(DAY(SYSUTCDATETIME()) AS TINYINT) AS __Day,
+        SYSUTCDATETIME() AS __InsertTimestampUTC,
+        CAST(N'{load_uuid}' AS NVARCHAR(36)) AS __Load_UUID,
+        CAST(N'{extraction_uuid}' AS NVARCHAR(36)) AS __Extraction_UUID
+    FROM {SOURCE_TABLE_NAME}
+{%- if ns.delta_column %}
+    {query_filter}
+{%- endif %}
+) AS tbl
+"""
+print(
+    f"""Query:
+
+{pushdown_query}"""
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create dataframe
+
+# COMMAND ----------
+
+# DBTITLE 1,Define dataframe
+table_df = (spark.read
+  .format("jdbc")
+  .option("driver", DRIVER)
+  .option("url", database_connectionstring)
+  .option("dbtable", pushdown_query)
+  # a column that can be used that has a uniformly distributed range of values that can be used for parallelization
+#   .option("partitionColumn", "AddressID")
+  # lowest value to pull data for with the partitionColumn
+#   .option("lowerBound", "0")
+  # max value to pull data for with the partitionColumn
+#   .option("upperBound", "100")
+  # number of partitions to distribute the data into. Do not set this very large (~hundreds)
+#   .option("numPartitions", 8)
+  .load()
+)

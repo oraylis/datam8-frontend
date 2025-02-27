@@ -1,0 +1,76 @@
+{%- for entity in model.get_raw_entity_list() %}
+	{%- if entity.model_type == "raw"  %}
+        {% set ename = entity.model_object.entity.name %}
+        {% set edisplayName = helper.cleanup_name(entity.model_object.entity.displayName) %}
+        {% set edataModule = entity.model_object.entity.dataModule %}
+        {% set edataProduct = entity.model_object.entity.dataProduct %}
+		{% set edataSource = entity.model_object.function.dataSource %}
+        {% set datasource = model.data_sources.get_datasource(edataSource) %}
+        {% set file_path = "%s/%s/%s" % (edataProduct, edataModule, ename) %}
+>>>>>>>>>> {{ file_path }}.json|JSON
+{
+    "type": "stage",
+    "entity": {
+        "dataModule": "{{edataModule}}",
+        "dataProduct": "{{edataProduct}}",
+        "name": "{{ helper.translate_umlaute(ename) }}",
+        "displayName": "{{edisplayName}}",
+        "attribute": [
+{%- for a in entity.model_object.entity.attribute %}
+    {%- if "ignore" is not in a.tags %}
+                {
+                    {% set mapped_data_type = model.data_sources.get_datasource_target_type(edataSource, a.type) %}
+                    {% set data_type = model.data_types.get_data_type(mapped_data_type) %}
+
+                    "name": "{{ helper.cleanup_name(a.name) }}"
+                    ,"type": "{{mapped_data_type}}"
+        {%- if data_type.hasCharLen == true %} 
+        	{%- if a.charLength != None %} 
+        		{%- if a.charLength > 0 %} 
+                    ,"charLength": {{a.charLength}}
+        		{%- endif %}
+        	{%- endif %}
+       	{%- endif %}
+        {%- if data_type.hasPrecision == true %} 
+        	{%- if a.precision != None %} 
+                    ,"precision": {{a.precision}}
+	        {%- endif %}
+        {%- endif %}
+        {%- if data_type.hasScale == true %} 
+        	{%- if a.scale != None %} 
+                    ,"scale": {{a.scale}}
+	        {%- endif %}
+        {%- endif %}
+        {%- if a.nullable != None %} 
+                    ,"nullable": {{json.dumps(a.nullable)}}
+        {%- endif %}
+        {%- if loop.last %}
+                }
+        {%- else %}
+                },
+        {%- endif %}
+    {%- else %}
+    {%- endif %}
+{%- endfor %}            
+        ]
+    },
+    "function": {
+        "dataSource" : "__meta__",
+        "sourceLocation": "raw/{{edataProduct}}/{{edataModule}}/{{ename}}",
+        "attributeMapping": [
+{%- for a in entity.model_object.entity.attribute %}            
+            {
+                "source": "{{a.name}}",
+                "target": "{{ helper.cleanup_name(a.name) }}"
+    {%- if loop.last %}
+            }
+    {%- else %}
+            },
+    {%- endif %}
+{%- endfor %}            
+        ]
+    }
+}
+<<<<<<<<<< {{ file_path }}.json|JSON
+    {% endif %}
+{% endfor %}

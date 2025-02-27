@@ -1,0 +1,19 @@
+{
+  "type": "dataSource",
+  "items": [
+    {
+      "name": "<enter your sql datasource name here or delete this item>",
+      "displayName": "<enter your sql datasource display name here>",
+      "type": "",
+      "connectionString": "",
+      "dataTypeMapping": []
+    },
+    {
+      "name": "<enter your datalake datasource name here or delete this item>",
+      "displayName": "<enter your datalake datasource display name here>",
+      "type": "LakeSource",
+      "connectionString": "",
+      "dataTypeMapping": []
+    }
+  ]
+}

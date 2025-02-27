@@ -1,0 +1,13 @@
+{
+  "basePath": "Base",
+  "rawPath": "Raw",
+  "stagingPath": "Staging",
+  "corePath": "Core",
+  "generatePath": "Generate",
+  "outputPath": "Output",
+  "AreaTypes": {
+    "Raw": "Raw",
+    "Stage": "Stage",
+    "Core": "Core"
+  }
+}

@@ -1,0 +1,75 @@
+{% import 'macro/common_tasks.jinja2' as common_tasks %}
+
+{%- set entities = model.get_raw_entity_list() %}
+{%- set tables_per_job = 45 %}
+{%- set tables_in_parallel = 45 %}
+{%- set notebook_path = helper.build_path(SystemProperties().etl_folder, SystemProperties().stage_folder, "ddl") %}
+{%- for bucket_no, entities in custom_functions.create_bucket_from_list(entities, tables_per_job) %}
+    {%- for product in custom_functions.get_data_products(entities) %}
+        {%- for module in custom_functions.get_data_modules(entities, product) %}
+            {%- set last_tasks = [] %}
+            {%- set cluster_key =  helper.build_name("Load", "stage", product, module, "cluster") %}
+            {%- set file_name = helper.build_name("Load", product, module, helper.str(bucket_no)) %}
+            {%- set file_path = helper.build_path("jobs",SystemProperties().stage_folder, product, module, file_name) %}
+>>>>>>>>>> {{ file_path }}.yml
+resources:
+  jobs:
+    {{ helper.build_name("Load", "stage", product, module, helper.str(bucket_no)) }}:
+      name: {{ helper.build_name("Load", "stage", product, module, helper.str(bucket_no)) }}
+
+      # schedule:
+      #   quartz_cron_expression: '44 37 8 * * ?'
+      #   timezone_id: Europe/Berlin
+
+      tasks:
+        {{
+          common_tasks.generate_load_uuid("stage", cluster_key,
+            helper.build_path(SystemProperties().utils_folder, "Start_Load")
+            ) 
+        }}
+        {%- for table in custom_functions.get_entites_for_module(product, module, entities) %}
+            {%- set reset_loop = loop.index0 % (tables_per_job / tables_in_parallel) | int == 0 %}
+            {%- set notebook_raw_folder_path = helper.build_path(SystemProperties().raw_folder, "dml", table.dataProduct, table.dataModule) %}
+            {%- set notebook_stage_folder_path = helper.build_path(SystemProperties().stage_folder, "dml", table.dataProduct, table.dataModule) %}
+            {%- if loop.length == 1 or loop.last or tables_in_parallel == tables_per_job %}
+                {%- set last_tasks =  last_tasks.append("stage_%s" % table.name) %}
+            {%- elif not loop.first and reset_loop %}
+                {%- set last_tasks = last_tasks.append("stage_%s" % loop.previtem.name) %}
+            {%- endif %}
+        - task_key: raw_{{ table.name }}
+          depends_on:
+          {%- if reset_loop or loop.first %}
+              - task_key: Generate_Load_UUID
+          {%- else %}
+              - task_key: stage_{{ loop.previtem.name }}
+          {%- endif %}
+          notebook_task:
+            notebook_path: ${workspace.root_path}/${var.notebook_path}/{{ helper.build_path(notebook_raw_folder_path,  table.name) }}
+            base_parameters:
+              replication_integration_status_id: '1'
+              execution_status_id: '1'
+            source: WORKSPACE
+          job_cluster_key: {{ cluster_key }}
+
+        - task_key: stage_{{ table.name }}
+          depends_on:
+            - task_key: raw_{{ table.name }}
+          notebook_task:
+            notebook_path: ${workspace.root_path}/${var.notebook_path}/{{ helper.build_path(notebook_stage_folder_path, table.name) }}
+            base_parameters:
+              replication_integration_status_id: '1'
+              execution_status_id: '1'
+            source: WORKSPACE
+          job_cluster_key: {{ cluster_key }}
+        {% endfor %}
+        {{
+          common_tasks.complete_load(last_tasks, cluster_key,
+            helper.build_path(SystemProperties().utils_folder, "Complete_Load")
+            ) 
+        }}
+      job_clusters:
+        {% include 'jobs/includes/dml_cluster.yml.jinja2.include' %}
+<<<<<<<<<< {{ file_path }}.yml 
+        {%- endfor -%}
+    {%- endfor -%}
+{%- endfor -%}

@@ -1,0 +1,105 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+using System.Diagnostics;
+using Microsoft.Win32;
+
+namespace Dm8Data.Helper
+{
+    public class ProcessExt
+    {
+        public static async Task RunAsync(string fileName, string args, Action<string> outputFunc, Action<string> errorFunc = null)
+        {
+            string exePath = fileName;
+            if (!File.Exists(fileName))
+            {
+                var file = Path.GetFileName(fileName);
+                // find path
+                var enviromentPath = Environment.GetEnvironmentVariable("PATH");
+
+                var paths = enviromentPath.Split(';');
+                exePath = paths.Select(x => Path.Combine(x, file))
+                    .Where(x => File.Exists(x))
+                    .FirstOrDefault();
+            }
+
+            if (File.Exists((exePath)))
+            {
+                ProcessStartInfo info = new ProcessStartInfo(exePath)
+                {
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = errorFunc != null ? true : false,
+                    CreateNoWindow = true
+                };
+
+                await Task.Factory.StartNew(() =>
+                {
+                    using Process process = Process.Start(info);
+                    StreamReader sr = process?.StandardOutput;
+                    while (!sr.EndOfStream)
+                    {
+                        var line = sr.ReadLine();
+                        outputFunc(line);
+                    }
+
+                    if (errorFunc != null)
+                    {
+                        StreamReader serr = process?.StandardError;
+                        while (!serr.EndOfStream)
+                        {
+                            var line = serr.ReadLine();
+                            errorFunc(line);
+                        }
+                    }
+                });
+            }
+        }
+
+        public static string DefaultBrowser()
+        {
+            string browser = string.Empty;
+
+#pragma warning disable
+
+            try
+            {
+
+                using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\Shell\Associations\URLAssociations\http\UserChoice");
+                var s = (string)key?.GetValue("ProgId");
+                using var command = Registry.ClassesRoot.OpenSubKey($"{s}\\shell\\open\\command");
+
+                browser = (string)command?.GetValue(null);
+                browser = browser.Replace(@"\""", @"");
+                browser = browser.Replace(@"\\", @"\");
+                browser = browser.Replace('"', ' ').Trim();
+                if (!browser.EndsWith("exe"))
+                {
+                    browser = browser.Substring(0, browser.LastIndexOf(".exe", StringComparison.InvariantCultureIgnoreCase) + 4);
+                }
+
+            }
+            finally
+            {
+            }
+#pragma warning enable
+
+            return (browser);
+        }
+
+        public static void OpenWebsite(string url)
+        {
+            using (Process pro = new Process())
+            {
+                pro.StartInfo.FileName = ProcessExt.DefaultBrowser();
+                pro.StartInfo.Arguments = url;
+                pro.Start();
+            }
+        }
+    }
+}

@@ -1,0 +1,81 @@
+{
+  "items": [
+    {
+      "name": "Amt",
+      "displayName": "Amount",
+      "purpose": "Amount value having a currency",
+      "defaultType": "double",
+      "hasUnit": "Currency",
+      "isUnit": "NoUnit"
+    },
+    {
+      "name": "Unit",
+      "displayName": "Unit",
+      "purpose": "Unit for amount quanities",
+      "defaultType": "string",
+      "defaultLength": 16,
+      "hasUnit": "NoUnit",
+      "isUnit": "Physical"
+    },
+    {
+      "name": "Val",
+      "displayName": "Value",
+      "purpose": "Unit free value",
+      "defaultType": "double",
+      "hasUnit": "UnitFree",
+      "isUnit": "NoUnit"
+    },
+    {
+      "name": "Dsc",
+      "displayName": "Description",
+      "defaultType": "string",
+      "defaultLength": 256,
+      "hasUnit": "NoUnit",
+      "isUnit": "NoUnit"
+    },
+    {
+      "name": "Currency",
+      "displayName": "Currency Attribute",
+      "defaultType": "string",
+      "defaultLength": 3,
+      "hasUnit": "NoUnit",
+      "isUnit": "Currency"
+    },
+    {
+      "name": "CreationDate",
+      "displayName": "Creation Date",
+      "defaultType": "datetime",
+      "hasUnit": "NoUnit",
+      "isUnit": "NoUnit"
+    },
+    {
+      "name": "BirthDate",
+      "displayName": "Birth Date of a Person",
+      "defaultType": "datetime"
+    },
+    {
+      "name": "email",
+      "displayName": "e-mail Address",
+      "defaultType": "string",
+      "defaultLength": 256
+    },
+    {
+      "name": "PersonalInfo",
+      "displayName": "Personal Information",
+      "defaultType": "string",
+      "defaultLength": 256
+    },
+    {
+      "name": "Flag",
+      "displayName": "Flag",
+      "defaultType": "string",
+      "defaultLength": 1
+    },
+    {
+      "name": "Key",
+      "displayName": "Key",
+      "defaultType": "string",
+      "defaultLength": 16
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+# Macro Import ----------
+{% import 'macro/column_declaration.jinja2' as column_declaration %}
+
+{%- for entity in model.get_stage_entity_list() %}
+{%- set table = entity.model_object.entity %}
+{%- set file_path = helper.build_path("notebooks", SystemProperties().stage_folder, "ddl", table.dataProduct, table.dataModule, table.name) %}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # DDL for {{entity.model_object.type.value}}.{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get variable values
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+data_lake_name = spark.conf.get("datam8.datalake.name")
+container_name = spark.conf.get("datam8.datalake.container.name")
+zone = spark.conf.get("datam8.zone.{{entity.model_object.type.value}}.name", "{{entity.model_object.type.value}}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create database '{{entity.model_object.type.value}}' if not exists
+
+# COMMAND ----------
+
+# DBTITLE 1,Create db '{{entity.model_object.type.value}}'
+spark.sql(
+f"""
+CREATE DATABASE IF NOT EXISTS `{zone}`
+LOCATION 'abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}'
+"""
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create table '{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}' if not exists
+
+# COMMAND ----------
+
+# DBTITLE 1,Create table '{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}'
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS `{zone}`.`{{table.dataProduct}}_{{table.dataModule}}_{{ helper.cleanup_name(table.name) }}`
+(
+-- Table columns
+{%- for column in table.attribute %}
+    {{ column_declaration.ddl_column_declaration(model=model, column=column) }}
+{%- endfor %}
+-- Technical columns
+    __Year SMALLINT NOT NULL,
+    __Month TINYINT NOT NULL,
+    __Day TINYINT NOT NULL,
+    __InsertTimestampUTC TIMESTAMP NOT NULL,
+    __Load_UUID STRING NOT NULL,
+    __Extraction_UUID STRING NOT NULL
+)
+USING delta
+PARTITIONED BY (
+    __Year,
+    __Month,
+    __Day,
+    __InsertTimestampUTC
+)
+LOCATION 'abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}/{{table.dataProduct}}/{{table.dataModule}}/{{table.name}}'
+""")
+<<<<<<<<<< {{ file_path }}.py | py
+{%- endfor -%}

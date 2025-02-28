@@ -38,7 +38,7 @@
 		string path = System.IO.Path.GetDirectoryName(Host.TemplateFile);
 		string coreSchemaJson = File.ReadAllText(path + "\\..\\..\\..\\datam8-model\\schema\\CoreModelEntry.json");
         string httpsSchema = "http://dm8.com/schemas/core.json";
-		string schemaJson = File.ReadAllText(path+"\\..\\Json\\CuratedModelEntry.json");
+		string schemaJson = File.ReadAllText(path+"\\..\\..\\..\\datam8-model\\schema\\CuratedModelEntry.json");
         schemaJson = schemaJson.Replace("CoreModelEntry.json", httpsSchema);
 
         NJsonSchema.JsonSchema coreSchema = NJsonSchema.JsonSchema.FromJsonAsync(coreSchemaJson).Result;

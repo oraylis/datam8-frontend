@@ -45,9 +45,9 @@ jobs:
 
       - name: Dotnet Build Validator CLI for Linux
         run: |
-          dotnet build src/Dm8Validate/Dm8Validate.csproj
-          -c Debug_Linux
-          -r linux-x64
+          dotnet build src/Dm8Validate/Dm8Validate.csproj `
+          -c Debug_Linux `
+          -r linux-x64 `
           --self-contained
 
       - name: Dotnet Install WIX

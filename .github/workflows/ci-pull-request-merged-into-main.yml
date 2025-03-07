@@ -1,0 +1,114 @@
+name: "Release on PR from Main"
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - closed
+
+jobs:
+  call-build:
+    if: github.event.pull_request.merged == true
+    uses: ./.github/workflows/reusable-build.yml
+    secrets: inherit
+    with:
+      upload_artifacts: true
+
+  sign-tag-and-release:
+    needs: call-build
+    runs-on: ubuntu-latest
+    env:
+      dotNetVersion: "8.0.0"
+      azureSignToolVersion: "6.0.0"
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output  # Matches the artifact name from the reusable workflow
+          path: build-artifacts
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.dotNetVersion }}
+
+      - name: Dotnet Install Azure SignTool
+        run: |
+          dotnet tool install `
+          --global AzureSignTool `
+          --version ${{ env.azureSignToolVersion }}
+
+      - name: Sign installer and executables
+        run: |
+          AzureSignTool sign `
+            -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
+            -kvu ${{ secrets.AZURE_KEY_VAULT_URL }} `
+            -kvi ${{ secrets.AZURE_KEY_VAULT_ID }} `
+            -kvs ${{ secrets.AZURE_KEY_VAULT_SECRET }} `
+            -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
+            -tr http://timestamp.digicert.com `
+            -v `
+            "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi" `
+            src/Dm8Main/bin/Debug/net8.0-windows7.0/Dm8Main.exe `
+            src/Dm8Validate/bin/Debug/net8.0/Dm8Validate.exe
+
+      - name: Extract project version from App.config
+        run: |
+          file_path="src/Dm8Main/App.config"
+          echo "VERSION=v$(grep -oP '(?<=Version=).?(?=,)' "$file_path" | head -n 1)" >> $GITHUB_ENV
+
+      - name: Get latest tag version
+        run: echo "LATEST_TAG_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+
+      - name: Generate commit log
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}"
+
+          # Fetch the latest commits
+          if git rev-parse "$LATEST_TAG_VERSION" >/dev/null 2>&1; then
+            LOG=$(git log "$LATEST_TAG_VERSION"..HEAD --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
+          else
+            LOG=$(git log --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
+          fi
+
+          printf "CHANGELOG<<EOF\n| Commit ID | Commit Message |\n|-----------|---------------|\n%s\nEOF\n" "$LOG" >> "$GITHUB_ENV"
+
+      - name: Zip DataM8
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          Compress-Archive `
+          -Path src/Dm8Main/bin/Debug/net8.0-windows7.0/* `
+          -DestinationPath src/DataM8.win-x64.zip
+
+      - name: Zip DataM8 Validator for Windows
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          Compress-Archive `
+          -Path src/Dm8Validate/bin/Debug/net8.0/* `
+          -DestinationPath src/DataM8Validate.win-x64.zip
+
+      - name: Zip DataM8 Validator for Linux
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          Compress-Archive `
+          -Path src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64/* `
+          -DestinationPath src/DataM8Validate.linux-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        with:
+          tag_name: ${{ env.VERSION }}
+          body: ${{ env.CHANGELOG }}
+          generate_release_notes: true
+          files: build-artifacts/*

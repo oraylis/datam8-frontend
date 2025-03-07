@@ -1,0 +1,72 @@
+name: "Build (Reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      upload_artifacts:
+        type: boolean
+        required: true
+
+jobs:
+  building:
+    runs-on: windows-latest
+    env:
+      dotNetVersion: "8.0.0"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check out solution respoitory
+        uses: actions/checkout@v4
+        with:
+          repository: oraylis/automation-sample-solution
+          token: ${{ secrets.DATAM8_SAMPLE_SOLUTION_PAT }}
+          path: automation-sample-solution
+
+      - name: Integrate latest version of sample solution generator into frontend
+        run: |
+          Copy-Item
+          -Path automation-sample-solution/Generate/*
+          -Destination src/Dm8Main/Solution/CreateNewProject/Generate/
+          -Recurse
+          -Force
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.dotNetVersion }}
+
+      - name: Dotnet Restore
+        run: dotnet restore src/Dm8Main.sln
+
+      - name: Dotnet Build DataM8 Solution
+        run: dotnet build src/Dm8Main.sln
+
+      - name: Dotnet Build Validator CLI for Linux
+        run: |
+          dotnet build src/Dm8Validate/Dm8Validate.csproj
+          -c Debug_Linux
+          -r linux-x64
+          --self-contained
+
+      - name: Dotnet Install WIX
+        run: |
+          dotnet tool install --global wix
+
+      - name: WIX add dependencies
+        run: wix.exe extension add -g WixToolset.UI.wixext/5.0.2
+
+      - name: Dotnet Build Setup
+        run: dotnet build src/Dm8Setup/Dm8Setup.csproj
+
+      - name: Upload artifacts
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            src/Dm8Main/bin/Debug/net8.0-windows7.0
+            src/Dm8Validate/bin/Debug/net8.0
+            src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64
+            src/Dm8Setup/bin/Debug/*.msi

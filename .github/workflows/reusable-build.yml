@@ -11,7 +11,7 @@ jobs:
   building:
     runs-on: windows-latest
     env:
-      dotNetVersion: "8.0.0"
+      dotNetVersion: "8.0.x"
 
     steps:
       - name: Checkout repository

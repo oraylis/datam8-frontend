@@ -26,10 +26,10 @@ jobs:
 
       - name: Integrate latest version of sample solution generator into frontend
         run: |
-          Copy-Item
-          -Path automation-sample-solution/Generate/*
-          -Destination src/Dm8Main/Solution/CreateNewProject/Generate/
-          -Recurse
+          Copy-Item `
+          -Path automation-sample-solution/Generate/* `
+          -Destination src/Dm8Main/Solution/CreateNewProject/Generate/ `
+          -Recurse `
           -Force
 
       - name: Setup .NET

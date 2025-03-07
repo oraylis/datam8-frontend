@@ -1,0 +1,16 @@
+name: "Build on Push"
+
+on:
+  push:
+    branches:
+      - feature/*
+      - patch/*
+      - issue/*
+      - bug/*
+
+jobs:
+  call-build:
+    uses: ./.github/workflows/reusable-build.yml
+    secrets: inherit
+    with:
+      upload_artifacts: false

@@ -66,11 +66,18 @@ jobs:
 
       - name: Extract project version from App.config
         run: |
-          file_path="src/Dm8Main/App.config"
-          echo "VERSION=v$(grep -oP '(?<=Version=).?(?=,)' "$file_path" | head -n 1)" >> $GITHUB_ENV
+          $version = Select-String `
+          -Path "src/App.config" `
+          -Pattern 'Version=(\d+\.\d+\.\d+)' | Select-Object `
+          -First 1 | ForEach-Object { $_.Matches[0].Groups[1].Value }
+          echo "VERSION=v$version" >> $env:GITHUB_ENV
 
       - name: Get latest tag version
-        run: echo "LATEST_TAG_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+        run: |
+          $latest_tag_version = git tag --list | Sort-Object `
+          -Descending | Select-Object `
+          -First 1
+          echo "LATEST_TAG_VERSION=$latest_tag_version" >> $env:GITHUB_ENV
 
       - name: Generate commit log
         if: env.VERSION != env.LATEST_TAG_VERSION
@@ -140,4 +147,4 @@ jobs:
             src/DataM8.win-x64.zip
             src/DataM8Validate.win-x64.zip
             src/DataM8Validate.linux-x64.zip
-            "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi"
+            src/Dm8Setup/bin/Debug/*.msi

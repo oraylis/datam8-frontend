@@ -1,4 +1,4 @@
-name: "Release on PR from Main"
+name: "Build, Sign, and Release on PR from Main"
 
 on:
   pull_request:
@@ -8,18 +8,10 @@ on:
       - closed
 
 jobs:
-  call-build:
-    if: github.event.pull_request.merged == true
-    uses: ./.github/workflows/reusable-build.yml
-    secrets: inherit
-    with:
-      upload_artifacts: true
-
-  sign-tag-and-release:
-    needs: call-build
-    runs-on: ubuntu-latest
+  build-sign-tag-and-release:
+    runs-on: windows-latest
     env:
-      dotNetVersion: "8.0.0"
+      dotNetVersion: "8.0.x"
       azureSignToolVersion: "6.0.0"
     permissions:
       contents: write
@@ -30,16 +22,47 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
+      - name: Check out solution respoitory
+        uses: actions/checkout@v4
         with:
-          name: build-output  # Matches the artifact name from the reusable workflow
-          path: build-artifacts
+          repository: oraylis/automation-sample-solution
+          token: ${{ secrets.DATAM8_SAMPLE_SOLUTION_PAT }}
+          path: automation-sample-solution
+
+      - name: Integrate latest version of sample solution generator into frontend
+        run: |
+          Copy-Item `
+          -Path automation-sample-solution/Generate/* `
+          -Destination src/Dm8Main/Solution/CreateNewProject/Generate/ `
+          -Recurse `
+          -Force
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.dotNetVersion }}
+
+      - name: Dotnet Restore
+        run: dotnet restore src/Dm8Main.sln
+
+      - name: Dotnet Build DataM8 Solution
+        run: dotnet build src/Dm8Main.sln
+
+      - name: Dotnet Build Validator CLI for Linux
+        run: |
+          dotnet build src/Dm8Validate/Dm8Validate.csproj `
+          -c Debug_Linux `
+          -r linux-x64 `
+          --self-contained
+
+      - name: Dotnet Install WIX
+        run: dotnet tool install --global wix
+
+      - name: WIX add dependencies
+        run: wix.exe extension add -g WixToolset.UI.wixext/5.0.2
+
+      - name: Dotnet Build Setup
+        run: dotnet build src/Dm8Setup/Dm8Setup.csproj
 
       - name: Dotnet Install Azure SignTool
         run: |
@@ -60,6 +83,27 @@ jobs:
             "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi" `
             src/Dm8Main/bin/Debug/net8.0-windows7.0/Dm8Main.exe `
             src/Dm8Validate/bin/Debug/net8.0/Dm8Validate.exe
+
+      - name: Zip DataM8
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          Compress-Archive `
+          -Path src/Dm8Main/bin/Debug/net8.0-windows7.0/* `
+          -DestinationPath src/DataM8.win-x64.zip
+
+      - name: Zip DataM8 Validator for Windows
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          Compress-Archive `
+          -Path src/Dm8Validate/bin/Debug/net8.0/* `
+          -DestinationPath src/DataM8Validate.win-x64.zip
+
+      - name: Zip DataM8 Validator for Linux
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          Compress-Archive `
+          -Path src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64/* `
+          -DestinationPath src/DataM8Validate.linux-x64.zip
 
       - name: Extract project version from App.config
         run: |
@@ -83,27 +127,6 @@ jobs:
 
           printf "CHANGELOG<<EOF\n| Commit ID | Commit Message |\n|-----------|---------------|\n%s\nEOF\n" "$LOG" >> "$GITHUB_ENV"
 
-      - name: Zip DataM8
-        if: env.VERSION != env.LATEST_TAG_VERSION
-        run: |
-          Compress-Archive `
-          -Path src/Dm8Main/bin/Debug/net8.0-windows7.0/* `
-          -DestinationPath src/DataM8.win-x64.zip
-
-      - name: Zip DataM8 Validator for Windows
-        if: env.VERSION != env.LATEST_TAG_VERSION
-        run: |
-          Compress-Archive `
-          -Path src/Dm8Validate/bin/Debug/net8.0/* `
-          -DestinationPath src/DataM8Validate.win-x64.zip
-
-      - name: Zip DataM8 Validator for Linux
-        if: env.VERSION != env.LATEST_TAG_VERSION
-        run: |
-          Compress-Archive `
-          -Path src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64/* `
-          -DestinationPath src/DataM8Validate.linux-x64.zip
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: env.VERSION != env.LATEST_TAG_VERSION
@@ -111,4 +134,8 @@ jobs:
           tag_name: ${{ env.VERSION }}
           body: ${{ env.CHANGELOG }}
           generate_release_notes: true
-          files: build-artifacts/*
+          files: |
+            src/DataM8.win-x64.zip
+            src/DataM8Validate.win-x64.zip
+            src/DataM8Validate.linux-x64.zip
+            "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi"

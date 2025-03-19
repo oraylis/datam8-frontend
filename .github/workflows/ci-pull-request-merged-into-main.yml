@@ -64,13 +64,37 @@ jobs:
       - name: Dotnet Build Setup
         run: dotnet build src/Dm8Setup/Dm8Setup.csproj
 
+      - name: Extract project version from App.config
+        run: |
+          file_path="src/Dm8Main/App.config"
+          echo "VERSION=v$(grep -oP '(?<=Version=).?(?=,)' "$file_path" | head -n 1)" >> $GITHUB_ENV
+
+      - name: Get latest tag version
+        run: echo "LATEST_TAG_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+
+      - name: Generate commit log
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}"
+
+          # Fetch the latest commits
+          if git rev-parse "$LATEST_TAG_VERSION" >/dev/null 2>&1; then
+            LOG=$(git log "$LATEST_TAG_VERSION"..HEAD --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
+          else
+            LOG=$(git log --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
+          fi
+
+          printf "CHANGELOG<<EOF\n| Commit ID | Commit Message |\n|-----------|---------------|\n%s\nEOF\n" "$LOG" >> "$GITHUB_ENV"
+
       - name: Dotnet Install Azure SignTool
+        if: env.VERSION != env.LATEST_TAG_VERSION
         run: |
           dotnet tool install `
           --global AzureSignTool `
           --version ${{ env.azureSignToolVersion }}
 
       - name: Sign installer and executables
+        if: env.VERSION != env.LATEST_TAG_VERSION
         run: |
           AzureSignTool sign `
             -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
@@ -104,28 +128,6 @@ jobs:
           Compress-Archive `
           -Path src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64/* `
           -DestinationPath src/DataM8Validate.linux-x64.zip
-
-      - name: Extract project version from App.config
-        run: |
-          file_path="src/Dm8Main/App.config"
-          echo "VERSION=v$(grep -oP '(?<=Version=).?(?=,)' "$file_path" | head -n 1)" >> $GITHUB_ENV
-
-      - name: Get latest tag version
-        run: echo "LATEST_TAG_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
-
-      - name: Generate commit log
-        if: env.VERSION != env.LATEST_TAG_VERSION
-        run: |
-          REPO_URL="https://github.com/${{ github.repository }}"
-
-          # Fetch the latest commits
-          if git rev-parse "$LATEST_TAG_VERSION" >/dev/null 2>&1; then
-            LOG=$(git log "$LATEST_TAG_VERSION"..HEAD --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
-          else
-            LOG=$(git log --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
-          fi
-
-          printf "CHANGELOG<<EOF\n| Commit ID | Commit Message |\n|-----------|---------------|\n%s\nEOF\n" "$LOG" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -9,9 +9,7 @@ on:
 
 jobs:
   building:
-    runs-on: windows-latest
-    env:
-      dotNetVersion: "8.0.x"
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository
@@ -32,10 +30,10 @@ jobs:
           -Recurse `
           -Force
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.dotNetVersion }}
+      - name: Set TextTransform environment
+        run: |
+          $latest_tag_version = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\"
+          echo "DevEnvDir=$latest_tag_version" >> $env:GITHUB_ENV
 
       - name: Dotnet Restore
         run: dotnet restore src/Dm8Main.sln

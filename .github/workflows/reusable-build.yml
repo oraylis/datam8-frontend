@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Check out solution respoitory
         uses: actions/checkout@v4
@@ -48,13 +50,6 @@ jobs:
 
       - name: Dotnet Build DataM8 Solution
         run: dotnet build src/Dm8Main.sln
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: src\Dm8Data\Model\*cs
 
       - name: Dotnet Build Validator CLI for Linux
         run: |

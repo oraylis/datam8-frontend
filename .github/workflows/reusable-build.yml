@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          token: ${{ secrets.DATAM8_FRONTEND_SUBMODULES_PAT }}
 
       - name: Check out solution respoitory
         uses: actions/checkout@v4

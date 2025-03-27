@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Composition;
@@ -193,7 +212,7 @@ namespace Dm8Main.ViewModels.Dialog
             get => this.addingEntity;
             set
             {
-                this.SetProperty(ref this.addingEntity, value); 
+                this.SetProperty(ref this.addingEntity, value);
                 App.AE();
             }
         }
@@ -260,9 +279,9 @@ namespace Dm8Main.ViewModels.Dialog
                     {
                         this.DataModules = new ObservableCollection<DataModule>(this.SelectedDataProduct.Module);
                     }
-                    if (this.SelectedIndex == 0 && 
-                        this.SelectedDataSource != null && 
-                        this.SelectedDataProduct != null && 
+                    if (this.SelectedIndex == 0 &&
+                        this.SelectedDataSource != null &&
+                        this.SelectedDataProduct != null &&
                         this.SelectedDataModule != null)
                     {
                         this.IsNextEnabled = true;
@@ -297,7 +316,7 @@ namespace Dm8Main.ViewModels.Dialog
                         this.NumSelectablePages = 2;
                         this.IsNextEnabled = true;
                     }
-                    else 
+                    else
                     {
 
                         this.NumSelectablePages = 2;
@@ -410,7 +429,7 @@ namespace Dm8Main.ViewModels.Dialog
                 this.IsAddingEntities = true;
                 this.AddingEntity = "Scanning Attributes...";
                 DataTypeModelReader dataTypeModelReader = new DataTypeModelReader();
-                var dataTypes = await dataTypeModelReader.ReadFromFileAsync(this.solution.DataTypesFilePath);                
+                var dataTypes = await dataTypeModelReader.ReadFromFileAsync(this.solution.DataTypesFilePath);
                 var ds = DataSourceExplorerFactory.Create(this.SelectedDataSource.Type);
                 ds.Layer = Dm8Data.Properties.Resources.Folder_Raw;
                 ds.DataProduct = this.SelectedDataProduct.Name;

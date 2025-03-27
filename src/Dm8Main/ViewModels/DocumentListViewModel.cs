@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -27,7 +46,7 @@ using Unity;
 namespace Dm8Main.ViewModels
 {
     [Export]
-    public abstract class DocumentListViewModel<TObj, TObjList> : DocumentViewModelBase 
+    public abstract class DocumentListViewModel<TObj, TObjList> : DocumentViewModelBase
         where TObj : Prism.Mvvm.BindableBase, new()
         where TObjList : class, IModelEntryList<TObj>, new()
     {
@@ -93,7 +112,7 @@ namespace Dm8Main.ViewModels
                 case nameof(this.JsonCode):
                     System.Windows.Application.Current.Dispatcher.Invoke(async () => await this.UpdateFromJsonCodeAsync());
                     break;
-            }           
+            }
         }
 
         private void Items_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -105,7 +124,7 @@ namespace Dm8Main.ViewModels
                     this.RegisterItemChanged(n);
                 }
             }
-            System.Windows.Application.Current.Dispatcher.Invoke(async () => await this.UpdateFromItemsAsync());            
+            System.Windows.Application.Current.Dispatcher.Invoke(async () => await this.UpdateFromItemsAsync());
         }
 
 
@@ -134,7 +153,7 @@ namespace Dm8Main.ViewModels
                     if (prop.GetValue(n) is INotifyCollectionChanged collection)
                     {
                         collection.CollectionChanged += this.Items_CollectionChanged;
-                    }                       
+                    }
                 }
                 else if (typeof(INotifyPropertyChanged).IsAssignableFrom(prop.PropertyType))
                 {
@@ -144,7 +163,7 @@ namespace Dm8Main.ViewModels
                         this.RegisterItemChanged(sub);
                     }
                 }
-                if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string)) 
+                if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string))
                 {
                     if (prop.GetValue(n) is IEnumerable collection)
                     {
@@ -240,7 +259,7 @@ namespace Dm8Main.ViewModels
                 this.updatingItems = false;
                 return;
             }
-            
+
             this.updatingJson = true;
             this.oldSelectedItemNr = 0;
             if (this.Items != null)
@@ -264,7 +283,7 @@ namespace Dm8Main.ViewModels
                     var itemList = anonymousItems.Values;
                     items = new ObservableCollection<TObj>(itemList.Where(i => i != null));
                 }
-                
+
                 this.Items = items;
                 this.IsJsonLoaded = true;
 
@@ -306,7 +325,7 @@ namespace Dm8Main.ViewModels
                 // set items
                 this.Items = items;
 
-                // check errors                
+                // check errors
                 await this.ValidateAsync();
 
             }
@@ -332,7 +351,7 @@ namespace Dm8Main.ViewModels
                 foreach (var i in this.Items)
                 {
                     result.Values.Add(i);
-                }                        
+                }
                 jsonCode = FileHelper.MakeJson(result);
                 await System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -350,7 +369,7 @@ namespace Dm8Main.ViewModels
                 if (!this.loading)
                     this.IsModified = true;
                 this.ErrorList = new ObservableCollection<ModelReaderException>(this.ErrorList.Union(newErrorList));
-            }            
+            }
         }
 
         private void ReselectItem()

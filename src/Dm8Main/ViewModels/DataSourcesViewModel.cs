@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Composition;
@@ -57,7 +76,7 @@ namespace Dm8Main.ViewModels
                 SetProperty(ref _selectedItem, value);
                 this.SelectedItemEx = new DataSourceInfo(value);
             }
-            
+
         }
         public DataSource _selectedItem;
         #endregion
@@ -82,14 +101,14 @@ namespace Dm8Main.ViewModels
             this.Title = Properties.Resources.Title_DataSource;
             this.AddSourceCommand = new DelegateCommand(this.AddSource);
             this.EditSourceCommand = new DelegateCommand(this.EditSource);
-            this.RemoveSourceCommand = new DelegateCommand(this.RemoveSource);            
+            this.RemoveSourceCommand = new DelegateCommand(this.RemoveSource);
         }
 
         private void AddSource()
         {
             var addSourceViewModel = new DlgDataSourceEditViewModel(this.dialogService, this.solution);
 
-           
+
             if (this.dialogService.ShowDialog(this, addSourceViewModel) ?? false)
             {
                 if ((addSourceViewModel.isPlugin || addSourceViewModel.ConnectionProperty != null) && !string.IsNullOrEmpty(addSourceViewModel.ConnectionString))
@@ -119,7 +138,7 @@ namespace Dm8Main.ViewModels
                         };
                         this.Items.Add(newEntry);
                     }
-                }                
+                }
             }
         }
 

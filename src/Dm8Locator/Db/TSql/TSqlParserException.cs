@@ -1,3 +1,22 @@
+/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
 using System.Collections.Generic;
@@ -6,7 +25,7 @@ using System.Runtime.Serialization;
 namespace Dm8Locator.Db.TSql
 {
     /// <summary>
-    /// Exception for TSql parser errors 
+    /// Exception for TSql parser errors
     /// </summary>
     /// <seealso cref="System.Exception" />
     [Serializable]
@@ -24,9 +43,9 @@ namespace Dm8Locator.Db.TSql
         /// Initializes a new instance of the <see cref="TSqlParserException"/> class.
         /// </summary>
         /// <param name="message">The message.</param>
-        public TSqlParserException(string message) 
+        public TSqlParserException(string message)
             : base(message)
-        {            
+        {
         }
 
         /// <summary>
@@ -46,7 +65,7 @@ namespace Dm8Locator.Db.TSql
         /// </summary>
         /// <param name="message">The parser error message.</param>
         /// <param name="innerException">The inner exception.</param>
-        public TSqlParserException(string message, Exception innerException) 
+        public TSqlParserException(string message, Exception innerException)
             : base(message, innerException)
         {
         }

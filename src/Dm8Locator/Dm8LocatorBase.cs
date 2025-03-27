@@ -1,4 +1,23 @@
-﻿using Dm8Locator.Db.TSql;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Locator.Db.TSql;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -10,11 +29,11 @@ using System.Xml.Serialization;
 namespace Dm8Locator
 {
     /// <summary>
-    /// Abstract locator representing the path to a data resource 
+    /// Abstract locator representing the path to a data resource
     /// e.g. /dwh/serving/delivery/controlling/costElement/
     /// </summary>
     /// <seealso cref="System.Runtime.Serialization.ISerializable" />
-    [Serializable]    
+    [Serializable]
     public abstract class Dm8LocatorBase : ISerializable, IEquatable<Dm8LocatorBase>
     {
         #region Readonly members
@@ -57,10 +76,10 @@ namespace Dm8Locator
         [JsonIgnore]
         public string Name
         {
-            get 
+            get
             {
                 var part = this.Value;
-                return part.Substring(part.LastIndexOf(Dm8DataLocatorSeperator) + 1); 
+                return part.Substring(part.LastIndexOf(Dm8DataLocatorSeperator) + 1);
             }
         }
 
@@ -69,7 +88,7 @@ namespace Dm8Locator
         /// </summary>
         [XmlAttribute("Adl")]
         [JsonPropertyName("Adl")]
-        public string Value 
+        public string Value
         {
             get => this.value;
             set
@@ -110,7 +129,7 @@ namespace Dm8Locator
         /// </value>
         [XmlIgnore]
         [JsonIgnore]
-        public IDm8LocatorSpecializedProperties SpecializedProperties { get; set; }        
+        public IDm8LocatorSpecializedProperties SpecializedProperties { get; set; }
         #endregion
 
         #region Constructors & Initializers
@@ -136,7 +155,7 @@ namespace Dm8Locator
 
             // initialize object via string representation
             this.IsRoot = isRoot;
-            this.Value = dm8l;  
+            this.Value = dm8l;
         }
 
         /// <summary>
@@ -267,14 +286,14 @@ namespace Dm8Locator
             {
                 return this.Equals(Adl);
             }
-            return false;            
+            return false;
         }
 
         /// <summary>
         /// Returns a hash code for this instance.
         /// </summary>
         /// <returns>
-        /// A hash code for this instance, suitable for use in hashing algorithms and data structures like a hash table. 
+        /// A hash code for this instance, suitable for use in hashing algorithms and data structures like a hash table.
         /// </returns>
         public override int GetHashCode()
         {

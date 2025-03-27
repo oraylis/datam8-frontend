@@ -1,4 +1,23 @@
-﻿using Dm8Data;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +28,7 @@ using System.IO;
 namespace Dm8Data.Helper
 {
     public class GitHelper
-    {       
+    {
         public enum ProjectComponent
         {
             BaseDirectory
@@ -70,7 +89,7 @@ namespace Dm8Data.Helper
 
         public async Task QueryGitStatusAsync(string gitPath, Solution solution)
         {
-            // query for all main directories            
+            // query for all main directories
             if (this.ReportGit != null)
             {
                 this.ReportGit(null);
@@ -244,13 +263,13 @@ namespace Dm8Data.Helper
                 }
 
                 // create new git repo
-                repo = new GitRepository(rootLine);                
+                repo = new GitRepository(rootLine);
 
-                // scan name            
+                // scan name
                 string context = null;
                 await ProcessExt.RunAsync(Path.Combine(gitPath, "git.exe"), "remote show origin", (s) => this.QueryGitStatusLine(repo, ref context, s));
 
-                // scan files            
+                // scan files
                 await ProcessExt.RunAsync(Path.Combine(gitPath, "git.exe"), "status -s -b --porcelain --untracked-files", (s) => this.QueryGitFileLine(repo, s));
                 this.Repositories.Add(repo);
                 return true;
@@ -287,7 +306,7 @@ namespace Dm8Data.Helper
                 var split = s.Split(' ');
                 repo.Branch = split?.Last();
             }
-            
+
             if (s.Trim().StartsWith("Remote branch"))
             {
                 context = "remote";
@@ -308,17 +327,17 @@ namespace Dm8Data.Helper
             {
                 var split = s.Trim().Split(' ');
                 repo.RemoteBranches.Add(split.First());
-            }            
+            }
             else if (context == "local")
             {
                 var split = s.Trim().Split(' ');
                 repo.PullBranches.Add(split.First());
-            }            
+            }
             else if (context == "ref")
             {
                 var split = s.Trim().Split(' ');
                 repo.PushBranches.Add(split.First());
-            }            
+            }
         }
 
         private void QueryGitFileLine(GitRepository repo, string s)
@@ -332,7 +351,7 @@ namespace Dm8Data.Helper
             char x = s[0];
             char y = s[1];
             string file = s.Substring(3);
-            
+
             switch (y)
             {
                 // branch
@@ -345,7 +364,7 @@ namespace Dm8Data.Helper
                     break;
 
                 case 'M':
-                    this.AddFileStaus(repo, GitStatus.Modified, file);                    
+                    this.AddFileStaus(repo, GitStatus.Modified, file);
                     break;
             }
         }
@@ -366,7 +385,7 @@ namespace Dm8Data.Helper
             {
                 repo.FileStatus.Add(fullFileName, status);
             }
-            
+
         }
 
     }

@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -245,7 +264,7 @@ namespace Dm8Main.ViewModels
             get => this.editGridCurrentCell;
             set
             {
-                if (value != null && value.Value.IsValid) 
+                if (value != null && value.Value.IsValid)
                 {
                     this.SetProperty(ref this.editGridCurrentCell, value);
                 }
@@ -253,7 +272,7 @@ namespace Dm8Main.ViewModels
         }
 
         private DataGridCellInfo? editGridCurrentCell;
-        #endregion    
+        #endregion
 
         #region Property SelectedRelationship
         public Relationship SelectedRelationship
@@ -350,7 +369,7 @@ namespace Dm8Main.ViewModels
             this.AddAttributeCommand = new DelegateCommand(async () => await this.AddAttributeAsync());
             this.RemoveAttributeCommand = new DelegateCommand<object>(async (p) => await this.RemoveAttributeAsync(p));
             this.SortAttributeCommand = new DelegateCommand(async () => await this.SortAttributeAsync());
-            this.EditAttributeCommand = new DelegateCommand<object>(async (p) => await this.EditAttributeAsync(p));            
+            this.EditAttributeCommand = new DelegateCommand<object>(async (p) => await this.EditAttributeAsync(p));
             this.RelationshipAttrVisibleCommand = new DelegateCommand<bool?>((b) => this.RelationshipAttrVisible = b ?? true);
             this.AddRelationshipCommand = new DelegateCommand(async () => await this.AddRelationshipAsync());
             this.RemoveRelationshipCommand = new DelegateCommand<Relationship>(async (r) => await this.RemoveRelationshipAsync(r));
@@ -370,7 +389,7 @@ namespace Dm8Main.ViewModels
                 {
                     this.EditAttributeCommand.Execute(dataGridCellInfo.Item as Attribute);
                 }
-                
+
             }
         }
 
@@ -397,7 +416,7 @@ namespace Dm8Main.ViewModels
 
         public async Task LoadInternalMembersAsync()
         {
-            bool updateJson = false;            
+            bool updateJson = false;
 
 
             this.IsLoading = true;
@@ -410,7 +429,7 @@ namespace Dm8Main.ViewModels
                     async (t,c) => coreEntities.Add(await this.solutionService.SolutionHelper.LoadOrGetCoreEntityAsync(t.FilePath))
                 );
                 this.CoreEntityLocators.Add("");
-                this.CoreEntityLocators.AddRange(coreEntities.Where(e => e.Dm8l != this.Item.Entity.Dm8l).Select(e => e.Dm8l)); 
+                this.CoreEntityLocators.AddRange(coreEntities.Where(e => e.Dm8l != this.Item.Entity.Dm8l).Select(e => e.Dm8l));
 
 
                 // Attribute types
@@ -432,7 +451,7 @@ namespace Dm8Main.ViewModels
                         new ObservableCollection<Dm8Data.DataTypes.DataType>(dataTypes.OrderBy(d => d.Name));
                 else
                     this.DataTypes.Update(dataTypes, (i) => i.Name);
-                
+
                 // relationships
                 var relationshipAttrs = this.Item.Entity.Attribute.Where(ma =>
                        this.AttributeTypes.FirstOrDefault(at => at.Name == ma.AttributeType)?.CanBeInRelation ??
@@ -464,7 +483,7 @@ namespace Dm8Main.ViewModels
                 }
             }
             catch (Exception ex)
-            {                
+            {
                 this.ErrorList.Add(new UnknownValidateException(ex, this.FilePath));
             }
             finally
@@ -476,11 +495,11 @@ namespace Dm8Main.ViewModels
         private static void AddNotMappendAttribute(List<AttributeMapping> notMappedAttributes, Dm8Data.Stage.StageEntity stageEntity, Dm8Data.Core.Mapping mapping)
         {
             // check if not mapped entry exists -> entry for source name = target name as default
-            var mappedEntry = notMappedAttributes.FirstOrDefault(m => m.Attribute?.Name == mapping.SourceName);    
+            var mappedEntry = notMappedAttributes.FirstOrDefault(m => m.Attribute?.Name == mapping.SourceName);
             if (mappedEntry == null)
             {
                 notMappedAttributes.Add(
-                    new AttributeMapping { 
+                    new AttributeMapping {
                         Attribute = new Dm8Data.Core.Attribute { Name = mapping.SourceName },
                         MappingEntries = new ObservableCollection<MappingEntry>(new MappingEntry[] { new MappingEntry
                         {
@@ -488,7 +507,7 @@ namespace Dm8Main.ViewModels
                             SourceName = mapping.SourceName,
                             SourceComputation = mapping.SourceComputation,
                             StageEntity = stageEntity
-                        } }) 
+                        } })
                     });
             }
             else
@@ -506,7 +525,7 @@ namespace Dm8Main.ViewModels
 
         private void AddMappendAttribute(List<AttributeMapping> mappedAttributes, Dm8Data.Stage.StageEntity stageEntity, Attribute attribute, Dm8Data.Core.Mapping mapping)
         {
-            var mappedEntry = mappedAttributes.FirstOrDefault(m => m.Attribute?.Name == mapping.Name);    
+            var mappedEntry = mappedAttributes.FirstOrDefault(m => m.Attribute?.Name == mapping.Name);
             if (mappedEntry == null)
             {
                 mappedAttributes.Add(
@@ -526,7 +545,7 @@ namespace Dm8Main.ViewModels
             {
                 mappedEntry.MappingEntries.Add(new MappingEntry
                 {
-                    Name = mapping.Name, 
+                    Name = mapping.Name,
                     SourceName = mapping.SourceName,
                     SourceComputation = mapping.SourceComputation,
                     StageEntity = stageEntity
@@ -569,7 +588,7 @@ namespace Dm8Main.ViewModels
 
                     await base.SaveAsync();
                     this.EntityName = newEntityName;
-                    // add refactoring entry    
+                    // add refactoring entry
                     this.Item.Entity.RefactorNames.Add(oldEntityName);
                     return true;
                 }
@@ -702,7 +721,7 @@ namespace Dm8Main.ViewModels
                 }
             }
 
-            // add refactoring entry    
+            // add refactoring entry
             attr.RefactorNames.Add(oldName);
 
             // also save this object (ensure referential integrity)
@@ -717,7 +736,7 @@ namespace Dm8Main.ViewModels
         #region Realtionship
         private async Task AddRelationshipAsync()
         {
-            // Create Relationship 
+            // Create Relationship
             var viewModel = new DlgCoreEntityEditRelationshipViewModel(this.dialogService, this.solutionService)
             {
                 CoreEntity = this.Item.Entity
@@ -763,7 +782,7 @@ namespace Dm8Main.ViewModels
                 this.Item.Entity.Relationship.Add(
                     new Relationship
                     {
-                        Dm8lKey = viewModel.KeyCoreModel.Entity.Dm8l, 
+                        Dm8lKey = viewModel.KeyCoreModel.Entity.Dm8l,
                         Role = viewModel.Role ?? "#",
                         Fields = new ObservableCollection<RelationshipField>(
                             viewModel.KeyAttributes.Select(a => new RelationshipField
@@ -816,7 +835,7 @@ namespace Dm8Main.ViewModels
                 StringBuilder mermaid = new StringBuilder();
                 mermaid.Append(mermaidHelper.PrintInit());
                 mermaid.Append(mermaidHelper.PrintEntity(this.Item.Entity));
-                
+
                 if (!string.IsNullOrEmpty(this.Item.Entity.ExtensionOf))
                 {
                     var extEntity = await this.solutionService.SolutionHelper.LoadOrGetCoreEntityAsync(
@@ -850,7 +869,7 @@ namespace Dm8Main.ViewModels
             try
             {
                 MermaidHelper mermaidHelper = new MermaidHelper(MermaidHelper.GraphType.ClassDiagram);
-                StringBuilder mermaid = new StringBuilder(); 
+                StringBuilder mermaid = new StringBuilder();
                 mermaid.Append(mermaidHelper.PrintInit());
                 mermaid.Append(mermaidHelper.PrintEntity(this.Item.Entity));
 

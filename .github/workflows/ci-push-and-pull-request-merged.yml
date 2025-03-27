@@ -115,16 +115,18 @@ jobs:
             $COMMIT_LOG = git log "$env:LATEST_TAG_VERSION"..HEAD --pretty=format:"| [%h]($REPO_URL/commit/%H) | %s |"
           }
 
+          echo "$COMMIT_LOG"
+
           # Start building the changelog table
-          $CHANGELOG = "| Commit ID | Commit Message |`n|-----------|---------------|"
+          $CHANGE_LOG = "| Commit ID | Commit Message |`n|-----------|---------------|`n"
 
           # Add each commit as a new row in the table
           foreach ($commit in $COMMIT_LOG) {
-            $CHANGELOG += "`n$commit"
+            $CHANGE_LOG += "`n$commit"
           }
 
           # Write the changelog to a markdown file
-          $CHANGELOG | Out-File -FilePath "CHANGELOG.md"
+          $CHANGE_LOG | Out-File -FilePath "CHANGELOG.md"
 
       - name: Install Azure SignTool
         if: env.VERSION != env.LATEST_TAG_VERSION

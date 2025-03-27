@@ -1,4 +1,23 @@
-﻿using Dm8Data;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Data;
 using Dm8Data.Validate;
 using CommandLine;
 using Dm8Validate;
@@ -11,11 +30,11 @@ using Newtonsoft.Json.Schema;
 
 
 class Program
-{   
+{
     #pragma warning disable CS8604 // Possible null reference argument.
     #pragma warning disable CS8602 // Dereference of a possibly null reference.
     static int Main(string[] args)
-    {       
+    {
         using ILoggerFactory loggerFactory =
             LoggerFactory.Create(builder =>
                 builder.AddSimpleConsole(options =>

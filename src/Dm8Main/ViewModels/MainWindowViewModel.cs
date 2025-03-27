@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Composition;
@@ -153,7 +172,7 @@ namespace Dm8Main.ViewModels
         }
 
         private DelegateCommand activateGitCommand;
-        #endregion        
+        #endregion
 
         #region Property GenerateStageCommand
         public DelegateCommand GenerateStageCommand
@@ -163,7 +182,7 @@ namespace Dm8Main.ViewModels
         }
 
         private DelegateCommand _generateStageCommand;
-        #endregion        
+        #endregion
 
         #region Property GenerateOutputCommand
         public DelegateCommand GenerateOutputCommand
@@ -223,7 +242,7 @@ namespace Dm8Main.ViewModels
         }
 
         private DelegateCommand saveAllCommand;
-        #endregion 
+        #endregion
 
         #region Property ValidateCommand
         public DelegateCommand ValidateCommand
@@ -233,7 +252,7 @@ namespace Dm8Main.ViewModels
         }
 
         private DelegateCommand validateCommand;
-        #endregion 
+        #endregion
 
         #region Property AddSourceCommand
         public DelegateCommand AddSourceCommand
@@ -243,7 +262,7 @@ namespace Dm8Main.ViewModels
         }
 
         private DelegateCommand addSourceCommand;
-        #endregion 
+        #endregion
 
         #region Property RefreshSourceCommand
         public DelegateCommand RefreshSourceCommand
@@ -775,7 +794,7 @@ namespace Dm8Main.ViewModels
                     dialogService.ShowMessageBox(this, $"No document view defined for {item}");
                     return;
                 }
-                    
+
 
                 documentView.ViewModel.ProjectItem = item;
                 await documentView.ViewModel.LoadAsync();
@@ -1030,7 +1049,7 @@ namespace Dm8Main.ViewModels
                                 await Task.Run(() => File.Delete(itm.FilePath));
                             }
                         }
-                        await this.solutionService.SolutionHelper.CreateAndValidateAsync(); 
+                        await this.solutionService.SolutionHelper.CreateAndValidateAsync();
                         this.eventAggregator.GetEvent<SaveSolution>().Publish(this.SolutionService.Solution);
                     }
                 }
@@ -1144,15 +1163,15 @@ namespace Dm8Main.ViewModels
         private async Task AddDiagramFileAsync(string path)
         {
             var input = await (App.Current.MainWindow as MetroWindow).ShowInputAsync(
-                "Create new diagram", 
-                "Diagram file name", 
+                "Create new diagram",
+                "Diagram file name",
                 new MetroDialogSettings()
                 {
                     AffirmativeButtonText = "Create New Diagram",
                     NegativeButtonText = "Cancel"
                 });
 
-    
+
             if (!string.IsNullOrEmpty(input))
             {
                 // create file
@@ -1165,7 +1184,7 @@ namespace Dm8Main.ViewModels
                 this.eventAggregator.GetEvent<RefreshSolution>().Publish(this.SolutionService.Solution);
             }
         }
-        
+
 
         private void MainViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {

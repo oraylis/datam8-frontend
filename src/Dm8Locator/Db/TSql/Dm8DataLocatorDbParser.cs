@@ -1,4 +1,23 @@
-﻿using Dm8Locator;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Locator;
 using Dm8Locator.Db;
 using Dm8Locator.Db.TSql;
 using Microsoft.Data.SqlClient;
@@ -86,7 +105,7 @@ namespace Dm8Locator.Db.TSql
         private Task ScanViews(Action<Dm8LocatorBase> storeAdl)
         {
             return Task.Factory.StartNew(() =>
-            {             
+            {
                 var db = this.CreateDatabaseConnection();
                 var views = db.Views.OfType<View>().
                                 Where(v => this.schemaList.Count() == 0 || this.schemaList.Any(s => StringComparer.InvariantCultureIgnoreCase.Compare(s, v.Schema) == 0));
@@ -135,7 +154,7 @@ namespace Dm8Locator.Db.TSql
                     {
                         sqlConnectionInfo.UserName = user;
                         sqlConnectionInfo.Password = passWd;
-                    }                    
+                    }
                     ServerConnection serverConnection = new ServerConnection(sqlConnectionInfo);
                     Server serverInstance = new Server(serverConnection);
                     serverInstance.ConnectionContext.StatementTimeout = 0;
@@ -153,10 +172,10 @@ namespace Dm8Locator.Db.TSql
             }
 
             return db;
-        }    
+        }
 
 
-        private async Task ScanTablesDb(Action<Dm8LocatorBase> storeAdl)         
+        private async Task ScanTablesDb(Action<Dm8LocatorBase> storeAdl)
         {
             using (var sqlConnection = new SqlConnection(this.connectionString))
             {
@@ -241,7 +260,7 @@ namespace Dm8Locator.Db.TSql
                             string isNullable = GetString(sqlRdr, IS_NULLABLE);
                             string dataType = GetString(sqlRdr, DATA_TYPE);
                             int? maxLength = GetValue<int>(sqlRdr, CHARACTER_MAXIMUM_LENGTH);
-                            int? precision = GetValue<byte>(sqlRdr, NUMERIC_PRECISION); 
+                            int? precision = GetValue<byte>(sqlRdr, NUMERIC_PRECISION);
                             int? scale = GetValue<int>(sqlRdr, NUMERIC_SCALE);
 
                             // check if system table

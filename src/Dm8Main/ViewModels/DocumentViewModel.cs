@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -28,7 +47,7 @@ namespace Dm8Main.ViewModels
 
 
     [Export]
-    public abstract class DocumentViewModel<TObj> : DocumentViewModelBase 
+    public abstract class DocumentViewModel<TObj> : DocumentViewModelBase
         where TObj : Prism.Mvvm.BindableBase, new()
     {
         protected readonly IUnityContainer unityContainer;
@@ -63,7 +82,7 @@ namespace Dm8Main.ViewModels
             this.eventAggregator = eventAggregator;
             base.solutionService.PropertyChanged += this.SolutionServicePropertyChanged;
 
-            this.IsModified = false;            
+            this.IsModified = false;
             this.PropertyChanged += this.DocumentViewModel_PropertyChanged;
         }
 
@@ -85,7 +104,7 @@ namespace Dm8Main.ViewModels
                     await this.SaveAsync();
                 }
 
-            } 
+            }
             await base.CloseAsync();
         }
 
@@ -105,7 +124,7 @@ namespace Dm8Main.ViewModels
                 case nameof(JsonCode):
                     await this.UpdateFromJsonCodeAsync();
                     break;
-            }           
+            }
         }
 
         private async void Items_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -150,7 +169,7 @@ namespace Dm8Main.ViewModels
                     if (collection != null)
                     {
                         collection.CollectionChanged += this.Items_CollectionChanged;
-                    }                       
+                    }
                 }
                 else if (typeof(INotifyPropertyChanged).IsAssignableFrom(prop.PropertyType))
                 {
@@ -160,7 +179,7 @@ namespace Dm8Main.ViewModels
                         this.RegisterItemChanged(sub);
                     }
                 }
-                if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string)) 
+                if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string))
                 {
                     var collection = prop.GetValue(n) as IEnumerable;
                     if (collection != null)
@@ -224,7 +243,7 @@ namespace Dm8Main.ViewModels
         {
             // save file
             if (!this.IsModified)
-                return; 
+                return;
 
             this.IsSaving = true;
             try
@@ -337,7 +356,7 @@ namespace Dm8Main.ViewModels
                 // set items
                 this.Item = newItem;
 
-                // check errors                
+                // check errors
                 await this.ValidateAsync();
             }
         }
@@ -382,9 +401,9 @@ namespace Dm8Main.ViewModels
                 if (!this.IsLoading)
                     this.IsModified = true;
 
-                // check errors                
+                // check errors
                 await this.ValidateAsync();
-            }            
+            }
         }
 
 

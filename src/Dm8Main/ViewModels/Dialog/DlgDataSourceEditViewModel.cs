@@ -1,4 +1,23 @@
-﻿using System;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Composition;
@@ -32,7 +51,7 @@ namespace Dm8Main.ViewModels.Dialog
         private readonly Dm8Data.Solution solution;
 
         protected Dictionary<string, Type> typeDictionary = null;
-        
+
         public bool? DialogResult { get; set; }
         public bool isPlugin = false;
         public string PluginType = "";
@@ -158,7 +177,7 @@ namespace Dm8Main.ViewModels.Dialog
 
         public ObservableCollection<string> dataTypes;
         #endregion
-        
+
 
         public DlgDataSourceEditViewModel(IDialogService dialogService, Dm8Data.Solution solution)
         {
@@ -292,7 +311,7 @@ namespace Dm8Main.ViewModels.Dialog
                 {
                     if (this.typeDictionary[this.selectedItem] != null && this.typeDictionary[this.selectedItem].IsClass && PluginHelper.IsConnectorPlugin(this.typeDictionary[this.selectedItem]))
                     {
-                        
+
                         IDm8PluginConnectorSourceExplorerV1 plugin = this.typeDictionary[this.selectedItem] as IDm8PluginConnectorSourceExplorerV1;
                         var pl = Activator.CreateInstance(this.typeDictionary[this.SelectedItem]) as IDm8PluginConnectorSourceExplorerV1;
                         var conStr = this.ConnectionString;
@@ -358,13 +377,13 @@ namespace Dm8Main.ViewModels.Dialog
                             if (enumVal != "#Empty")
                                 dbConnectionStringBuilder.Add(n, m.GetCustomAttribute<System.Runtime.Serialization.EnumMemberAttribute>()?.Value);
                         }
-                    }                    
+                    }
                 }
                 else if (!string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(v))
                 {
                     dbConnectionStringBuilder.Add(n, v);
                 }
-                    
+
             }
 
             this.ConnectionString = dbConnectionStringBuilder.ConnectionString;
@@ -388,15 +407,15 @@ namespace Dm8Main.ViewModels.Dialog
                         // get name
                         var nameProp = props.
                                 SelectMany(p => p.GetCustomAttributes<Newtonsoft.Json.JsonPropertyAttribute>().Select(a => new { Prop = p, Attrs =  a })).
-                                Where(kv => StringComparer.InvariantCultureIgnoreCase.Compare(kv.Attrs.PropertyName, k) == 0).                                
+                                Where(kv => StringComparer.InvariantCultureIgnoreCase.Compare(kv.Attrs.PropertyName, k) == 0).
                                 FirstOrDefault();
                         if (nameProp == null)
                             continue;
 
-                        // get value                        
+                        // get value
                         if (nameProp.Prop.PropertyType.BaseType == typeof(Enum) && nameProp.Prop.PropertyType is TypeInfo ti)
                         {
-                            // find value for string                            
+                            // find value for string
                             var vStr = v.ToString();
                             if (string.IsNullOrEmpty(vStr))
                             {

@@ -104,30 +104,6 @@ jobs:
             echo "LATEST_TAG_VERSION=$LATEST_TAG" >> $env:GITHUB_ENV
           }
 
-      - name: Generate changelog
-        run: |
-          $REPO_URL="https://github.com/${{ github.repository }}"
-
-          # If no tag exists, get all commits
-          if ("$env:LATEST_TAG_VERSION" -eq "NONE") {
-            $COMMIT_LOG = git log --pretty=format:"| [%h]($REPO_URL/commit/%H) | %s |"
-          } else {
-            $COMMIT_LOG = git log "$env:LATEST_TAG_VERSION"..HEAD --pretty=format:"| [%h]($REPO_URL/commit/%H) | %s |"
-          }
-
-          echo "$COMMIT_LOG"
-
-          # Start building the changelog table
-          $CHANGE_LOG = "| Commit ID | Commit Message |`n|-----------|---------------|`n"
-
-          # Add each commit as a new row in the table
-          foreach ($commit in $COMMIT_LOG) {
-            $CHANGE_LOG += "`n$commit"
-          }
-
-          # Write the changelog to a markdown file
-          $CHANGE_LOG | Out-File -FilePath "CHANGELOG.md"
-
       - name: Install Azure SignTool
         if: env.VERSION != env.LATEST_TAG_VERSION
         run: |
@@ -176,7 +152,6 @@ jobs:
         if: env.VERSION != env.LATEST_TAG_VERSION
         with:
           tag_name: ${{ env.VERSION }}
-          body_path: "CHANGELOG.md"
           generate_release_notes: true
           files: |
             src/DataM8.win-x64.zip

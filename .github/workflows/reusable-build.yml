@@ -2,10 +2,6 @@ name: "Build (Reusable)"
 
 on:
   workflow_call:
-    inputs:
-      upload_artifacts:
-        type: boolean
-        required: true
 
 jobs:
   building:
@@ -33,10 +29,10 @@ jobs:
           -Recurse `
           -Force
 
-      - name: Set TextTransform environment
+      - name: Set up environment variables
         run: |
-          $dev_env_dir = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\"
-          echo "DevEnvDir=$dev_env_dir" >> $env:GITHUB_ENV
+          echo "DevEnvDir=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\" >> $env:GITHUB_ENV
+          echo "SolutionDir=$(Resolve-Path '.\src').Path" >> $env:GITHUB_ENV
 
       - name: Create global.json file
         run: |
@@ -46,36 +42,25 @@ jobs:
             }
           }' > global.json
 
-      - name: Dotnet Restore
+      - name: Restore dependencies
         run: dotnet restore src/Dm8Main.sln
 
-      - name: Dotnet Build DataM8 Solution
+      - name: Build DataM8 Solution
         run: dotnet build src/Dm8Main.sln
 
-      - name: Dotnet Build Validator CLI for Linux
+      - name: Build Validator CLI for Linux
         run: |
           dotnet build src/Dm8Validate/Dm8Validate.csproj `
           -c Debug_Linux `
           -r linux-x64 `
           --self-contained
 
-      - name: Dotnet Install WIX
+      - name: Install WIX
         run: |
           dotnet tool install --global wix
 
-      - name: WIX add dependencies
+      - name: Add WIX dependencies
         run: wix.exe extension add -g WixToolset.UI.wixext/5.0.2
 
-      - name: Dotnet Build Setup
+      - name: Build Setup
         run: dotnet build src/Dm8Setup/Dm8Setup.csproj
-
-      - name: Upload artifacts
-        if: ${{ inputs.upload_artifacts }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: |
-            src/Dm8Main/bin/Debug/net8.0-windows7.0
-            src/Dm8Validate/bin/Debug/net8.0
-            src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64
-            src/Dm8Setup/bin/Debug/*.msi

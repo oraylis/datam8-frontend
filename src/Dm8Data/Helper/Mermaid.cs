@@ -1,4 +1,23 @@
-﻿using Dm8Data.Core;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Data.Core;
 using Dm8Data.Curated;
 using System.Collections.Generic;
 using System.Linq;
@@ -63,11 +82,11 @@ namespace Dm8Data.Helper
                 List<CoreEntity> sourceEntities = new List<CoreEntity>();
                 foreach (var functionSource in function.Value.Source)
                 {
-                    var cacheEntity = this.cache.Where(e => e.Dm8l ==  functionSource.Dm8l).FirstOrDefault();                    
+                    var cacheEntity = this.cache.Where(e => e.Dm8l ==  functionSource.Dm8l).FirstOrDefault();
                     if (cacheEntity != null)
                     {
                         sourceEntities.Add(cacheEntity);
-                    }                    
+                    }
                 }
                 rc.Append(this.PrintDependency(function.Key, sourceEntities, function.Value.Name));
             }
@@ -163,7 +182,7 @@ namespace Dm8Data.Helper
                 !this.dm8lPrinted.Contains(rel.Dm8lKey))
                 return new StringBuilder();
 
-            
+
             StringBuilder rc = new StringBuilder();
             if (this.graphType == GraphType.ErDiagram)
             {
@@ -196,7 +215,7 @@ namespace Dm8Data.Helper
                 rc.AppendLine($"{GetClass(entityTarget.Dm8l)} <|-- I{GetClass(entityTarget.Dm8l)} : implements");
             }
 
-            foreach (CoreEntity entitySource in entitySources) 
+            foreach (CoreEntity entitySource in entitySources)
             {
                 if (!this.dm8lPrinted.Contains(entityTarget.Dm8l) ||
                     !this.dm8lPrinted.Contains(entitySource.Dm8l))

@@ -1,4 +1,23 @@
-﻿using Dm8Data.Helper;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Data.Helper;
 using Dm8Data.Validate.Exceptions;
 using Dm8Data.Validate.Generic;
 using Newtonsoft.Json;
@@ -34,7 +53,7 @@ namespace Dm8Data.Validate
 
         public Func<NJsonSchema.JsonSchema, JsonReferenceResolver> schemaResolver;
         #endregion
-        
+
 
         protected ModelReader()
         {
@@ -64,7 +83,7 @@ namespace Dm8Data.Validate
             string json = await FileHelper.ReadFileAsync(fileName);
             return await ((IModelReader<TObj>)this).ReadFromStringAsync(json);
         }
- 
+
         public virtual async Task<TObj> ReadFromStringAsync(string json)
         {
             TObj item = null;
@@ -91,7 +110,7 @@ namespace Dm8Data.Validate
         {
             if (this.Schema == null)
                 return new List<SchemaValidateException>();
-                       
+
             var jsonSchema = await NJsonSchema.JsonSchema.FromJsonAsync(this.Schema, Assembly.GetExecutingAssembly().Location, this.SchemaResolver);
             var rc = new List<SchemaValidateException>();
             foreach (var error in jsonSchema.Validate(json))

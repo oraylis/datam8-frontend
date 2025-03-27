@@ -1,4 +1,23 @@
-﻿using Dm8Locator.Db;
+﻿/* DataM8
+ * Copyright (C) 2024-2025 ORAYLIS GmbH
+ *
+ * This file is part of DataM8.
+ *
+ * DataM8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DataM8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+using Dm8Locator.Db;
 using Dm8Locator.Db.TSql;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
@@ -11,7 +30,7 @@ using System.Threading.Tasks;
 namespace Dm8Locator.Db.TSql
 {
     /// <summary>
-    /// Scan TSql-Files and create Database Resource Locators 
+    /// Scan TSql-Files and create Database Resource Locators
     /// </summary>
     public class Dm8DataLocatorTsqlParser : Dm8DataLocatorDbParserBase
     {
@@ -56,7 +75,7 @@ namespace Dm8Locator.Db.TSql
                 throw new TSqlParserException($"Error parsing file '{sqlFile}' ({ex.Message}): ${stringBuilder.ToString()}", ex);
             }
             catch (Exception ex)
-            {                   
+            {
                 throw new TSqlParserException($"Error parsing file '{sqlFile}' ({ex.Message})", ex);
             }
         }
@@ -66,7 +85,7 @@ namespace Dm8Locator.Db.TSql
             // Read SQL File
             string sqlStatement = File.ReadAllText(sqlFile);
 
-            // Use TSqlParser scanner for scanning view(s)/tables(s)      
+            // Use TSqlParser scanner for scanning view(s)/tables(s)
             TSqlParser parser = new TSql150Parser(false, SqlEngineType.All);
 
             // Initiate Parser

@@ -89,12 +89,13 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           $version = Select-String `
-          -Path "src/App.config" `
+          -Path "src/Dm8Main/App.config" `
           -Pattern 'Version=(\d+\.\d+\.\d+)' | Select-Object `
           -First 1 | ForEach-Object { $_.Matches[0].Groups[1].Value }
           echo "VERSION=v$version" >> $env:GITHUB_ENV
 
       - name: Get latest tag version
+        if: github.event_name == 'pull_request'
         run: |
           $latest_tag_version = git tag --list | Sort-Object `
           -Descending | Select-Object `

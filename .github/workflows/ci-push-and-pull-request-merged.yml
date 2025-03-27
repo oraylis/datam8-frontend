@@ -1,6 +1,12 @@
-name: "Build, Sign, and Release on PR from Main"
+name: "Build on Push & Release on merged PR"
 
 on:
+  push:
+    branches:
+      - feature/*
+      - patch/*
+      - issue/*
+      - bug/*
   pull_request:
     branches:
       - dev
@@ -8,10 +14,11 @@ on:
       - closed
 
 jobs:
-  build-sign-tag-and-release:
-    runs-on: windows-latest
+  build-and-release:
+    runs-on: windows-2022
     env:
-      dotNetVersion: "8.0.x"
+      DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"
+      SolutionDir: ${{ github.workspace }}\src
       azureSignToolVersion: "6.0.0"
     permissions:
       contents: write
@@ -20,16 +27,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          submodules: recursive
+          token: ${{ secrets.DATAM8_FRONTEND_SUBMODULES_PAT }}
           fetch-depth: 0
 
-      - name: Check out solution respoitory
+      - name: Checkout solution respoitory
         uses: actions/checkout@v4
         with:
           repository: oraylis/automation-sample-solution
           token: ${{ secrets.DATAM8_SAMPLE_SOLUTION_PAT }}
           path: automation-sample-solution
 
-      - name: Integrate latest version of sample solution generator into frontend
+      - name: Integrate latest version of sample solution
         run: |
           Copy-Item `
           -Path automation-sample-solution/Generate/* `
@@ -37,34 +46,47 @@ jobs:
           -Recurse `
           -Force
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.dotNetVersion }}
+      - name: Create global.json file
+        run: |
+          echo '{
+            "sdk": {
+              "version": "8.0.406"
+            }
+          }' > global.json
 
-      - name: Dotnet Restore
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
         run: dotnet restore src/Dm8Main.sln
 
-      - name: Dotnet Build DataM8 Solution
+      - name: Build DataM8 Solution
         run: dotnet build src/Dm8Main.sln
 
-      - name: Dotnet Build Validator CLI for Linux
+      - name: Build Validator CLI for Linux
         run: |
           dotnet build src/Dm8Validate/Dm8Validate.csproj `
           -c Debug_Linux `
           -r linux-x64 `
           --self-contained
 
-      - name: Dotnet Install WIX
-        run: dotnet tool install --global wix
+      - name: Install WIX
+        run: |
+          dotnet tool install --global wix
 
-      - name: WIX add dependencies
+      - name: Add WIX dependencies
         run: wix.exe extension add -g WixToolset.UI.wixext/5.0.2
 
-      - name: Dotnet Build Setup
+      - name: Build Setup
         run: dotnet build src/Dm8Setup/Dm8Setup.csproj
 
       - name: Extract project version from App.config
+        if: github.event_name == 'pull_request'
         run: |
           $version = Select-String `
           -Path "src/App.config" `
@@ -93,7 +115,7 @@ jobs:
 
           printf "CHANGELOG<<EOF\n| Commit ID | Commit Message |\n|-----------|---------------|\n%s\nEOF\n" "$LOG" >> "$GITHUB_ENV"
 
-      - name: Dotnet Install Azure SignTool
+      - name: Install Azure SignTool
         if: env.VERSION != env.LATEST_TAG_VERSION
         run: |
           dotnet tool install `

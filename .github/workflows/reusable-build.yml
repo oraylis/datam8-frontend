@@ -6,6 +6,9 @@ on:
 jobs:
   building:
     runs-on: windows-2022
+    env:
+      DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"
+      SolutionDir: ${{ github.workspace }}\src
 
     steps:
       - name: Checkout repository
@@ -28,11 +31,6 @@ jobs:
           -Destination src/Dm8Main/Solution/CreateNewProject/Generate/ `
           -Recurse `
           -Force
-
-      - name: Set up environment variables
-        run: |
-          echo "DevEnvDir=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\" >> $env:GITHUB_ENV
-          echo "SolutionDir=$(Resolve-Path '.\src').Path" >> $env:GITHUB_ENV
 
       - name: Create global.json file
         run: |

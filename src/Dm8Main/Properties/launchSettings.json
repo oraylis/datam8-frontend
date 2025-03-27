@@ -2,7 +2,7 @@
   "profiles": {
     "Dm8Main": {
       "commandName": "Project",
-      "commandLineArgs": "/dm8s:\"C:\\DataM8-TestFolder\\DataM8 Solution.dm8s\"",
+      "commandLineArgs": "/xdm8s:\"C:\\DataM8-TestFolder\\DataM8 Solution.dm8s\"",
       "nativeDebugging": false
     }
   }

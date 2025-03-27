@@ -73,7 +73,6 @@
 
             <pt:TreeListBox.ItemContainerStyle>
                 <Style TargetType="{x:Type pt:TreeListBoxItem}">
-
                     <Setter Property="Visibility" Value="{Binding Visibility}" />
                     <Setter Property="BorderThickness" Value="1" />
                     <Setter Property="Background" Value="Transparent" />

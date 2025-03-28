@@ -13,7 +13,6 @@
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.dll" #>
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.dll" #>
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.CSharp.dll" #>
-
 <#@ import namespace="System" #>
 <#@ import namespace="System.Data" #>
 <#@ import namespace="System.Data.Objects" #>
@@ -31,7 +30,6 @@
 <#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
 <#@ import namespace="NJsonSchema" #>
 <#@ import namespace="NJsonSchema.CodeGeneration.CSharp" #>
-
 <#
 	try
     {

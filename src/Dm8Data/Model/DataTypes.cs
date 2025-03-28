@@ -1,7 +1,4 @@
-﻿
-
-
-/* DataM8
+﻿/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.

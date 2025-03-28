@@ -48,6 +48,7 @@
 *.csx      text diff=csharp
 *.sln      text
 *.csproj   text
+*.tt       text diff=csharp eol=crlf
 
 # Python Section
 

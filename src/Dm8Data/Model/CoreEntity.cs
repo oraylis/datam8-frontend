@@ -1,6 +1,4 @@
-﻿
-
-/* DataM8
+﻿/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.
@@ -36,6 +34,7 @@ namespace Dm8Data.Core
     {
         private string _name;
         private string _value;
+        private object _custom;
 
         [Newtonsoft.Json.JsonProperty("name", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -53,6 +52,14 @@ namespace Dm8Data.Core
             get { return _value; }
 
             set { SetProperty(ref _value, value); }
+        }
+
+        [Newtonsoft.Json.JsonProperty("custom", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public object Custom
+        {
+            get { return _custom; }
+
+            set { SetProperty(ref _custom, value); }
         }
 
 

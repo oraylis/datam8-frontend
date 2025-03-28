@@ -138,10 +138,11 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
-/DataM8/Dm8Setup/Debug_Main
+/src/Dm8Setup/Debug_Main
 
 # Python venv
 */venv/
+build/**
 
 # Generated main.spec
 *.spec

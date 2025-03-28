@@ -1,10 +1,9 @@
-﻿using System.Composition;
+﻿using System;
+using System.Composition;
 using System.Windows.Controls;
-using Dm8Data;
-using Dm8Main.Models;
-using Dm8Main.Services;
 using Dm8Main.ViewModels;
 using PropertyTools.Wpf;
+using ProjectItem = Dm8Main.Models.ProjectItem;
 
 
 namespace Dm8Main.Views
@@ -22,27 +21,41 @@ namespace Dm8Main.Views
       }
 
       public AnchorViewModel ViewModel => (ProjectViewModel)this.DataContext;
-
+      private ProjectItem _lastSelectedItem = null;
+      private ProjectItem _lastChangedItem = null;
       private void TreeListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
       {
          if(this.projectTree.SelectedItem is ProjectItem projectItem)
          {
-            ProjectViewModel pvm = (ProjectViewModel)this.DataContext;
-            pvm.ItemSelect(projectItem);
-            this.InputBindings.Clear();
-            this.InputBindings.AddRange(projectItem.InputBindings);
-
-            TreeListBoxItem item = e.OriginalSource as TreeListBoxItem;
-            if(item != null)
+            if(_lastChangedItem == projectItem)
             {
-               item.IsSelected = true;
+               return;
+            }
+            try
+            {
+               _lastChangedItem = projectItem;
+               ProjectViewModel pvm = (ProjectViewModel)this.DataContext;
+               pvm.ItemSelect(projectItem);
+               this.InputBindings.Clear();
+               this.InputBindings.AddRange(projectItem.InputBindings);
+               this.projectTree.ScrollIntoView(projectItem);
+            } catch(Exception ex)
+            {
+               Console.WriteLine(ex.ToString());
             }
          }
       }
-      public void ChangeSelection(ProjectItem projectItem)
+      public void SelectProjectItem(ProjectItem item, bool multiSelect)
       {
-         this.projectTree.SelectedItem = projectItem;
-         projectItem.IsSelected = true;
+         if(_lastSelectedItem == item)
+         {
+            return;
+         }
+         _lastSelectedItem = item;
+         ProjectViewModel pvm = (ProjectViewModel)this.DataContext;
+         pvm.SelectProjectItem(item, multiSelect);
+         this.projectTree.ScrollIntoView(item);
       }
+
    }
 }

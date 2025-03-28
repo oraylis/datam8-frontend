@@ -178,5 +178,20 @@ namespace Dm8Main.ViewModels
             }
          }
       }
+      public void SelectProjectItem(ProjectItem item, bool multiSelect)
+      {
+         try
+         {
+            foreach(var projectItem in this.solutionService.ProjectItems)
+            {
+               projectItem.Select(projectItem => projectItem == item, null, multiSelect);
+            }
+         } catch(Exception ex) 
+         { 
+            Console.WriteLine(ex.ToString());
+         }
+
+      }
    }
 }
+

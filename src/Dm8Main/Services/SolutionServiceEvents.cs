@@ -46,4 +46,6 @@ namespace Dm8Main.Services
    public class GitChangeEvent:PubSubEvent<GitHelper> { }
 
    public class FileChangeEvent:PubSubEvent<FileSystemEventArgs> { }
+
+   public class DocumentSelectedEvent:PubSubEvent<string> { }
 }

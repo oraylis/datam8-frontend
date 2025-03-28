@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using AvalonDock;
-using DataGridExtensions;
 using Dm8Data;
 using Dm8Data.Diagram;
 using Dm8Data.Helper;
@@ -28,6 +27,7 @@ using Dm8Main.Views;
 using Dm8Main.Views.Dialog;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
+using Microsoft.Build.Evaluation;
 using MvvmDialogs;
 using MvvmDialogs.FrameworkDialogs.OpenFile;
 using MvvmDialogs.FrameworkDialogs.SaveFile;
@@ -37,6 +37,7 @@ using Prism.Events;
 using PropertyTools.Wpf;
 using Unity;
 using DelegateCommand = Prism.Commands.DelegateCommand;
+using ProjectItem = Dm8Main.Models.ProjectItem;
 
 namespace Dm8Main.ViewModels
 {
@@ -417,6 +418,7 @@ namespace Dm8Main.ViewModels
          this.eventAggregator.GetEvent<OpenDocumentsEvent>().Subscribe((i) => Application.Current.Dispatcher.InvokeAsync(() => this.OpenDocuments()));
          this.eventAggregator.GetEvent<NewDocumentEvent>().Subscribe((kv) => Application.Current.Dispatcher.InvokeAsync(() => this.NewDocument(kv)));
          this.eventAggregator.GetEvent<FileChangeEvent>().Subscribe((evt) => Application.Current.Dispatcher.InvokeAsync(() => this.OnFileChangedAsync(evt)));
+         this.eventAggregator.GetEvent<DocumentSelectedEvent>().Subscribe((i) => Application.Current.Dispatcher.InvokeAsync(() => this.SetProjectTreeForWindow(i)));
 
 
 
@@ -461,9 +463,6 @@ namespace Dm8Main.ViewModels
          this.GenerateGroupName = "Stage";
 
       }
-
-
-
       public static IDocumentView CreateDocumentView(ProjectItem item, IUnityContainer unityContainer)
       {
          var mainWindowViewModel = App.MainWindowViewModel;
@@ -708,8 +707,7 @@ namespace Dm8Main.ViewModels
 
             case ProjectItem.Types.GenerateSubFolder:
                {
-                  int c = Directory.GetFiles(path, "NewFolder*")
-                      .Count() + 1;
+                  int c = Directory.GetFiles(path, "NewFolder*").Count() + 1;
                   string targetFolder = Path.Combine(path, $"NewFolder{c}");
                   Directory.CreateDirectory(targetFolder);
                   this.eventAggregator.GetEvent<SaveSolution>().Publish(this.SolutionService.Solution);
@@ -773,7 +771,7 @@ namespace Dm8Main.ViewModels
          }
          await Task.Yield();
       }
-      private async Task OpenDocument(ProjectItem item)
+      private async Task OpenDocument(ProjectItem item, bool activate = true)
       {
          try
          {
@@ -781,7 +779,10 @@ namespace Dm8Main.ViewModels
             var openDoc = this.documents.FirstOrDefault(d => d.ViewModel.FilePath == item.FilePath);
             if(openDoc != null)
             {
-               this.ActiveContent = openDoc;
+               if(activate)
+               {
+                  this.ActiveContent = openDoc;
+               }
                return;
             }
             if(item.IsFolder)
@@ -792,12 +793,13 @@ namespace Dm8Main.ViewModels
                dialogService.ShowMessageBox(this, $"No document view defined for {item}");
                return;
             }
-
-
             documentView.ViewModel.ProjectItem = item;
             await documentView.ViewModel.LoadAsync();
             await this.OutputErrorsAsync(documentView.ViewModel);
-            this.ActiveContent = documentView;
+            if(activate)
+            {
+               this.ActiveContent = documentView;
+            }
          } catch(Exception ex)
          {
             this.dialogService.ShowException(this, ex);
@@ -807,13 +809,25 @@ namespace Dm8Main.ViewModels
       {
          try
          {
-            foreach(var itm in this.ProjectTree?.SelectedItems)
+            ProjectItem last = null;
+
+            List<ProjectItem> lst = new List<ProjectItem>();
+
+            foreach(ProjectItem item in this.ProjectTree?.SelectedItems)
+            {
+               lst.Add(item);
+            }
+            this.ProjectTree.UnselectAll();
+
+            foreach(var itm in lst)
             {
                if(itm is ProjectItem projectItm && !projectItm.IsFolder)
                {
-                  await this.OpenDocument(projectItm);
+                  last = projectItm;
+                  await this.OpenDocument(projectItm, false);
                }
             }
+            await this.OpenDocument(last, true);
          } catch(Exception ex)
          {
             this.dialogService.ShowException(this, ex);
@@ -855,7 +869,7 @@ namespace Dm8Main.ViewModels
          info.UseShellExecute = false;
          info.RedirectStandardInput = false;
          info.RedirectStandardOutput = false; //true ;
-         info.RedirectStandardError = false; //true ;
+         info.RedirectStandardError = true; //true ;
          info.CreateNoWindow = false;
          info.WindowStyle = ProcessWindowStyle.Normal;
 
@@ -878,36 +892,39 @@ namespace Dm8Main.ViewModels
          DateTime dauer = DateTime.Now;
          // call command line tool
          Exception exception = null;
-//       bool oldStyle = true;
+         bool oldStyle = true;
          try
          {
             //await Task.Factory.StartNew(() =>
             //{
-               using(Process process = Process.Start(info))
+            using(Process process = Process.Start(info))
+            {
+               this.eventAggregator.GetEvent<OutputLineEvent>().Publish(new KeyValuePair<string, string>(Properties.Resources.OutputViewModel_Generate, "Generating..."));
+               StringBuilder sb = new StringBuilder();
+               StreamReader sr = process?.StandardError;
+               while(!sr.EndOfStream)
                {
-               //this.eventAggregator.GetEvent<OutputLineEvent>().Publish(new KeyValuePair<string, string>(Properties.Resources.OutputViewModel_Generate, "Generating..."));
-               //StringBuilder sb = new StringBuilder();
-               //StreamReader sr = process?.StandardError;
-               //while(!sr.EndOfStream)
-               //{
-               //   var data = sr?.ReadLine(); //.ReadToEnd();
-               //   data = data.Replace("u001b", "").Replace("[0m", "").Replace("[92m", "").Replace("[91m", "");
-               //   if(oldStyle)
-               //   {
-               //      this.eventAggregator.GetEvent<OutputLineEvent>().Publish(new KeyValuePair<string, string>(Properties.Resources.OutputViewModel_Generate, data));
-               //      Thread.Sleep(0);
-               //   } else
-               //   {
-               //      sb.Append(data);
-               //   }
-               //}
-               //if(!oldStyle)
-               //{
-               //   this.eventAggregator.GetEvent<OutputLineEventEx>().Publish(new KeyValuePair<string, StringBuilder>(Properties.Resources.OutputViewModel_Generate, sb));
-               //   App.AE();
-               //}
-               process.WaitForExit();
+                  var data = sr?.ReadToEnd();
+                  data = data.Replace("u001b", "").Replace("[0m", "").Replace("[92m", "").Replace("[91m", "");
+                  if(oldStyle)
+                  {
+                     this.eventAggregator.GetEvent<OutputLineEvent>().Publish(new KeyValuePair<string, string>(Properties.Resources.OutputViewModel_Generate, data));
+                     Thread.Yield();
+                  } else
+                  {
+                     sb.Append(data);
+                  }
                }
+               if(!oldStyle)
+               {
+                  this.eventAggregator.GetEvent<OutputLineEventEx>().Publish(new KeyValuePair<string, StringBuilder>(Properties.Resources.OutputViewModel_Generate, sb));
+                  App.AE();
+               }
+               if(!process.HasExited)
+               {
+                  process.WaitForExit();
+               }
+            }
             //});
          } catch(Exception ex)
          {
@@ -935,7 +952,6 @@ namespace Dm8Main.ViewModels
             throw exception;
          }
       }
-
       public async Task OutputErrorsAsync(DocumentViewModelBase documentViewModel)
       {
          // Clear Output
@@ -978,18 +994,15 @@ namespace Dm8Main.ViewModels
          try
          {
             List<ProjectItem> itemList = new List<ProjectItem>();
-
+            List<ProjectItem> folderList = new List<ProjectItem>();
 
             foreach(var itm in this.ProjectTree?.SelectedItems)
             {
                if(itm is ProjectItem projectItm)
                {
-                  if(item.Type == ProjectItem.Types.GenerateSubFolder)
+                  if(projectItm.Type == ProjectItem.Types.GenerateSubFolder)
                   {
-                     if(projectItm.Type == ProjectItem.Types.GenerateSubFolder)
-                     {
-                        itemList.Add(projectItm);
-                     }
+                     folderList.Add(projectItm);
                   } else
                   {
                      if(projectItm.CanDelete)
@@ -1000,26 +1013,29 @@ namespace Dm8Main.ViewModels
                }
             }
 
-            if(itemList.Count >= 1)
+            if(itemList.Count >= 1 || folderList.Count >= 1)
             {
-               string msg;
-               string caption;
-               bool deleteFolder = false;
-               if(item.Type == ProjectItem.Types.GenerateSubFolder)
+               string msg = "";
+               string caption = "";
+               if(folderList.Count > 0)
                {
                   caption = Resources.Menu_DeleteFolder;
-                  deleteFolder = true;
-                  if(itemList.Count == 1)
+                  if(folderList.Count == 1)
                   {
-                     msg = string.Format(Resources.Message_DeleteFolder, itemList[0].Name);
+                     msg = string.Format(Resources.Message_DeleteFolder, folderList[0].Name);
                   } else
                   {
-                     msg = string.Format(Resources.Message_DeleteFolders, itemList.Count);
+                     msg = string.Format(Resources.Message_DeleteFolders, folderList.Count);
                   }
-               } else
+                  if(this.dialogService.ShowMessageBox(this, msg, caption, System.Windows.MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+                  {
+                     folderList.Clear();
+                  }
+               }
+
+               if(itemList.Count > 0)
                {
                   caption = Resources.Menu_DeleteFile;
-                  deleteFolder = false;
                   if(itemList.Count == 1)
                   {
                      msg = string.Format(Resources.Message_DeleteFile, itemList[0].Name);
@@ -1027,38 +1043,33 @@ namespace Dm8Main.ViewModels
                   {
                      msg = string.Format(Resources.Message_DeleteFiles, itemList.Count);
                   }
-
+                  if(this.dialogService.ShowMessageBox(this, msg, caption, System.Windows.MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+                  {
+                     itemList.Clear();
+                  }
                }
 
-               var rc = this.dialogService.ShowMessageBox(this, msg, caption,
-                   System.Windows.MessageBoxButton.YesNo);
-               if(rc == System.Windows.MessageBoxResult.Yes)
+               if(itemList.Count >= 1 || folderList.Count >= 1)
                {
-                  if(deleteFolder)
+                  foreach(ProjectItem itm in itemList)
                   {
-                     foreach(ProjectItem itm in itemList)
+                     var openDoc = this.documents.Where(d => d.ViewModel.FilePath == itm.FilePath).FirstOrDefault();
+                     if(openDoc != null)
                      {
-                        if(Directory.Exists(itm.FilePath))
-                        {
-                           Directory.Delete(itm.FilePath);
-                        }
+                        this.documents.Remove(openDoc);
                      }
-                  } else
+                     File.Delete(itm.FilePath);
+                  }
+                  foreach(ProjectItem itm in folderList)
                   {
-                     foreach(ProjectItem itm in itemList)
+                     if(Directory.Exists(itm.FilePath))
                      {
-                        var openDoc = this.documents.Where(d => d.ViewModel.FilePath == itm.FilePath)
-                            .FirstOrDefault();
-                        if(openDoc != null)
-                        {
-                           this.documents.Remove(openDoc);
-                        }
-
-                        await Task.Run(() => File.Delete(itm.FilePath));
+                        Directory.Delete(itm.FilePath);
                      }
                   }
                   await this.solutionService.SolutionHelper.CreateAndValidateAsync();
                   this.eventAggregator.GetEvent<SaveSolution>().Publish(this.SolutionService.Solution);
+                  this.eventAggregator.GetEvent<RefreshSolution>().Publish(this.SolutionService.Solution);
                }
             }
          } catch(Exception ex)
@@ -1118,8 +1129,6 @@ namespace Dm8Main.ViewModels
             this.eventAggregator.GetEvent<SaveSolution>().Publish(this.SolutionService.Solution);
             var solution = FileHelper.MakeJson(this.SolutionService.Solution);
 
-
-            //await FileHelper.WriteFileAsync(Path.Combine(this.SolutionService.Solution.CurrentRootFolder, this.SolutionService.Solution.SolutionFile), solution);
             await FileHelper.WriteFileAsync(this.SolutionService.Solution.SolutionFile, solution);
             this.RefreshMenu(this.SolutionService.Solution);
          } catch(Exception ex)
@@ -1197,11 +1206,21 @@ namespace Dm8Main.ViewModels
          {
             case nameof(this.ActiveContent):
                if(this.ActiveContent is IAnchorView)
+               {
                   this.IsDocumentActive = true;
-               else if(this.ActiveContent is IDocumentView)
+               } else if(this.ActiveContent is IDocumentView)
+               {
                   this.IsDocumentActive = true;
-               else
+                  IDocumentView dv = (IDocumentView)this.ActiveContent;
+                  DocumentViewModelBase v = dv.ViewModel;
+                  if(v != null)
+                  {
+                     this.eventAggregator.GetEvent<DocumentSelectedEvent>().Publish(v.FilePath);
+                  }
+               } else
+               {
                   this.IsDocumentActive = false;
+               }
                break;
          }
       }
@@ -1254,26 +1273,28 @@ namespace Dm8Main.ViewModels
                FileInfo fileInfo = new FileInfo(file);
                if(Math.Abs(fileInfo.CreationTime.Ticks - fileInfo.LastAccessTime.Ticks) <= 20000)
                {
-                  string nw = fileInfo.FullName;
-
-                  IEnumerable<ProjectItem> items = solutionService.AllProjectItems;
-
-                  ProjectView pv = this.GetProjectView;
-
-                  foreach(ProjectItem item in items)
+                  ProjectItem item = this.GetProjectItemForWindow(fileInfo.FullName);
+                  if(item != null)
                   {
-                     string fp = item.FilePath;
-                     if(fp == nw)
-                     {
-                        await this.OpenDocument(item);
-                        pv.ChangeSelection(item);
-                        return;
-                     }
+                     await this.OpenDocument(item, true);
+                     this.GetProjectView?.SelectProjectItem(item, false);
                   }
-
-
                }
             }
+         }
+         return;
+      }
+      private ProjectItem? GetProjectItemForWindow(string fullName)
+      {
+         ProjectItem item = solutionService.AllProjectItems.Where(x => x.FilePath == fullName).FirstOrDefault();
+         return (item);
+      }
+      private void SetProjectTreeForWindow(string fullName)
+      {
+         ProjectItem item = this.GetProjectItemForWindow(fullName);
+         if(item != null)
+         {
+            this.GetProjectView?.SelectProjectItem(item, false);
          }
       }
    }

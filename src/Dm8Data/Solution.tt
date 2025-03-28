@@ -35,7 +35,7 @@
 	try
     {
 		string path = System.IO.Path.GetDirectoryName(Host.TemplateFile);
-		string schemaJson = File.ReadAllText(path+"\\..\\..\\..\\datam8-model\\schema\\Solution.json");
+		string schemaJson = File.ReadAllText(path+"\\..\\..\\datam8-model\\schema\\Solution.json");
 		string licenseText = System.IO.File.ReadAllText(Host.ResolvePath("License.txt"));
         var schema = JsonSchema.FromJsonAsync(schemaJson).Result;
 		var generator = new CSharpGenerator(schema, new CSharpGeneratorSettings { Namespace="Dm8Data", GenerateDataAnnotations=true, ClassStyle = CSharpClassStyle.Prism  });

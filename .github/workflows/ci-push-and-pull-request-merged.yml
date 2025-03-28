@@ -28,20 +28,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          token: ${{ secrets.DATAM8_FRONTEND_SUBMODULES_PAT }}
           fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
       - name: Checkout solution respoitory
         uses: actions/checkout@v4
         with:
-          repository: oraylis/automation-sample-solution
-          token: ${{ secrets.DATAM8_SAMPLE_SOLUTION_PAT }}
-          path: automation-sample-solution
+          repository: oraylis/datam8-sample-solution
+          path: datam8-sample-solution
 
       - name: Integrate latest version of sample solution
         run: |
           Copy-Item `
-          -Path automation-sample-solution/Generate/* `
+          -Path datam8-sample-solution/Generate/* `
           -Destination src/Dm8Main/Solution/CreateNewProject/Generate/ `
           -Recurse `
           -Force
@@ -67,6 +70,10 @@ jobs:
 
       - name: Build DataM8 Solution
         run: dotnet build src/Dm8Main.sln
+
+      - name: Post Build Script
+        run: |
+          .\Dm8PostBuildScript.ps1
 
       - name: Build Validator CLI for Linux
         run: |

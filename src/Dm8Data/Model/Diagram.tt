@@ -1,20 +1,16 @@
 ﻿<#@ Import Namespace="System.Data.Common" #>
 <#@ template debug="false" hostspecific="true" language="C#" #>
 <#@ output extension=".cs" #>
-
 <#@ assembly name="netstandard" #>
 <#@ assembly name="System.Core" #>
 <#@ assembly name="System.Data" #>
 <#@ assembly name="System.Data.Entity" #>
 <#@ assembly name="System.Xml" #>
 <#@ assembly name="System.Xml.Linq"#>
-
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\Newtonsoft.Json.dll"#>
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.dll" #>
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.dll" #>
 <#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.CSharp.dll" #>
-
-
 <#@ import namespace="System" #>
 <#@ import namespace="System.Data" #>
 <#@ import namespace="System.Data.Objects" #>
@@ -32,7 +28,6 @@
 <#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
 <#@ import namespace="NJsonSchema" #>
 <#@ import namespace="NJsonSchema.CodeGeneration.CSharp" #>
-
 <#
 	try
     {

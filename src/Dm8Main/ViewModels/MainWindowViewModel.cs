@@ -854,7 +854,7 @@ namespace Dm8Main.ViewModels
             args = args.Replace("${StagingPath}", this.SolutionService.Solution.StagingFolderPath);
 
             ProcessStartInfo info = new ProcessStartInfo(Path.Combine(execPath, "Generator", "python.exe"));
-            info.Arguments = "-m dm8data " + args; //Python Module for the generator
+            info.Arguments = "-m dm8gen " + args; //Python Module for the generator
             info.WorkingDirectory = execPath;
             info.UseShellExecute = false;
             info.RedirectStandardInput = false;

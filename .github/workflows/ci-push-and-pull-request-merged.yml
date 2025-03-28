@@ -88,11 +88,15 @@ jobs:
       - name: Extract project version from App.config
         if: github.event_name == 'pull_request'
         run: |
-          $version = Select-String `
-          -Path "src/Dm8Main/App.config" `
-          -Pattern 'Version=(\d+\.\d+\.\d+)' | Select-Object `
-          -First 1 | ForEach-Object { $_.Matches[0].Groups[1].Value }
-          echo "VERSION=v$version" >> $env:GITHUB_ENV
+          $version_string = select-string `
+            -path .\src\Dm8Main\App.config `
+            -pattern 'Key="Version"'
+
+          if ($version_string -match 'value="(\d+.\d+.\d+)"') {
+            write-output "VERSION=v$($matches[1])" >> $env:GITHUB_ENV
+          } else {
+            write-error "Could not find a valid version"
+          }
 
       - name: Get latest tag version
         if: github.event_name == 'pull_request'

@@ -1,0 +1,36 @@
+{% set file_path = helper.build_path("notebooks", SystemProperties().utils_folder, "Complete_Load") %}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # Generic notebook to complete a load
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Initialize base settings
+
+# COMMAND ----------
+
+# DBTITLE 1,Initialize Logging Framework
+# MAGIC %run ./LoggingFramework
+
+# COMMAND ----------
+
+# DBTITLE 1,Get load uuid, job name and target zone
+logging_config: dict = LoggingFramework.get_value_dict()
+logging_values: tuple = tuple(logging_config.values())
+
+print("Load UUID: %s" % logging_config["load_uuid"])
+print("Target Zone: %s" % logging_config["target_zone"])
+print("Load Job Name: %s" % logging_config["load_job_name"])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Complete load
+
+# COMMAND ----------
+
+# DBTITLE 1,Complete load
+LoggingFramework.complete_load(*logging_values)
+<<<<<<<<<< {{ file_path }}.py | py

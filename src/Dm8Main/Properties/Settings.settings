@@ -1,0 +1,66 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Dm8Main.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="MainWindowSetting" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;900&lt;/string&gt;
+  &lt;string&gt;700&lt;/string&gt;
+  &lt;string&gt;Normal&lt;/string&gt;
+&lt;/ArrayOfString&gt;</Value>
+    </Setting>
+    <Setting Name="DlgAddSourceSettings" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;string&gt;300&lt;/string&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;600&lt;/string&gt;
+  &lt;string&gt;700&lt;/string&gt;
+  &lt;string&gt;Normal&lt;/string&gt;
+&lt;/ArrayOfString&gt;</Value>
+    </Setting>
+    <Setting Name="DlgCoreEntityAddSettings" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;string&gt;300&lt;/string&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;600&lt;/string&gt;
+  &lt;string&gt;700&lt;/string&gt;
+  &lt;string&gt;Normal&lt;/string&gt;
+&lt;/ArrayOfString&gt;</Value>
+    </Setting>
+    <Setting Name="DlgCoreAttributeEditSettings" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;string&gt;300&lt;/string&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;600&lt;/string&gt;
+  &lt;string&gt;700&lt;/string&gt;
+  &lt;string&gt;Normal&lt;/string&gt;
+&lt;/ArrayOfString&gt;</Value>
+    </Setting>
+    <Setting Name="DlgCoreEntityEditRelationshipSettings" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;string&gt;300&lt;/string&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;600&lt;/string&gt;
+  &lt;string&gt;700&lt;/string&gt;
+  &lt;string&gt;Normal&lt;/string&gt;
+&lt;/ArrayOfString&gt;</Value>
+    </Setting>
+    <Setting Name="DlgCuratedEntityAddSettings" Type="System.Collections.Specialized.StringCollection" Scope="User">
+      <Value Profile="(Default)">&lt;?xml version="1.0" encoding="utf-16"?&gt;
+&lt;ArrayOfString xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;string&gt;300&lt;/string&gt;
+  &lt;string&gt;100&lt;/string&gt;
+  &lt;string&gt;600&lt;/string&gt;
+  &lt;string&gt;700&lt;/string&gt;
+  &lt;string&gt;Normal&lt;/string&gt;
+&lt;/ArrayOfString&gt;</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

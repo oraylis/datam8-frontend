@@ -1,0 +1,124 @@
+﻿<local:DocumentView x:Class="Dm8Main.Views.DataSourcesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:a="clr-namespace:Dm8Main.Avalon"
+             xmlns:pt="http://propertytools.org/wpf"
+             xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
+             xmlns:b="clr-namespace:Dm8Main.Base"
+             xmlns:local="clr-namespace:Dm8Main.Views"             
+             xmlns:services="clr-namespace:MvvmDialogs;assembly=MvvmDialogs"
+             services:DialogServiceViews.IsRegistered="True"
+             mc:Ignorable="d" 
+             xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"       
+             d:DesignHeight="450" d:DesignWidth="800">
+
+
+    <local:DocumentView.Content>
+
+
+        <Grid Grid.Row="0" Background="{DynamicResource MahApps.Brushes.ThemeBackground}">
+            <Grid.Resources>
+                <ResourceDictionary>
+                    <ResourceDictionary.MergedDictionaries>
+
+                        <ResourceDictionary>
+                            <BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+                            <b:NullToVisibilityConverter x:Key="nullToVisibilityConverter" />
+                            <b:ListToVisibilityConverter x:Key="listToVisibilityConverter" />
+                            <dgext:SimpleContentFilterFactory x:Key="simpleContentFilter" />
+                        </ResourceDictionary>
+
+                        <ResourceDictionary Source="/Themes/DataGrid.xaml" />
+
+                    </ResourceDictionary.MergedDictionaries>
+
+                </ResourceDictionary>
+            </Grid.Resources>
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Orientation="Horizontal" Margin="4">
+                <Button 
+                    Margin="4"
+                    Grid.Column="1"
+                    Width="32"
+                    Height="32"
+                    Command="{Binding AddSourceCommand}"
+                    Content="{iconPacks:Material Kind=DatabasePlus, Height=20, Width=20}"
+                    Style="{DynamicResource MahApps.Styles.Button.Circle}">
+                </Button>
+
+                <Button 
+                    Margin="4"
+                    Grid.Column="1"
+                    Width="32"
+                    Height="32"
+                    Command="{Binding EditSourceCommand}"
+                    Content="{iconPacks:Material Kind=DatabaseEdit, Height=20, Width=20}"
+                    Style="{DynamicResource MahApps.Styles.Button.Circle}">
+                </Button>
+                
+                <Button 
+                    Margin="4"
+                    Grid.Column="1"
+                    Width="32"
+                    Height="32"
+                    Command="{Binding RemoveSourceCommand}"
+                    Content="{iconPacks:Material Kind=DatabaseRemove, Height=20, Width=20}"
+                    Style="{DynamicResource MahApps.Styles.Button.Circle}">
+                </Button>
+            </StackPanel>
+
+            <DataGrid 
+                    Grid.Row="1"
+                    Grid.Column="0"                     
+                    BorderThickness="0"
+                    ItemsSource="{Binding Items}"                     
+                    SelectedItem="{Binding SelectedItem}"
+                    Uid="DataGridControl"
+                    Margin="4"
+                    CanUserAddRows="False"
+                    CanUserDeleteRows="False"
+                    dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
+                    dgext:DataGridFilter.IsAutoFilterEnabled="True"
+                    AutoGenerateColumns="False">
+
+                <DataGrid.ColumnHeaderStyle>
+                    <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                </DataGrid.ColumnHeaderStyle>
+
+                <behaviors:Interaction.Behaviors>
+                    <!--dgext:ExtendedStarSizeBehavior-->
+                    <dgext:BeginEditOnCtrlEnterBehavior />
+                </behaviors:Interaction.Behaviors>
+
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="3*" IsReadOnly="False" />
+                    <DataGridTextColumn Header="Description" Binding="{Binding DisplayName}" Width="3*" IsReadOnly="False" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Row="1" Grid.Column="1" Grid.RowSpan="1" />
+
+            <pt:PropertyGrid Grid.Row="1" Grid.Column="2" SelectedObject="{Binding SelectedItemEx}"  />
+
+        </Grid>
+
+
+    </local:DocumentView.Content>
+
+
+</local:DocumentView>

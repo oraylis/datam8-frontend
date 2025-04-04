@@ -1,0 +1,256 @@
+{
+  "type": "raw",
+  "entity": {
+    "dataProduct": "internal",
+    "dataModule": "erp",
+    "name": "DimCustomer",
+    "displayName": "DimCustomer",
+    "parameters": [
+      {
+        "name": "TestParam",
+        "value": "Value"
+      },
+      {
+        "name": "WithValue",
+        "value": "1"
+      }
+    ],
+    "tags": [
+      "Test",
+      "Nochmal"
+    ],
+    "attribute": [
+      {
+        "name": "CustomerKey",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "GeographyKey",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "CustomerAlternateKey",
+        "type": "nvarchar",
+        "charLength": 15,
+        "nullable": false,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "Title",
+        "type": "nvarchar",
+        "charLength": 8,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "FirstName",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "MiddleName",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "LastName",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "NameStyle",
+        "type": "bit",
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "BirthDate",
+        "type": "date",
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "MaritalStatus",
+        "type": "nchar",
+        "charLength": 1,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "Suffix",
+        "type": "nvarchar",
+        "charLength": 10,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "Gender",
+        "type": "nvarchar",
+        "charLength": 1,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "EmailAddress",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "YearlyIncome",
+        "type": "money",
+        "precision": 19,
+        "scale": 4,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "TotalChildren",
+        "type": "tinyint",
+        "precision": 3,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "NumberChildrenAtHome",
+        "type": "tinyint",
+        "precision": 3,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "EnglishEducation",
+        "type": "nvarchar",
+        "charLength": 40,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "SpanishEducation",
+        "type": "nvarchar",
+        "charLength": 40,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "FrenchEducation",
+        "type": "nvarchar",
+        "charLength": 40,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "EnglishOccupation",
+        "type": "nvarchar",
+        "charLength": 100,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "SpanishOccupation",
+        "type": "nvarchar",
+        "charLength": 100,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "FrenchOccupation",
+        "type": "nvarchar",
+        "charLength": 100,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "HouseOwnerFlag",
+        "type": "nchar",
+        "charLength": 1,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "NumberCarsOwned",
+        "type": "tinyint",
+        "precision": 3,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "AddressLine",
+        "type": "nvarchar",
+        "charLength": 120,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "Phone",
+        "type": "nvarchar",
+        "charLength": 20,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "DateFirstPurchase",
+        "type": "date",
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      },
+      {
+        "name": "CommuteDistance",
+        "type": "nvarchar",
+        "charLength": 15,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:06:30"
+      }
+    ]
+  },
+  "function": {
+    "dataSource": "localDwh",
+    "sourceLocation": "[dbo].[DimCustomer]"
+  }
+}

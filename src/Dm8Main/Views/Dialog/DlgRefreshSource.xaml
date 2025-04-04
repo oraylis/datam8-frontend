@@ -1,0 +1,241 @@
+﻿<dialogs:HamburgerWizard x:Class="Dm8Main.Views.Dialog.DlgRefreshSource"
+                         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                         xmlns:metro="http://metro.mahapps.com/winfx/xaml/controls"
+                         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                         xmlns:pt="http://propertytools.org/wpf"
+                         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+                         xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+                         xmlns:dialogs="clr-namespace:Dm8Main.Views.Dialog" 
+                         xmlns:dialogModels="clr-namespace:Dm8Main.ViewModels.Dialog"
+                         xmlns:services="clr-namespace:MvvmDialogs;assembly=MvvmDialogs"
+                         xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+                         d:DataContext="{d:DesignInstance Type=dialogModels:DlgRefreshSourceViewModel}"
+                         xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
+                         xmlns:b="clr-namespace:Dm8Main.Base"                   
+                         xmlns:local="clr-namespace:Dm8Main.Views"
+                         mc:Ignorable="d"                                  
+                         services:DialogServiceViews.IsRegistered="True"
+                         Title="Data Source Edit" Height="600" Width="800">
+
+    <i:Interaction.Triggers>
+        <i:EventTrigger EventName="Loaded">
+            <i:InvokeCommandAction Command="{Binding LoadedCommand}" />
+        </i:EventTrigger>
+    </i:Interaction.Triggers>
+
+    <Grid>
+        <Grid.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.MergedDictionaries>
+                    <ResourceDictionary Source="/Resources/HamburgerMenuItem.xaml" />
+
+                    <ResourceDictionary>
+                        <BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+                        <b:NullToVisibilityConverter x:Key="nullToVisibilityConverter" />
+                        <b:ListToVisibilityConverter x:Key="listToVisibilityConverter" />
+                        <dgext:SimpleContentFilterFactory x:Key="simpleContentFilter" />
+                    </ResourceDictionary>
+
+                    <ResourceDictionary Source="/Themes/DataGrid.xaml" />
+                    
+                </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <controls:HamburgerMenu Grid.Row="0" x:Name="HamburgerMenuControl"
+                                DisplayMode="CompactOverlay"
+                                IsPaneOpen="False"
+                                ItemInvoked="HamburgerMenuControl_OnItemInvoked"
+                                SelectedIndex="{Binding SelectedIndex}"
+                                ItemTemplate="{StaticResource WizardMenuItemTemplate}"
+                                OptionsItemTemplate="{StaticResource WizardMenuItemTemplate}">
+
+            <controls:HamburgerMenu.ItemsSource>
+                <controls:HamburgerMenuItemCollection>
+
+                    <controls:HamburgerMenuIconItem Label="Select Source" 
+                                                    ToolTip="Select Source" 
+                                                    Icon="{iconPacks:Modern Kind=SourcePull, Height=28, Width=28}">
+                        <controls:HamburgerMenuIconItem.Tag>                
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Margin="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    
+                                </Grid>
+
+                                <DataGrid Grid.Row="1" 
+                              dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
+                              dgext:DataGridFilter.IsAutoFilterEnabled="True"
+                              CanUserAddRows="False"
+                              ItemsSource="{Binding DataSources}" 
+                              SelectedItem="{Binding SelectedDataSource}" 
+                              Margin="16">
+
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                        </DataGrid.ColumnHeaderStyle>
+
+                        <behaviors:Interaction.Behaviors>
+                            <!--dgext:ExtendedStarSizeBehavior-->
+                            <dgext:BeginEditOnCtrlEnterBehavior />
+                        </behaviors:Interaction.Behaviors>
+
+                    </DataGrid>
+
+                            </Grid>
+                        </controls:HamburgerMenuIconItem.Tag>
+                    </controls:HamburgerMenuIconItem>
+
+
+                    <controls:HamburgerMenuIconItem Label="Refresh Content" 
+                                                    ToolTip="Refresh Content" 
+                                                    Icon="{iconPacks:Modern Kind=SourcePull, Height=28, Width=28}">
+                        <controls:HamburgerMenuIconItem.Tag>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Orientation="Horizontal" Margin="16">
+                                    <ToggleButton                         
+                                        Width="36"
+                                        Height="36"
+                                        Margin="2, 0, 10, 0"
+                                        Name="ButtonTable"
+                                        IsChecked="True"
+                                        Checked="ButtonTable_Checked"
+                                        Content="{iconPacks:Modern Kind=TableSelect, Height=20, Width=20}"
+                                        Style="{DynamicResource MahApps.Styles.ToggleButton.Circle}">
+                                    </ToggleButton>
+                                    <ToggleButton                         
+                                        Width="36"
+                                        Height="36"
+                                        Margin="2, 0, 10, 0"
+                                        Name="ButtonDb"
+                                        Checked="ButtonDb_Checked"
+                                        Content="{iconPacks:Modern Kind=DatabaseSql, Height=20, Width=20}"
+                                        Style="{DynamicResource MahApps.Styles.ToggleButton.Circle}">
+                                    </ToggleButton>
+                                </StackPanel>
+
+                                <DataGrid Grid.Row="1" ItemsSource="{Binding Entities}" 
+                                          SelectedItem="{Binding SelectedEntity}" Margin="16"
+                                        dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
+                                        dgext:DataGridFilter.IsAutoFilterEnabled="True"
+                                        CanUserAddRows="False"
+                                        CanUserDeleteRows="False"
+                                        AutoGenerateColumns="False"
+                                          Name="DataGrid">
+
+                                    <DataGrid.ColumnHeaderStyle>
+                                        <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                                    </DataGrid.ColumnHeaderStyle>
+
+                                    <behaviors:Interaction.Behaviors>
+                                        <!--dgext:ExtendedStarSizeBehavior-->
+                                        <dgext:BeginEditOnCtrlEnterBehavior />
+                                    </behaviors:Interaction.Behaviors>
+
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Selected">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <!--<DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsChecked}" IsReadOnly="False" />-->
+                                        <DataGridTextColumn Header="Name" Binding="{Binding Content.Name}" IsReadOnly="True" />
+                                        <DataGridTextColumn Header="Folder" Binding="{Binding Content.Folder}" IsReadOnly="True" />
+                                        <DataGridTextColumn Header="Info" Binding="{Binding Content.Info}" IsReadOnly="True" />
+                                    </DataGrid.Columns>
+
+                                </DataGrid>
+                            </Grid>
+                        </controls:HamburgerMenuIconItem.Tag>
+                    </controls:HamburgerMenuIconItem>
+
+                    <controls:HamburgerMenuIconItem Label="Finish" 
+                                                    Icon="{iconPacks:Modern Kind=SourcePull, Height=28, Width=28}">
+                        <controls:HamburgerMenuIconItem.Tag>
+
+
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding Entities}" SelectedItem="{Binding SelectedEntity}" Margin="16"
+                                    dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
+                                    dgext:DataGridFilter.IsAutoFilterEnabled="True"
+                                    CanUserAddRows="False"
+                                    CanUserDeleteRows="False"
+                                    AutoGenerateColumns="False"
+                                    IsReadOnly="True"
+                                    Name="DataGridFinish">
+
+                                <DataGrid.ColumnHeaderStyle>
+                                    <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                                </DataGrid.ColumnHeaderStyle>
+
+                                <behaviors:Interaction.Behaviors>
+                                    <!--dgext:ExtendedStarSizeBehavior-->
+                                    <dgext:BeginEditOnCtrlEnterBehavior />
+                                </behaviors:Interaction.Behaviors>
+
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Selected">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <!--<DataGridCheckBoxColumn Header="Selected" Binding="{Binding IsChecked}" IsReadOnly="False" />-->
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Content.Name}" />
+                                    <DataGridTextColumn Header="Folder" Binding="{Binding Content.Folder}" />
+                                    <DataGridTextColumn Header="Info" Binding="{Binding Content.Info}" />
+                                </DataGrid.Columns>
+
+                            </DataGrid>
+                            
+                        </controls:HamburgerMenuIconItem.Tag>
+                    </controls:HamburgerMenuIconItem>
+
+                </controls:HamburgerMenuItemCollection>     
+            </controls:HamburgerMenu.ItemsSource>
+        </controls:HamburgerMenu>
+
+        <Grid Margin="16" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button Name="ButtonBack" Click="ButtonPrev_Click" Margin="8" Width="80">Back</Button>
+                <Button Name="ButtonNext" Click="ButtonNext_Click" Margin="8" Width="80">Next</Button>
+                <Button Name="OKButton" IsDefault="True" Command="{Binding OKCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType={x:Type dialogs:HamburgerWizard}}}" Margin="8" Width="80">Ok</Button>
+                <Button Name="CancelButton" IsCancel="True" Command="{Binding CancelCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType={x:Type dialogs:HamburgerWizard}}}" Margin="8" Width="80">Cancel</Button>
+            </StackPanel>
+
+        </Grid>
+
+    </Grid>
+</dialogs:HamburgerWizard>

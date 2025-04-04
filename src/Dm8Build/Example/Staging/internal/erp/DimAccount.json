@@ -1,0 +1,154 @@
+{
+  "type": "stage",
+  "entity": {
+    "dataProduct": "internal",
+    "dataModule": "erp",
+    "name": "DimAccount",
+    "displayName": "DimAccount",
+    "tags": ["test","test2"],
+    "attribute": [
+    {
+            "name": "AccountKey",
+            "type": "int",
+                  
+                              
+            
+            "precision": 10,
+            
+            
+            "scale": 0,
+            
+            "nullable": false,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "ParentAccountKey",
+            "type": "int",
+                  
+                              
+            
+            "precision": 10,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "AccountCodeAlternateKey",
+            "type": "int",
+                  
+                              
+            
+            "precision": 10,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "ParentAccountCodeAlternateKey",
+            "type": "int",
+                  
+                              
+            
+            "precision": 10,
+            
+            
+            "scale": 0,
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "AccountDescription",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "AccountType",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "Operator",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "CustomMembers",
+            "type": "string",
+            
+            "charLength": 300,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "ValueType",
+            "type": "string",
+            
+            "charLength": 50,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        },{
+            "name": "CustomMemberOptions",
+            "type": "string",
+            
+            "charLength": 200,
+                  
+                              
+            
+            
+            "nullable": true,
+            
+            
+            "tags": ["test","test2"]
+        }]
+  },
+  "function": {
+    "dataSource": "localDwh",
+    "sourceLocation": "[dbo].[DimAccount]"
+  }
+}

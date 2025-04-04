@@ -1,0 +1,106 @@
+{
+  "type": "dataType",
+  "items": [
+    {
+      "name": "string",
+      "displayName": "Unicode String (UTF-8)",
+      "purpose": "#",
+      "hasCharLen": true,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "short",
+      "displayName": "Integer (16 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "int",
+      "displayName": "Integer (32 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "long",
+      "displayName": "Integer (64 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "byte",
+      "displayName": "Integer (8 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "double",
+      "displayName": "Floating point with double precision",
+      "purpose": "Test 2",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "bit",
+      "displayName": "Bit (1 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "date",
+      "displayName": "Date storage yyyy-mm-dd",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "datetime",
+      "displayName": "Date time storage yyyy-mm-dd HH:mm:ss",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "binary",
+      "displayName": "Binary storage",
+      "hasCharLen": true,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    },
+    {
+      "name": "uniqueidentifier",
+      "displayName": "Unique Identifier",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "#",
+      "sqlType": "#"
+    }
+  ]
+}

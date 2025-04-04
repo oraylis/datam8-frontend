@@ -1,0 +1,146 @@
+﻿<UserControl x:Class="Dm8Main.Views.GeneratorFileView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:local="clr-namespace:Dm8Main.Views"
+             xmlns:model="clr-namespace:Dm8Main.Models"
+             xmlns:pt="http://propertytools.org/wpf"
+             xmlns:adorners="http://gu.se/Adorners"             
+             xmlns:prism="http://prismlibrary.com"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:a="clr-namespace:Dm8Main.Avalon"            
+             xmlns:b="clr-namespace:Dm8Main.Base"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        
+        <Grid.Resources>
+            <BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+            <b:NullToVisibilityConverter x:Key="nullToVisibilityConverter" />
+            <b:ListToVisibilityConverter x:Key="listToVisibilityConverter" />
+        </Grid.Resources>
+
+        <StackPanel Orientation="Horizontal" Margin="2">
+
+            <Button 
+                    Margin="4"
+                    Grid.Column="1"
+                    Width="32"
+                    Height="32"
+                    Command="{Binding GenerateCommand}"
+                    Content="{iconPacks:Codicons Kind=RunBelow, Height=20, Width=20}"
+                    Style="{DynamicResource MahApps.Styles.Button.Circle}"
+                    Visibility="Hidden">
+            </Button>
+        </StackPanel>
+
+        <a:TextEditorExt
+                                Grid.Row="1"
+                                Margin="4"
+                                Visibility="Visible"                                 
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                SyntaxHighlighting="Json"
+                                FontFamily="Courier New"                                                             
+                                BorderThickness="1"
+                                FontSize="10pt"
+                                Foreground="{DynamicResource MahApps.Brushes.Text}"
+                                x:Name="Edit">
+            <i:Interaction.Behaviors>
+                <a:AvalonEditBehaviour 
+                                    TextBinding="{Binding JsonCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=300}"  
+                                    SyntaxHighlightingBinding="{Binding SyntaxHighlighting}"/>
+            </i:Interaction.Behaviors>
+                        
+        </a:TextEditorExt>
+
+
+        <Grid Grid.Row="2" Name="PART_Buttons" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <ToggleButton 
+                                    Grid.Column="2"
+                                    Width="20"
+                                    Height="20"
+                                    Margin="20, 0, 10, 0"
+                                    Name="PART_ButtonError"
+                                    Background="Red"
+                                    Content="{iconPacks:Material Kind=AlertCircleOutline, Height=12, Width=12}"
+                                    Visibility="{Binding ErrorList, Converter={StaticResource listToVisibilityConverter}}"                                    
+                                    Style="{DynamicResource MahApps.Styles.ToggleButton.Circle}">
+            </ToggleButton>
+            
+
+            <Popup IsOpen="{Binding ElementName=PART_ButtonError,Path=IsChecked}"   
+                                    PlacementTarget="{Binding ElementName=PART_ButtonError}"
+                                    AllowsTransparency="True"  
+                                    PopupAnimation="Slide"  
+                                    HorizontalOffset="2"                                     
+                                    Width="400"                                    
+                                    VerticalOffset="2">
+
+                <Popup.Resources>
+                    <ResourceDictionary>
+                        <ResourceDictionary.MergedDictionaries>
+
+                            <!-- MahApps.Metro resource dictionaries. Make sure that all file names are Case Sensitive! -->
+                            <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
+                            <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
+
+                        </ResourceDictionary.MergedDictionaries>
+                    </ResourceDictionary>
+                </Popup.Resources>
+
+
+                <ListView ItemsSource="{Binding ErrorList}" Name="PART_ErrorList" Padding="4">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel >
+                                    <TextBlock Text="Source" />
+                                    <TextBlock Text="{Binding Source}" />
+                                </StackPanel >
+                                <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                                    <TextBlock Text="Message: " />
+                                    <TextBlock Text="{Binding Message}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+
+            </Popup>
+
+            <TextBlock Grid.Column="3" Text="{Binding ErrorList[0].Message}" VerticalAlignment="Center" MaxHeight="24"  Foreground="Red"/>
+
+            <TextBlock Grid.Column="4" Text="Ln: " VerticalAlignment="Center" FontSize="9" />
+            <TextBlock Grid.Column="5" Text="{Binding ElementName=PART_Edit, Path=LinePos}" VerticalAlignment="Center" FontSize="9"  />
+
+            <TextBlock Grid.Column="6" Text="Ch: " VerticalAlignment="Center" Margin="4,0,0,0"  FontSize="9"   />
+            <TextBlock Grid.Column="7" Text="{Binding ElementName=PART_Edit, Path=ColumnPos}" VerticalAlignment="Center" MaxHeight="24" Margin="0,0,12,0" FontSize="9"   />
+        </Grid>
+            
+    </Grid>
+</UserControl>

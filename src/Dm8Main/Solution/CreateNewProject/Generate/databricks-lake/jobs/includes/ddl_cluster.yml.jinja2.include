@@ -1,0 +1,28 @@
+{%- filter indent(width=8) -%}
+- job_cluster_key: {{ cluster_key }}
+  new_cluster:
+    cluster_name: ''
+    spark_version: {{ SystemProperties().dbr_runtime_version }}
+    spark_conf:
+      spark.master: 'local[*, 4]'
+      spark.databricks.cluster.profile: singleNode
+      datam8.datalake.container.name: {{ SystemProperties().datalake_container_name }}
+      datam8.datalake.name: {{ SystemProperties().datalake_name }}
+      datam8.timezone.default: UTC
+      datam8.zone.raw.name: raw
+      datam8.zone.stage.name: stage
+      datam8.zone.core.name: core
+      fs.azure.account.key.{{ SystemProperties().datalake_name }}.dfs.core.windows.net: "{%- raw -%}{{{%- endraw -%}secrets/{{SystemProperties().secret_scope_name}}/fs-azure-account-key-{{SystemProperties().datalake_name}}-dfs-core-windows-net{%- raw -%}}}{%- endraw -%}"
+    azure_attributes:
+      first_on_demand: 1
+      availability: SPOT_WITH_FALLBACK_AZURE
+      spot_bid_max_price: 100
+    node_type_id: Standard_DS3_v2
+    driver_node_type_id: Standard_DS3_v2
+    custom_tags:
+      ResourceClass: SingleNode
+    enable_elastic_disk: true
+    data_security_mode: LEGACY_SINGLE_USER_STANDARD
+    runtime_engine: STANDARD
+    num_workers: 0
+{%- endfilter %}

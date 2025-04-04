@@ -1,0 +1,74 @@
+# Macro Import ----------
+{% import 'macro/column_declaration.jinja2' as column_declaration %}
+
+{%- for entity in model.get_core_entity_list() %}
+{%- set table = entity.model_object.entity %}
+{%- set full_table_name = table.dataProduct + "_" + table.dataModule + "_" + table.name %}
+{%- set file_path = helper.build_path("notebooks", SystemProperties().core_folder, "ddl", table.dataProduct, table.dataModule, table.name) %}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # DDL for {{entity.model_object.type.value}}.{{full_table_name}}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get variable values
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+data_lake_name = spark.conf.get("datam8.datalake.name", "aut0adl0dev")
+container_name = spark.conf.get("datam8.datalake.container.name", "data")
+zone = spark.conf.get("datam8.zone.{{entity.model_object.type.value}}.name", "{{entity.model_object.type.value}}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create database '{{entity.model_object.type.value}}' if not exists
+
+# COMMAND ----------
+
+# DBTITLE 1,Create db '{{entity.model_object.type.value}}'
+spark.sql(
+f"""
+CREATE DATABASE IF NOT EXISTS `{zone}`
+LOCATION 'abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}'
+"""
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create table '{{full_table_name}}' if not exists
+
+# COMMAND ----------
+
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS `{zone}`.`{{full_table_name}}`
+(
+    -- Table columns
+    {%- for column in table.attribute %}
+    {{ column_declaration.core_ddl_column_declaration(model=model, column=column) }}
+    {%- endfor %}
+    -- Technical columns
+    __SourceTable_BK STRING NOT NULL, -- Business key
+    {%- set scd2_ns = namespace(first=true) -%}
+    {% for column in table.attribute %}
+        {%- if "SCD2" is in column.tags and scd2_ns.first %}
+            {%- set scd2_ns.first = false %}
+    __ValidFrom TIMESTAMP NOT NULL COMMENT 'SCD2 start date',
+    __ValidTo TIMESTAMP NOT NULL COMMENT 'SCD2 end date',
+        {%- endif -%}
+    {%- endfor %}
+    __InsertTimestampUTC TIMESTAMP NOT NULL,
+    __UpdateTimestampUTC TIMESTAMP NOT NULL,
+    __InsertTimestampStageUTC TIMESTAMP NOT NULL,
+    __Load_UUID STRING NOT NULL,
+    __Extraction_UUID STRING NOT NULL
+)
+USING delta
+LOCATION 'abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{zone}/{{table.dataProduct}}/{{table.dataModule}}/{{table.name}}'
+""")
+<<<<<<<<<< {{ file_path }}.py | py
+{%- endfor -%}

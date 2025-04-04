@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "name": "Sales",
+      "displayName": "Example Data Product for Sales",
+      "module": [
+        {
+          "name": "main",
+          "displayName": "Default Content"
+        },
+        {
+          "name": "ext",
+          "displayName": "Extended Content"
+        }
+      ]
+    },
+    {
+      "name": "ProductManagement",
+      "displayName": "Example Data Product for Product Management",
+      "module": [
+        {
+          "name": "main",
+          "displayName": "Default Content"
+        },
+        {
+          "name": "ext",
+          "displayName": "Extended Content"
+        }
+      ]
+    },
+    {
+      "name": "HR",
+      "displayName": "Example Data Product for Human Resources",
+      "module": [
+        {
+          "name": "main",
+          "displayName": "Default Content"
+        },
+        {
+          "name": "ext",
+          "displayName": "Extended Content"
+        }
+      ]
+    }
+  ]
+}

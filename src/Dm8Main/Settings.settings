@@ -1,0 +1,24 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Dm8Main" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="Theme" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Light.Oragne</Value>
+    </Setting>
+    <Setting Name="GitPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Program Files\Git\bin</Value>
+    </Setting>
+    <Setting Name="MsBuildPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\msbuild.exe</Value>
+    </Setting>
+    <Setting Name="PythonPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Python310</Value>
+    </Setting>
+    <Setting Name="GeneratorParameterSTAGE_V2" Type="System.String" Scope="User">
+      <Value Profile="(Default)">-a refresh_generate -s "${SolutionFilePath}" -src "${GeneratePath}\__models\stage.jinja2" -dest "${StagingPath}" -m "${GeneratePath}\databricks-lake\__modules" -c "${GeneratePath}\databricks-lake\__collections"</Value>
+    </Setting>
+    <Setting Name="GeneratorParameterOUTPUT_V2" Type="System.String" Scope="User">
+      <Value Profile="(Default)">-a refresh_generate -s "${SolutionFilePath}" -src "${GeneratePath}\databricks-lake" -dest "${OutputFolderPath}" -m "${GeneratePath}\databricks-lake\__modules" -c "${GeneratePath}\databricks-lake\__collections"</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

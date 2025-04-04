@@ -1,0 +1,103 @@
+{
+  "type": "raw",
+  "entity": {
+    "dataProduct": "internal",
+    "dataModule": "erp",
+    "name": "DimAccount",
+    "displayName": "DimAccount",
+    "tags": ["test", "test2"],
+    "attribute": [
+      {
+        "name": "AccountKey",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "tags": [
+          "One Tag",
+          "Another"
+        ],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "ParentAccountKey",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "AccountCodeAlternateKey",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "ParentAccountCodeAlternateKey",
+        "type": "int",
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "AccountDescription",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "AccountType",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "Operator",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "CustomMembers",
+        "type": "nvarchar",
+        "charLength": 300,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "ValueType",
+        "type": "nvarchar",
+        "charLength": 50,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      },
+      {
+        "name": "CustomMemberOptions",
+        "type": "nvarchar",
+        "charLength": 200,
+        "nullable": true,
+        "tags": [],
+        "dateModified": "2023-01-14 15:18:08"
+      }
+    ]
+  },
+  "function": {
+    "dataSource": "localDwh",
+    "sourceLocation": "[dbo].[DimAccount]"
+  }
+}

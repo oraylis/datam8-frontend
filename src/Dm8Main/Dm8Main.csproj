@@ -1,0 +1,286 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <ApplicationIcon>Resources\oraylis.ico</ApplicationIcon>
+    <Nullable>annotations</Nullable>
+    <DebugType>full</DebugType>
+    <PackageIcon>oraylis.png</PackageIcon>
+    <BaseOutputPath>bin</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj</BaseIntermediateOutputPath>
+    <Configurations>Debug;Release;Debug_Main</Configurations>
+    <XamlDebuggingInformation>True</XamlDebuggingInformation>
+	<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <WarningsAsErrors>;NU1605</WarningsAsErrors>
+    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Main|AnyCPU'">
+    <WarningsAsErrors>;NU1605</WarningsAsErrors>
+    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Resources\icons8\**" />
+    <EmbeddedResource Remove="Resources\icons8\**" />
+    <None Remove="Resources\icons8\**" />
+    <Page Remove="Resources\icons8\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\Jinja2Dark.xshd" />
+    <None Remove="Resources\Jinja2Light.xshd" />
+    <None Remove="Resources\oraylis.ico" />
+    <None Remove="Resources\PythonDark.xshd" />
+    <None Remove="Resources\PythonLight.xshd" />
+    <None Remove="solution\newfile\generate.jinja2" />
+    <None Remove="solution\newfile\generate.py" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Content Include="Resources\oraylis.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\oraylis.ico" />
+    <EmbeddedResource Include="Resources\Jinja2Dark.xshd" />
+    <EmbeddedResource Include="Resources\Jinja2Light.xshd" />
+    <EmbeddedResource Include="Resources\PythonLight.xshd" />
+    <EmbeddedResource Include="Resources\PythonDark.xshd" />
+    <EmbeddedResource Include="Resources\TSQLLight.xshd" />
+    <EmbeddedResource Include="Resources\XMLLight.xshd" />
+    <EmbeddedResource Include="Resources\XMLDark.xshd" />
+    <EmbeddedResource Include="Resources\TextTemplatingLight.xshd" />
+    <EmbeddedResource Include="Resources\TextTemplatingDark.xshd" />
+    <EmbeddedResource Include="Resources\TSQLDark.xshd" />
+    <EmbeddedResource Include="Resources\JsonDark.xshd" />
+    <EmbeddedResource Include="Resources\JsonLight.xshd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AvalonEdit" Version="6.3.0.90" />
+    <PackageReference Include="Azure.Identity" Version="1.13.2" />
+    <PackageReference Include="Azure.Storage.Files.DataLake" Version="12.21.0" />
+    <PackageReference Include="DataGridExtensions" Version="2.6.0" />
+    <PackageReference Include="Dirkster.AvalonDock" Version="4.72.1" />
+    <PackageReference Include="Dirkster.AvalonDock.Themes.Aero" Version="4.72.1" />
+    <PackageReference Include="Dirkster.AvalonDock.Themes.Expression" Version="4.72.1" />
+    <PackageReference Include="Dirkster.AvalonDock.Themes.Metro" Version="4.72.1" />
+    <PackageReference Include="Dirkster.AvalonDock.Themes.VS2013" Version="4.72.1" />
+    <PackageReference Include="Dirkster.WatermarkControlsLib" Version="1.1.0" />
+    <PackageReference Include="Fluent.Ribbon" Version="9.0.4" />
+    <PackageReference Include="Gu.Wpf.Adorners" Version="2.1.1" />
+    <PackageReference Include="MahApps.Metro" Version="2.4.10" />
+    <PackageReference Include="MahApps.Metro.IconPacks" Version="4.11.0" />
+    <PackageReference Include="MahApps.Metro.IconPacks.Modern" Version="4.11.0" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+    <PackageReference Include="MvvmDialogs" Version="9.1.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
+    <PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
+    <PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
+    <PackageReference Include="Parquet.Net" Version="5.0.2" />
+    <PackageReference Include="Prism.Core" Version="9.0.537" />
+    <PackageReference Include="Prism.Unity" Version="9.0.537" />
+    <PackageReference Include="Prism.Wpf" Version="9.0.537" />
+    <PackageReference Include="PropertyTools.Wpf" Version="3.1.0" />
+    <PackageReference Include="SharpVectors" Version="1.8.4.2" />
+    <PackageReference Include="SharpVectors.Wpf" Version="1.8.4.2" />
+    <PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
+    <PackageReference Include="System.Composition.AttributedModel" Version="9.0.1" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\Dialog\DlgCuratedEntityEdit.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Dialog\DlgCoreEntityEditRelationship.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Update="Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Dialog\DlgCoreAttributeAssign.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Dialog\DlgCoreAttributeEdit.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Dialog\DlgRefreshSource.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Dialog\DlgCoreEntityAdd.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Dialog\DlgRawModelEntryAdd.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\CodeFileView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\GeneratorFileView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\OutputView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\GitView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Solution\**">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Generator\**">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Plugins\**">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Update="Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Views\CodeFileView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\CuratedFunctionView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+    </Page>
+    <Page Update="Views\CuratedModelEntryView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+    </Page>
+    <Page Update="Views\DataProductsView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Dialog\DlgCoreAttributeAssign.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Dialog\DlgCoreAttributeEdit.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Dialog\DlgCuratedEntityEdit.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+    </Page>
+    <Page Update="Views\Dialog\DlgCoreEntityEditRelationship.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Dialog\DlgRefreshSource.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Dialog\DlgCoreEntityAdd.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\StageModelEntryView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\GeneratorFileView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\CoreModelEntryView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\RawModelEntryView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\DataTypesView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+    </Page>
+    <Page Update="Views\Dialog\DlgRawModelEntryAdd.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\DataSourcesView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+    </Page>
+    <Page Update="Views\OutputView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\GitView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dm8Data\Dm8Data.csproj" />
+    <ProjectReference Include="..\Dm8Plugins\Dm8CsvConnector\Dm8CSVConnector.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Solution\NewFile\" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="PowerShell -Command &quot;&amp; { Get-ChildItem '$(ProjectDir)..\Dm8Plugins\*\bin\Debug\net8*\' -Directory | ForEach-Object { $sourceDir = $_.FullName; if ($_ -notlike '*\Dm8ConnectorTest\*') { Get-ChildItem -Path $sourceDir -Filter '*.dll' -Recurse | ForEach-Object { $destination = '$(ProjectDir)$(OutDir)Plugins'; $destinationFile = Join-Path $destination $_.Name; Copy-Item -Path $_.FullName -Destination $destinationFile -Force; Write-Host ('Copied {0} to {1}' -f $_.FullName, $destinationFile) } } } }&quot;" />
+  </Target>
+
+</Project>

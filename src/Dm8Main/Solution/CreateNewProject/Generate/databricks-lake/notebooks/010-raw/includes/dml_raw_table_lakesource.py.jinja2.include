@@ -1,0 +1,75 @@
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Read data from Datalake Source
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get & assign variable values
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+
+source_connectionstring = spark.conf.get("datam8.datasource.{{entityDataSource}}.connectionstring")
+source_connection_details = dict(map(str.strip, part.split("=", 1)) for part in source_connectionstring.split(";"))
+source_storage_account_name = source_connection_details["StorageAccountName"]
+source_storage_account_container_name = source_connection_details["StoragePath"]
+source_storage_account_authentication_method = source_connection_details["AuthenticationMethod"]
+
+if(source_storage_account_authentication_method == "AccountKey"):
+    source_storage_account_access_key = source_connection_details["AccessKey"].replace("\\\"", "")
+    spark.conf.set(f"fs.azure.account.key.{source_storage_account_name}.dfs.core.windows.net", source_storage_account_access_key)
+else:
+    dbutils.notebook.exit(f"AuthenticationMethod '{storage_account_authentication_method}' is not supported for storage account {source_storage_account_name}")
+
+SOURCE_PARQUET_FILE_LOCATION = f"abfss://{source_storage_account_container_name}@{source_storage_account_name}.dfs.core.windows.net/{{entitySourceLocation}}"
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Fixate UTC time
+
+# COMMAND ----------
+
+spark.conf.set("spark.sql.session.timeZone", spark.conf.get("datam8.timezone.default", "UTC"))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Define query
+
+# COMMAND ----------
+
+# DBTITLE 1,Define query with technical columns
+query = f"""
+SELECT
+    *,
+    -- Add technical columns
+    CAST(YEAR(CURRENT_TIMESTAMP()) AS SMALLINT) AS __Year,
+    CAST(MONTH(CURRENT_TIMESTAMP()) AS TINYINT) AS __Month,
+    CAST(DAY(CURRENT_TIMESTAMP()) AS TINYINT) AS __Day,
+    CURRENT_TIMESTAMP() AS __InsertTimestampUTC,
+    CAST('{load_uuid}' AS STRING) AS __Load_UUID,
+    CAST('{extraction_uuid}' AS STRING) AS __Extraction_UUID
+FROM parquet.`{SOURCE_PARQUET_FILE_LOCATION}`
+{%- if ns.delta_column %}
+{query_filter}
+{%- endif %}
+"""
+print(
+    f"""Query:
+
+{query}"""
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create dataframe
+
+# COMMAND ----------
+
+# DBTITLE 1,Define dataframe
+table_df = spark.sql(query)

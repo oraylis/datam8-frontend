@@ -1,0 +1,12 @@
+[
+  {
+    "dataType": {
+      "name": "string",
+      "displayName": "Unicode String",
+      "hasCharLen": true,
+      "hasPrecision": false,
+      "hasScale": false,
+      "sql_type": "nvarchar"
+    }
+  }
+]

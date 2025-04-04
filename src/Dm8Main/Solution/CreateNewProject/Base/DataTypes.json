@@ -1,0 +1,142 @@
+{
+  "type": "dataType",
+  "items": [
+    {
+      "name": "string",
+      "displayName": "Unicode String (UTF-8) with char lenght",
+      "purpose": "#",
+      "hasCharLen": true,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "string",
+      "sqlType": "nvarchar"
+    },
+    {
+      "name": "short",
+      "displayName": "Integer (16 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "smallint",
+      "sqlType": "smallint"
+    },
+    {
+      "name": "int",
+      "displayName": "Integer (32 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "int",
+      "sqlType": "int"
+    },
+    {
+      "name": "long",
+      "displayName": "Integer (64 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "bigint",
+      "sqlType": "bigint"
+    },
+    {
+      "name": "byte",
+      "displayName": "Integer (8 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "tinyint",
+      "sqlType": "tinyint"
+    },
+    {
+      "name": "double",
+      "displayName": "Floating point with double precision",
+      "purpose": "Test 2",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "double",
+      "sqlType": "double"
+    },
+    {
+      "name": "bit",
+      "displayName": "Bit (1 bit)",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "boolean",
+      "sqlType": "bit"
+    },
+    {
+      "name": "date",
+      "displayName": "Date storage yyyy-mm-dd",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "date",
+      "sqlType": "date"
+    },
+    {
+      "name": "datetime",
+      "displayName": "Date time storage yyyy-mm-dd HH:mm:ss",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "timestamp",
+      "sqlType": "datetime"
+    },
+    {
+      "name": "binary",
+      "displayName": "Binary storage",
+      "hasCharLen": true,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "binary",
+      "sqlType": "varbinary"
+    },
+    {
+      "name": "uniqueidentifier",
+      "displayName": "Unique Identifier",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "string",
+      "sqlType": "uniqueidentifier"
+    },
+    {
+      "name": "decimal",
+      "displayName": "Decimal",
+      "hasCharLen": false,
+      "hasPrecision": true,
+      "hasScale": true,
+      "parquetType": "decimal",
+      "sqlType": "decimal"
+    },
+    {
+      "name": "money",
+      "displayName": "Money",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "decimal(19,4)",
+      "sqlType": "decimal(19,4)"
+    },
+    {
+      "name": "dynstring",
+      "displayName": "string without character lenght",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "string",
+      "sqlType": "nvarchar"
+    },
+    {
+      "name": "dyndecimal",
+      "displayName": "decimal with precision and scale",
+      "hasCharLen": false,
+      "hasPrecision": false,
+      "hasScale": false,
+      "parquetType": "Decimal",
+      "sqlType": "decimal(19,3)"
+    }
+  ]
+}

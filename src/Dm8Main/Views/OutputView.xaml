@@ -1,0 +1,73 @@
+﻿    <UserControl x:Class="Dm8Main.Views.OutputView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:behaviors="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
+             xmlns:viewModels="clr-namespace:Dm8Main.ViewModels"
+             xmlns:local="clr-namespace:Dm8Main.Views"
+             xmlns:model="clr-namespace:Dm8Main.Models"
+             xmlns:pt="http://propertytools.org/wpf"
+             xmlns:adorners="http://gu.se/Adorners"             
+             xmlns:prism="http://prismlibrary.com"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance viewModels:OutputViewModel}"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        
+        <Grid.Resources>
+                        
+        </Grid.Resources>
+
+        <StackPanel Orientation="Horizontal" Margin="2">
+            <TextBlock VerticalAlignment="Center">Show output:</TextBlock>
+            <ComboBox ItemsSource="{Binding  SolutionService.OutputTypes}" 
+                      SelectedItem="{Binding SelectedOutputType, Mode=TwoWay}" 
+                      BorderThickness="0"
+                      Width="180" 
+                      Margin="8,2" />
+        </StackPanel>
+
+        <TextBox Grid.Row="1" IsReadOnly="True" 
+                 Text="{Binding OutputText}" 
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 TextChanged="TextBox_TextChanged" 
+                 Background="{StaticResource MahApps.Brushes.SystemControlPageBackgroundAltMedium}"
+                 BorderThickness="0"
+                 Name="OutputTextBox" 
+                 Visibility="{Binding OutputTextVisible}" />
+
+        <DataGrid Grid.Row="1" IsReadOnly="True" 
+                  ItemsSource="{Binding SolutionService.OutputItems}" 
+                  Visibility="{Binding OutputItemVisible}" 
+                  dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
+                  dgext:DataGridFilter.IsAutoFilterEnabled="True"
+                  AutoGenerateColumns="False">
+
+            <DataGrid.ColumnHeaderStyle>
+                <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+            </DataGrid.ColumnHeaderStyle>
+
+            <behaviors:Interaction.Behaviors>
+                <!--dgext:ExtendedStarSizeBehavior-->
+                <dgext:BeginEditOnCtrlEnterBehavior />
+            </behaviors:Interaction.Behaviors>
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Code" Binding="{Binding Code}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Layer" Binding="{Binding Layer}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Location" Binding="{Binding Location}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Source" Binding="{Binding Source}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Line" Binding="{Binding Line}" IsReadOnly="True" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

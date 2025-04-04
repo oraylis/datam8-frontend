@@ -1,0 +1,14 @@
+{
+  "type": "dataModule",
+  "items": [
+    {
+      "name": "dwh",
+      "displayName": "Import from DWH",
+      "purpose": ""
+    },
+    {
+      "name": "test",
+      "displayName": "test"
+    }
+  ]
+}

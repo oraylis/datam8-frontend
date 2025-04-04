@@ -1,0 +1,53 @@
+{
+  "items": [
+    {
+      "name": "internal",
+      "displayName": "Data Product for internal data ingestion",
+      "module": [
+        {
+          "name": "erp",
+          "displayName": "SAP ERP data"
+        },
+        {
+          "name": "crm",
+          "displayName": "Customer Relationship data"
+        }
+      ]
+    },
+    {
+      "name": "social",
+      "displayName": "Data Product for ingestion of social media data",
+      "module": [
+        {
+          "name": "facebook"
+        },
+        {
+          "name": "linkedin"
+        },
+        {
+          "name": "instagram"
+        }
+      ]
+    },
+    {
+      "name": "logs",
+      "displayName": "Data Product for ingestion of log files",
+      "module": [
+        {
+          "name": "dbrs",
+          "displayName": "Log files from databricks"
+        }
+      ]
+    },
+    {
+      "name": "sellout",
+      "displayName": "Data Product for ingestion of sellout data",
+      "module": [
+        {
+          "name": "def",
+          "displayName": "Default module"
+        }
+      ]
+    }
+  ]
+}

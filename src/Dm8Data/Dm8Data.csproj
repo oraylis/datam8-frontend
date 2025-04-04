@@ -1,0 +1,247 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<!-- This is what will cause the templates to be transformed when the project is built (default is false) -->
+		<TransformOnBuild>true</TransformOnBuild>
+		<!-- Set to true to force overwriting of read-only output files, e.g. if they're not checked out (default is false) -->
+		<OverwriteReadOnlyOutputFiles>true</OverwriteReadOnlyOutputFiles>
+		<!-- Set to false to transform files even if the output appears to be up-to-date (default is true)  -->
+		<TransformOutOfDateOnly>false</TransformOutOfDateOnly>
+		<BaseOutputPath>bin</BaseOutputPath>
+		<BaseIntermediateOutputPath>obj</BaseIntermediateOutputPath>
+		<Configurations>Debug;Release;Debug_Main;Debug_Linux</Configurations>
+
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<Optimize>False</Optimize>
+		<NoWarn>NU1701;NU1702;NU0063</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Main|AnyCPU'">
+		<Optimize>False</Optimize>
+		<NoWarn>NU1701;NU1702;NU0063</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<Optimize>True</Optimize>
+		<NoWarn>NU1701;NU1702;NU0063</NoWarn>
+	</PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Linux|AnyCPU'">
+    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Linux|linux-x64'">
+    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <None Remove="Json\CuratedModelEntry.json" />
+    <None Remove="Json\DataModule.json" />
+    <None Remove="Json\DataModules.json" />
+    <None Remove="Json\DataProducts.json" />
+    <None Remove="Json\DataSources.json" />
+    <None Remove="Json\DataTypes.json" />
+    <None Remove="Json\Index.json" />
+    <None Remove="Json\DiagramDiagram.json" />
+    <None Remove="Json\ModelEntry.json" />
+    <None Remove="Json\RawModelEntry.json" />
+    <None Remove="Json\Solution.json" />
+    <None Remove="Json\StageModelEntry.json" />
+	</ItemGroup>
+
+
+  <ItemGroup>
+    <Content Include="..\..\datam8-model\schema\AttributeTypes.json" Link="Json\AttributeTypes.json" />
+    <Content Include="..\..\datam8-model\schema\CoreModelEntry.json" Link="Json\CoreModelEntry.json" />
+    <Content Include="..\..\datam8-model\schema\CuratedModelEntry.json" Link="Json\CuratedModelEntry.json" />
+    <Content Include="..\..\datam8-model\schema\DataModules.json" Link="Json\DataModules.json" />
+    <Content Include="..\..\datam8-model\schema\DataProducts.json" Link="Json\DataProducts.json" />
+    <Content Include="..\..\datam8-model\schema\DataSources.json" Link="Json\DataSources.json" />
+    <Content Include="..\..\datam8-model\schema\DataTypes.json" Link="Json\DataTypes.json" />
+    <Content Include="..\..\datam8-model\schema\DiagramDiagram.json" Link="Json\DiagramDiagram.json" />
+    <Content Include="..\..\datam8-model\schema\Index.json" Link="Json\Index.json" />
+    <Content Include="..\..\datam8-model\schema\RawModelEntry.json" Link="Json\RawModelEntry.json" />
+    <Content Include="..\..\datam8-model\schema\Solution.json" Link="Json\Solution.json" />
+    <Content Include="..\..\datam8-model\schema\StageModelEntry.json" Link="Json\StageModelEntry.json" />
+  </ItemGroup>
+
+
+	<ItemGroup>
+		<PackageReference Include="Azure.Identity" Version="1.13.2" />
+		<PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
+		<PackageReference Include="Azure.Storage.Files.DataLake" Version="12.21.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
+		<PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
+		<PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
+		<PackageReference Include="Prism.Core" Version="9.0.537" />
+		<PackageReference Include="RestSharp" Version="112.1.0" />
+		<PackageReference Include="System.Collections" Version="4.3.0" />
+		<PackageReference Include="System.Drawing.Common" Version="9.0.1" />
+		<PackageReference Include="System.Net.Http" Version="4.3.4" />
+		<PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Dm8Build\Dm8Build.csproj" />
+		<ProjectReference Include="..\Dm8Locator\Dm8Locator.csproj" />
+		<ProjectReference Include="..\Dm8Plugins\Dm8PluginBase\Dm8PluginBase.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Model\Diagram.cs">
+			<DependentUpon>Diagram.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</None>
+		<None Include="Model\StageEntity.cs">
+			<DependentUpon>StageEntity.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</None>
+		<None Include="Model\DataTypes.cs">
+			<DependentUpon>DataTypes.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</None>
+		<None Include="Model\AttributeTypes.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>AttributeTypes.tt</DependentUpon>
+		</None>
+		<None Update="Model\Diagram.tt">
+			<LastGenOutput>Diagram.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\CuratedEntity.tt">
+			<LastGenOutput>CuratedEntity.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\DataProducts.tt">
+			<LastGenOutput>DataProducts.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\Index.tt">
+			<LastGenOutput>Index.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\StageEntity.tt">
+			<LastGenOutput>StageEntity.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\DataTypes.tt">
+			<LastGenOutput>DataTypes.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\DataSources.tt">
+			<LastGenOutput>DataSources.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Solution.tt">
+			<LastGenOutput>Solution.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\CoreEntity.tt">
+			<LastGenOutput>CoreEntity.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\RawEntity.tt">
+			<LastGenOutput>RawEntity.cs</LastGenOutput>
+			<Generator>TextTemplatingFileGenerator</Generator>
+		</None>
+		<None Update="Model\AttributeTypes.tt">
+			<Generator>TextTemplatingFileGenerator</Generator>
+			<LastGenOutput>AttributeTypes.cs</LastGenOutput>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Update="Model\AttributeTypes.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>AttributeTypes.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Model\CuratedEntity.cs">
+			<DependentUpon>CuratedEntity.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</Compile>
+		<Compile Update="Model\CoreEntity.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>CoreEntity.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Model\DataProducts.cs">
+			<DependentUpon>DataProducts.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</Compile>
+		<Compile Update="Model\DataSources.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>DataSources.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Model\DataTypes.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>DataTypes.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Model\Diagram.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Diagram.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Model\Index.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Index.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Model\StageEntity.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>StageEntity.tt</DependentUpon>
+		</Compile>
+		<Compile Update="Properties\Resources.Designer.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Resources.resx</DependentUpon>
+		</Compile>
+		<Compile Update="Solution.cs">
+			<DependentUpon>Solution.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</Compile>
+		<Compile Update="Model\CoreEntity.cs">
+			<DependentUpon>CoreEntity.tt</DependentUpon>
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+		</Compile>
+		<Compile Update="Model\RawEntity.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>RawEntity.tt</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Update="Properties\Resources.resx">
+			<Generator>PublicResXFileCodeGenerator</Generator>
+			<LastGenOutput>Resources.Designer.cs</LastGenOutput>
+		</EmbeddedResource>
+	</ItemGroup>
+
+	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+		<Exec Command="PowerShell -Command &quot;&amp; { Set-Location '$(SolutionDir)'; if ('$(ConfigurationName)' -eq 'Debug_Main') { exit }; $ttFiles = Get-ChildItem -Path '.\Dm8Data\' -Filter *.tt -Recurse; foreach ($ttFile in $ttFiles) { $ttFilePath = $ttFile.FullName; Write-Host ('Running TextTransform for {0}' -f $ttFile.Name); &amp; '$(DevEnvDir)TextTransform' $ttFilePath } }&quot;" />
+	</Target>
+	<!-- Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TextTemplating\Microsoft.TextTemplating.targets" /-->
+
+</Project>

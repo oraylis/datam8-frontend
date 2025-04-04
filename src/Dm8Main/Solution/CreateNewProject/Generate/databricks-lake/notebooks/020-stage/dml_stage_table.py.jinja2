@@ -1,0 +1,235 @@
+# Macro Import ----------
+{% import 'macro/column_declaration.jinja2' as column_declaration %}
+
+# Set Gobal Variable for macro input ----------
+{%- set input_model = model %}
+{%- set stage_entity_list = model.get_stage_entity_list() %}
+{%- set raw_entity_list = model.get_raw_entity_list() %}
+
+{%- for entity in stage_entity_list %}
+    {%- set table = entity.model_object.entity %}
+    {%- set raw_table = custom_functions.get_table_from_list(table, raw_entity_list) %}
+    {%- set file_path = helper.build_path("notebooks", SystemProperties().stage_folder, "dml", table.dataProduct, table.dataModule, table.name) %}
+    {%- set attribute_mappings = helper.attribute_mapping_to_dict(entity.model_object.function.attributeMapping) %}
+>>>>>>>>>> {{ file_path }}.py | py
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # DML for {{entity.model_object.type.value}}.{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Initialize base settings
+
+# COMMAND ----------
+
+# DBTITLE 1,Initialize Logging Framework
+%run ../../../../000-utils/LoggingFramework
+
+# COMMAND ----------
+
+# DBTITLE 1,Get variable values
+data_lake_name = spark.conf.get("datam8.datalake.name")
+container_name = spark.conf.get("datam8.datalake.container.name")
+raw_zone = spark.conf.get("datam8.zone.raw.name", "raw")
+stage_zone = spark.conf.get("datam8.zone.{{entity.model_object.type.value}}.name", "{{entity.model_object.type.value}}")
+
+TARGET_TABLE_NAME = "{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}"
+
+# COMMAND ----------
+
+# DBTITLE 1,Get parameter values
+logging_config: dict = LoggingFramework.get_value_dict()
+logging_values: tuple = tuple(logging_config.values()) + ("{{ table.name }}", )
+
+load_uuid = logging_config["load_uuid"]
+extraction_logging_table_name = f"{raw_zone.upper()}_{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}"
+
+print(f"Current load uuid: {load_uuid}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update load status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update load status
+LoggingFramework.update_load(*logging_values, f"Started {stage_zone.upper()} processing")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Read from RAW
+# MAGIC ## Source Table tags
+{%- for tag in raw_table.tags %}
+    # MAGIC - {{ tag }}
+{%- endfor %}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get latest data from '{{entity.model_object.type.value}}'
+
+# COMMAND ----------
+
+last_partition_df = spark.sql(
+    f"""
+    select nvl(max(__InsertTimestampUTC), to_timestamp('1970-01-01', 'yyyy-MM-dd')) as LastPartition
+    from {stage_zone}.{TARGET_TABLE_NAME}
+"""
+)
+last_partition = last_partition_df.first()[0]
+print(f"Last partition in '{stage_zone}': {last_partition}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Get delta from RAW
+
+# COMMAND ----------
+
+raw_df = spark.read.format("delta").load(f"abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{raw_zone}/{{table.dataProduct}}/{{table.dataModule}}/{{table.name}}").filter(f"__InsertTimestampUTC > '{last_partition}'")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Write to STAGE
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Enforce data types
+# MAGIC * Enforce data types
+# MAGIC * Identify records with non enforcable data types
+
+# COMMAND ----------
+
+raw_df.createOrReplaceTempView("raw_df")
+
+# COMMAND ----------
+
+typed_table_df = spark.sql(
+    f"""
+SELECT
+    -- Table columns
+{%- for column in table.attribute %}
+    {{- column_declaration.dml_column_declaration(model=input_model, column=column, source_name=attribute_mappings[column.name]) -}}
+{%- endfor %}
+    -- Technical columns
+    CAST(__YEAR AS SMALLINT) AS __Year,
+    CAST(__MONTH AS TINYINT) AS __Month,
+    CAST(__DAY AS TINYINT) AS __Day,
+    CAST(__InsertTimestampUTC AS TIMESTAMP) AS __InsertTimestampUTC,
+    CAST('{load_uuid}' AS STRING) AS __Load_UUID,
+    CAST(__Extraction_UUID AS STRING) AS __Extraction_UUID
+FROM raw_df
+"""
+)
+typed_table_df.createOrReplaceTempView("typed_table_df")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Extract poison records
+# MAGIC * Extract poison records
+# MAGIC * Write to poison table
+
+# COMMAND ----------
+
+poison_df = spark.sql(f"""
+SELECT
+    -- Table columns
+{%- for column in table.attribute %}
+    {{column.name}},
+{%- endfor %}
+    -- Technical columns
+    __Year,
+    __Month,
+    __Day,
+    __InsertTimestampUTC,
+    __Load_UUID,
+    __Extraction_UUID
+FROM typed_table_df
+WHERE
+{%- for column in table.attribute %}
+    {%- if not loop.first %}
+    OR {{column.name}}_hasCastError > 0
+    {%- else %}
+    {{column.name}}_hasCastError > 0
+    {%- endif %}
+{%- endfor %}
+""")
+
+# COMMAND ----------
+
+poison_df_count = poison_df.count()
+if poison_df_count > 0:
+    poison_extraction_uuid = LoggingFramework.start_extraction(f"{stage_zone.upper()}_{{table.dataProduct}}_{{table.dataModule}}_{{table.name}}_poison")
+    (
+        poison_df.write.partitionBy("__Year", "__Month", "__Day", "__InsertTimestampUTC")
+        .mode("append")
+        .parquet(f"abfss://{container_name}@{data_lake_name}.dfs.core.windows.net/{stage_zone}/{{table.dataProduct}}/{{table.dataModule}}/{{table.name}}_poison")
+    )
+    LoggingFramework.end_extraction(poison_extraction_uuid, poison_df_count, extraction_logging_table_name)
+    print(f"Extracted {poison_df_count} poison records in extraction {poison_extraction_uuid}")
+else:
+    print("No poison records present")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Extract valid records
+# MAGIC * Extract valid records
+# MAGIC * Write to target table
+
+# COMMAND ----------
+
+clean_df = spark.sql(f"""
+SELECT
+    -- Table columns
+{%- for column in table.attribute %}
+    {{column.name}},
+{%- endfor %}
+    -- Technical columns
+    __Year,
+    __Month,
+    __Day,
+    __InsertTimestampUTC,
+    __Load_UUID,
+    __Extraction_UUID
+FROM typed_table_df
+WHERE
+{%- for column in table.attribute %}
+    {%- if not loop.first %}
+    AND {{column.name}}_hasCastError == 0
+    {%- else %}
+    {{column.name}}_hasCastError == 0
+    {%- endif %}
+{%- endfor %}
+""")
+clean_df.createOrReplaceTempView("clean_df")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Insert into '{{entity.model_object.type.value}}'
+
+# COMMAND ----------
+
+spark.sql(f"""
+INSERT INTO `{stage_zone}`.`{{table.dataProduct}}_{{table.dataModule}}_{{ helper.cleanup_name(table.name) }}`
+TABLE clean_df
+""")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Update load status
+
+# COMMAND ----------
+
+# DBTITLE 1,Update load status
+LoggingFramework.update_load(*logging_values, f"Completed {stage_zone.upper()} processing")
+<<<<<<<<<< {{ file_path }}.py | py
+{%- endfor -%}

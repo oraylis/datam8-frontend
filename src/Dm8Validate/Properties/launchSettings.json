@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Dm8Validate": {
+      "commandName": "Project",
+      "commandLineArgs": "-f C:\\tmp\\datam8_sample\\datam8.json"
+    }
+  }
+}

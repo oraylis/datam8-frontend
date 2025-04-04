@@ -1,0 +1,445 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Layout_Default" xml:space="preserve">
+    <value>&lt;?xml version="1.0" encoding="utf-16"?&gt;&lt;LayoutRoot&gt;&lt;RootPanel Orientation="Horizontal"&gt;&lt;LayoutPanel Orientation="Vertical"&gt;&lt;LayoutPanel Orientation="Horizontal" DockHeight="1.2892441860465111*"&gt;&lt;LayoutPanel Orientation="Vertical"&gt;&lt;LayoutPanel Orientation="Horizontal"&gt;&lt;LayoutPanel Orientation="Horizontal"&gt;&lt;LayoutDocumentPaneGroup Orientation="Horizontal"&gt;&lt;LayoutDocumentPane Id="7ee2ef65-4ca0-4c45-a474-c1e2d07cf1db" /&gt;&lt;/LayoutDocumentPaneGroup&gt;&lt;/LayoutPanel&gt;&lt;/LayoutPanel&gt;&lt;LayoutAnchorablePaneGroup Orientation="Horizontal" DockHeight="281.20000000000005" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="513.2" FloatingTop="717.2"&gt;&lt;LayoutAnchorablePane Id="14d13bda-904d-43f2-854b-8aae624ac36e" DockHeight="281.20000000000005" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="513.2" FloatingTop="717.2" /&gt;&lt;/LayoutAnchorablePaneGroup&gt;&lt;/LayoutPanel&gt;&lt;LayoutAnchorablePaneGroup Orientation="Horizontal" DockWidth="208.4" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="986.8000000000001" FloatingTop="472"&gt;&lt;LayoutAnchorablePane Id="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="986.8000000000001" FloatingTop="472" /&gt;&lt;/LayoutAnchorablePaneGroup&gt;&lt;/LayoutPanel&gt;&lt;LayoutAnchorablePaneGroup Orientation="Horizontal" DockHeight="201.6000000000001" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="520.4" FloatingTop="721.6"&gt;&lt;LayoutAnchorablePane DockHeight="201.6000000000001" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="520.4" FloatingTop="721.6"&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Output" IsSelected="True" ContentId="Type$OutputViewModel" FloatingLeft="520.4" FloatingTop="721.6" FloatingWidth="210" FloatingHeight="572.4" LastActivationTimeStamp="12/29/2021 10:55:41" /&gt;&lt;/LayoutAnchorablePane&gt;&lt;/LayoutAnchorablePaneGroup&gt;&lt;/LayoutPanel&gt;&lt;LayoutAnchorablePaneGroup Orientation="Horizontal" DockWidth="208.4" FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="995.6" FloatingTop="458"&gt;&lt;LayoutAnchorablePane FloatingWidth="210" FloatingHeight="572.4" FloatingLeft="995.6" FloatingTop="458"&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" Title="Project" IsSelected="True" ContentId="Type$ProjectViewModel" FloatingLeft="995.6" FloatingTop="458" FloatingWidth="210" FloatingHeight="572.4" LastActivationTimeStamp="12/29/2021 10:56:41" /&gt;&lt;/LayoutAnchorablePane&gt;&lt;/LayoutAnchorablePaneGroup&gt;&lt;/RootPanel&gt;&lt;TopSide /&gt;&lt;RightSide /&gt;&lt;LeftSide /&gt;&lt;BottomSide /&gt;&lt;FloatingWindows /&gt;&lt;Hidden&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" FloatingLeft="513.2" FloatingTop="717.2" FloatingWidth="210" FloatingHeight="572.4" LastActivationTimeStamp="12/29/2021 10:55:32" PreviousContainerId="14d13bda-904d-43f2-854b-8aae624ac36e" PreviousContainerIndex="0" /&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" FloatingLeft="986.8000000000001" FloatingTop="472" FloatingWidth="210" FloatingHeight="572.4" LastActivationTimeStamp="12/29/2021 10:55:00" PreviousContainerId="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" PreviousContainerIndex="0" /&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" LastActivationTimeStamp="12/29/2021 10:55:00" PreviousContainerId="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" PreviousContainerIndex="0" /&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" LastActivationTimeStamp="12/29/2021 10:55:00" PreviousContainerId="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" PreviousContainerIndex="0" /&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" LastActivationTimeStamp="12/29/2021 10:55:00" PreviousContainerId="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" PreviousContainerIndex="0" /&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" LastActivationTimeStamp="12/29/2021 10:55:00" PreviousContainerId="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" PreviousContainerIndex="0" /&gt;&lt;LayoutAnchorable AutoHideMinWidth="100" AutoHideMinHeight="100" IsSelected="True" LastActivationTimeStamp="12/29/2021 10:55:00" PreviousContainerId="5e17f7e1-df1b-451a-baa3-e9906d3ebe19" PreviousContainerIndex="0" /&gt;&lt;/Hidden&gt;&lt;/LayoutRoot&gt;</value>
+    <comment>Default Layout</comment>
+  </data>
+  <data name="MainWindow.AddCore.Header" xml:space="preserve">
+    <value>Add Core</value>
+    <comment>Title Add Core Entity</comment>
+  </data>
+  <data name="Menu_AddRaw" xml:space="preserve">
+    <value>Add Raw</value>
+    <comment>Title Add Raw</comment>
+  </data>
+  <data name="Menu_DeleteFile" xml:space="preserve">
+    <value>Delete File</value>
+    <comment>Delete File Context Menu Entry</comment>
+  </data>
+  <data name="Menu_NewPythonGenerate" xml:space="preserve">
+    <value>New Python Code Generator</value>
+    <comment>New Python File Context Menu Entry</comment>
+  </data>
+  <data name="Menu_NewSourceEntity" xml:space="preserve">
+    <value>Add Raw Entity</value>
+    <comment>New Source Entity</comment>
+  </data>
+  <data name="Menu_NewT4Generate" xml:space="preserve">
+    <value>New T4 Code Generator</value>
+    <comment>New T4 File Context Menu Entry</comment>
+  </data>
+  <data name="Menu_Open" xml:space="preserve">
+    <value>Open File</value>
+    <comment>Open File Context Menu Entry</comment>
+  </data>
+  <data name="Menu_RefreshRaw" xml:space="preserve">
+    <value>Refresh Raw Entities</value>
+    <comment>Title Refresh Source</comment>
+  </data>
+  <data name="Menu_RenameFile" xml:space="preserve">
+    <value>Rename File</value>
+    <comment>Rename File Context Menu Entry</comment>
+  </data>
+  <data name="Message_DeleteFile" xml:space="preserve">
+    <value>Do you really want to delete file {0}</value>
+    <comment>Delete File Message</comment>
+  </data>
+  <data name="Project_Template" xml:space="preserve">
+    <value>&lt;ItemGroup&gt;
+    &lt;None Update="@File.tt"&gt;
+      &lt;Generator&gt;TextTemplatingFilePreprocessor&lt;/Generator&gt;
+      &lt;LastGenOutput&gt;@File.cs&lt;/LastGenOutput&gt;
+    &lt;/None&gt;
+    &lt;Compile Update="@File.cs"&gt;
+      &lt;DesignTime&gt;True&lt;/DesignTime&gt;
+      &lt;AutoGen&gt;True&lt;/AutoGen&gt;
+      &lt;DependentUpon&gt;@File.tt&lt;/DependentUpon&gt;
+    &lt;/Compile&gt;
+  &lt;/ItemGroup&gt;</value>
+  </data>
+  <data name="Title_AttributeTypes" xml:space="preserve">
+    <value>Attribute Types</value>
+    <comment>Title for attribute types window</comment>
+  </data>
+  <data name="Title_DataSource" xml:space="preserve">
+    <value>Data Sources</value>
+    <comment>Title for data source window</comment>
+  </data>
+  <data name="Title_DataTypes" xml:space="preserve">
+    <value>Data Types</value>
+  </data>
+  <data name="Title_Exception" xml:space="preserve">
+    <value>An Exception occured</value>
+    <comment>Title for exception windows</comment>
+  </data>
+  <data name="Title_Git" xml:space="preserve">
+    <value>Git</value>
+    <comment>Title of git view</comment>
+  </data>
+  <data name="Title_Main" xml:space="preserve">
+    <value>ORAYLIS DataM8</value>
+    <comment>Title for main window</comment>
+  </data>
+  <data name="Title_DataModules" xml:space="preserve">
+    <value>Data Modules</value>
+    <comment>Title of data module</comment>
+  </data>
+  <data name="Title_CreateSolution" xml:space="preserve">
+    <value>Create new Datam8 solution</value>
+    <comment>Title open solution</comment>
+  </data>
+  <data name="Title_OpenSolution" xml:space="preserve">
+    <value>Open Datam8 Solution</value>
+    <comment>Title open solution</comment>
+  </data>
+  <data name="Title_Output" xml:space="preserve">
+    <value>Output</value>
+    <comment>Title of output view</comment>
+  </data>
+  <data name="Title_Project" xml:space="preserve">
+    <value>Project</value>
+    <comment>Title of project view</comment>
+  </data>
+  <data name="Title_RawEntity" xml:space="preserve">
+    <value>Raw Entity</value>
+    <comment>Title of raw entity view</comment>
+  </data>
+  <data name="GitView_EnterMessage" xml:space="preserve">
+    <value>Enter a message</value>
+  </data>
+  <data name="Main_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Main_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Main_Home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="Main_Solution" xml:space="preserve">
+    <value>Solution</value>
+  </data>
+  <data name="Main_Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Main_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Main_SaveAll" xml:space="preserve">
+    <value>Save All</value>
+  </data>
+  <data name="Main_Output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Main_Git" xml:space="preserve">
+    <value>Git</value>
+  </data>
+  <data name="Main_Validate" xml:space="preserve">
+    <value>Validate</value>
+  </data>
+  <data name="DlgRawModelEntryAdd_Title" xml:space="preserve">
+    <value>Raw Model Entry</value>
+  </data>
+  <data name="RawEntity_Name" xml:space="preserve">
+    <value>Entity Name</value>
+  </data>
+  <data name="RawEntity_DisplayName" xml:space="preserve">
+    <value>Display Name</value>
+  </data>
+  <data name="RawEntity_SourceName" xml:space="preserve">
+    <value>Source Name</value>
+  </data>
+  <data name="RawModelEntryViewModel_RefreshSourceResult" xml:space="preserve">
+    <value>Update Attributes={0}/Deleted Attributes={1}</value>
+  </data>
+  <data name="RawModelEntryViewModel_RefreshSourceResult_No_Change" xml:space="preserve">
+    <value>No Change</value>
+  </data>
+  <data name="Message_CloseAsync_Save" xml:space="preserve">
+    <value>File {0} is modified.
+Do you want to save changes before closing the file?</value>
+  </data>
+  <data name="Menu_GenerateStage" xml:space="preserve">
+    <value>Generate Stage</value>
+  </data>
+  <data name="Menu_AddCurated" xml:space="preserve">
+    <value>Add Curated</value>
+  </data>
+  <data name="DataSourceEdit.Title" xml:space="preserve">
+    <value>Data Source Edit</value>
+  </data>
+  <data name="CoreEntityAdd.TabItem.Header.CoreEntity" xml:space="preserve">
+    <value>Define Core Entity</value>
+  </data>
+  <data name="CoreEntityAdd.TabItem.Header.SourceEntity" xml:space="preserve">
+    <value>Select Source Entities</value>
+  </data>
+  <data name="MainWindow.AddStage.ToolTip" xml:space="preserve">
+    <value>Create Stage</value>
+  </data>
+  <data name="MainWindow.AddCore.ToolTip" xml:space="preserve">
+    <value>Create New Core Entity</value>
+  </data>
+  <data name="Title_DataProducts" xml:space="preserve">
+    <value>Data Products</value>
+    <comment>Title of data products</comment>
+  </data>
+  <data name="OutputViewModel_Model_Validation" xml:space="preserve">
+    <value>Model Validation</value>
+  </data>
+  <data name="OutputViewModel_Generate" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="OutputViewModel_Git" xml:space="preserve">
+    <value>Git</value>
+  </data>
+  <data name="CoreModelEntryViewModel_Wrong_Mapping" xml:space="preserve">
+    <value>Removed mapping to unknown source attribute {0} from {1}</value>
+  </data>
+  <data name="CoreAttributeEdit_Title" xml:space="preserve">
+    <value>Edit Attribute</value>
+    <comment>Title of DlgCoreAttributeEdit</comment>
+  </data>
+  <data name="Main_New" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="CoreModelEntryViewModel_CheckReferences" xml:space="preserve">
+    <value>The Entity {0} is reference by:
+	
+	{1}.
+
+Check if renamed column is influencing the referenced objects (incl. auto save)?</value>
+    <comment>Message Box Check References</comment>
+  </data>
+  <data name="CoreModelEntryViewModel_Update_Referenced_Entities" xml:space="preserve">
+    <value>Update Referenced Entities</value>
+  </data>
+  <data name="RawModelEntryViewModel_EntityOnPropertyChanged_Message" xml:space="preserve">
+    <value>You renamed the entity. Should the file name be changed as well (incl. automatic save)?</value>
+  </data>
+  <data name="RawModelEntryViewModel_EntityOnPropertyChanged_Title" xml:space="preserve">
+    <value>Raw Entity Renamed</value>
+  </data>
+  <data name="MainWindow.AddOutput.ToolTip" xml:space="preserve">
+    <value>Generate Output</value>
+  </data>
+  <data name="Menu_GenerateOutput" xml:space="preserve">
+    <value>Generate Output</value>
+  </data>
+  <data name="Menu_NewJinja2Generate" xml:space="preserve">
+    <value>New .Jinja2 Template</value>
+    <comment>New .Jinja2 Template</comment>
+  </data>
+  <data name="Main_Generate" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="Main_View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="Message_DeleteFiles" xml:space="preserve">
+    <value>Do you really want to delete {0} files?</value>
+    <comment>Delete File Message</comment>
+  </data>
+  <data name="CoreModelEntryViewModel_EntityOnPropertyChanged_Message" xml:space="preserve">
+    <value>You renamed the entity. Should the file name and all referenced be changed as well?</value>
+  </data>
+  <data name="CoreModelEntryViewModel_EntityOnPropertyChanged_Title" xml:space="preserve">
+    <value>Core Entity Renamed</value>
+  </data>
+  <data name="Main_Help" xml:space="preserve">
+    <value>Help</value>
+    <comment>Help</comment>
+  </data>
+  <data name="Menu_DeleteFolder" xml:space="preserve">
+    <value>Delete Folder</value>
+  </data>
+  <data name="Menu_NewFolder" xml:space="preserve">
+    <value>New Folder</value>
+  </data>
+  <data name="Menu_RenameFolder" xml:space="preserve">
+    <value>Rename Folder</value>
+  </data>
+  <data name="Message_DeleteFolder" xml:space="preserve">
+    <value>Do you really want to delete folder {0}?</value>
+  </data>
+  <data name="Message_DeleteFolders" xml:space="preserve">
+    <value>Do you really want to delete {0} folders?</value>
+  </data>
+  <data name="Main.New.ToolTip" xml:space="preserve">
+    <value>Create new project</value>
+  </data>
+  <data name="Main.Open.ToolTip" xml:space="preserve">
+    <value>Open existing project</value>
+  </data>
+  <data name="Main.Save.ToolTip" xml:space="preserve">
+    <value>Save (Ctrl+S)</value>
+  </data>
+  <data name="Main.SaveAll.ToolTip" xml:space="preserve">
+    <value>Save all files (Ctrl+Shift+S)</value>
+  </data>
+  <data name="Main.Project.ToolTip" xml:space="preserve">
+    <value>Show Project Explorer</value>
+  </data>
+  <data name="Main.Output.ToolTip" xml:space="preserve">
+    <value>Show Output Window</value>
+  </data>
+  <data name="Main.Git.ToolTip" xml:space="preserve">
+    <value>Show Git Window</value>
+  </data>
+  <data name="Main.Validate.ToolTip" xml:space="preserve">
+    <value>Validate Project</value>
+  </data>
+  <data name="Main.AddRaw.ToolTip" xml:space="preserve">
+    <value>Add Source Entity</value>
+  </data>
+  <data name="Main.RefreshSource.ToolTip" xml:space="preserve">
+    <value>Refresh Complete Source</value>
+  </data>
+  <data name="Main.AddCurated.ToolTip" xml:space="preserve">
+    <value>Add Curated Entity</value>
+  </data>
+  <data name="Main.Settings.ToolTip" xml:space="preserve">
+    <value>Show main settings</value>
+  </data>
+  <data name="Main.Help.ToolTip" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="CoreModelEntry.Header.Assign" xml:space="preserve">
+    <value>Assign</value>
+  </data>
+  <data name="DataGridTemplateColumn.Header" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="CoreModelEntry.Header.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="CuratedEntityAdd.TabItem.Header.CuratedEntity" xml:space="preserve">
+    <value>Define Curated Entity</value>
+  </data>
+  <data name="CuratedEntityAdd.TabItem.Header.SourceEntity" xml:space="preserve">
+    <value>Select Source Entities</value>
+  </data>
+  <data name="Model_CuratedDefaultFunctionName" xml:space="preserve">
+    <value>_Compute</value>
+  </data>
+  <data name="OutputViewModel_Mermaid" xml:space="preserve">
+    <value>Mermaid</value>
+  </data>
+</root>

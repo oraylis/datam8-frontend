@@ -1,0 +1,5 @@
+﻿root = true
+
+[*.cs]
+# IDE0036: Order modifiers
+dotnet_diagnostic.IDE0036.severity = silent

@@ -25,8 +25,13 @@ Write-Host "##[section]Create venv for Windows Embedded package"
 python3 -m venv ./venv/
 
 Write-Host "##[section]Install Dm8Data wheel"
-$dm8gen_whl_url = "https://github.com/oraylis/datam8-generator/releases/download/v$WheelVersion/datam8_generator-$WheelVersion-py3-none-any.whl"
-& "./venv/Scripts/pip3" install $dm8gen_whl_url --force-reinstall
+# $dm8gen_whl_url = "https://github.com/oraylis/datam8-generator/releases/download/v$WheelVersion/datam8_generator-$WheelVersion-py3-none-any.whl"
+# & "./venv/Scripts/pip3" install $dm8gen_whl_url --force-reinstall
+
+$dm8gen_path = "$(Get-ChildItem -Path . -Filter *.whl -Recurse | Select-Object -ExpandProperty FullName)"
+write-debug "installting wheel $dm8gen_path"
+
+& "./venv/Scripts/python" -m pip install $dm8gen_path --force-reinstall
 
 Write-Host "##[section]Create Windows embedded runtime"
 $pattern = "(([0-9]*)\.([0-9]*)\.[0-9]*)"

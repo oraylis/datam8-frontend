@@ -1,5 +1,11 @@
 root = true
 
+[*]
+charset = utf-8
+
 # lf endings cause the generate templates to contain empty line
 [*.tt]
+end_of_line = crlf
+
+[*.csproj]
 end_of_line = crlf

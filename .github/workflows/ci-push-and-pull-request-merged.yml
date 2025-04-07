@@ -82,6 +82,27 @@ jobs:
           -r linux-x64 `
           --self-contained
 
+      - name: Install Azure SignTool
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          dotnet tool install `
+          --global AzureSignTool `
+          --version ${{ env.azureSignToolVersion }}
+
+      - name: Sign installer and executables
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          AzureSignTool sign `
+            -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
+            -kvu ${{ secrets.AZURE_KEY_VAULT_URL }} `
+            -kvi ${{ secrets.AZURE_KEY_VAULT_ID }} `
+            -kvs ${{ secrets.AZURE_KEY_VAULT_SECRET }} `
+            -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
+            -tr http://timestamp.digicert.com `
+            -v `
+            src/Dm8Main/bin/Debug/net8.0-windows7.0/Dm8Main.exe `
+            src/Dm8Validate/bin/Debug/net8.0/Dm8Validate.exe
+
       - name: Install WIX
         run: |
           dotnet tool install --global wix
@@ -115,13 +136,6 @@ jobs:
             echo "LATEST_TAG_VERSION=$LATEST_TAG" >> $env:GITHUB_ENV
           }
 
-      - name: Install Azure SignTool
-        if: env.VERSION != env.LATEST_TAG_VERSION
-        run: |
-          dotnet tool install `
-          --global AzureSignTool `
-          --version ${{ env.azureSignToolVersion }}
-
       - name: Sign installer and executables
         if: env.VERSION != env.LATEST_TAG_VERSION
         run: |
@@ -133,9 +147,7 @@ jobs:
             -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
             -tr http://timestamp.digicert.com `
             -v `
-            "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi" `
-            src/Dm8Main/bin/Debug/net8.0-windows7.0/Dm8Main.exe `
-            src/Dm8Validate/bin/Debug/net8.0/Dm8Validate.exe
+            "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi"
 
       - name: Zip DataM8
         if: env.VERSION != env.LATEST_TAG_VERSION

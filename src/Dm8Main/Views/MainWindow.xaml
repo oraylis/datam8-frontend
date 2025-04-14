@@ -32,7 +32,7 @@
         Theme="{Binding SolutionService.Theme}"
         DocumentClosingCommand="{Binding DocumentClosingCommand}"
         Closing="MainWindow_OnClosing"
-        Icon="/Resources/oraylis.ico"
+        Icon="/Resources/DataM8-Icon_100px.ico"
         ShowTitleBar="True"
         ShowIconOnTitleBar="True"
         ShowSystemMenuOnRightClick="True"

@@ -5,7 +5,7 @@
     <TargetFramework>net8.0-windows7.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
-    <ApplicationIcon>Resources\oraylis.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\DataM8-Icon_100px.ico</ApplicationIcon>
     <Nullable>annotations</Nullable>
     <DebugType>full</DebugType>
     <PackageIcon>oraylis.png</PackageIcon>
@@ -40,7 +40,6 @@
   <ItemGroup>
     <None Remove="Resources\Jinja2Dark.xshd" />
     <None Remove="Resources\Jinja2Light.xshd" />
-    <None Remove="Resources\oraylis.ico" />
     <None Remove="Resources\PythonDark.xshd" />
     <None Remove="Resources\PythonLight.xshd" />
     <None Remove="solution\newfile\generate.jinja2" />
@@ -49,13 +48,12 @@
 
 
   <ItemGroup>
-    <Content Include="Resources\oraylis.ico">
+    <Content Include="Resources\DataM8-Icon_100px.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Resources\oraylis.ico" />
     <EmbeddedResource Include="Resources\Jinja2Dark.xshd" />
     <EmbeddedResource Include="Resources\Jinja2Light.xshd" />
     <EmbeddedResource Include="Resources\PythonLight.xshd" />

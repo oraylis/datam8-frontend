@@ -29,7 +29,6 @@ class Script
     {
         string companyname = ConfigurationManager.AppSettings["Companyname"];
         string productname = ConfigurationManager.AppSettings["Productname"];
-        string exename = ConfigurationManager.AppSettings["Exename"];
         string version = ConfigurationManager.AppSettings["Version"];
         string website = ConfigurationManager.AppSettings["Website"];
         string phone = ConfigurationManager.AppSettings["Phone"];
@@ -42,7 +41,8 @@ class Script
         Compiler.AutoGeneration.IgnoreWildCardEmptyDirectories = false;
 
         Project project =
-            new Project(productname, new InstallDir(installPath, new Files(@"..\Dm8Main\bin\Debug\net8.0-windows7.0\*.*")))
+            new Project(productname, new InstallDir(new Id("INSTALLDIR"), installPath,
+                new Files(@"..\Dm8Main\bin\Debug\net8.0-windows7.0\*.*")))
             {
                 GUID = new Guid(guid),
                 Version = new Version(version),
@@ -51,11 +51,10 @@ class Script
                 LicenceFile = @"..\..\LICENSE.rtf",
                 OutDir = @".\bin\Debug",
                 Scope = InstallScope.perUser,
-                UI = WUI.WixUI_Mondo,
-
+                UI = WUI.WixUI_InstallDir,
                 ControlPanelInfo =
                 {
-                    Comments = productname,
+                Comments = productname,
                     Readme = website,
                     HelpLink = website,
                     HelpTelephone = phone,
@@ -81,9 +80,10 @@ class Script
                     RemoveExistingProductAfter = Step.InstallInitialize,
                     UpgradeVersions = VersionRange.ThisAndOlder
                 }
-            };
+            }
+        ;
 
-        project.RemoveDialogsBetween(NativeDialogs.LicenseAgreementDlg, NativeDialogs.VerifyReadyDlg);
+        //project.RemoveDialogsBetween(NativeDialogs.LicenseAgreementDlg, NativeDialogs.VerifyReadyDlg);
 
         var mp = project.ResolveWildCards();
         var mainExe = mp.FindFirstFile("Dm8Main.exe");

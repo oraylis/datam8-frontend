@@ -95,7 +95,7 @@ jobs:
           --self-contained
 
       - name: Extract project version from App.config
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' 
         run: |
           $version_string = select-string `
             -path .\src\Dm8Main\App.config `
@@ -108,7 +108,7 @@ jobs:
           }
 
       - name: Get latest tag version
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request'|| github.event_name == 'workflow_dispatch' 
         run: |
           $LATEST_TAG=$(gh release list -L 1 --json tagName `
             --exclude-drafts --exclude-pre-releases --jq '.[].tagName'

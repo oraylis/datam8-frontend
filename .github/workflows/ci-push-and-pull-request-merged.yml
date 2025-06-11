@@ -41,6 +41,12 @@ jobs:
         with:
           version: '0.6.12'
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            8.0.x
+
       - name: Checkout solution respoitory
         uses: actions/checkout@v4
         with:
@@ -55,14 +61,6 @@ jobs:
           -Recurse `
           -Force
 
-      - name: Create global.json file
-        run: |
-          echo '{
-            "sdk": {
-              "version": "8.0.406"
-            }
-          }' > global.json
-
       - name: Cache NuGet packages
         uses: actions/cache@v3
         with:
@@ -75,7 +73,11 @@ jobs:
         run: dotnet restore src/Dm8Main.sln
 
       - name: Build DataM8 Solution
-        run: dotnet build src/Dm8Main.sln
+        # INFO: build the Dm8Build projects once before otherwise references
+        # to DLLs are not working
+        run: |
+          dotnet build src/Dm8Build
+          dotnet build src/Dm8Main.sln
 
       - name: Build DataM8 Generator
         working-directory: ./datam8-generator
@@ -93,7 +95,7 @@ jobs:
           --self-contained
 
       - name: Extract project version from App.config
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' 
         run: |
           $version_string = select-string `
             -path .\src\Dm8Main\App.config `
@@ -106,7 +108,7 @@ jobs:
           }
 
       - name: Get latest tag version
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request'|| github.event_name == 'workflow_dispatch' 
         run: |
           $LATEST_TAG=$(gh release list -L 1 --json tagName `
             --exclude-drafts --exclude-pre-releases --jq '.[].tagName'

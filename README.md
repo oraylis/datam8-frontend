@@ -1,4 +1,4 @@
-<img src="./docs/assets/images/dm8_incl_text.png" width="300" alt="DataM8 Logo">
+<img src="https://raw.githubusercontent.com/oraylis/datam8/refs/heads/main/docs/assets/images/dm8_incl_text.png" width="300" alt="DataM8 Logo">
 
 # ORAYLIS _DataM8_
 
@@ -18,20 +18,26 @@ _DataM8_ is made possible with contributions from the following individuals:
 - Philipp Maciercynski (ORAYLIS GmbH)
 - Ralph Krieger
 
-To contribute to _DataM8_, follow this contribution and branching 📜[guide](docs/contribution/branching.md).
+To contribute to _DataM8_, follow this contribution and branching 📜[guide](https://github.com/oraylis/datam8/blob/main/docs/contribution.md).
+
+## Issues
+Issues are centrally maintained in a different repository
+
+https://github.com/oraylis/datam8
 
 ## Documentation
 
-Follow this 📜[guide](docs/DataM8.md) for a comprehensive documentation of _DataM8_. This documentation provides detailed information on the architecture, usage, and various features of the tool. Whether you're a newcomer or an experienced user, the documentation will serve as an essential resource for understanding and utilizing _DataM8_ to its fullest potential.
+Follow this 📜[guide](https://github.com/oraylis/datam8) for a comprehensive documentation of _DataM8_. This documentation provides detailed information on the architecture, usage, and various features of the tool. Whether you're a newcomer or an experienced user, the documentation will serve as an essential resource for understanding and utilizing _DataM8_ to its fullest potential.
 
 ## Requirements to Build this Project
 
 To build and run _DataM8_, you need the following:
 
 1. [Visual Studio 2022](https://visualstudio.microsoft.com/) installed for the data model, frontend, and validator of _DataM8_
-2. [datamodel-code-generator](https://pypi.org/project/datamodel-code-generator/) installed via pip: Run `pip install datamodel-code-generator` for the generator of _DataM8_
-3. [Python 3.12.x](https://www.python.org/downloads/) for the generator of _DataM8_. Use `.\Dm8PostBuildScript.ps1` to build the generator package and cli for windows
-4. [WiX](https://wixtoolset.org/) installed: Run `dotnet tool install --global wix` to package _DataM8_ into an installer
+1. [datamodel-code-generator](https://pypi.org/project/datamodel-code-generator/) installed via pip: Run `pip install datamodel-code-generator` for the generator of _DataM8_
+1. [Python 3.12.x](https://www.python.org/downloads/) for the generator of _DataM8_. Use `.\Dm8PostBuildScript.ps1` to build the generator package and cli for windows
+1. [uv](https://docs.astral.sh/uv/getting-started/installation/) to build the Generator. Called with `Dm8PostBuildScript.ps`.
+1. [WiX](https://wixtoolset.org/) installed: Run `dotnet tool install --global wix` to package _DataM8_ into an installer
 
 ## Mentions
 
@@ -88,21 +94,3 @@ _DataM8_ Frontend utilizes various external libraries and tools, each with its r
 | System.Configuration.ConfigurationManager | 6.0.0       | MIT                 | https://licenses.nuget.org/MIT                                                               |
 | System.Runtime.CompilerServices.Unsafe    | 6.0.0       | MIT                 | https://licenses.nuget.org/MIT                                                               |
 | WixSharp_wix4                             | 2.0.0       | MIT                 | https://licenses.nuget.org/MIT                                                               |
-
-
-## License
-
-Copyright 2024 ORAYLIS GmbH
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
-Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

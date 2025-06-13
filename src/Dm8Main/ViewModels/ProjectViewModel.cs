@@ -1,4 +1,4 @@
-﻿/* DataM8
+/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.
@@ -193,8 +193,16 @@ namespace Dm8Main.ViewModels
                 }
                 else
                 {
-                    projectItem.Filter(projectItem =>
-                        projectItem.Name.ToLowerInvariant().Contains(this.SearchText.ToLowerInvariant()));
+                    string search = this.SearchText.ToLowerInvariant();
+                    projectItem.Filter(item =>
+                    {
+                        if (item is ProjectItem pi)
+                        {
+                            return (pi.Name != null && pi.Name.ToLowerInvariant().Contains(search)) ||
+                                   (pi.DisplayName != null && pi.DisplayName.ToLowerInvariant().Contains(search));
+                        }
+                        return false;
+                    });
                 }
             }
         }

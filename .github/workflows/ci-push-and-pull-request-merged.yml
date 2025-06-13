@@ -3,6 +3,11 @@ name: "Build on Push & Release on merged PR"
 on:
   workflow_dispatch:
   push:
+    paths:
+      - src/**
+      - .gitmodules
+      - datam8-generator
+      - datam8-model
     branches:
       - feature/*
       - patch/*

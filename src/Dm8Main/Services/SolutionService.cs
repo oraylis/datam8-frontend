@@ -1,4 +1,4 @@
-﻿/* DataM8
+/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.
@@ -35,6 +35,7 @@ using Dm8Main.Base;
 using Dm8Main.Models;
 using MvvmDialogs;
 using Prism.Events;
+using Newtonsoft.Json;
 
 #region Pragma
 #pragma warning disable CA2021
@@ -43,6 +44,14 @@ using Prism.Events;
 
 namespace Dm8Main.Services
 {
+    // Helper class for navigation state
+    public class NavigationState
+    {
+        public string Path { get; set; }
+        public bool IsExpanded { get; set; }
+        public bool IsSelected { get; set; }
+        public List<NavigationState> Children { get; set; } = new();
+    }
 
     public class SolutionService : Prism.Mvvm.BindableBase, ISolutionService, IDisposable
     {
@@ -349,6 +358,15 @@ namespace Dm8Main.Services
             Settings.Default.GeneratorParameterSTAGE_V2 = this.GeneratorParameterStage;
             Settings.Default.GeneratorParameterOUTPUT_V2 = this.GeneratorParameterOutput;
             Settings.Default.Save();
+
+            // Save navigation state
+            var navState = GetNavigationState(this.ProjectItems.FirstOrDefault());
+            var navStateJson = JsonConvert.SerializeObject(navState, Formatting.Indented);
+            if (this.Solution != null && !string.IsNullOrEmpty(this.Solution.CurrentRootFolder))
+            {
+                var navStatePath = Path.Combine(this.Solution.CurrentRootFolder, "navigation.state.json");
+                await File.WriteAllTextAsync(navStatePath, navStateJson);
+            }
             await Task.Yield();
         }
 
@@ -367,6 +385,25 @@ namespace Dm8Main.Services
 
             // load files in background
             Task.Run(() => this.SolutionHelper.LoadAsync().Wait());
+
+            // Restore navigation state
+            try
+            {
+                var navigationStateFile = Path.Combine(Path.GetDirectoryName(solution.SolutionFile), "navigation.json");
+                if (File.Exists(navigationStateFile))
+                {
+                    var navigationStateJson = File.ReadAllText(navigationStateFile);
+                    var navigationState = JsonConvert.DeserializeObject<Dictionary<string, NavigationState>>(navigationStateJson);
+                    foreach (var item in this.ProjectItems)
+                    {
+                        if (navigationState.TryGetValue(item.Name, out var state))
+                        {
+                            RestoreNavigationState(item, state);
+                        }
+                    }
+                }
+            }
+            catch { /* ignore errors */ }
 
             // create base items
             var baseItem = ProjectItem.CreateItem(ProjectItem.Types.BaseFolder, this, this.eventAggregator);
@@ -449,6 +486,13 @@ namespace Dm8Main.Services
 
         public void RefreshSolution(Solution solution)
         {
+            // Store current navigation state
+            var navigationState = new Dictionary<string, NavigationState>();
+            foreach (var item in this.ProjectItems)
+            {
+                navigationState[item.Name] = GetNavigationState(item);
+            }
+
             // set default values
             if (string.IsNullOrEmpty(solution.BasePath))
                 solution.BasePath = Resources.Solution_BaseFilePath;
@@ -468,24 +512,29 @@ namespace Dm8Main.Services
             if (string.IsNullOrEmpty(solution.OutputPath))
                 solution.OutputPath = Resources.Solution_OutputFolderPath;
 
-            var solutionItem = this.ProjectItems[0];
-            var solutionItems = this.ProjectItems[0].Children;
+            // Clear and rebuild the project items collection
+            this.ProjectItems.Clear();
+
+            // create root item
+            ProjectItem solutionItem = ProjectItem.CreateItem(ProjectItem.Types.Solution, this, this.eventAggregator, relPath: Path.GetFileName(solution.SolutionFile));
+            solutionItem.NameEdit = solutionItem.Name;
+            solutionItem.IsExpanded = true;
 
             // Refresh Raw
             ProjectItem rawItem = ProjectItem.CreateItem(ProjectItem.Types.RawFolder, this, this.eventAggregator);
-            this.ScanFolder(rawItem, this.solution.RawFolderPath, (f) => ProjectItem.Types.RawEntity ,folderType: ProjectItem.Types.RawSubFolder);
+            this.ScanFolder(rawItem, this.solution.RawFolderPath, (f) => ProjectItem.Types.RawEntity, folderType: ProjectItem.Types.RawSubFolder);
 
-            var thisRawItem = solutionItems.FirstOrDefault(i => i.Name == rawItem.Name);
+            var thisRawItem = solutionItem.Children.FirstOrDefault(i => i.Name == rawItem.Name);
             if (thisRawItem != null)
                 thisRawItem.UpdateFrom(rawItem);
             else
-                solutionItems.Add(rawItem);
+                solutionItem.Children.Add(rawItem);
 
             // refresh Staging
             ProjectItem stagingItem = ProjectItem.CreateItem(ProjectItem.Types.StagingFolder, this, this.eventAggregator);
             this.ScanFolder(stagingItem, this.solution.StagingFolderPath, (f) => ProjectItem.Types.StagingEntity, "*.json");
 
-            var thisStagingItem = solutionItems.FirstOrDefault(i => i.Name == stagingItem.Name);
+            var thisStagingItem = solutionItem.Children.FirstOrDefault(i => i.Name == stagingItem.Name);
             if (thisStagingItem != null)
                 thisStagingItem.UpdateFrom(stagingItem);
             else
@@ -495,7 +544,7 @@ namespace Dm8Main.Services
             ProjectItem coreItem = ProjectItem.CreateItem(ProjectItem.Types.CoreFolder, this, this.eventAggregator);
             this.ScanFolder(coreItem, this.solution.CoreFolderPath, (f) => ProjectItem.Types.CoreEntity, "*.json");
 
-            var thisCoreItem = solutionItems.FirstOrDefault(i => i.Name == coreItem.Name);
+            var thisCoreItem = solutionItem.Children.FirstOrDefault(i => i.Name == coreItem.Name);
             if (thisCoreItem != null)
                 thisCoreItem.UpdateFrom(coreItem);
             else
@@ -505,7 +554,7 @@ namespace Dm8Main.Services
             ProjectItem curatedItem = ProjectItem.CreateItem(ProjectItem.Types.CuratedFolder, this, this.eventAggregator);
             this.ScanFolder(curatedItem, this.solution.CuratedFolderPath, (f) => ProjectItem.Types.CuratedEntity, "*.json");
 
-            var thisCuratedItem = solutionItems.FirstOrDefault(i => i.Name == curatedItem.Name);
+            var thisCuratedItem = solutionItem.Children.FirstOrDefault(i => i.Name == curatedItem.Name);
             if (thisCuratedItem != null)
                 thisCuratedItem.UpdateFrom(curatedItem);
             else
@@ -515,7 +564,7 @@ namespace Dm8Main.Services
             ProjectItem diagramItem = ProjectItem.CreateItem(ProjectItem.Types.DiagramFolder, this, this.eventAggregator);
             this.ScanFolder(diagramItem, this.solution.DiagramFolderPath, (f) => ProjectItem.Types.DiagramFile, "*.json");
 
-            var thisDiagramItem = solutionItems.FirstOrDefault(i => i.Name == diagramItem.Name);
+            var thisDiagramItem = solutionItem.Children.FirstOrDefault(i => i.Name == diagramItem.Name);
             if (thisDiagramItem != null)
                 thisDiagramItem.UpdateFrom(diagramItem);
             else
@@ -527,22 +576,33 @@ namespace Dm8Main.Services
             this.ScanFolder(generateItem, this.solution.GenerateFolderPath, (f) => ProjectItem.Types.GenerateJinja2, "*.jinja2.include", "", ProjectItem.Types.GenerateSubFolder);
             this.ScanFolder(generateItem, this.solution.GenerateFolderPath, (f) => ProjectItem.Types.GenerateFilePython, "*.py", "", ProjectItem.Types.GenerateSubFolder);
 
-            var thisGenerateItem = solutionItems.FirstOrDefault(i => i.Name == generateItem.Name);
+            var thisGenerateItem = solutionItem.Children.FirstOrDefault(i => i.Name == generateItem.Name);
             if (thisGenerateItem != null)
                 thisGenerateItem.UpdateFrom(generateItem);
             else
                 solutionItem.Children.Add(generateItem);
 
-
-            // Refresh output
+            // Refresh Output
             ProjectItem outputItem = ProjectItem.CreateItem(ProjectItem.Types.OutputFolder, this, this.eventAggregator);
-            this.ScanFolder(outputItem, this.solution.OutputFolderPath, (f) => ProjectItem.Types.CodeFile);
+            this.ScanFolder(outputItem, this.solution.OutputFolderPath, (f) => ProjectItem.Types.CodeFile, "*.json");
 
-            var thisOutputItem = solutionItems.FirstOrDefault(i => i.Name == outputItem.Name);
+            var thisOutputItem = solutionItem.Children.FirstOrDefault(i => i.Name == outputItem.Name);
             if (thisOutputItem != null)
                 thisOutputItem.UpdateFrom(outputItem);
             else
                 solutionItem.Children.Add(outputItem);
+
+            // Add the root item to the collection (this notifies the UI)
+            this.ProjectItems.Add(solutionItem);
+
+            // Restore navigation state
+            foreach (var item in this.ProjectItems)
+            {
+                if (navigationState.TryGetValue(item.Name, out var state))
+                {
+                    RestoreNavigationState(item, state);
+                }
+            }
         }
 
         private async void SaveSolution(Solution solution)
@@ -550,9 +610,17 @@ namespace Dm8Main.Services
             this.RefreshSolution(solution);
 
             var solutionJson = FileHelper.MakeJson(solution);
-
-
             await FileHelper.WriteFileAsync(solution.SolutionFile, solutionJson);
+
+            // Save navigation state
+            var navigationState = new Dictionary<string, NavigationState>();
+            foreach (var item in this.ProjectItems)
+            {
+                navigationState[item.Name] = GetNavigationState(item);
+            }
+            var navigationStateJson = JsonConvert.SerializeObject(navigationState, Formatting.Indented);
+            var navigationStateFile = Path.Combine(Path.GetDirectoryName(solution.SolutionFile), "navigation.json");
+            await FileHelper.WriteFileAsync(navigationStateFile, navigationStateJson);
 
             // open last layout
             this.eventAggregator.GetEvent<SaveLayout>().Publish(this.Solution);
@@ -767,5 +835,28 @@ namespace Dm8Main.Services
             parent.GitStatus = rc;
         }
 
+        private NavigationState GetNavigationState(ProjectItem item)
+        {
+            if (item == null) return null;
+            return new NavigationState
+            {
+                Path = item.RelativeFilePath ?? item.Name,
+                IsExpanded = item.IsExpanded,
+                IsSelected = item.IsSelected,
+                Children = item.Children.OfType<ProjectItem>().Select(GetNavigationState).ToList()
+            };
+        }
+
+        private void RestoreNavigationState(ProjectItem item, NavigationState state)
+        {
+            if (item == null || state == null) return;
+            item.IsExpanded = state.IsExpanded;
+            item.IsSelected = state.IsSelected;
+            foreach (var child in item.Children.OfType<ProjectItem>())
+            {
+                var childState = state.Children.FirstOrDefault(s => s.Path == (child.RelativeFilePath ?? child.Name));
+                RestoreNavigationState(child, childState);
+            }
+        }
     }
 }

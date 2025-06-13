@@ -1,4 +1,4 @@
-﻿/* DataM8
+/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.
@@ -30,6 +30,7 @@ using Dm8Main.Services;
 using MahApps.Metro.IconPacks;
 using Prism.Commands;
 using Prism.Events;
+using Newtonsoft.Json.Linq;
 
 namespace Dm8Main.Models
 {
@@ -145,7 +146,7 @@ namespace Dm8Main.Models
         private bool isEditFocus;
         #endregion
 
-        #region Property IsEditFocus
+        #region Property InputBindings
         public InputBindingCollection InputBindings
         {
             get => this.inputBindings;
@@ -272,6 +273,14 @@ namespace Dm8Main.Models
 
         #endregion
 
+        #region Property DisplayName
+        public string DisplayName
+        {
+            get => this.displayName;
+            set => this.SetProperty(ref this.displayName, value);
+        }
+        private string displayName;
+        #endregion
 
         public static ProjectItem CreateItem(Types type, ISolutionService solutionService, IEventAggregator eventAggregator, string relPath = null)
         {
@@ -398,6 +407,38 @@ namespace Dm8Main.Models
             this.GetImages();
             this.GetGitImages();
             this.CreateContextMenu();
+
+            // Try to load displayName from JSON if this is a JSON entity file
+            if (type == Types.RawEntity || type == Types.StagingEntity || type == Types.CoreEntity || type == Types.CuratedEntity || type == Types.DiagramFile)
+            {
+                try
+                {
+                    if (System.IO.File.Exists(this.FilePath) && this.FilePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var json = System.IO.File.ReadAllText(this.FilePath);
+                        var jObj = JObject.Parse(json);
+                        // Try to get displayName from root or from 'entity' property
+                        var displayName = jObj["displayName"]?.ToString();
+                        if (string.IsNullOrEmpty(displayName) && jObj["entity"] != null)
+                        {
+                            displayName = jObj["entity"]["displayName"]?.ToString();
+                        }
+                        this.DisplayName = !string.IsNullOrEmpty(displayName) ? displayName : this.Name;
+                    }
+                    else
+                    {
+                        this.DisplayName = this.Name;
+                    }
+                }
+                catch
+                {
+                    this.DisplayName = this.Name;
+                }
+            }
+            else
+            {
+                this.DisplayName = this.Name;
+            }
         }
 
 

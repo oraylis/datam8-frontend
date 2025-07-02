@@ -20,7 +20,7 @@
     {
       "name": "lake_test",
       "type": "LakeSource",
-      "connectionString": "StorageAccountName=samr;StoragePath=apcoa/rl;AuthenticationMethod=AccountKey;AccessKey=\"TJyDiGSzrbcuedZVhJDSE/v/KmGqyP3BJL+sdL3ieEs+VfbYThM+oUvHkCZnhDGqUDD07r+TyA/cnp79hBvJ4w==\";TenantID=8d6e3457-dcfd-4090-9492-60cca71b39e2;OjectID=37a791ba-345a-406e-a4d0-5c4a2f2c5a9c;Secret=msH8Q~vLgg67ycbhr~dfZObos2A-KjxmMWNcdcPy",
+      "connectionString": "StorageAccountName=samr;StoragePath=apcoa/rl;AuthenticationMethod=AccountKey;AccessKey=\"AAAAAA\";TenantID=TTTTTTT;OjectID=OOOOOOO;Secret=SSSSSSS",
       "dataTypeMapping": []
     },
     {

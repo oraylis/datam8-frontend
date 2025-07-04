@@ -2,18 +2,6 @@ name: "Build on Push & Release on merged PR"
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - src/**
-      - .gitmodules
-      - datam8-generator
-      - datam8-model
-    branches:
-      - feature/*
-      - patch/*
-      - issue/*
-      - bug/*
-      - chore/*
   pull_request:
     branches:
       - main
@@ -23,6 +11,7 @@ on:
 
 jobs:
   build-and-release:
+    if: github.event.pull_request.merged == true
     runs-on: windows-2022
     env:
       DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"

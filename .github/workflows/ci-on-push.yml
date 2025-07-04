@@ -1,0 +1,99 @@
+name: "Validate on Push"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/*
+      - patch/*
+      - issue/*
+      - bug/*
+      - chore/*
+
+jobs:
+  validate:
+    runs-on: windows-2022
+    env:
+      DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"
+      SolutionDir: ${{ github.workspace }}\src
+      azureSignToolVersion: "6.0.0"
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: '0.6.12'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            8.0.x
+
+      - name: Checkout solution respoitory
+        uses: actions/checkout@v4
+        with:
+          repository: oraylis/datam8-sample-solution
+          path: datam8-sample-solution
+
+      - name: Integrate latest version of sample solution
+        run: |
+          Copy-Item `
+          -Path datam8-sample-solution/Generate/* `
+          -Destination src/Dm8Main/Solution/CreateNewProject/Generate/ `
+          -Recurse `
+          -Force
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore src/Dm8Main.sln
+
+      - name: Build DataM8 Solution
+        # INFO: build the Dm8Build projects once before otherwise references
+        # to DLLs are not working
+        run: |
+          dotnet build src/Dm8Build
+          dotnet build src/Dm8Main.sln
+
+      - name: Build DataM8 Generator
+        working-directory: ./datam8-generator
+        run: uv build
+
+      - name: Post Build Script
+        run: |
+          .\Dm8PostBuildScript.ps1
+
+      - name: Build Validator CLI for Linux
+        run: |
+          dotnet build src/Dm8Validate/Dm8Validate.csproj `
+          -c Debug_Linux `
+          -r linux-x64 `
+          --self-contained
+
+      - name: Install WIX & dependencies
+        run: |
+          dotnet tool install wix --version '5.0.1' --global
+          wix.exe extension add -g WixToolset.UI.wixext/5.0.2
+
+      - name: Build Setup
+        run: dotnet build src/Dm8Setup/Dm8Setup.csproj

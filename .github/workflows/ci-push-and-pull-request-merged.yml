@@ -13,9 +13,11 @@ on:
       - patch/*
       - issue/*
       - bug/*
+      - chore/*
   pull_request:
     branches:
       - main
+      - dev
     types:
       - closed
 

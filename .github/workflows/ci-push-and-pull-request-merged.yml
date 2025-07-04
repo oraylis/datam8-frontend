@@ -1,7 +1,6 @@
 name: "Build on Push & Release on merged PR"
 
 on:
-  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -10,8 +9,7 @@ on:
       - closed
 
 jobs:
-  build-and-release:
-    if:  ${{ github.ref == 'refs/heads/main' && github.event.pull_request.merged == true }}
+  build:
     runs-on: windows-2022
     env:
       DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"
@@ -91,7 +89,7 @@ jobs:
           --self-contained
 
       - name: Extract project version from App.config
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' 
+        id: extractVersion
         run: |
           $version_string = select-string `
             -path .\src\Dm8Main\App.config `
@@ -102,9 +100,9 @@ jobs:
           } else {
             write-error "Could not find a valid version"
           }
+          echo "version=$version_string" >> "$GITHUB_OUTPUT"
 
       - name: Get latest tag version
-        if: github.event_name == 'pull_request'|| github.event_name == 'workflow_dispatch' 
         run: |
           $LATEST_TAG=$(gh release list -L 1 --json tagName `
             --exclude-drafts --exclude-pre-releases --jq '.[].tagName'
@@ -116,14 +114,12 @@ jobs:
           REPO: ${{ github.event.repository.name }}
 
       - name: Install Azure SignTool
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
         run: |
           dotnet tool install `
           --global AzureSignTool `
           --version ${{ env.azureSignToolVersion }}
 
       - name: Sign executables
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
         run: |
           AzureSignTool sign `
             -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
@@ -145,7 +141,6 @@ jobs:
         run: dotnet build src/Dm8Setup/Dm8Setup.csproj
 
       - name: Sign installer
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
         run: |
           AzureSignTool sign `
             -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
@@ -158,34 +153,78 @@ jobs:
             "src/Dm8Setup/bin/Debug/ORAYLIS DataM8.msi"
 
       - name: Zip DataM8
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
         run: |
           Compress-Archive `
           -Path src/Dm8Main/bin/Debug/net8.0-windows7.0/* `
           -DestinationPath src/DataM8.win-x64.zip
 
       - name: Zip DataM8 Validator for Windows
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
         run: |
           Compress-Archive `
           -Path src/Dm8Validate/bin/Debug/net8.0/* `
           -DestinationPath src/DataM8Validate.win-x64.zip
 
       - name: Zip DataM8 Validator for Linux
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
         run: |
           Compress-Archive `
           -Path src/Dm8Validate/bin/Debug_Linux/net8.0/linux-x64/* `
           -DestinationPath src/DataM8Validate.linux-x64.zip
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: env.FRONTEND_VERSION != env.LATEST_TAG_VERSION
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ env.FRONTEND_VERSION }}
+          if-no-files-found: error
+          retention-days: 1
+          name: zips
+          path: src/*.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          retention-days: 1
+          name: msi
+          path: src/Dm8Setup/bin/Debug/*.msi
+
+    outputs:
+      version: ${{ steps.extractVersion.outputs.version }}
+
+  release:
+    needs: [build]
+    runs-on: windows-2022
+    # INFO: if not explicitly checked this job will run if a PR is simply
+    # closed and not merged
+    if: github.event.pull_request.merged == true
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifacts@v4
+
+      - run: |
+          echo $VERSION
+      # - name: Create GitHub Release (main)
+      #   if: github.ref == 'refs/heads/main'
+      #   uses: softprops/action-gh-release@v2
+      #   env:
+      #     VERSION: ${{ needs.build.outputs.version }}
+      #   with:
+      #     tag_name: ${{ env.VERSION }}
+      #     generate_release_notes: true
+      #     files: |
+      #       src/DataM8.win-x64.zip
+      #       src/DataM8Validate.win-x64.zip
+      #       src/DataM8Validate.linux-x64.zip
+      #       src/Dm8Setup/bin/Debug/*.msi
+
+      - name: Create GitHub Release (dev)
+        if: github.ref == 'refs/heads/dev'
+        uses: softprops/action-gh-release@v2
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        with:
+          tag_name: ${{ env.VERSION }}-beta
           generate_release_notes: true
           files: |
-            src/DataM8.win-x64.zip
-            src/DataM8Validate.win-x64.zip
-            src/DataM8Validate.linux-x64.zip
-            src/Dm8Setup/bin/Debug/*.msi
+            zip/DataM8.win-x64.zip
+            zip/DataM8Validate.win-x64.zip
+            zip/DataM8Validate.linux-x64.zip
+            msi/*.msi

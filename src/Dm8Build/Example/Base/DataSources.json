@@ -20,7 +20,7 @@
     {
       "name": "lake_test",
       "type": "LakeSource",
-      "connectionString": "StorageAccountName=samr;StoragePath=apcoa/rl;AuthenticationMethod=AccountKey;AccessKey=\"AAAA==\";TenantID=TTTT;OjectID=OOOO;Secret=SSSS",
+      "connectionString": "StorageAccountName=samr;StoragePath=apcoa/rl;AuthenticationMethod=AccountKey;AccessKey=\"AAAAAA\";TenantID=TTTTTTT;OjectID=OOOOOOO;Secret=SSSSSSS",
       "dataTypeMapping": []
     },
     {

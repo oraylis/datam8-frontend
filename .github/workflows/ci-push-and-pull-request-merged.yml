@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-and-release:
-    if: github.event.pull_request.merged == true
+    if:  ${{ github.ref == 'refs/heads/main' && github.event.pull_request.merged == true }}
     runs-on: windows-2022
     env:
       DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"

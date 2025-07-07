@@ -2,8 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:prism="http://prismlibrary.com/"
-             xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
-             xmlns:b="clr-namespace:Dm8Main.Base"
+            xmlns:dgext="urn:tom-englert.de/DataGridExtensions"
+            xmlns:b="clr-namespace:Dm8Main.Base"
+            xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:options="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
              xmlns:local="clr-namespace:Dm8Main">
     <Application.Resources>
@@ -26,6 +27,9 @@
                 <ResourceDictionary Source="pack://application:,,,/Fluent;component/Themes/Generic.xaml" />
 
             </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="{x:Type controls:MetroWindow}">
+                <EventSetter Event="SourceInitialized" Handler="OnWindowSourceInitialized" />
+            </Style>
         </ResourceDictionary>
         
     </Application.Resources>

@@ -161,6 +161,11 @@ namespace Dm8Main
             containerRegistry.RegisterDialog<DlgCoreAttributeAssign>();
         }
 
+        private void OnWindowSourceInitialized(object? sender, EventArgs e)
+        {
+            (sender as Window)?.EnableRoundedCorners();
+        }
+
         public static void Wait(bool set)
         {
             if (set)

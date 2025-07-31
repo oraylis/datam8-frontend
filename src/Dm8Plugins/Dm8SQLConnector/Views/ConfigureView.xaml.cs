@@ -18,10 +18,10 @@
  */
 
 using System.IO;
-using Dm8PluginBase.Extensions;
+using Oraylis.DataM8.PluginBase.Extensions;
 using System.Windows;
 using System.Windows.Controls;
-using Dm8PluginBase.Helper;
+using Oraylis.DataM8.PluginBase.Helper;
 
 namespace Dm8LakeConnector.Views
 {

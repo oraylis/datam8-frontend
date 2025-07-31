@@ -18,9 +18,9 @@
  */
 
 using Dm8CSVConnector.Views;
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Interfaces;
-using Extensions = Dm8PluginBase.Extensions.Extensions;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Interfaces;
+using Extensions = Oraylis.DataM8.PluginBase.Extensions.Extensions;
 
 #region Pragma
 #pragma warning disable IDE0130

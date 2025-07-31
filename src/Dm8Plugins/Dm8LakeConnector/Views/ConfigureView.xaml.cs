@@ -17,7 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Dm8PluginBase.Helper;
+using Oraylis.DataM8.PluginBase.Helper;
 using System.Windows;
 using System.Windows.Controls;
 

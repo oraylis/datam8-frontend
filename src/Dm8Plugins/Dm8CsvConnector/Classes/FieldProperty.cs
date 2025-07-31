@@ -25,7 +25,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using Newtonsoft.Json;
 using CategoryAttribute = PropertyTools.DataAnnotations.CategoryAttribute;
 

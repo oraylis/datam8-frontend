@@ -26,7 +26,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Dm8Data.DataSources;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using CategoryAttribute = PropertyTools.DataAnnotations.CategoryAttribute;
 
 namespace Dm8Main.Models

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0-windows7.0</TargetFramework>
@@ -16,15 +16,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="DataGridExtensions" Version="2.6.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+    <PackageReference Include="Oraylis.DataM8.PluginBase" Version="0.1.2" />
     <PackageReference Include="Prism.Core" Version="9.0.537" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Dm8PluginBase\Dm8PluginBase.csproj" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.7" />
   </ItemGroup>
 
   <ItemGroup>

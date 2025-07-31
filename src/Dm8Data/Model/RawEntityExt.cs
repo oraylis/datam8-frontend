@@ -26,7 +26,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Dm8PluginBase;
+using Oraylis.DataM8.PluginBase;
 
 namespace Dm8Data.Raw
 {

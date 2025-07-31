@@ -17,7 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -37,7 +37,7 @@ namespace Dm8Data.Plugins
                 string[] files = Directory.GetFiles(path ,"*"+extension);
                 foreach (string file in files)
                 {
-                    if (file.EndsWith(extension) && file.Contains("CSV") == false)
+                    if (file.EndsWith(extension) && file.Contains("CSV") == false) //&& (file.Contains("Connector") || file.Contains("Oraylis")))
                     {
                         Assembly.LoadFile(Path.GetFullPath(file));
                     }
@@ -49,13 +49,13 @@ namespace Dm8Data.Plugins
             //Fetch all types that implement the interface and are a class
             Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
-                .Where(p => interfaceType.IsAssignableFrom(p) && p.IsClass)
+                .Where(p => interfaceType.IsAssignableFrom(p) && p.IsClass)  
                 .ToArray();
 
-            foreach (Type type in types)
+            foreach(Type type in types)
             {
 
-                if (Activator.CreateInstance(type) is IDm8PluginConnectorSourceExplorerV1 inst)
+                if(Activator.CreateInstance(type) is IDm8PluginConnectorSourceExplorerV1 inst)
                 {
                     plugins.Add(inst);
                 }

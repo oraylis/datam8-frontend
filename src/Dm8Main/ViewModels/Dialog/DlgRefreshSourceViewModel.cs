@@ -29,8 +29,8 @@ using Dm8Data.Helper;
 using Dm8Data.Source;
 using Dm8Data.Validate;
 using Dm8Main.Base;
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using MvvmDialogs;
 using Newtonsoft.Json;
 using Prism.Commands;
@@ -333,13 +333,13 @@ namespace Dm8Main.ViewModels.Dialog
             {
                 this.IsNextEnabled = false;
                 ds = (IDm8PluginConnectorSourceExplorerV1)dsCheck;
-                ds.Source = Dm8PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase, DataSource>(this.SelectedDataSource);
+                ds.Source = Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase, DataSource>(this.SelectedDataSource);
                 ds.Layer = Dm8Data.Properties.Resources.Folder_Raw;
                 ds.DataModule = modelEntry.Entity.DataModule;
                 ds.DataProduct = modelEntry.Entity.DataProduct;
                 if (!modelEntry.Function.SourceLocation.ToLower().EndsWith(".csv"))
                 {
-                    await ds.RefreshAttributesAsync(Dm8PluginBase.Extensions.Extensions
+                    await ds.RefreshAttributesAsync(Oraylis.DataM8.PluginBase.Extensions.Extensions
                         .ConvertClass<RawModelEntryBase, Dm8Data.Raw.ModelEntry>(modelEntry));
                 }
             }

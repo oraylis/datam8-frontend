@@ -71,16 +71,17 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="Azure.Identity" Version="1.13.2" />
 		<PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.7.0" />
 		<PackageReference Include="Azure.Storage.Files.DataLake" Version="12.21.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
 		<PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
 		<PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
+		<PackageReference Include="Oraylis.DataM8.PluginBase" Version="0.1.2" />
 		<PackageReference Include="Prism.Core" Version="9.0.537" />
 		<PackageReference Include="RestSharp" Version="112.1.0" />
 		<PackageReference Include="System.Collections" Version="4.3.0" />
+		<PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.7" />
 		<PackageReference Include="System.Drawing.Common" Version="9.0.1" />
 		<PackageReference Include="System.Net.Http" Version="4.3.4" />
 		<PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
@@ -90,7 +91,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Dm8Build\Dm8Build.csproj" />
 		<ProjectReference Include="..\Dm8Locator\Dm8Locator.csproj" />
-		<ProjectReference Include="..\Dm8Plugins\Dm8PluginBase\Dm8PluginBase.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

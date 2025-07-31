@@ -32,7 +32,7 @@ using Dm8Data.Source;
 using Dm8Data.Validate;
 using Dm8Main.Base;
 using Dm8Main.Views.Dialog;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using MahApps.Metro.Controls;
 using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;

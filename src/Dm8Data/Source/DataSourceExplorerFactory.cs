@@ -18,7 +18,7 @@
  */
 
 using Dm8Data.Plugins;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;

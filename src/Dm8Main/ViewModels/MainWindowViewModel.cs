@@ -1211,7 +1211,7 @@ namespace Dm8Main.ViewModels
         {
             try
             {
-                string help = @"https://github.com/oraylis/automation/blob/main/docs/DataM8.md";
+                string help = @"https://github.com/oraylis/datam8/blob/main/README.md";
                 ProcessExt.OpenWebsite(help);
             }
             catch (Exception ex)

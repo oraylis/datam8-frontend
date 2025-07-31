@@ -32,8 +32,8 @@ using Dm8Data.Source;
 using Dm8Data.Validate;
 using Dm8Main.Base;
 using Dm8Main.Services;
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using MvvmDialogs;
 using Newtonsoft.Json;
 using Prism.Commands;
@@ -340,7 +340,7 @@ namespace Dm8Main.ViewModels.Dialog
                     this.IsNextEnabled = false;
                     ds = (IDm8PluginConnectorSourceExplorerV1)dsCheck;
                     ds.Source =
-                        Dm8PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase, DataSource>(
+                        Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase, DataSource>(
                             this.SelectedDataSource);
                     ds.Layer = Dm8Data.Properties.Resources.Folder_Raw;
                     ds.DataProduct = this.SelectedDataProduct.Name;
@@ -362,7 +362,7 @@ namespace Dm8Main.ViewModels.Dialog
                     // add checked entities
                     foreach (var entry in items)
                     {
-                        ModelEntry checkedEntity = Dm8PluginBase.Extensions.Extensions.ConvertClass<ModelEntry, RawModelEntryBase>(entry);
+                        ModelEntry checkedEntity = Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<ModelEntry, RawModelEntryBase>(entry);
 
                         // report entity name
                         this.AddingEntity = checkedEntity.Entity.Dm8l;

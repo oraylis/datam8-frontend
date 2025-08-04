@@ -17,9 +17,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Extensions;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Extensions;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using Microsoft.Data.SqlClient;
 using System.Collections.ObjectModel;
 using System.Data;

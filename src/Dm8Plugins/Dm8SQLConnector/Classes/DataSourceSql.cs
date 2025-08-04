@@ -19,8 +19,8 @@
 
 using System.Windows;
 using Dm8LakeConnector.Views;
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Helper;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Helper;
 using Microsoft.Data.SqlClient;
 
 namespace Dm8LakeConnector

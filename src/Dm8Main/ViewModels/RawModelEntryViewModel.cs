@@ -44,8 +44,8 @@ using Dm8Main.Models;
 using Dm8Main.Properties;
 using Dm8Main.Services;
 using Dm8Main.Views;
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using Fluent;
 using MvvmDialogs;
 using Newtonsoft.Json;
@@ -217,7 +217,7 @@ namespace Dm8Main.ViewModels
                 var info = string.Empty;
                 var now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
                 var reader = ModelReaderFactory.Create(typeof(Dm8Data.Raw.ModelEntry));
-                RawModelEntryBase modelEntry = Dm8PluginBase.Extensions.Extensions.ConvertClass<RawModelEntryBase, Dm8Data.Raw.ModelEntry>((Dm8Data.Raw.ModelEntry)await reader.ReadFromFileAsync(this.FilePath));
+                RawModelEntryBase modelEntry = Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<RawModelEntryBase, Dm8Data.Raw.ModelEntry>((Dm8Data.Raw.ModelEntry)await reader.ReadFromFileAsync(this.FilePath));
                 if (modelEntry == null)
                 {
                     info = "Cannot read entity";
@@ -234,7 +234,7 @@ namespace Dm8Main.ViewModels
 
                 // refresh data source
                 IDm8PluginConnectorSourceExplorerV1 ds = (IDm8PluginConnectorSourceExplorerV1)DataSourceExplorerFactory.Create(dataSource.Type);
-                ds.Source = Dm8PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase, DataSource>(dataSource);
+                ds.Source = Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase, DataSource>(dataSource);
                 ds.Layer = Dm8Data.Properties.Resources.Folder_Raw;
                 ds.DataModule = modelEntry.Entity.DataModule;
                 ds.DataProduct = modelEntry.Entity.DataProduct;

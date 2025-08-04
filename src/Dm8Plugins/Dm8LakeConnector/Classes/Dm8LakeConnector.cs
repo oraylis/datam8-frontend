@@ -21,14 +21,14 @@ using Azure.Storage.Files.DataLake;
 using Azure.Storage.Files.DataLake.Models;
 using Dm8CSVConnector;
 using Dm8LakeConnector.Views;
-using Dm8PluginBase.BaseClasses;
-using Dm8PluginBase.Extensions;
-using Dm8PluginBase.Interfaces;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Extensions;
+using Oraylis.DataM8.PluginBase.Interfaces;
 using Parquet;
 using Parquet.Schema;
 using System.Collections.ObjectModel;
 using System.IO;
-using Extensions = Dm8PluginBase.Extensions.Extensions;
+using Extensions = Oraylis.DataM8.PluginBase.Extensions.Extensions;
 using Path = System.IO.Path;
 
 

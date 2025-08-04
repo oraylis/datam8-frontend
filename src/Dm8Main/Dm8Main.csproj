@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -70,7 +70,6 @@
 
   <ItemGroup>
     <PackageReference Include="AvalonEdit" Version="6.3.0.90" />
-    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Azure.Storage.Files.DataLake" Version="12.21.0" />
     <PackageReference Include="DataGridExtensions" Version="2.6.0" />
     <PackageReference Include="Dirkster.AvalonDock" Version="4.72.1" />
@@ -90,6 +89,8 @@
     <PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
     <PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
     <PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.9.1" />
+    <PackageReference Include="Oraylis.DataM8.PluginBase" Version="0.1.2" />
     <PackageReference Include="Parquet.Net" Version="5.0.2" />
     <PackageReference Include="Prism.Core" Version="9.0.537" />
     <PackageReference Include="Prism.Unity" Version="9.0.537" />
@@ -99,6 +100,7 @@
     <PackageReference Include="SharpVectors.Wpf" Version="1.8.4.2" />
     <PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
     <PackageReference Include="System.Composition.AttributedModel" Version="9.0.1" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.7" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>

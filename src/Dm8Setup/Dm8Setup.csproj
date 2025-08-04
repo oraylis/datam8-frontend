@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.7" />
     <PackageReference Include="WixSharp_wix4" Version="2.4.4" />
   </ItemGroup>
 

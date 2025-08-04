@@ -16,17 +16,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Azure.Storage.Files.DataLake" Version="12.21.0" />
     <PackageReference Include="DataGridExtensions" Version="2.6.0" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+    <PackageReference Include="Oraylis.DataM8.PluginBase" Version="0.1.2" />
     <PackageReference Include="Parquet.Net" Version="5.0.2" />
     <PackageReference Include="Prism.Core" Version="9.0.537" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.7" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Dm8CsvConnector\Dm8CSVConnector.csproj" />
-    <ProjectReference Include="..\Dm8PluginBase\Dm8PluginBase.csproj" />
   </ItemGroup>
 
   <ItemGroup>

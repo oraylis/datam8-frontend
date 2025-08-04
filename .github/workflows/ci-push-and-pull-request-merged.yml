@@ -30,6 +30,7 @@ jobs:
       azureSignToolVersion: "6.0.0"
     permissions:
       contents: write
+      packages: read
 
     steps:
       - name: Checkout repository
@@ -68,13 +69,6 @@ jobs:
           -Recurse `
           -Force
 
-      - run: > 
-          dotnet nuget add source
-          --username oraylis
-          --password ${{ secrets.GITHUB_TOKEN }}
-          --store-password-in-clear-text
-          --name github "https://nuget.pkg.github.com/oraylis/index.json"
-
       - name: Cache NuGet packages
         uses: actions/cache@v3
         with:
@@ -85,6 +79,8 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore src/Dm8Main.sln
+        env:
+          NugetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build DataM8 Solution
         # INFO: build the Dm8Build projects once before otherwise references

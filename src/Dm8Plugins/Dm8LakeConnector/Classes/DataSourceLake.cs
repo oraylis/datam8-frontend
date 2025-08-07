@@ -1,4 +1,4 @@
-﻿/* DataM8
+/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.
@@ -17,17 +17,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.IO;
 using System.Windows;
 using Azure.Core;
 using Azure.Identity;
-using Azure.Storage.Files.DataLake;
 using Azure.Storage;
-using Dm8LakeConnector.Views;
+using Azure.Storage.Files.DataLake;
 using Oraylis.DataM8.PluginBase.BaseClasses;
 using Oraylis.DataM8.PluginBase.Helper;
-using Microsoft.Data.SqlClient;
-using System.IO;
-using System.Net.Sockets;
 
 #pragma warning disable IDE0079 // Remove unnecessary suppression
 #pragma warning disable CS8629 // Nullable value type may be null.
@@ -57,170 +54,173 @@ namespace Dm8LakeConnector
 {
 #pragma warning disable CS8600
 
-    public class DataSourceLake : DataSourceBase
-    {
-        public enum LakeSourceAuthenticationMethod
-        {
-            AccountKey = 0,
-            AzureAd = 1,
-        }
+   public class DataSourceLake:DataSourceBase
+   {
+      public enum LakeSourceAuthenticationMethod
+      {
+         AccountKey = 0,
+         AzureAd = 1,
+      }
 
-        public string StorageAccountName = "";
-        public string StoragePath = "";
-        public LakeSourceAuthenticationMethod AuthenticationMethod = LakeSourceAuthenticationMethod.AccountKey;
-        public string Secret = "";
-        public string TenantID = "";
-        public string ClientID = "";
-        private string _connectionString = "";
+      public string StorageAccountName = "";
+      public string StoragePath = "";
+      public LakeSourceAuthenticationMethod AuthenticationMethod = LakeSourceAuthenticationMethod.AccountKey;
+      public string Secret = "";
+      public string TenantID = "";
+      public string ClientID = "";
+      private string _connectionString = "";
 
-        public DataSourceLake()
-        {
-            this.Name = "LakeSource";
-        }
+      public DataSourceLake()
+      {
+         this.Name = "LakeSource";
+      }
 
-        public new string ConnectionString
-        {
-            get
+      public new string ConnectionString
+      {
+         get
+         {
+            string secret;
+            string conStr =
+                $"StorageAccountName={this.StorageAccountName};StoragePath={this.StoragePath};AuthenticationMethod={this.AuthenticationMethod}";
+
+            if (this.RealConnectionString)
             {
-                string secret;
-                string conStr =
-                    $"StorageAccountName={StorageAccountName};StoragePath={StoragePath};AuthenticationMethod={AuthenticationMethod}";
-
-                if (this.RealConnectionString)
-                {
-                    if (this.ExtendedProperties.TryGetValue("EncryptedData", out string cfile) &&
-                        !String.IsNullOrEmpty(cfile))
-                    {
-                        secret = UserData.Load(cfile);
-                        switch (AuthenticationMethod)
-                        {
-                            case LakeSourceAuthenticationMethod.AccountKey:
-                                conStr += $";AccessKey={secret}";
-                                break;
-                            case LakeSourceAuthenticationMethod.AzureAd:
-                                conStr += $";Secret={secret}";
-                                break;
-                        }
-                    }
-                }
-
-                if (AuthenticationMethod == LakeSourceAuthenticationMethod.AzureAd)
-                {
-                    conStr += $";TenantID={TenantID}; ClientID={ClientID}";
-                }
-
-                return (conStr);
-            }
-            set
-            {
-                _connectionString = value;
-                StoragePath = getConnectionProperty(_connectionString, "StoragePath");
-                StorageAccountName = getConnectionProperty(_connectionString, "StorageAccountName");
-                ClientID = getConnectionProperty(_connectionString, "ClientID");
-                TenantID = getConnectionProperty(_connectionString, "TenantID");
-            }
-        }
-
-        public new bool Validate(bool showMessage)
-        {
-            bool retVal = false;
-            this.RealConnectionString = true;
-
-            try
-            {
-                this.Connect(this.ConnectionString);
-                if (showMessage)
-                {
-                    MessageBox.Show("Connection established", $@"Connection: {this.Name}");
-                }
-
-                retVal = true;
-            }
-            catch (Exception ex)
-            {
-                if (showMessage)
-                {
-                    MessageBox.Show(ex.Message, $@"Connection: {this.Name}");
-                }
+               if (this.ExtendedProperties.TryGetValue("EncryptedData" ,out string cfile) &&
+                   !String.IsNullOrEmpty(cfile))
+               {
+                  secret = UserData.Load(cfile);
+                  switch (this.AuthenticationMethod)
+                  {
+                     case LakeSourceAuthenticationMethod.AccountKey:
+                        conStr += $";AccessKey={secret}";
+                        break;
+                     case LakeSourceAuthenticationMethod.AzureAd:
+                        conStr += $";Secret={secret}";
+                        break;
+                  }
+               }
             }
 
-            this.RealConnectionString = false;
-            return (retVal);
-        }
-
-        public new bool Connect(string conStr)
-        {
-            bool retVal = true;
-            string storagePath = getConnectionProperty(conStr, "StoragePath");
-            var storageItems =
-                storagePath.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-
-            DataLakeFileSystemClient fileSystemClient = SetFilesystemClient(
-                conStr: conStr,
-                authenticationMethod: getConnectionProperty(conStr, "AuthenticationMethod"),
-                containerName: storageItems[0]);
-
-            if (storageItems.Length == 1)
+            if (this.AuthenticationMethod == LakeSourceAuthenticationMethod.AzureAd)
             {
-                fileSystemClient.GetPropertiesAsync();
-            }
-            else
-            {
-                string folderPath = String.Join("/", storageItems.Skip(1).ToArray());
-                DataLakeDirectoryClient directoryClient = fileSystemClient.GetDirectoryClient(folderPath);
-                directoryClient.GetPropertiesAsync();
+               conStr += $";TenantID={this.TenantID}; ClientID={this.ClientID}";
             }
 
-            return (retVal);
-        }
-        private string getConnectionProperty(string conStr, string key)
-        {
-            Dictionary<string, string> dictionaryConnectionProperties = conStr.TrimEnd(';').Split(';').ToDictionary(item => item.Split('=', 2)[0], item => item.Split('=', 2)[1]);
+            return (conStr);
+         }
+         set
+         {
+            _connectionString = value;
+            this.StoragePath = getConnectionProperty(_connectionString ,"StoragePath");
+            this.StorageAccountName = getConnectionProperty(_connectionString ,"StorageAccountName");
+            this.ClientID = getConnectionProperty(_connectionString ,"ClientID");
+            this.TenantID = getConnectionProperty(_connectionString ,"TenantID");
+         }
+      }
 
-            if (!dictionaryConnectionProperties.TryGetValue(key, out string retVal))
+      public new bool Validate(bool showMessage)
+      {
+         bool retVal = false;
+         this.RealConnectionString = true;
+
+         try
+         {
+            this.Connect(this.ConnectionString);
+            if (showMessage)
             {
-                retVal = "";
+               MessageBox.Show("Connection established" ,$@"Connection: {this.Name}");
             }
-            return (retVal);
-        }
 
-        public DataLakeFileSystemClient SetFilesystemClient(string conStr ,string authenticationMethod, string containerName)
-        {
-            DataLakeServiceClient serviceClient = new DataLakeServiceClient(new Uri("https://" + getConnectionProperty(conStr, "StorageAccountName") + ".dfs.core.windows.net"), new DefaultAzureCredential());
-            string accessKey = getConnectionProperty(conStr, "AccessKey").Replace("\"", "");
-            string storageAccount = getConnectionProperty(conStr, "StorageAccountName");
-            switch (authenticationMethod.ToLower())
+            retVal = true;
+         } catch (Exception ex)
+         {
+            if (showMessage)
             {
-                case "accountkey":
-                    getDataLakeServiceClient(
-                        dataLakeServiceClient: ref serviceClient,
-                        accountName: storageAccount,
-                        accountKey: accessKey);
-                    break;
-                case "azuread":
-                    getDataLakeServiceClient(
-                        dataLakeServiceClient: ref serviceClient,
-                        accountName: storageAccount,
-                        clientSecret: accessKey,
-                        clientID: getConnectionProperty(conStr, "ClientID"),
-                        tenantID: getConnectionProperty(conStr, "TenantID"));
-                    break;
+               MessageBox.Show(ex.Message ,$@"Connection: {this.Name}");
             }
-            DataLakeFileSystemClient filesystemClient = serviceClient.GetFileSystemClient(containerName);
-            return filesystemClient;
-        }
-        private void getDataLakeServiceClient(ref DataLakeServiceClient dataLakeServiceClient, string accountName, string accountKey)
-        {
-            StorageSharedKeyCredential sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
-            string dfsUri = "https://" + accountName + ".dfs.core.windows.net";
-            dataLakeServiceClient = new DataLakeServiceClient(new Uri(dfsUri), sharedKeyCredential);
-        }
-        private void getDataLakeServiceClient(ref DataLakeServiceClient dataLakeServiceClient, String accountName, String clientID, string clientSecret, string tenantID)
-        {
-            TokenCredential credential = new ClientSecretCredential(tenantID, clientID, clientSecret, new TokenCredentialOptions());
-            string dfsUri = "https://" + accountName + ".dfs.core.windows.net";
-            dataLakeServiceClient = new DataLakeServiceClient(new Uri(dfsUri), credential);
-        }
+         }
 
-    }
+         this.RealConnectionString = false;
+         return (retVal);
+      }
+
+      public new bool Connect(string conStr)
+      {
+         bool retVal = true;
+         string storagePath = getConnectionProperty(conStr ,"StoragePath");
+         var storageItems = storagePath.Split([Path.DirectorySeparatorChar ,Path.AltDirectorySeparatorChar]);
+
+         DataLakeFileSystemClient fileSystemClient = SetFilesystemClient(
+             conStr: conStr ,
+             authenticationMethod: getConnectionProperty(conStr ,"AuthenticationMethod") ,
+             containerName: storageItems[0]);
+
+         if (storageItems.Length == 1)
+         {
+            fileSystemClient.GetPropertiesAsync();
+         } else
+         {
+            string folderPath = String.Join("/" ,storageItems.Skip(1).ToArray());
+            DataLakeDirectoryClient directoryClient = fileSystemClient.GetDirectoryClient(folderPath);
+            directoryClient.GetPropertiesAsync();
+         }
+         return (retVal);
+      }
+      private string getConnectionProperty(string conStr ,string key)
+      {
+         Dictionary<string ,string> dictionaryConnectionProperties = conStr.TrimEnd(';').Split(';').ToDictionary(item => item.Split('=' ,2)[0] ,item => item.Split('=' ,2)[1]);
+
+         if (!dictionaryConnectionProperties.TryGetValue(key ,out string retVal))
+         {
+            retVal = "";
+         }
+         return (retVal);
+      }
+
+      public DataLakeFileSystemClient SetFilesystemClient(string conStr ,string authenticationMethod ,string containerName)
+      {
+         DataLakeServiceClient serviceClient = new DataLakeServiceClient(new Uri("https://" + getConnectionProperty(conStr ,"StorageAccountName") + ".dfs.core.windows.net") ,new DefaultAzureCredential());
+         string accessKey = getConnectionProperty(conStr ,"AccessKey").Replace("\"" ,"");
+         string storageAccount = getConnectionProperty(conStr ,"StorageAccountName");
+         switch (authenticationMethod.ToLower())
+         {
+            case "accountkey":
+               getDataLakeServiceClient(dataLakeServiceClient: ref serviceClient ,
+                                       accountName: storageAccount ,
+                                       accountKey: accessKey
+                                        );
+               break;
+            case "azuread":
+               getDataLakeServiceClient(dataLakeServiceClient: ref serviceClient ,
+                                        accountName: storageAccount ,
+                                        clientSecret: accessKey ,
+                                        clientID: getConnectionProperty(conStr ,"ClientID") ,
+                                        tenantID: getConnectionProperty(conStr ,"TenantID")
+                                        );
+               break;
+         }
+         DataLakeFileSystemClient filesystemClient = serviceClient.GetFileSystemClient(containerName);
+         return filesystemClient;
+      }
+      private void getDataLakeServiceClient(ref DataLakeServiceClient dataLakeServiceClient ,string accountName ,string accountKey)
+      {
+         StorageSharedKeyCredential sharedKeyCredential = new StorageSharedKeyCredential(accountName ,accountKey);
+         string dfsUri = "https://" + accountName + ".dfs.core.windows.net";
+         dataLakeServiceClient = new DataLakeServiceClient(new Uri(dfsUri) ,sharedKeyCredential);
+      }
+      private void getDataLakeServiceClient(ref DataLakeServiceClient dataLakeServiceClient ,String accountName ,String clientID ,string clientSecret ,string tenantID)
+      {
+         TokenCredential credential = new ClientSecretCredential(tenantID ,clientID ,clientSecret ,new TokenCredentialOptions());
+         string dfsUri = "https://" + accountName + ".dfs.core.windows.net";
+         dataLakeServiceClient = new DataLakeServiceClient(new Uri(dfsUri) ,credential);
+      }
+      public string RealStoragePath
+      {
+         get
+         {
+            string[] storageItems = this.StoragePath.Split([Path.DirectorySeparatorChar ,Path.AltDirectorySeparatorChar]);
+            return storageItems[0];
+         }
+      }
+   }
 }

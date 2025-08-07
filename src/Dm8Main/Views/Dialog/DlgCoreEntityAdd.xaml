@@ -192,8 +192,8 @@
                                 <Label Grid.Row="3" Grid.Column="0" Margin="4">Display Name:</Label>
                                 <TextBox Grid.Row="3" Grid.Column="1" Margin="4" Text="{Binding DisplayName}" />
 
-                                <Label Grid.Row="4" Grid.Column="0" Margin="4">Path:</Label>
-                                <TextBox Grid.Row="4" Grid.Column="1" Margin="4" Text="{Binding RelativePath}" IsReadOnly="True" />
+                                <!--<Label Grid.Row="4" Grid.Column="0" Margin="4">Path:</Label>
+                                <TextBox Grid.Row="4" Grid.Column="1" Margin="4" Text="{Binding RelativePath}" IsReadOnly="True" />-->
 
 
                                 <DataGrid Grid.Row="5" 

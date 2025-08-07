@@ -33,161 +33,161 @@ using Extensions = Oraylis.DataM8.PluginBase.Extensions.Extensions;
 namespace Dm8CSVConnector
 {
 
-    public class Dm8CSVConnector : IDm8PluginConnectorSourceExplorerV1
-    {
-        #region Properties
-        public DataSourceBase Source { get; set; } = new DataSourceCSV();
-        public string DataSourceName { get; set; }
-        public string Name { get; private set; } = "CSVSource";
-        public string Layer { get; set; }
-        public string DataModule { get; set; }
-        public string DataProduct { get; set; }
-        #endregion
+   public class Dm8CSVConnector:IDm8PluginConnectorSourceExplorerV1
+   {
+      #region Properties
+      public DataSourceBase Source { get; set; } = new DataSourceCSV();
+      public string DataSourceName { get; set; }
+      public string Name { get; private set; } = "CSVSource";
+      public string Layer { get; set; }
+      public string DataModule { get; set; }
+      public string DataProduct { get; set; }
+      #endregion
 
-        public Dictionary<string, string> DefaultDatatypes
-        {
-            get
-            {
-                Dictionary<string, string> retVal = new Dictionary<string, string>();
-                retVal.Add("bit", "bit");
-                retVal.Add("bigint", "long");
-                retVal.Add("datetime", "datetime");
-                retVal.Add("decimal", "decimal");
-                retVal.Add("int", "int");
-                retVal.Add("money", "money");
-                retVal.Add("string", "string");
-                return retVal;
-            }
-        }
-        public async Task ConnectAsync(string connectionString)
-        {
-            this.Source.Connect(connectionString);
-        }
-        public bool ConfigureConnection(ref string conStr, Dictionary<string, string> extendedProperties)
-        {
-            bool retVal = false;
-            var win = new ConfigureView();
-            DataSourceCSV ds = (DataSourceCSV)this.Source;
-            ds.ExtendedProperties = extendedProperties;
-            ds.ConnectionString = conStr;
+      public Dictionary<string ,string> DefaultDatatypes
+      {
+         get
+         {
+            Dictionary<string ,string> retVal = new Dictionary<string ,string>();
+            retVal.Add("bit" ,"bit");
+            retVal.Add("bigint" ,"long");
+            retVal.Add("datetime" ,"datetime");
+            retVal.Add("decimal" ,"decimal");
+            retVal.Add("int" ,"int");
+            retVal.Add("money" ,"money");
+            retVal.Add("string" ,"string");
+            return retVal;
+         }
+      }
+      public async Task ConnectAsync(string connectionString)
+      {
+         this.Source.Connect(connectionString);
+      }
+      public bool ConfigureConnection(ref string conStr ,Dictionary<string ,string> extendedProperties)
+      {
+         bool retVal = false;
+         var win = new ConfigureView();
+         DataSourceCSV ds = (DataSourceCSV)this.Source;
+         ds.ExtendedProperties = extendedProperties;
+         ds.ConnectionString = conStr;
 
-            foreach (KeyValuePair<string, string> kv in this.DefaultDatatypes.OrderBy( x => x.Key))
-            {
-                win.Field_Type.Items.Add(kv.Key);
-            }
-            win.Source = ds;
-            win.DataSourcename = this.DataSourceName;
-            if (win.ShowDialog() == true)
-            {
-                conStr = ds.ConnectionString;
-                extendedProperties = ds.ExtendedProperties;
-                this.DataSourceName = win.DataSourcename;
-                retVal = true;
-            }
+         foreach (KeyValuePair<string ,string> kv in this.DefaultDatatypes.OrderBy(x => x.Key))
+         {
+            win.Field_Type.Items.Add(kv.Key);
+         }
+         win.Source = ds;
+         win.DataSourcename = this.DataSourceName;
+         if (win.ShowDialog() == true)
+         {
+            conStr = ds.ConnectionString;
+            extendedProperties = ds.ExtendedProperties;
+            this.DataSourceName = win.DataSourcename;
+            retVal = true;
+         }
 
-            return (retVal);
-        }
-        public async Task<DateTime> RefreshAttributesAsync(RawModelEntryBase sourceEntity, bool update = false)
-        {
-            DateTime now = DateTime.UtcNow;
+         return (retVal);
+      }
+      public async Task<DateTime> RefreshAttributesAsync(RawModelEntryBase sourceEntity ,bool update = false)
+      {
+         DateTime now = DateTime.UtcNow;
 
-            DataSourceCSV source = Extensions.ConvertClass<DataSourceCSV, DataSourceBase>(this.Source);
-            source.RealConnectionString = true;
-            source.Connect(source.ConnectionString);
+         DataSourceCSV source = Extensions.ConvertClass<DataSourceCSV ,DataSourceBase>(this.Source);
+         source.RealConnectionString = true;
+         source.Connect(source.ConnectionString);
 
-            //var rc = new ObservableCollection<RawAttributBase>();
-            //var filePath = sourceEntity.Function.SourceLocation;
-            //bool fileSelected = false;
-
-
-            //while (item != null || fileSelected == true)
-            //{
-            //    if (item.Name.EndsWith(".parquet"))
-            //    {
-            //        fileSelected = true;
+         //var rc = new ObservableCollection<RawAttributBase>();
+         //var filePath = sourceEntity.Function.SourceLocation;
+         //bool fileSelected = false;
 
 
-            //        using (Stream fileStream = new MemoryStream(ms.ToArray()))
-            //        {
-            //            using (var parquetReader = new ParquetReader(fileStream))
-            //            {
-            //                DataField[] dataFields = parquetReader.Schema.GetDataFields();
+         //while (item != null || fileSelected == true)
+         //{
+         //    if (item.Name.EndsWith(".parquet"))
+         //    {
+         //        fileSelected = true;
 
-            //                foreach (var field in dataFields)
-            //                {
 
-            //                    rc.Add(new RawAttributBase
-            //                    {
-            //                        Name = field.Name,
-            //                        Type = field.DataType.ToString().ToLower(),
-            //                        CharLength = null,
-            //                        Precision = null,
-            //                        Scale = null,
-            //                        Nullable = field.HasNulls,
-            //                        DateModified = now.ToString("yyyy-MM-dd HH:mm:ss"),
-            //                        DateDeleted = null
-            //                    });
-            //                }
+         //        using (Stream fileStream = new MemoryStream(ms.ToArray()))
+         //        {
+         //            using (var parquetReader = new ParquetReader(fileStream))
+         //            {
+         //                DataField[] dataFields = parquetReader.Schema.GetDataFields();
 
-            //                if (sourceEntity.Entity.Attribute == null)
-            //                {
-            //                    sourceEntity.Entity.Attribute = rc;
-            //                }
+         //                foreach (var field in dataFields)
+         //                {
 
-            //                else
-            //                {
-            //                    foreach (var attr in sourceEntity.Entity.Attribute)
-            //                    {
-            //                        var newAttr = rc.FirstOrDefault(a => a.Name == attr.Name);
-            //                        if (newAttr == null && attr.DateDeleted == null)
-            //                        {
-            //                            // attr does not exist anymore
-            //                            attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
-            //                        }
-            //                        else if (update)
-            //                        {
-            //                            if (attr.Type != newAttr.Type ||
-            //                                attr.CharLength != newAttr.CharLength ||
-            //                                attr.Precision != newAttr.Precision ||
-            //                                attr.Scale != newAttr.Scale ||
-            //                                attr.Nullable != newAttr.Nullable)
-            //                            {
-            //                                attr.Type = newAttr.Type;
-            //                                attr.CharLength = newAttr.CharLength;
-            //                                attr.Precision = newAttr.Precision;
-            //                                attr.Scale = newAttr.Scale;
-            //                                attr.Nullable = newAttr.Nullable;
-            //                                attr.DateModified = now.ToString("yyyy-MM-dd HH:mm:ss");
-            //                            }
-            //                        }
-            //                    }
+         //                    rc.Add(new RawAttributBase
+         //                    {
+         //                        Name = field.Name,
+         //                        Type = field.DataType.ToString().ToLower(),
+         //                        CharLength = null,
+         //                        Precision = null,
+         //                        Scale = null,
+         //                        Nullable = field.HasNulls,
+         //                        DateModified = now.ToString("yyyy-MM-dd HH:mm:ss"),
+         //                        DateDeleted = null
+         //                    });
+         //                }
 
-            //                    foreach (var attr in rc)
-            //                    {
-            //                        var currentAttr = sourceEntity.Entity.Attribute.FirstOrDefault(a => a.Name == attr.Name);
-            //                        if (currentAttr == null)
-            //                        {
-            //                            // attr does not exist anymore
-            //                            sourceEntity.Entity.Attribute.Add(attr);
-            //                        }
-            //                    }
-            //                }
-            //            }
-            //            return now;
-            //        }
-            //    }
-            //}
-            source.RealConnectionString = false;
-            return now;
-        }
-        public async Task<IList<RawModelEntryBase>> SelectObjects(Func<string, bool> addFile)
-        {
-            IList<RawModelEntryBase> retVal = new List<RawModelEntryBase>();
-            DataSourceCSV source = Extensions.ConvertClass<DataSourceCSV, DataSourceBase>(this.Source);
-            source.RealConnectionString = true;
-            source.Connect(source.ConnectionString);
-            return (retVal);
-        }
+         //                if (sourceEntity.Entity.Attribute == null)
+         //                {
+         //                    sourceEntity.Entity.Attribute = rc;
+         //                }
 
-    }
+         //                else
+         //                {
+         //                    foreach (var attr in sourceEntity.Entity.Attribute)
+         //                    {
+         //                        var newAttr = rc.FirstOrDefault(a => a.Name == attr.Name);
+         //                        if (newAttr == null && attr.DateDeleted == null)
+         //                        {
+         //                            // attr does not exist anymore
+         //                            attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
+         //                        }
+         //                        else if (update)
+         //                        {
+         //                            if (attr.Type != newAttr.Type ||
+         //                                attr.CharLength != newAttr.CharLength ||
+         //                                attr.Precision != newAttr.Precision ||
+         //                                attr.Scale != newAttr.Scale ||
+         //                                attr.Nullable != newAttr.Nullable)
+         //                            {
+         //                                attr.Type = newAttr.Type;
+         //                                attr.CharLength = newAttr.CharLength;
+         //                                attr.Precision = newAttr.Precision;
+         //                                attr.Scale = newAttr.Scale;
+         //                                attr.Nullable = newAttr.Nullable;
+         //                                attr.DateModified = now.ToString("yyyy-MM-dd HH:mm:ss");
+         //                            }
+         //                        }
+         //                    }
+
+         //                    foreach (var attr in rc)
+         //                    {
+         //                        var currentAttr = sourceEntity.Entity.Attribute.FirstOrDefault(a => a.Name == attr.Name);
+         //                        if (currentAttr == null)
+         //                        {
+         //                            // attr does not exist anymore
+         //                            sourceEntity.Entity.Attribute.Add(attr);
+         //                        }
+         //                    }
+         //                }
+         //            }
+         //            return now;
+         //        }
+         //    }
+         //}
+         source.RealConnectionString = false;
+         return now;
+      }
+      public async Task<IList<RawModelEntryBase>> SelectObjects(Func<string ,bool> addFile)
+      {
+         IList<RawModelEntryBase> retVal = new List<RawModelEntryBase>();
+         DataSourceCSV source = Extensions.ConvertClass<DataSourceCSV ,DataSourceBase>(this.Source);
+         source.RealConnectionString = true;
+         source.Connect(source.ConnectionString);
+         return (retVal);
+      }
+
+   }
 }

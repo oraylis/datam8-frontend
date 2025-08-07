@@ -17,12 +17,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Dm8Main.ViewModels;
-
 namespace Dm8Main.Views
 {
-    internal interface IDataProductsView : IDocumentView
-    {
+   internal interface IDataProductsView:IDocumentView
+   {
 
-    }
+   }
 }

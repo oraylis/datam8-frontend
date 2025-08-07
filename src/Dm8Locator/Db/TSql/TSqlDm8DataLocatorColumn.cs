@@ -17,200 +17,184 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Dm8Locator;
-using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
 
 namespace Dm8Locator.Db.TSql
 {
 
-    /// <summary>
-    /// TSQL column specific
-    /// </summary>
-    /// <seealso cref="Dm8LocatorBase.Db.AdlColumn" />
-    public class SqlDm8LocatorColumnProperties : IDm8LocatorSpecializedProperties
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Dm8LocatorColumn"/> class.
-        /// </summary>
-        public SqlDm8LocatorColumnProperties()
-        {
-        }
+   /// <summary>
+   /// TSQL column specific
+   /// </summary>
+   /// <seealso cref="Dm8LocatorBase.Db.AdlColumn" />
+   public class SqlDm8LocatorColumnProperties:IDm8LocatorSpecializedProperties
+   {
+      /// <summary>
+      /// Initializes a new instance of the <see cref="Dm8LocatorColumn"/> class.
+      /// </summary>
+      public SqlDm8LocatorColumnProperties()
+      {
+      }
 
 
-        /// <summary>
-        /// Gets or sets the type of the column.
-        /// </summary>
-        /// <value>
-        /// The type of the data.
-        /// </value>
-        public string OriginalDataType { get; internal set; }
+      /// <summary>
+      /// Gets or sets the type of the column.
+      /// </summary>
+      /// <value>
+      /// The type of the data.
+      /// </value>
+      public string OriginalDataType { get; internal set; }
 
-        /// <summary>
-        /// Gets the parameters for the column type.
-        /// </summary>
-        /// <value>
-        /// The parameters.
-        /// </value>
-        public string[] OriginalDataTypeParameters { get; internal set; }
+      /// <summary>
+      /// Gets the parameters for the column type.
+      /// </summary>
+      /// <value>
+      /// The parameters.
+      /// </value>
+      public string[] OriginalDataTypeParameters { get; internal set; }
 
-        /// <summary>
-        /// Creates the type specific internal properties.
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException">$"TSQL Data type unknown '{base.OriginalDataType}'</exception>
-        public void DeriveTypeSpecificProperties(Dm8LocatorColumn Adl, ColumnDefinition col, short ordinal)
-        {
-            // read values from column
-            this.OriginalDataType = col.DataType.Name.Identifiers[0].Value;
-            Adl.Ordinal = ordinal;
+      /// <summary>
+      /// Creates the type specific internal properties.
+      /// </summary>
+      /// <returns></returns>
+      /// <exception cref="NotImplementedException">$"TSQL Data type unknown '{base.OriginalDataType}'</exception>
+      public void DeriveTypeSpecificProperties(Dm8LocatorColumn Adl ,ColumnDefinition col ,short ordinal)
+      {
+         // read values from column
+         this.OriginalDataType = col.DataType.Name.Identifiers[0].Value;
+         Adl.Ordinal = ordinal;
 
-            // get constraints
-            var nullableConstraint = col.Constraints.OfType<NullableConstraintDefinition>().FirstOrDefault();
-            if (nullableConstraint != null)
-                Adl.IsNullable = nullableConstraint.Nullable;
+         // get constraints
+         var nullableConstraint = col.Constraints.OfType<NullableConstraintDefinition>().FirstOrDefault();
+         if (nullableConstraint != null)
+            Adl.IsNullable = nullableConstraint.Nullable;
 
-            var defaultConstraint = col.DefaultConstraint;
-            if (defaultConstraint != null)
+         var defaultConstraint = col.DefaultConstraint;
+         if (defaultConstraint != null)
+         {
+            if (defaultConstraint.Expression is Literal literal)
             {
-                if (defaultConstraint.Expression is Literal literal)
-                {
-                    Adl.DefaultExpression = literal.Value;
-                    Adl.DefaultExpressionType = ConvertLiteralType2AdlType(literal.LiteralType);
-                }
+               Adl.DefaultExpression = literal.Value;
+               Adl.DefaultExpressionType = ConvertLiteralType2AdlType(literal.LiteralType);
+            } else if (defaultConstraint.Expression is IntegerLiteral integerLiteral)
+               Adl.DefaultExpression = integerLiteral.Value;
+            else if (defaultConstraint.Expression is NumericLiteral numericLiteral)
+               Adl.DefaultExpression = numericLiteral.Value;
+         }
 
-                else if (defaultConstraint.Expression is IntegerLiteral integerLiteral)
-                    Adl.DefaultExpression = integerLiteral.Value;
-                else if (defaultConstraint.Expression is NumericLiteral numericLiteral)
-                    Adl.DefaultExpression = numericLiteral.Value;
-            }
+         // get identity
+         if (col.DataType is SqlDataTypeReference dataTypeReference)
+         {
+            this.OriginalDataTypeParameters = dataTypeReference.Parameters.Select(p => p.Value).ToArray();
+         }
 
-            // get identity
-            if (col.DataType is SqlDataTypeReference dataTypeReference)
+         // derive internal Data Resource Locator properties
+         Dm8DataLocatorDbParserBase.SetDm8DataLocatorType(Adl ,this.OriginalDataType ,this.SetDataTypeLength ,this.SetPrecisionScale);
+      }
+
+      private static Dm8DataLocatorColumnDataType ConvertLiteralType2AdlType(LiteralType literalType)
+      {
+         switch (literalType)
+         {
+            case LiteralType.Integer:
+               return Dm8DataLocatorColumnDataType.Int64;
+            case LiteralType.Real:
+               return Dm8DataLocatorColumnDataType.Float;
+            case LiteralType.Money:
+               return Dm8DataLocatorColumnDataType.Numeric;
+            case LiteralType.Binary:
+               return Dm8DataLocatorColumnDataType.Binary;
+            case LiteralType.String:
+               return Dm8DataLocatorColumnDataType.Utf16;
+            case LiteralType.Null:
+               return Dm8DataLocatorColumnDataType.Null;
+            case LiteralType.Default:
+               return Dm8DataLocatorColumnDataType.Null;
+            case LiteralType.Max:
+               return Dm8DataLocatorColumnDataType.Null;
+            case LiteralType.Odbc:
+               return Dm8DataLocatorColumnDataType.Null;
+            case LiteralType.Identifier:
+               return Dm8DataLocatorColumnDataType.Null;
+            case LiteralType.Numeric:
+               return Dm8DataLocatorColumnDataType.Numeric;
+            default:
+               return Dm8DataLocatorColumnDataType.Null;
+         }
+      }
+
+      private void SetDataTypeLength(Dm8LocatorColumn Adl)
+      {
+         if (this.OriginalDataTypeParameters.Length > 0)
+         {
+            if (int.TryParse(this.OriginalDataTypeParameters[0] ,out int value))
             {
-                this.OriginalDataTypeParameters = dataTypeReference.Parameters.Select(p => p.Value).ToArray();
-            }
-
-            // derive internal Data Resource Locator properties
-            Dm8DataLocatorDbParserBase.SetDm8DataLocatorType(Adl, this.OriginalDataType, this.SetDataTypeLength, this.SetPrecisionScale);
-        }
-
-        private static Dm8DataLocatorColumnDataType ConvertLiteralType2AdlType(LiteralType literalType)
-        {
-            switch (literalType)
+               Adl.DataTypeLength = value;
+            } else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
             {
-                case LiteralType.Integer:
-                    return Dm8DataLocatorColumnDataType.Int64;
-                case LiteralType.Real:
-                    return Dm8DataLocatorColumnDataType.Float;
-                case LiteralType.Money:
-                    return Dm8DataLocatorColumnDataType.Numeric;
-                case LiteralType.Binary:
-                    return Dm8DataLocatorColumnDataType.Binary;
-                case LiteralType.String:
-                    return Dm8DataLocatorColumnDataType.Utf16;
-                case LiteralType.Null:
-                    return Dm8DataLocatorColumnDataType.Null;
-                case LiteralType.Default:
-                    return Dm8DataLocatorColumnDataType.Null;
-                case LiteralType.Max:
-                    return Dm8DataLocatorColumnDataType.Null;
-                case LiteralType.Odbc:
-                    return Dm8DataLocatorColumnDataType.Null;
-                case LiteralType.Identifier:
-                    return Dm8DataLocatorColumnDataType.Null;
-                case LiteralType.Numeric:
-                    return Dm8DataLocatorColumnDataType.Numeric;
-                default:
-                    return Dm8DataLocatorColumnDataType.Null;
+               Adl.DataTypeLength = int.MaxValue;
+            } else
+            {
+               throw new ArgumentException($"Wrong length '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
             }
-        }
+         } else
+         {
+            Adl.DataTypeLength = int.MaxValue;
+         }
+      }
 
-        private void SetDataTypeLength(Dm8LocatorColumn Adl)
-        {
-            if (this.OriginalDataTypeParameters.Length > 0)
+      private void SetPrecisionScale(Dm8LocatorColumn Adl)
+      {
+         if (this.OriginalDataTypeParameters.Length > 0)
+         {
+            if (int.TryParse(this.OriginalDataTypeParameters[0] ,out int value))
             {
-                if (int.TryParse(this.OriginalDataTypeParameters[0], out int value))
-                {
-                    Adl.DataTypeLength = value;
-                }
-                else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
-                {
-                    Adl.DataTypeLength = int.MaxValue;
-                }
-                else
-                {
-                    throw new ArgumentException($"Wrong length '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
-                }
-            }
-            else
+               Adl.DataTypePrecision = value;
+            } else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
             {
-                Adl.DataTypeLength = int.MaxValue;
+               Adl.DataTypeLength = 38;       // max for SQL Server
+            } else
+            {
+               throw new ArgumentException($"Wrong scale '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
             }
-        }
+         } else
+         {
+            Adl.DataTypeLength = 38;       // max for SQL Server
+         }
 
-        private void SetPrecisionScale(Dm8LocatorColumn Adl)
-        {
-            if (this.OriginalDataTypeParameters.Length > 0)
+         if (this.OriginalDataTypeParameters.Length > 1)
+         {
+            if (int.TryParse(this.OriginalDataTypeParameters[1] ,out int value))
             {
-                if (int.TryParse(this.OriginalDataTypeParameters[0], out int value))
-                {
-                    Adl.DataTypePrecision = value;
-                }
-                else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
-                {
-                    Adl.DataTypeLength = 38;       // max for SQL Server
-                }
-                else
-                {
-                    throw new ArgumentException($"Wrong scale '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
-                }
-            }
-            else
+               Adl.DataTypeScale = value;
+            } else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
             {
-                Adl.DataTypeLength = 38;       // max for SQL Server
+               Adl.DataTypeScale = 0;       // max for SQL Server
+            } else
+            {
+               throw new ArgumentException($"Wrong scale '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
             }
+         } else
+         {
+            Adl.DataTypeScale = 0;       // max for SQL Server
+         }
 
-            if (this.OriginalDataTypeParameters.Length > 1)
-            {
-                if (int.TryParse(this.OriginalDataTypeParameters[1], out int value))
-                {
-                    Adl.DataTypeScale = value;
-                }
-                else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
-                {
-                    Adl.DataTypeScale = 0;       // max for SQL Server
-                }
-                else
-                {
-                    throw new ArgumentException($"Wrong scale '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
-                }
-            }
-            else
-            {
-                Adl.DataTypeScale = 0;       // max for SQL Server
-            }
-
-            if (Adl.DataTypeScale > Adl.DataTypePrecision)
-            {
-                throw new ArgumentException($"Scale '{Adl.DataTypeScale}' is higher than precision '{Adl.DataTypePrecision}' for '{Adl}'");
-            }
-        }
+         if (Adl.DataTypeScale > Adl.DataTypePrecision)
+         {
+            throw new ArgumentException($"Scale '{Adl.DataTypeScale}' is higher than precision '{Adl.DataTypePrecision}' for '{Adl}'");
+         }
+      }
 
 
-        public string GetScript()
-        {
-            throw new NotImplementedException();
-        }
+      public string GetScript()
+      {
+         throw new NotImplementedException();
+      }
 
-        public string GetCompareScript()
-        {
-            throw new NotImplementedException();
-        }
-    }
+      public string GetCompareScript()
+      {
+         throw new NotImplementedException();
+      }
+   }
 }

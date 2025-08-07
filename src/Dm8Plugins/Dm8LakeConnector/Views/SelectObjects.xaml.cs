@@ -17,11 +17,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using Oraylis.DataM8.PluginBase.BaseClasses;
 using System.IO;
 using System.Windows;
-using Dm8LakeConnector.Classes;
 using System.Windows.Controls;
+using Dm8LakeConnector.Classes;
+using Oraylis.DataM8.PluginBase.BaseClasses;
 
 namespace Dm8LakeConnector.Views
 {
@@ -43,7 +43,7 @@ namespace Dm8LakeConnector.Views
       {
          get
          {
-            var storageItems = BaseFolder.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+            var storageItems = BaseFolder.Split([Path.DirectorySeparatorChar ,Path.AltDirectorySeparatorChar]);
             return (storageItems.LastOrDefault());
 
          }
@@ -52,13 +52,13 @@ namespace Dm8LakeConnector.Views
       {
          get
          {
-            var storageItems = BaseFolder.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-            if(storageItems.Length == 1)
+            var storageItems = BaseFolder.Split([Path.DirectorySeparatorChar ,Path.AltDirectorySeparatorChar]);
+            if (storageItems.Length == 1)
             {
                return storageItems[0];
             } else
             {
-               string folderPath = String.Join("/", storageItems.Skip(1).ToArray());
+               string folderPath = String.Join("/" ,storageItems.Skip(1).ToArray());
                return (folderPath);
             }
          }
@@ -67,13 +67,13 @@ namespace Dm8LakeConnector.Views
       {
          get
          {
-            var storageItems = this.BaseFolder.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
-            if(storageItems.Length == 1)
+            var storageItems = this.BaseFolder.Split([Path.DirectorySeparatorChar ,Path.AltDirectorySeparatorChar]);
+            if (storageItems.Length == 1)
             {
                return storageItems[0];
             } else
             {
-               string folderPath = String.Join("/", storageItems.SkipLast(1).ToArray());
+               string folderPath = String.Join("/" ,storageItems.SkipLast(1).ToArray());
                return (folderPath);
             }
          }
@@ -93,10 +93,10 @@ namespace Dm8LakeConnector.Views
          get
          {
             RawModelEntryBase retVal = null;
-            foreach(DisplayObject<RawModelEntryBase> itm in SelectedFolderItems)
+            foreach (DisplayObject<RawModelEntryBase> itm in SelectedFolderItems)
             {
                retVal = itm.Cargo;
-               if(PathOnly.IsChecked == true)
+               if (PathOnly.IsChecked == true)
                {
                   retVal.Function.SourceLocation = retVal.Function.SourceLocation.Replace(retVal.Entity.Name ,"*");
                }
@@ -112,9 +112,9 @@ namespace Dm8LakeConnector.Views
          get
          {
             IList<DisplayObject<RawModelEntryBase>> files = new List<DisplayObject<RawModelEntryBase>>();
-            foreach(var file in _allFiles)
+            foreach (var file in _allFiles)
             {
-               if(makeFolderName(file.Cargo.Entity.FolderName) == _currentFolder)
+               if (makeFolderName(file.Cargo.Entity.FolderName) == _currentFolder)
                {
                   files.Add(file);
                }
@@ -125,12 +125,12 @@ namespace Dm8LakeConnector.Views
       }
       private IList<DisplayObject<RawModelEntryBase>> _allFiles = new List<DisplayObject<RawModelEntryBase>>();
 
-      private void CancelButton_OnClick(object sender, RoutedEventArgs e)
+      private void CancelButton_OnClick(object sender ,RoutedEventArgs e)
       {
          this.DialogResult = false;
       }
 
-      private void OkButton_OnClick(object sender, RoutedEventArgs e)
+      private void OkButton_OnClick(object sender ,RoutedEventArgs e)
       {
          this.DialogResult = true;
       }
@@ -142,32 +142,32 @@ namespace Dm8LakeConnector.Views
 
          DisplayFolder f = new DisplayFolder
          {
-            Name = this.LastPath,
+            Name = this.LastPath ,
             FullName = this.RootFolder
          };
          folders.Add(f);
-         TreeViewItem tvi = new TreeViewItem { Header = f.Name, Tag = f, IsExpanded = true };
+         TreeViewItem tvi = new TreeViewItem { Header = f.Name ,Tag = f ,IsExpanded = true };
          Root.Items.Add(tvi);
 
-         foreach(var item in _entities)
+         foreach (var item in _entities)
          {
-            switch(item.Entity.ObjectType)
+            switch (item.Entity.ObjectType)
             {
                case "Folder":
                   f = new DisplayFolder
                   {
-                     Name = item.Entity.Name,
+                     Name = item.Entity.Name ,
                      FullName = item.Entity.FolderName
                   };
-                  String owner = makeFolderName(f.FullName).Replace($"|{f.Name}", "");
+                  String owner = makeFolderName(f.FullName).Replace($"|{f.Name}" ,"");
                   DisplayFolder parent = folders.FirstOrDefault(x => makeFolderName(x.FullName) == owner);
                   folders.Add(f);
-                  tvi = new TreeViewItem { Header = f.Name, Tag = f, IsExpanded = true };
+                  tvi = new TreeViewItem { Header = f.Name ,Tag = f ,IsExpanded = true };
 
-                  if(parent != null)
+                  if (parent != null)
                   {
-                     TreeViewItem t = findItem(Root.Items, owner);
-                     if(t != null)
+                     TreeViewItem t = findItem(Root.Items ,owner);
+                     if (t != null)
                      {
                         t.Items.Add(tvi);
                      }
@@ -178,7 +178,7 @@ namespace Dm8LakeConnector.Views
                   }
                   break;
                case "File":
-                  if(Path.GetExtension(item.Entity.DisplayName).ToLower() == ".parquet" || Path.GetExtension(item.Entity.DisplayName).ToLower() == ".csv")
+                  if (Path.GetExtension(item.Entity.DisplayName).ToLower() == ".parquet" || Path.GetExtension(item.Entity.DisplayName).ToLower() == ".csv")
                   {
                      DisplayObject<RawModelEntryBase> obj = new DisplayObject<RawModelEntryBase>();
                      obj.Name = item.Entity.Name;
@@ -193,23 +193,23 @@ namespace Dm8LakeConnector.Views
             }
          }
       }
-      private TreeViewItem findItem(ItemCollection list, string search)
+      private TreeViewItem findItem(ItemCollection list ,string search)
       {
          TreeViewItem retVal = null;
-         foreach(TreeViewItem itm in list)
+         foreach (TreeViewItem itm in list)
          {
             DisplayFolder df = (DisplayFolder)itm.Tag;
-            if(makeFolderName(df.FullName) == search)
+            if (makeFolderName(df.FullName) == search)
             {
                retVal = itm;
             } else
             {
-               if(itm.Items.Count > 0)
+               if (itm.Items.Count > 0)
                {
-                  retVal = findItem(itm.Items, search);
+                  retVal = findItem(itm.Items ,search);
                }
             }
-            if(retVal != null)
+            if (retVal != null)
             {
                break;
             }
@@ -218,17 +218,17 @@ namespace Dm8LakeConnector.Views
       }
       private string makeFolderName(string name)
       {
-         name = name.Replace("/", "|");
-         name = name.Replace("\\", "|");
+         name = name.Replace("/" ,"|");
+         name = name.Replace("\\" ,"|");
          return (name);
       }
-      private void TreeObject_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+      private void TreeObject_SelectedItemChanged(object sender ,RoutedPropertyChangedEventArgs<object> e)
       {
          TreeViewItem tvi = e.NewValue as TreeViewItem;
-         if(tvi != null)
+         if (tvi != null)
          {
             DisplayFolder df = (DisplayFolder)tvi.Tag;
-            if(df != null)
+            if (df != null)
             {
                _currentFolder = makeFolderName(df.FullName);
             } else
@@ -239,7 +239,7 @@ namespace Dm8LakeConnector.Views
          OkButton.IsEnabled = this.SelectedFolderItems.Count > 0;
       }
 
-      private void PathOnly_Click(object sender, RoutedEventArgs e)
+      private void PathOnly_Click(object sender ,RoutedEventArgs e)
       {
 
       }

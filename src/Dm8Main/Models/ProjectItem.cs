@@ -79,7 +79,7 @@ namespace Dm8Main.Models
       public GitHelper.GitStatus GitStatus
       {
          get => this.gitStatus;
-         set => this.SetProperty(ref this.gitStatus, value);
+         set => this.SetProperty(ref this.gitStatus ,value);
       }
 
       private GitHelper.GitStatus gitStatus;
@@ -89,7 +89,7 @@ namespace Dm8Main.Models
       public string NameEdit
       {
          get => this.nameEdit;
-         set => this.SetProperty(ref this.nameEdit, value);
+         set => this.SetProperty(ref this.nameEdit ,value);
       }
 
       private string nameEdit;
@@ -99,7 +99,7 @@ namespace Dm8Main.Models
       public string FilePath
       {
          get => this.filePath;
-         set => this.SetProperty(ref this.filePath, value);
+         set => this.SetProperty(ref this.filePath ,value);
       }
 
       private string filePath;
@@ -109,7 +109,7 @@ namespace Dm8Main.Models
       public bool CanRename
       {
          get => this.canRename;
-         set => this.SetProperty(ref this.canRename, value);
+         set => this.SetProperty(ref this.canRename ,value);
       }
 
       private bool canRename;
@@ -119,7 +119,7 @@ namespace Dm8Main.Models
       public bool CanDelete
       {
          get => this.canDelete;
-         set => this.SetProperty(ref this.canDelete, value);
+         set => this.SetProperty(ref this.canDelete ,value);
       }
 
       private bool canDelete;
@@ -129,7 +129,7 @@ namespace Dm8Main.Models
       public bool IsEditMode
       {
          get => this.isEditMode;
-         set => this.SetProperty(ref this.isEditMode, value);
+         set => this.SetProperty(ref this.isEditMode ,value);
       }
 
       private bool isEditMode;
@@ -139,7 +139,7 @@ namespace Dm8Main.Models
       public bool IsEditFocus
       {
          get => this.isEditFocus;
-         set => this.SetProperty(ref this.isEditFocus, value);
+         set => this.SetProperty(ref this.isEditFocus ,value);
       }
 
       private bool isEditFocus;
@@ -149,7 +149,7 @@ namespace Dm8Main.Models
       public InputBindingCollection InputBindings
       {
          get => this.inputBindings;
-         private set => this.SetProperty(ref this.inputBindings, value);
+         private set => this.SetProperty(ref this.inputBindings ,value);
       }
 
       private InputBindingCollection inputBindings;
@@ -159,7 +159,7 @@ namespace Dm8Main.Models
       public string RelativeFilePath
       {
          get => this.relativeFilePath;
-         set => this.SetProperty(ref this.relativeFilePath, value);
+         set => this.SetProperty(ref this.relativeFilePath ,value);
       }
 
       private string relativeFilePath;
@@ -169,7 +169,7 @@ namespace Dm8Main.Models
       public Types Type
       {
          get => this.type;
-         set => this.SetProperty(ref this.type, value);
+         set => this.SetProperty(ref this.type ,value);
       }
 
       private Types type;
@@ -179,7 +179,7 @@ namespace Dm8Main.Models
       public List<PackIconControlBase> GitImages
       {
          get => _gitImages;
-         set => this.SetProperty(ref _gitImages, value);
+         set => this.SetProperty(ref _gitImages ,value);
       }
 
       private List<PackIconControlBase> _gitImages;
@@ -189,7 +189,7 @@ namespace Dm8Main.Models
       public List<PackIconControlBase> Images
       {
          get => this.images;
-         set => this.SetProperty(ref this.images, value);
+         set => this.SetProperty(ref this.images ,value);
       }
 
       private List<PackIconControlBase> images;
@@ -199,7 +199,7 @@ namespace Dm8Main.Models
       public List<PackIconControlBase> ImagesToolTip
       {
          get => this.imagesToolTip;
-         set => this.SetProperty(ref this.imagesToolTip, value);
+         set => this.SetProperty(ref this.imagesToolTip ,value);
       }
 
       private List<PackIconControlBase> imagesToolTip;
@@ -209,7 +209,7 @@ namespace Dm8Main.Models
       public List<PackIconControlBase> ImagesEdit
       {
          get => this.imagesEdit;
-         set => this.SetProperty(ref this.imagesEdit, value);
+         set => this.SetProperty(ref this.imagesEdit ,value);
       }
 
       private List<PackIconControlBase> imagesEdit;
@@ -219,7 +219,7 @@ namespace Dm8Main.Models
       public ObservableCollection<ContextMenuItem> ContextCommandList
       {
          get => this.contextCommandList;
-         set => this.SetProperty(ref this.contextCommandList, value);
+         set => this.SetProperty(ref this.contextCommandList ,value);
       }
 
       private ObservableCollection<ContextMenuItem> contextCommandList;
@@ -229,7 +229,7 @@ namespace Dm8Main.Models
       public DelegateCommand<RoutedEventArgs> EditFocusLostCommand
       {
          get => this.editFocusLostCommand;
-         set => this.SetProperty(ref this.editFocusLostCommand, value);
+         set => this.SetProperty(ref this.editFocusLostCommand ,value);
       }
 
       private DelegateCommand<RoutedEventArgs> editFocusLostCommand;
@@ -239,7 +239,7 @@ namespace Dm8Main.Models
       public DelegateCommand<KeyEventArgs> KeyDownCommand
       {
          get => this.keyDownCommand;
-         set => this.SetProperty(ref this.keyDownCommand, value);
+         set => this.SetProperty(ref this.keyDownCommand ,value);
       }
 
       private DelegateCommand<KeyEventArgs> keyDownCommand;
@@ -273,109 +273,109 @@ namespace Dm8Main.Models
       #endregion
 
 
-      public static ProjectItem CreateItem(Types type, ISolutionService solutionService, IEventAggregator eventAggregator, string relPath = null)
+      public static ProjectItem CreateItem(Types type ,ISolutionService solutionService ,IEventAggregator eventAggregator ,string relPath = null)
       {
 
          string name = String.IsNullOrEmpty(relPath) ? "" : relPath.Substring(relPath.LastIndexOf(Path.DirectorySeparatorChar) + 1);
          //var areas = solutionService.Solution.AreaNames;
          var renameArea = false;
-         switch(type)
+         switch (type)
          {
             // root & static objects
             case Types.Solution:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.Solution, PathHelper.Combine(solutionService.Solution.CurrentRootFolder, name), relPath: relPath, canRename: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.Solution ,PathHelper.Combine(solutionService.Solution.CurrentRootFolder ,name) ,relPath: relPath ,canRename: true);
 
             case Types.BaseFolder:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_Base_Definitions, Types.BaseFolder, solutionService.Solution.BasePath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_Base_Definitions ,Types.BaseFolder ,solutionService.Solution.BasePath);
 
             case Types.DataTypes:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_Data_Types, Types.DataTypes, solutionService.Solution.DataTypesFilePath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_Data_Types ,Types.DataTypes ,solutionService.Solution.DataTypesFilePath);
 
             case Types.DataProducts:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_DataProducts, Types.DataProducts, solutionService.Solution.DataProductsFilePath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_DataProducts ,Types.DataProducts ,solutionService.Solution.DataProductsFilePath);
 
             case Types.DataSources:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_Data_Sources, Types.DataSources, solutionService.Solution.DataSourcesFilePath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_Data_Sources ,Types.DataSources ,solutionService.Solution.DataSourcesFilePath);
 
             case Types.AttributeTypes:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_Attribute_Types, Types.AttributeTypes, solutionService.Solution.AttributeTypesFilePath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_Attribute_Types ,Types.AttributeTypes ,solutionService.Solution.AttributeTypesFilePath);
 
             case Types.RawFolder:
-               return new ProjectItem(solutionService, eventAggregator,
-                   solutionService.Solution.AreaTypes.Raw,
-                   Types.RawFolder,
-                   solutionService.Solution.RawFolderPath, relPath: relPath, canRename: renameArea);
+               return new ProjectItem(solutionService ,eventAggregator ,
+                   solutionService.Solution.AreaTypes.Raw ,
+                   Types.RawFolder ,
+                   solutionService.Solution.RawFolderPath ,relPath: relPath ,canRename: renameArea);
 
             case Types.RawEntity:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.RawEntity, PathHelper.Combine(solutionService.Solution.RawFolderPath, relPath), relPath: relPath, canRename: true, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.RawEntity ,PathHelper.Combine(solutionService.Solution.RawFolderPath ,relPath) ,relPath: relPath ,canRename: true ,canDelete: true);
 
             case Types.StagingFolder:
                string f = solutionService.Solution.AreaTypes.Stage;
-               if(f == "Stage")
+               if (f == "Stage")
                {
                   f = "Staging";
                }
-               return new ProjectItem(solutionService, eventAggregator,
-                   f, Types.StagingFolder,
-                   solutionService.Solution.StagingFolderPath, relPath: relPath, canRename: renameArea);
+               return new ProjectItem(solutionService ,eventAggregator ,
+                   f ,Types.StagingFolder ,
+                   solutionService.Solution.StagingFolderPath ,relPath: relPath ,canRename: renameArea);
 
             case Types.StagingEntity:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.StagingEntity, PathHelper.Combine(solutionService.Solution.StagingFolderPath, relPath), relPath, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.StagingEntity ,PathHelper.Combine(solutionService.Solution.StagingFolderPath ,relPath) ,relPath ,canDelete: true);
 
             case Types.CoreFolder:
-               return new ProjectItem(solutionService, eventAggregator,
-                   solutionService.Solution.AreaTypes.Core, Types.CoreFolder,
-                   solutionService.Solution.CoreFolderPath, relPath: relPath, canRename: renameArea);
+               return new ProjectItem(solutionService ,eventAggregator ,
+                   solutionService.Solution.AreaTypes.Core ,Types.CoreFolder ,
+                   solutionService.Solution.CoreFolderPath ,relPath: relPath ,canRename: renameArea);
 
             case Types.CoreEntity:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.CoreEntity, PathHelper.Combine(solutionService.Solution.CoreFolderPath, relPath), relPath, canRename: true, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.CoreEntity ,PathHelper.Combine(solutionService.Solution.CoreFolderPath ,relPath) ,relPath ,canRename: true ,canDelete: true);
 
             case Types.CuratedFolder:
-               return new ProjectItem(solutionService, eventAggregator,
-                   solutionService.Solution.AreaTypes.Curated, Types.CuratedFolder,
-                   solutionService.Solution.CuratedFolderPath, relPath: relPath, canRename: renameArea);
+               return new ProjectItem(solutionService ,eventAggregator ,
+                   solutionService.Solution.AreaTypes.Curated ,Types.CuratedFolder ,
+                   solutionService.Solution.CuratedFolderPath ,relPath: relPath ,canRename: renameArea);
 
             case Types.CuratedEntity:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.CuratedEntity, Path.Combine(solutionService.Solution.CuratedFolderPath, relPath), relPath, canRename: true, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.CuratedEntity ,Path.Combine(solutionService.Solution.CuratedFolderPath ,relPath) ,relPath ,canRename: true ,canDelete: true);
 
             case Types.DiagramFolder:
-               return new ProjectItem(solutionService, eventAggregator,
-                   solutionService.Solution.AreaTypes.Diagram, Types.DiagramFolder,
-                   solutionService.Solution.DiagramFolderPath, relPath: relPath, canRename: renameArea);
+               return new ProjectItem(solutionService ,eventAggregator ,
+                   solutionService.Solution.AreaTypes.Diagram ,Types.DiagramFolder ,
+                   solutionService.Solution.DiagramFolderPath ,relPath: relPath ,canRename: renameArea);
 
             case Types.DiagramFile:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.DiagramFile, Path.Combine(solutionService.Solution.DiagramFolderPath, relPath), relPath, canRename: true, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.DiagramFile ,Path.Combine(solutionService.Solution.DiagramFolderPath ,relPath) ,relPath ,canRename: true ,canDelete: true);
 
             case Types.GenerateFolder:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_Generate, Types.GenerateFolder, solutionService.Solution.GenerateFolderPath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_Generate ,Types.GenerateFolder ,solutionService.Solution.GenerateFolderPath);
 
             case Types.OutputFolder:
-               return new ProjectItem(solutionService, eventAggregator, Dm8Data.Properties.Resources.Folder_Output, Types.OutputFolder, solutionService.Solution.OutputFolderPath);
+               return new ProjectItem(solutionService ,eventAggregator ,Dm8Data.Properties.Resources.Folder_Output ,Types.OutputFolder ,solutionService.Solution.OutputFolderPath);
 
             // objects from file system
             case Types.RawSubFolder:
-               return new ProjectItem(solutionService, eventAggregator, name, type, PathHelper.Combine(solutionService.Solution.RawFolderPath, relPath), relPath, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,type ,PathHelper.Combine(solutionService.Solution.RawFolderPath ,relPath) ,relPath ,canDelete: true);
 
             case Types.Folder:
-               return new ProjectItem(solutionService, eventAggregator, name, type, PathHelper.Combine(solutionService.Solution.CurrentRootFolder, relPath), relPath);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,type ,PathHelper.Combine(solutionService.Solution.CurrentRootFolder ,relPath) ,relPath);
 
             case Types.GenerateSubFolder:
-               return new ProjectItem(solutionService, eventAggregator, name, type, PathHelper.Combine(solutionService.Solution.GenerateFolderPath, relPath), relPath, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,type ,PathHelper.Combine(solutionService.Solution.GenerateFolderPath ,relPath) ,relPath ,canDelete: true);
 
             case Types.GenerateFilePython:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.GenerateFilePython, path: PathHelper.Combine(solutionService.Solution.GenerateFolderPath, relPath), relPath: relPath, canRename: true, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.GenerateFilePython ,path: PathHelper.Combine(solutionService.Solution.GenerateFolderPath ,relPath) ,relPath: relPath ,canRename: true ,canDelete: true);
 
             case Types.GenerateJinja2:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.GenerateJinja2, path: PathHelper.Combine(solutionService.Solution.GenerateFolderPath, relPath), relPath: relPath, canRename: true, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.GenerateJinja2 ,path: PathHelper.Combine(solutionService.Solution.GenerateFolderPath ,relPath) ,relPath: relPath ,canRename: true ,canDelete: true);
 
             case Types.CodeFile:
-               return new ProjectItem(solutionService, eventAggregator, name, Types.CodeFile, PathHelper.Combine(solutionService.Solution.OutputFolderPath, relPath), relPath: relPath, canDelete: true);
+               return new ProjectItem(solutionService ,eventAggregator ,name ,Types.CodeFile ,PathHelper.Combine(solutionService.Solution.OutputFolderPath ,relPath) ,relPath: relPath ,canDelete: true);
          }
 
          throw new NotImplementedException();
       }
 
-      private ProjectItem(ISolutionService solutionService, IEventAggregator eventAggregator, string name, Types type, string path, string relPath = null, bool canRename = false, bool canDelete = false)
+      private ProjectItem(ISolutionService solutionService ,IEventAggregator eventAggregator ,string name ,Types type ,string path ,string relPath = null ,bool canRename = false ,bool canDelete = false)
       {
          // other services
          this.solutionService = solutionService;
@@ -426,21 +426,21 @@ namespace Dm8Main.Models
          return this.solutionService.Theme == ColorTheme.Dark ? Brushes.White : Brushes.Black;
       }
 
-      private void ProjectItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+      private void ProjectItem_PropertyChanged(object? sender ,System.ComponentModel.PropertyChangedEventArgs e)
       {
-         if(e.PropertyName == nameof(this.GitStatus))
+         if (e.PropertyName == nameof(this.GitStatus))
          {
             this.GetGitImages();
          }
       }
 
-      public void RenameEntity(string filePath, string oldEntityName, string newEntityName)
+      public void RenameEntity(string filePath ,string oldEntityName ,string newEntityName)
       {
          // new file path
-         var newFilePath = PathHelper.Combine(Path.GetDirectoryName(filePath), newEntityName + Path.GetExtension(filePath));
+         var newFilePath = PathHelper.Combine(Path.GetDirectoryName(filePath) ,newEntityName + Path.GetExtension(filePath));
 
          this.FilePath = newFilePath;
-         this.RelativeFilePath = PathHelper.Combine(Path.GetDirectoryName(this.RelativeFilePath), newEntityName + Path.GetExtension(filePath));
+         this.RelativeFilePath = PathHelper.Combine(Path.GetDirectoryName(this.RelativeFilePath) ,newEntityName + Path.GetExtension(filePath));
          this.NameEdit = newEntityName + Path.GetExtension(filePath);
          this.Name = newEntityName + Path.GetExtension(filePath);
       }
@@ -450,77 +450,77 @@ namespace Dm8Main.Models
       {
          this.ContextCommandList = [];
          this.InputBindings.Clear();
-         if(!this.IsFolder || this.IsArea)
+         if (!this.IsFolder || this.IsArea)
          {
-            if(!this.IsArea)
+            if (!this.IsArea)
             {
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = Properties.Resources.Menu_Open,
+                      Header = Properties.Resources.Menu_Open ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.File,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.File ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<OpenDocumentsEvent>().Publish(this);
-                       })
+                              this.eventAggregator.GetEvent<OpenDocumentsEvent>().Publish(this);
+                           })
                    });
                this.InputBindings.Add(
                    new InputBinding(
                        new DelegateCommand(() =>
                        {
                           this.eventAggregator.GetEvent<OpenDocumentsEvent>().Publish(this);
-                       }), new KeyGesture(Key.Enter)));
+                       }) ,new KeyGesture(Key.Enter)));
             }
-            if(this.CanRename)
+            if (this.CanRename)
             {
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = Properties.Resources.Menu_RenameFile,
+                      Header = Properties.Resources.Menu_RenameFile ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.FormTextbox,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.FormTextbox ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
-                      InputGestureText = "F2",
-                      Command = new DelegateCommand(() => { this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this); }),
+                      } ,
+                      InputGestureText = "F2" ,
+                      Command = new DelegateCommand(() => { this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this); }) ,
                    });
                this.InputBindings.Add(
-                   new InputBinding(new DelegateCommand(() => { this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this); }), new KeyGesture(Key.F2)));
+                   new InputBinding(new DelegateCommand(() => { this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this); }) ,new KeyGesture(Key.F2)));
             }
-            if(this.CanDelete)
+            if (this.CanDelete)
             {
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = Properties.Resources.Menu_DeleteFile,
+                      Header = Properties.Resources.Menu_DeleteFile ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.TrashCanOutline,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.TrashCanOutline ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
-                      InputGestureText = "Del",
+                      } ,
+                      InputGestureText = "Del" ,
                       Command = new DelegateCommand(() => { this.eventAggregator.GetEvent<DeleteObjectEvent>().Publish(this); })
                    });
                this.InputBindings.Add(
-                   new InputBinding(new DelegateCommand(() => { this.eventAggregator.GetEvent<DeleteObjectEvent>().Publish(this); }), new KeyGesture(Key.Delete)));
+                   new InputBinding(new DelegateCommand(() => { this.eventAggregator.GetEvent<DeleteObjectEvent>().Publish(this); }) ,new KeyGesture(Key.Delete)));
 
             }
          }
-         switch(this.Type)
+         switch (this.Type)
          {
             case Types.BaseFolder:
                break;
@@ -528,40 +528,40 @@ namespace Dm8Main.Models
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = $"Add {solutionService.Solution.AreaTypes.Raw} Entity", //Properties.Resources.Menu_NewSourceEntity
+                      Header = $"Add {solutionService.Solution.AreaTypes.Raw} Entity" , //Properties.Resources.Menu_NewSourceEntity
                       Icon = new PackIconPicolIcons()
                       {
-                         Kind = PackIconPicolIconsKind.DatabaseAdd,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconPicolIconsKind.DatabaseAdd ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<NewDocumentEvent>()
-                                   .Publish(new KeyValuePair<ProjectItem, Types>(this, ProjectItem.Types.RawFolder));
-                       })
+                              this.eventAggregator.GetEvent<NewDocumentEvent>()
+                                       .Publish(new KeyValuePair<ProjectItem ,Types>(this ,ProjectItem.Types.RawFolder));
+                           })
                    });
                break;
             case Types.CoreFolder:
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = $"Add {solutionService.Solution.AreaTypes.Core} Entity",
+                      Header = $"Add {solutionService.Solution.AreaTypes.Core} Entity" ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.FileTableBoxMultipleOutline,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.FileTableBoxMultipleOutline ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<NewDocumentEvent>()
-                                   .Publish(new KeyValuePair<ProjectItem, Types>(this, Types.CoreFolder));
-                       })
+                              this.eventAggregator.GetEvent<NewDocumentEvent>()
+                                       .Publish(new KeyValuePair<ProjectItem ,Types>(this ,Types.CoreFolder));
+                           })
                    });
                break;
 
@@ -569,20 +569,20 @@ namespace Dm8Main.Models
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = $"Add {solutionService.Solution.AreaTypes.Curated} Entity",
+                      Header = $"Add {solutionService.Solution.AreaTypes.Curated} Entity" ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.CalculatorVariant,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.CalculatorVariant ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<NewDocumentEvent>()
-                                   .Publish(new KeyValuePair<ProjectItem, Types>(this, Types.CuratedFolder));
-                       })
+                              this.eventAggregator.GetEvent<NewDocumentEvent>()
+                                       .Publish(new KeyValuePair<ProjectItem ,Types>(this ,Types.CuratedFolder));
+                           })
                    });
                break;
 
@@ -590,20 +590,20 @@ namespace Dm8Main.Models
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = $"Add {solutionService.Solution.AreaTypes.Diagram} File",
+                      Header = $"Add {solutionService.Solution.AreaTypes.Diagram} File" ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.Graph,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.Graph ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<NewDocumentEvent>()
-                                   .Publish(new KeyValuePair<ProjectItem, Types>(this, Types.DiagramFolder));
-                       })
+                              this.eventAggregator.GetEvent<NewDocumentEvent>()
+                                       .Publish(new KeyValuePair<ProjectItem ,Types>(this ,Types.DiagramFolder));
+                           })
                    });
                break;
 
@@ -612,114 +612,114 @@ namespace Dm8Main.Models
 
             case Types.RawSubFolder:
                throw new Exception("Hier muss noch was rein!");
-               //break;
+            //break;
 
             case Types.GenerateSubFolder:
             case Types.GenerateFolder:
-               if(this.Type == Types.GenerateSubFolder)
+               if (this.Type == Types.GenerateSubFolder)
                {
                   this.ContextCommandList.Add(
                       new ContextMenuItem
                       {
-                         Header = Properties.Resources.Menu_RenameFolder,
+                         Header = Properties.Resources.Menu_RenameFolder ,
                          Icon = new PackIconMaterial()
                          {
-                            Kind = PackIconMaterialKind.FormTextbox,
-                            Foreground = this.GetImageColor(),
-                            Width = 10,
-                            Height = 10,
+                            Kind = PackIconMaterialKind.FormTextbox ,
+                            Foreground = this.GetImageColor() ,
+                            Width = 10 ,
+                            Height = 10 ,
                             VerticalAlignment = VerticalAlignment.Center
-                         },
-                         InputGestureText = "F2",
+                         } ,
+                         InputGestureText = "F2" ,
                          Command = new DelegateCommand(() =>
                                {
-                             this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this);
-                          }),
+                                  this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this);
+                               }) ,
                       });
                   this.InputBindings.Add(
                       new InputBinding(
                           new DelegateCommand(() =>
                           {
                              this.eventAggregator.GetEvent<EditObjectNameEvent>().Publish(this);
-                          }), new KeyGesture(Key.F2)));
+                          }) ,new KeyGesture(Key.F2)));
                   this.ContextCommandList.Add(
                       new ContextMenuItem
                       {
-                         Header = Properties.Resources.Menu_DeleteFolder,
+                         Header = Properties.Resources.Menu_DeleteFolder ,
                          Icon = new PackIconMaterial()
                          {
-                            Kind = PackIconMaterialKind.FolderRemove,
-                            Foreground = this.GetImageColor(),
-                            Width = 10,
-                            Height = 10,
+                            Kind = PackIconMaterialKind.FolderRemove ,
+                            Foreground = this.GetImageColor() ,
+                            Width = 10 ,
+                            Height = 10 ,
                             VerticalAlignment = VerticalAlignment.Center
-                         },
-                         InputGestureText = "Del",
+                         } ,
+                         InputGestureText = "Del" ,
                          Command = new DelegateCommand(() =>
                                {
-                             this.eventAggregator.GetEvent<DeleteObjectEvent>().Publish(this);
-                          })
+                                  this.eventAggregator.GetEvent<DeleteObjectEvent>().Publish(this);
+                               })
                       });
                   this.InputBindings.Add(
                       new InputBinding(
                           new DelegateCommand(() =>
                           {
                              this.eventAggregator.GetEvent<DeleteObjectEvent>().Publish(this);
-                          }), new KeyGesture(Key.Delete)));
+                          }) ,new KeyGesture(Key.Delete)));
                }
 
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = Properties.Resources.Menu_NewFolder,
+                      Header = Properties.Resources.Menu_NewFolder ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.FolderPlus,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.FolderPlus ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<NewDocumentEvent>()
-                                   .Publish(new KeyValuePair<ProjectItem, Types>(this, Types.GenerateSubFolder));
-                       })
+                              this.eventAggregator.GetEvent<NewDocumentEvent>()
+                                       .Publish(new KeyValuePair<ProjectItem ,Types>(this ,Types.GenerateSubFolder));
+                           })
                    });
                this.ContextCommandList.Add(new ContextMenuItem
                {
-                  Header = Properties.Resources.Menu_NewPythonGenerate,
+                  Header = Properties.Resources.Menu_NewPythonGenerate ,
                   Icon = new PackIconMaterial()
                   {
-                     Kind = PackIconMaterialKind.LanguagePython,
-                     Foreground = this.GetImageColor(),
-                     Width = 10,
-                     Height = 10,
+                     Kind = PackIconMaterialKind.LanguagePython ,
+                     Foreground = this.GetImageColor() ,
+                     Width = 10 ,
+                     Height = 10 ,
                      VerticalAlignment = VerticalAlignment.Center
-                  },
+                  } ,
                   Command = new DelegateCommand(() =>
                   {
                      this.eventAggregator.GetEvent<NewDocumentEvent>()
-                               .Publish(new KeyValuePair<ProjectItem, Types>(this, Types.GenerateFilePython));
+                               .Publish(new KeyValuePair<ProjectItem ,Types>(this ,Types.GenerateFilePython));
                   })
                });
                this.ContextCommandList.Add(
                    new ContextMenuItem
                    {
-                      Header = Properties.Resources.Menu_NewJinja2Generate,
+                      Header = Properties.Resources.Menu_NewJinja2Generate ,
                       Icon = new PackIconMaterial()
                       {
-                         Kind = PackIconMaterialKind.LanguageXaml,
-                         Foreground = this.GetImageColor(),
-                         Width = 10,
-                         Height = 10,
+                         Kind = PackIconMaterialKind.LanguageXaml ,
+                         Foreground = this.GetImageColor() ,
+                         Width = 10 ,
+                         Height = 10 ,
                          VerticalAlignment = VerticalAlignment.Center
-                      },
+                      } ,
                       Command = new DelegateCommand(() =>
                            {
-                          this.eventAggregator.GetEvent<NewDocumentEvent>()
-                                   .Publish(new KeyValuePair<ProjectItem, Types>(this, Types.GenerateJinja2));
-                       })
+                              this.eventAggregator.GetEvent<NewDocumentEvent>()
+                                       .Publish(new KeyValuePair<ProjectItem ,Types>(this ,Types.GenerateJinja2));
+                           })
                    });
                break;
          }
@@ -736,19 +736,19 @@ namespace Dm8Main.Models
       public void EditItemEnd(bool done = true)
       {
          this.IsEditMode = false;
-         if(done && this.Name != this.NameEdit)
+         if (done && this.Name != this.NameEdit)
          {
-            if(!this.IsArea)
+            if (!this.IsArea)
             {
 
                string originalPath = this.FilePath;
-               string newpath = PathHelper.Combine(Path.GetDirectoryName(this.FilePath), this.NameEdit);
-               if(this.IsFolder)
+               string newpath = PathHelper.Combine(Path.GetDirectoryName(this.FilePath) ,this.NameEdit);
+               if (this.IsFolder)
                {
-                  Directory.Move(this.FilePath, newpath);
+                  Directory.Move(this.FilePath ,newpath);
                } else
                {
-                  File.Move(this.FilePath, newpath);
+                  File.Move(this.FilePath ,newpath);
                }
 
                this.Name = this.NameEdit;
@@ -756,13 +756,13 @@ namespace Dm8Main.Models
                this.eventAggregator.GetEvent<RenameObjectEvent>().Publish(
                    new RenameObjectArgs
                    {
-                      OriginalFilePath = originalPath,
+                      OriginalFilePath = originalPath ,
                       ProjectItem = this
                    });
             } else
             {
                // Rename Area
-               switch(this.Type)
+               switch (this.Type)
                {
                   case Types.RawFolder:
                      solutionService.Solution.AreaTypes.Raw = this.NameEdit;
@@ -791,11 +791,11 @@ namespace Dm8Main.Models
 
       private void KeyDown(KeyEventArgs obj)
       {
-         if(obj.Key == Key.Enter)
+         if (obj.Key == Key.Enter)
          {
             this.EditItemEnd();
          }
-         if(obj.Key == Key.Escape)
+         if (obj.Key == Key.Escape)
          {
             this.EditItemEnd(false);
          }
@@ -803,16 +803,16 @@ namespace Dm8Main.Models
 
       private void GetImages()
       {
-         Func<double, PackIconControlBase> createImageFunc = null;
-         switch(this.Type)
+         Func<double ,PackIconControlBase> createImageFunc = null;
+         switch (this.Type)
          {
             case Types.Solution:
                createImageFunc = (size) => new PackIconModern()
                {
-                  Kind = PackIconModernKind.OfficeProject,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconModernKind.OfficeProject ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -820,10 +820,10 @@ namespace Dm8Main.Models
             case Types.BaseFolder:
                createImageFunc = (size) => new PackIconModern()
                {
-                  Kind = PackIconModernKind.FolderLock,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconModernKind.FolderLock ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -833,10 +833,10 @@ namespace Dm8Main.Models
             case Types.GenerateSubFolder:
                createImageFunc = (size) => new PackIconModern()
                {
-                  Kind = PackIconModernKind.Folder,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconModernKind.Folder ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -844,10 +844,10 @@ namespace Dm8Main.Models
             case Types.DataTypes:
                createImageFunc = (size) => new PackIconModern()
                {
-                  Kind = PackIconModernKind.TypeBit,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconModernKind.TypeBit ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -855,10 +855,10 @@ namespace Dm8Main.Models
             case Types.AttributeTypes:
                createImageFunc = (size) => new PackIconVaadinIcons()
                {
-                  Kind = PackIconVaadinIconsKind.OptionA,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconVaadinIconsKind.OptionA ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -866,10 +866,10 @@ namespace Dm8Main.Models
             case Types.DataSources:
                createImageFunc = (size) => new PackIconMaterial()
                {
-                  Kind = PackIconMaterialKind.DatabaseEdit,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconMaterialKind.DatabaseEdit ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -877,10 +877,10 @@ namespace Dm8Main.Models
             case Types.DataProducts:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.Project,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.Project ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -888,10 +888,10 @@ namespace Dm8Main.Models
             case Types.RawFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.CloudUpload,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.CloudUpload ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -899,10 +899,10 @@ namespace Dm8Main.Models
             case Types.RawEntity:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.Table,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.Table ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -910,10 +910,10 @@ namespace Dm8Main.Models
             case Types.StagingFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.FileSymlinkDirectory,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.FileSymlinkDirectory ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -921,10 +921,10 @@ namespace Dm8Main.Models
             case Types.StagingEntity:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.FileSymlinkFile,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.FileSymlinkFile ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -932,10 +932,10 @@ namespace Dm8Main.Models
             case Types.CoreFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.FolderLibrary,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.FolderLibrary ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -943,10 +943,10 @@ namespace Dm8Main.Models
             case Types.CoreEntity:
                createImageFunc = (size) => new PackIconMaterial()
                {
-                  Kind = PackIconMaterialKind.FileTableBoxMultipleOutline,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconMaterialKind.FileTableBoxMultipleOutline ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -954,10 +954,10 @@ namespace Dm8Main.Models
             case Types.CuratedFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.FolderActive,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.FolderActive ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -965,10 +965,10 @@ namespace Dm8Main.Models
             case Types.CuratedEntity:
                createImageFunc = (size) => new PackIconMaterial()
                {
-                  Kind = PackIconMaterialKind.CalculatorVariant,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconMaterialKind.CalculatorVariant ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -976,10 +976,10 @@ namespace Dm8Main.Models
             case Types.DiagramFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.Graph,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.Graph ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -987,10 +987,10 @@ namespace Dm8Main.Models
             case Types.DiagramFile:
                createImageFunc = (size) => new PackIconMaterial()
                {
-                  Kind = PackIconMaterialKind.GraphOutline,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconMaterialKind.GraphOutline ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -998,10 +998,10 @@ namespace Dm8Main.Models
             case Types.GenerateFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.Code,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.Code ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -1009,10 +1009,10 @@ namespace Dm8Main.Models
             case Types.GenerateFilePython:
                createImageFunc = (size) => new PackIconMaterial()
                {
-                  Kind = PackIconMaterialKind.LanguagePython,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconMaterialKind.LanguagePython ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -1020,10 +1020,10 @@ namespace Dm8Main.Models
             case Types.GenerateJinja2:
                createImageFunc = (size) => new PackIconMaterial()
                {
-                  Kind = PackIconMaterialKind.LanguageXaml,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconMaterialKind.LanguageXaml ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -1033,10 +1033,10 @@ namespace Dm8Main.Models
             case Types.OutputFolder:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.FolderLibrary,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.FolderLibrary ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
@@ -1044,17 +1044,17 @@ namespace Dm8Main.Models
             case Types.CodeFile:
                createImageFunc = (size) => new PackIconCodicons()
                {
-                  Kind = PackIconCodiconsKind.FileSubmodule,
-                  Foreground = this.GetImageColor(),
-                  Width = size,
-                  Height = size,
+                  Kind = PackIconCodiconsKind.FileSubmodule ,
+                  Foreground = this.GetImageColor() ,
+                  Width = size ,
+                  Height = size ,
                   VerticalAlignment = VerticalAlignment.Center
                };
                break;
          }
 
          // create image
-         if(createImageFunc != null)
+         if (createImageFunc != null)
          {
             double sizeNormal = 14.0;
             double sizeToolTip = 20.0;
@@ -1079,19 +1079,19 @@ namespace Dm8Main.Models
 
       private void GetGitImages()
       {
-         if(this.solutionService.GitActive)
+         if (this.solutionService.GitActive)
          {
             var gitImages = new List<PackIconControlBase>();
-            switch(this.GitStatus)
+            switch (this.GitStatus)
             {
                case GitHelper.GitStatus.NoGit:
                   gitImages.Add(new PackIconUnicons()
                   {
-                     Kind = PackIconUniconsKind.LinkBroken,
+                     Kind = PackIconUniconsKind.LinkBroken ,
 
-                     Foreground = Brushes.DeepSkyBlue,
-                     Width = 10,
-                     Height = 10,
+                     Foreground = Brushes.DeepSkyBlue ,
+                     Width = 10 ,
+                     Height = 10 ,
                      VerticalAlignment = VerticalAlignment.Center
                   });
                   break;
@@ -1099,10 +1099,10 @@ namespace Dm8Main.Models
                case GitHelper.GitStatus.Unchanged:
                   gitImages.Add(new PackIconUnicons()
                   {
-                     Kind = PackIconUniconsKind.Lock,
-                     Foreground = Brushes.DeepSkyBlue,
-                     Width = 10,
-                     Height = 10,
+                     Kind = PackIconUniconsKind.Lock ,
+                     Foreground = Brushes.DeepSkyBlue ,
+                     Width = 10 ,
+                     Height = 10 ,
                      VerticalAlignment = VerticalAlignment.Center
                   });
                   break;
@@ -1110,10 +1110,10 @@ namespace Dm8Main.Models
                case GitHelper.GitStatus.Added:
                   gitImages.Add(new PackIconUnicons()
                   {
-                     Kind = PackIconUniconsKind.Plus,
-                     Foreground = Brushes.Green,
-                     Width = 10,
-                     Height = 10,
+                     Kind = PackIconUniconsKind.Plus ,
+                     Foreground = Brushes.Green ,
+                     Width = 10 ,
+                     Height = 10 ,
                      VerticalAlignment = VerticalAlignment.Center
                   });
                   break;
@@ -1121,10 +1121,10 @@ namespace Dm8Main.Models
                case GitHelper.GitStatus.Modified:
                   gitImages.Add(new PackIconUnicons()
                   {
-                     Kind = PackIconUniconsKind.Check,
-                     Foreground = Brushes.Red,
-                     Width = 10,
-                     Height = 10,
+                     Kind = PackIconUniconsKind.Check ,
+                     Foreground = Brushes.Red ,
+                     Width = 10 ,
+                     Height = 10 ,
                      VerticalAlignment = VerticalAlignment.Center
                   });
                   break;
@@ -1132,10 +1132,10 @@ namespace Dm8Main.Models
                case GitHelper.GitStatus.Deleted:
                   gitImages.Add(new PackIconUnicons()
                   {
-                     Kind = PackIconUniconsKind.Minus,
-                     Foreground = Brushes.Brown,
-                     Width = 10,
-                     Height = 10,
+                     Kind = PackIconUniconsKind.Minus ,
+                     Foreground = Brushes.Brown ,
+                     Width = 10 ,
+                     Height = 10 ,
                      VerticalAlignment = VerticalAlignment.Center
                   });
                   break;
@@ -1145,21 +1145,21 @@ namespace Dm8Main.Models
          }
       }
 
-      private void GlobalSettingsService_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+      private void GlobalSettingsService_PropertyChanged(object sender ,System.ComponentModel.PropertyChangedEventArgs e)
       {
-         if(e.PropertyName == nameof(this.solutionService.Theme) && this.Images != null)
+         if (e.PropertyName == nameof(this.solutionService.Theme) && this.Images != null)
          {
-            foreach(var i in this.Images)
+            foreach (var i in this.Images)
             {
                i.Foreground = this.GetImageColor();
             }
 
-            foreach(var i in this.ImagesToolTip)
+            foreach (var i in this.ImagesToolTip)
             {
                i.Foreground = this.GetImageColor();
             }
 
-            foreach(var i in this.ImagesEdit)
+            foreach (var i in this.ImagesEdit)
             {
                i.Foreground = this.GetImageColor();
             }

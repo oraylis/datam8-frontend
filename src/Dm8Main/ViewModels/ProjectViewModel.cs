@@ -50,7 +50,7 @@ namespace Dm8Main.ViewModels
       public Solution Solution
       {
          get => solution;
-         set => this.SetProperty(ref solution, value);
+         set => this.SetProperty(ref solution ,value);
       }
 
       private Solution solution;
@@ -60,7 +60,7 @@ namespace Dm8Main.ViewModels
       public ObservableCollection<ProjectItem> ProjectItems
       {
          get => this.projectItems;
-         set => this.SetProperty(ref this.projectItems, value);
+         set => this.SetProperty(ref this.projectItems ,value);
       }
 
       private ObservableCollection<ProjectItem> projectItems;
@@ -70,7 +70,7 @@ namespace Dm8Main.ViewModels
       public ProjectItem SelectedProjectItem
       {
          get => selectedProjectItem;
-         set => this.SetProperty(ref selectedProjectItem, value);
+         set => this.SetProperty(ref selectedProjectItem ,value);
       }
 
       private ProjectItem selectedProjectItem;
@@ -80,7 +80,7 @@ namespace Dm8Main.ViewModels
       public object IconSource
       {
          get => iconSource;
-         set => this.SetProperty(ref iconSource, value);
+         set => this.SetProperty(ref iconSource ,value);
       }
 
       private object iconSource;
@@ -90,7 +90,7 @@ namespace Dm8Main.ViewModels
       public DelegateCommand<MouseButtonEventArgs> ItemOpenCommand
       {
          get => itemOpenCommand;
-         set => this.SetProperty(ref itemOpenCommand, value);
+         set => this.SetProperty(ref itemOpenCommand ,value);
       }
 
       private DelegateCommand<MouseButtonEventArgs> itemOpenCommand;
@@ -100,44 +100,44 @@ namespace Dm8Main.ViewModels
       public string SearchText
       {
          get => _searchText;
-         set => this.SetProperty(ref _searchText, value);
+         set => this.SetProperty(ref _searchText ,value);
       }
 
       private string _searchText;
       #endregion
 
-      public ProjectViewModel(IUnityContainer container, IDialogService dialogService, ISolutionService solutionService, IEventAggregator eventAggregator)
+      public ProjectViewModel(IUnityContainer container ,IDialogService dialogService ,ISolutionService solutionService ,IEventAggregator eventAggregator)
       {
          this.dialogService = dialogService;
          this.eventAggregator = eventAggregator;
          this.solutionService = solutionService;
          this.Solution = this.solutionService.Solution;
-         if(this.Solution == null)
+         if (this.Solution == null)
          {
             throw new ArgumentNullException(nameof(this.Solution));
          }
 
          this.ProjectItems = this.solutionService.ProjectItems;
-         if(this.ProjectItems == null)
+         if (this.ProjectItems == null)
          {
             throw new ArgumentNullException(nameof(this.ProjectItems));
          }
          this.Title = Properties.Resources.Title_Project;
          this.IconSource = new PackIconMaterial()
          {
-            Kind = PackIconMaterialKind.SourceRepository,
-            Foreground = this.solutionService.Theme == Base.ColorTheme.Dark ? Brushes.White : Brushes.Black,
-            Width = 16,
-            Height = 16,
+            Kind = PackIconMaterialKind.SourceRepository ,
+            Foreground = this.solutionService.Theme == Base.ColorTheme.Dark ? Brushes.White : Brushes.Black ,
+            Width = 16 ,
+            Height = 16 ,
             VerticalAlignment = VerticalAlignment.Center
          };
          this.ItemOpenCommand = new DelegateCommand<MouseButtonEventArgs>((o) => this.ItemOpen(o));
          this.PropertyChanged += this.ProjectViewModel_PropertyChanged;
       }
 
-      private void ProjectViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+      private void ProjectViewModel_PropertyChanged(object? sender ,PropertyChangedEventArgs e)
       {
-         switch(e.PropertyName)
+         switch (e.PropertyName)
          {
             case nameof(this.SearchText):
                this.FilterProjectTree();
@@ -148,9 +148,9 @@ namespace Dm8Main.ViewModels
       private void ItemOpen(MouseButtonEventArgs o)
       {
          var item = ((Selector)o.Source).SelectedItem;
-         if(item is ProjectItem projectItem)
+         if (item is ProjectItem projectItem)
          {
-            switch(projectItem.Type)
+            switch (projectItem.Type)
             {
                case ProjectItem.Types.Folder:
                case ProjectItem.Types.RawSubFolder:
@@ -165,7 +165,7 @@ namespace Dm8Main.ViewModels
       }
       public void ItemSelect(ProjectItem projectItem)
       {
-         switch(projectItem.Type)
+         switch (projectItem.Type)
          {
             case ProjectItem.Types.Folder:
             case ProjectItem.Types.RawSubFolder:
@@ -185,9 +185,9 @@ namespace Dm8Main.ViewModels
 
       private void FilterProjectTree()
       {
-         foreach(var projectItem in this.solutionService.ProjectItems)
+         foreach (var projectItem in this.solutionService.ProjectItems)
          {
-            if(string.IsNullOrEmpty(this.SearchText))
+            if (string.IsNullOrEmpty(this.SearchText))
             {
                projectItem.ResetFilter();
             } else
@@ -197,16 +197,16 @@ namespace Dm8Main.ViewModels
             }
          }
       }
-      public void SelectProjectItem(ProjectItem item, bool multiSelect)
+      public void SelectProjectItem(ProjectItem item ,bool multiSelect)
       {
          try
          {
-            foreach(var projectItem in this.solutionService.ProjectItems)
+            foreach (var projectItem in this.solutionService.ProjectItems)
             {
-               projectItem.Select(projectItem => projectItem == item, null, multiSelect);
+               projectItem.Select(projectItem => projectItem == item ,null ,multiSelect);
             }
-         } catch(Exception ex) 
-         { 
+         } catch (Exception ex)
+         {
             Console.WriteLine(ex.ToString());
          }
 

@@ -17,24 +17,21 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Dm8Data.MessageOutput
 {
-    public class OutputText
-    {
-        public OutputText()
-        {
-            this.Content = new StringBuilder();
-            this.List = new List<string>();
-        }
+   public class OutputText
+   {
+      public OutputText()
+      {
+         this.Content = new StringBuilder();
+         this.List = new List<string>();
+      }
 
-        public StringBuilder Content { get; set; }
+      public StringBuilder Content { get; set; }
 
-        public List<string> List { get; set; }
-    }
+      public List<string> List { get; set; }
+   }
 }

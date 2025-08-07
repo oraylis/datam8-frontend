@@ -17,6 +17,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Collections.ObjectModel;
+using System.IO;
 using Azure.Storage.Files.DataLake;
 using Azure.Storage.Files.DataLake.Models;
 using Dm8CSVConnector;
@@ -26,8 +28,6 @@ using Oraylis.DataM8.PluginBase.Extensions;
 using Oraylis.DataM8.PluginBase.Interfaces;
 using Parquet;
 using Parquet.Schema;
-using System.Collections.ObjectModel;
-using System.IO;
 using Extensions = Oraylis.DataM8.PluginBase.Extensions.Extensions;
 using Path = System.IO.Path;
 

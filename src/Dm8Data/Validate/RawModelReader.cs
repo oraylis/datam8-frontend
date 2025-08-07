@@ -35,7 +35,9 @@ namespace Dm8Data.Validate
          var rc = new List<ModelReaderException>();
 
          if (item == null || item?.Entity == null)
+         {
             return rc;
+         }
 
          // validation of data product/module
          var prodList = await solutionHelper.LoadOrGetModelList<DataProducts.DataProduct ,DataProducts.DataProducts>(solutionHelper.Solution.DataProductsFilePath);

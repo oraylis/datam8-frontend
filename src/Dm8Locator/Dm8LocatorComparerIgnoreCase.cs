@@ -43,9 +43,12 @@ namespace Dm8Locator
          var yStr = y?.ToString();
          if (StringComparer.InvariantCultureIgnoreCase.Compare(xStr ,yStr) == 0 &&
              x?.GetType() == y?.GetType())
+         {
             return true;
-         else
+         } else
+         {
             return false;
+         }
       }
 
       /// <summary>

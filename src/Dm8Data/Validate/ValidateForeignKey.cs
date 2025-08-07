@@ -42,7 +42,9 @@ namespace Dm8Data.Validate
       {
          var rc = new List<ModelReaderException>();
          if (foreignEntity.Relationship == null)
+         {
             return rc;
+         }
 
          foreach (var relationship in foreignEntity.Relationship)
          {
@@ -52,7 +54,9 @@ namespace Dm8Data.Validate
                var primaryAttrs = primaryEntity.Attribute
                    .Where(attr => attr.BusinessKeyNo != null).ToList();
                if (primaryAttrs.Count() != relationship.Fields.Count())
+               {
                   rc.Add(new ForeignKeysException(relationship ,primaryEntity ,foreignEntity));
+               }
 
                foreach (var relationshipField in relationship.Fields)
                {
@@ -63,11 +67,15 @@ namespace Dm8Data.Validate
                   }
                   var attr = new Dm8lAttribute(relationshipField.Dm8lAttr);
                   if (!foreignEntity.Attribute.Any(a => a.Name == attr.Name))
+                  {
                      rc.Add(new ForeignKeyException(relationshipField ,foreignEntity ,attr.Name));
+                  }
 
                   var attrKey = new Dm8lAttribute(relationshipField.Dm8lKeyAttr);
                   if (!primaryEntity.Attribute.Any(a => a.Name == attrKey.Name))
+                  {
                      rc.Add(new ForeignKeyException(relationshipField ,primaryEntity ,attrKey.Name));
+                  }
                }
             } catch (Exception ex)
             {

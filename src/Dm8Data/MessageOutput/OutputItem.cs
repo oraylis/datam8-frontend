@@ -38,7 +38,10 @@ namespace Dm8Data.MessageOutput
             this.Source = validateException.Source;
             this.Location = validateException.FilePath.Replace(solution.BaseFilePath ,"");
             if (string.IsNullOrEmpty(this.Location))
+            {
                this.Location = validateException.Adl;
+            }
+
             this.FilePath = validateException.FilePath;
 
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
@@ -57,7 +60,10 @@ namespace Dm8Data.MessageOutput
             this.Source = validateException.Source;
             this.Location = validateException.FilePath.Replace(solution.RawFolderPath ,"");
             if (string.IsNullOrEmpty(this.Location))
+            {
                this.Location = validateException.Adl;
+            }
+
             this.FilePath = validateException.FilePath;
 
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
@@ -76,7 +82,10 @@ namespace Dm8Data.MessageOutput
             this.Source = validateException.Source;
             this.Location = validateException.FilePath.Replace(solution.StagingFolderPath ,"");
             if (string.IsNullOrEmpty(this.Location))
+            {
                this.Location = validateException.Adl;
+            }
+
             this.FilePath = validateException.FilePath;
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
@@ -94,7 +103,10 @@ namespace Dm8Data.MessageOutput
             this.Source = validateException.Source;
             this.Location = validateException.FilePath.Replace(solution.CoreFolderPath ,"");
             if (string.IsNullOrEmpty(this.Location))
+            {
                this.Location = validateException.Adl;
+            }
+
             this.FilePath = validateException.FilePath;
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
@@ -112,7 +124,10 @@ namespace Dm8Data.MessageOutput
             this.Source = validateException.Source;
             this.Location = validateException.FilePath.Replace(solution.CuratedFolderPath ,"");
             if (string.IsNullOrEmpty(this.Location))
+            {
                this.Location = validateException.Adl;
+            }
+
             this.FilePath = validateException.FilePath;
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {

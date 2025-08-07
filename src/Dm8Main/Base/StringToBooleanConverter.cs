@@ -28,9 +28,12 @@ namespace Dm8Main.Base
       public object Convert(object value ,Type targetType ,object parameter ,CultureInfo culture)
       {
          if (value is bool b)
+         {
             return b ? "True" : "False";
-         else
+         } else
+         {
             return "False";
+         }
       }
 
       public object ConvertBack(object value ,Type targetType ,object parameter ,CultureInfo culture)

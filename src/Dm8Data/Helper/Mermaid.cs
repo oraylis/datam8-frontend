@@ -95,13 +95,17 @@ namespace Dm8Data.Helper
       public StringBuilder PrintEntity(CoreEntity entity ,PrintEntityOptions printEntityOptions = null)
       {
          if (this.dm8lPrinted.Contains(entity.Dm8l))
+         {
             return new StringBuilder();
+         }
 
          this.dm8lPrinted.Add(entity.Dm8l);
          this.cache.Add(entity);
 
          if (printEntityOptions == null)
+         {
             printEntityOptions = new PrintEntityOptions();
+         }
 
          StringBuilder rc = new StringBuilder();
          if (this.graphType == GraphType.ErDiagram)
@@ -111,8 +115,10 @@ namespace Dm8Data.Helper
             {
                if (printEntityOptions.ShowAllAttributes ||
                    bkAttr.BusinessKeyNo != null)
+               {
                   rc.AppendLine(
                       $"{bkAttr.DataType} {bkAttr.Name} {(bkAttr.BusinessKeyNo != null ? "PK" : "")} \"-{bkAttr.AttributeType}- {bkAttr.DisplayName}\"");
+               }
             }
             rc.AppendLine($"}}");
             rc.AppendLine();
@@ -126,8 +132,10 @@ namespace Dm8Data.Helper
             {
                if (printEntityOptions.ShowAllAttributes ||
                    bkAttr.BusinessKeyNo != null)
+               {
                   rc.AppendLine(
                       $"      + {bkAttr.DataType} {bkAttr.Name}");
+               }
             }
             rc.AppendLine($"    }}");
             rc.AppendLine($"}}");
@@ -157,7 +165,9 @@ namespace Dm8Data.Helper
       {
          if (!this.dm8lPrinted.Contains(entity.Dm8l) ||
              !this.dm8lPrinted.Contains(entity.ExtensionOf))
+         {
             return new StringBuilder();
+         }
 
          StringBuilder rc = new StringBuilder();
          if (this.graphType == GraphType.ErDiagram)
@@ -179,8 +189,9 @@ namespace Dm8Data.Helper
       {
          if (!this.dm8lPrinted.Contains(entity.Dm8l) ||
              !this.dm8lPrinted.Contains(rel.Dm8lKey))
+         {
             return new StringBuilder();
-
+         }
 
          StringBuilder rc = new StringBuilder();
          if (this.graphType == GraphType.ErDiagram)
@@ -218,7 +229,9 @@ namespace Dm8Data.Helper
          {
             if (!this.dm8lPrinted.Contains(entityTarget.Dm8l) ||
                 !this.dm8lPrinted.Contains(entitySource.Dm8l))
+            {
                continue;
+            }
 
             if (this.graphType == GraphType.ErDiagram)
             {

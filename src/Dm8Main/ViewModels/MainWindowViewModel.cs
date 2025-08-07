@@ -803,7 +803,10 @@ namespace Dm8Main.ViewModels
                return;
             }
             if (item.IsFolder)
+            {
                return;
+            }
+
             var documentView = CreateDocumentView(item ,this.unityContainer);
             if (documentView == null)
             {
@@ -1100,7 +1103,9 @@ namespace Dm8Main.ViewModels
          try
          {
             if (this.ActiveContent is IAnchorView anchorView)
+            {
                await anchorView.ViewModel.SaveAsync();
+            }
 
             if (this.ActiveContent is IDocumentView documentView)
             {

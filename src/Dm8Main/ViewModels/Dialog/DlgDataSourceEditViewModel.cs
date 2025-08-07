@@ -345,7 +345,9 @@ namespace Dm8Main.ViewModels.Dialog
       public bool FillConnectionString()
       {
          if (this.ConnectionProperty == null)
+         {
             return false;
+         }
 
          DbConnectionStringBuilder dbConnectionStringBuilder = new DbConnectionStringBuilder();
          foreach (var p in this.ConnectionProperty.GetType().GetProperties())
@@ -363,7 +365,9 @@ namespace Dm8Main.ViewModels.Dialog
                   {
                      var enumVal = m.GetCustomAttribute<System.Runtime.Serialization.EnumMemberAttribute>()?.Value;
                      if (enumVal != "#Empty")
+                     {
                         dbConnectionStringBuilder.Add(n ,m.GetCustomAttribute<System.Runtime.Serialization.EnumMemberAttribute>()?.Value);
+                     }
                   }
                }
             } else if (!string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(v))
@@ -380,7 +384,9 @@ namespace Dm8Main.ViewModels.Dialog
       private void FillConnectionProperty()
       {
          if (string.IsNullOrEmpty(this.ConnectionString) || this.ConnectionProperty == null)
+         {
             return;
+         }
 
          try
          {
@@ -397,7 +403,9 @@ namespace Dm8Main.ViewModels.Dialog
                           Where(kv => StringComparer.InvariantCultureIgnoreCase.Compare(kv.Attrs.PropertyName ,k) == 0).
                           FirstOrDefault();
                   if (nameProp == null)
+                  {
                      continue;
+                  }
 
                   // get value
                   if (nameProp.Prop.PropertyType.BaseType == typeof(Enum) && nameProp.Prop.PropertyType is TypeInfo ti)

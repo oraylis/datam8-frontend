@@ -193,7 +193,10 @@ namespace Dm8Main.Views
                } else
                {
                   if (string.IsNullOrWhiteSpace(this.Value))
+                  {
                      this.Control.RemoveItem(this);
+                  }
+
                   this.Control.CloseEdit();
                }
                break;
@@ -246,7 +249,9 @@ namespace Dm8Main.Views
       private void TextAreaOnTextEntering(object sender ,TextCompositionEventArgs e)
       {
          if (!(e.OriginalSource is TextArea))
+         {
             return;
+         }
 
          var textArea = (e.OriginalSource as TextArea);
 #if COMPLETION
@@ -406,12 +411,16 @@ namespace Dm8Main.Views
       public void CloseEdit()
       {
          if (this.initList)
+         {
             return;
+         }
 
          foreach (var item in this.listView.Items.OfType<TokenizingEditControlItem>().ToList())
          {
             if (item.IsEdit)
+            {
                item.IsEdit = false;
+            }
          }
 
          int i = 0;

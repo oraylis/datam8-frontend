@@ -53,7 +53,10 @@ namespace Dm8Data.Validate
                foreach (var item in list)
                {
                   if (item == null)
+                  {
                      continue;
+                  }
+
                   var vals = new List<string>();
                   foreach (var f in fieldGetterFunc)
                   {

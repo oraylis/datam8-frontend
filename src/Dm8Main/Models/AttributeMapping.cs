@@ -57,11 +57,15 @@ public class AttributeMapping:Prism.Mvvm.BindableBase
          foreach (var mappingEntry in this.mappingEntries)
          {
             if (mappingEntry.StageEntity.Name == "#")
+            {
                defaultMap = "[" + mappingEntry.SourceComputation + "]";
-            else
+            } else
             {
                if (sb.Length > 0)
+               {
                   sb.Append("; ");
+               }
+
                sb.Append(mappingEntry.SourceComputation ?? mappingEntry.SourceName);
             }
          }
@@ -100,9 +104,15 @@ public class AttributeMapping:Prism.Mvvm.BindableBase
             if (mappingEntry.StageEntity.Name != "#")
             {
                if (sbHash.ToString().Contains("#" + mappingEntry.StageEntity.Dm8l + "#"))
+               {
                   continue;
+               }
+
                if (sb.Length > 0)
+               {
                   sb.Append("; ");
+               }
+
                sb.Append(mappingEntry.StageEntity.Dm8l);
                sbHash.Append("#" + mappingEntry.StageEntity.Dm8l + "#");
             }

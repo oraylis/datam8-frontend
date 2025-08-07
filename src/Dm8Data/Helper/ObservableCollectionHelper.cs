@@ -35,7 +35,9 @@ namespace Dm8Data.Helper
          for (int i = 0; i < This.Count; i++)
          {
             if (identifier(This[i]) == null)
+            {
                continue;
+            }
 
             // contains object -> update
             if (dictOther.TryGetValue(identifier(This[i]) ,out Type newObj))
@@ -59,10 +61,14 @@ namespace Dm8Data.Helper
          {
             // contains object
             if (dictThis.ContainsKey(identifier(item)))
+            {
                continue;
+            }
 
             if (identifier(item) == null)
+            {
                continue;
+            }
 
             This.Add(item);
          }

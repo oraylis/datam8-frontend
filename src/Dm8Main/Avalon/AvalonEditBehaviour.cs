@@ -62,13 +62,19 @@ namespace Dm8Main.Avalon
       protected override void OnDetaching()
       {
          base.OnDetaching();
-         if (this.AssociatedObject != null) this.AssociatedObject.TextChanged -= this.AssociatedObjectOnTextChanged;
+         if (this.AssociatedObject != null)
+         {
+            this.AssociatedObject.TextChanged -= this.AssociatedObjectOnTextChanged;
+         }
       }
 
       private void AssociatedObjectOnTextChanged(object sender ,EventArgs eventArgs)
       {
          var textEditor = sender as TextEditor;
-         if (textEditor?.Document != null) this.TextBinding = textEditor.Document.Text;
+         if (textEditor?.Document != null)
+         {
+            this.TextBinding = textEditor.Document.Text;
+         }
       }
 
       private static void PropertyTextChangedCallback(

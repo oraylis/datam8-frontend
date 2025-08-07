@@ -47,13 +47,17 @@ namespace Dm8Main.Views.Dialog
       private void ButtonSql_Checked(object sender ,RoutedEventArgs e)
       {
          if (this.ButtonExplore != null)
+         {
             this.ButtonExplore.IsChecked = false;
+         }
       }
 
       private void ButtonExplore_Checked(object sender ,RoutedEventArgs e)
       {
          if (this.ButtonSql != null)
+         {
             this.ButtonSql.IsChecked = false;
+         }
       }
 
       private void SelectAll_OnClick(object sender ,RoutedEventArgs e)

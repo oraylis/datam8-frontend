@@ -252,9 +252,12 @@ namespace Dm8Main.Services
 
          // set theme
          if (Settings.Default.Theme.StartsWith("Dark"))
+         {
             this.Theme = ColorTheme.Dark;
-         else
+         } else
+         {
             this.Theme = ColorTheme.Light;
+         }
 
          // global settings
          this.GitPath = Settings.Default.GitPath;
@@ -451,22 +454,34 @@ namespace Dm8Main.Services
       {
          // set default values
          if (string.IsNullOrEmpty(solution.BasePath))
+         {
             solution.BasePath = Resources.Solution_BaseFilePath;
+         }
 
          if (string.IsNullOrEmpty(solution.StagingPath))
+         {
             solution.StagingPath = Resources.Solution_StagingFolderPath;
+         }
 
          if (string.IsNullOrEmpty(solution.RawPath))
+         {
             solution.RawPath = Resources.Solution_RawFolderPath;
+         }
 
          if (string.IsNullOrEmpty(solution.CorePath))
+         {
             solution.CorePath = Resources.Solution_CoreFolderPath;
+         }
 
          if (string.IsNullOrEmpty(solution.GeneratePath))
+         {
             solution.GeneratePath = Resources.Solution_GenerateFolderPath;
+         }
 
          if (string.IsNullOrEmpty(solution.OutputPath))
+         {
             solution.OutputPath = Resources.Solution_OutputFolderPath;
+         }
 
          var solutionItem = this.ProjectItems[0];
          var solutionItems = this.ProjectItems[0].Children;
@@ -477,9 +492,12 @@ namespace Dm8Main.Services
 
          var thisRawItem = solutionItems.FirstOrDefault(i => i.Name == rawItem.Name);
          if (thisRawItem != null)
+         {
             thisRawItem.UpdateFrom(rawItem);
-         else
+         } else
+         {
             solutionItems.Add(rawItem);
+         }
 
          // refresh Staging
          ProjectItem stagingItem = ProjectItem.CreateItem(ProjectItem.Types.StagingFolder ,this ,this.eventAggregator);
@@ -487,9 +505,12 @@ namespace Dm8Main.Services
 
          var thisStagingItem = solutionItems.FirstOrDefault(i => i.Name == stagingItem.Name);
          if (thisStagingItem != null)
+         {
             thisStagingItem.UpdateFrom(stagingItem);
-         else
+         } else
+         {
             solutionItem.Children.Add(stagingItem);
+         }
 
          // refresh Core
          ProjectItem coreItem = ProjectItem.CreateItem(ProjectItem.Types.CoreFolder ,this ,this.eventAggregator);
@@ -497,9 +518,12 @@ namespace Dm8Main.Services
 
          var thisCoreItem = solutionItems.FirstOrDefault(i => i.Name == coreItem.Name);
          if (thisCoreItem != null)
+         {
             thisCoreItem.UpdateFrom(coreItem);
-         else
+         } else
+         {
             solutionItem.Children.Add(coreItem);
+         }
 
          // refresh Curated
          ProjectItem curatedItem = ProjectItem.CreateItem(ProjectItem.Types.CuratedFolder ,this ,this.eventAggregator);
@@ -507,9 +531,12 @@ namespace Dm8Main.Services
 
          var thisCuratedItem = solutionItems.FirstOrDefault(i => i.Name == curatedItem.Name);
          if (thisCuratedItem != null)
+         {
             thisCuratedItem.UpdateFrom(curatedItem);
-         else
+         } else
+         {
             solutionItem.Children.Add(curatedItem);
+         }
 
          // refresh diagram
          ProjectItem diagramItem = ProjectItem.CreateItem(ProjectItem.Types.DiagramFolder ,this ,this.eventAggregator);
@@ -517,9 +544,12 @@ namespace Dm8Main.Services
 
          var thisDiagramItem = solutionItems.FirstOrDefault(i => i.Name == diagramItem.Name);
          if (thisDiagramItem != null)
+         {
             thisDiagramItem.UpdateFrom(diagramItem);
-         else
+         } else
+         {
             solutionItem.Children.Add(diagramItem);
+         }
 
          // Refresh Generate
          ProjectItem generateItem = ProjectItem.CreateItem(ProjectItem.Types.GenerateFolder ,this ,this.eventAggregator);
@@ -529,9 +559,12 @@ namespace Dm8Main.Services
 
          var thisGenerateItem = solutionItems.FirstOrDefault(i => i.Name == generateItem.Name);
          if (thisGenerateItem != null)
+         {
             thisGenerateItem.UpdateFrom(generateItem);
-         else
+         } else
+         {
             solutionItem.Children.Add(generateItem);
+         }
 
 
          // Refresh output
@@ -540,9 +573,12 @@ namespace Dm8Main.Services
 
          var thisOutputItem = solutionItems.FirstOrDefault(i => i.Name == outputItem.Name);
          if (thisOutputItem != null)
+         {
             thisOutputItem.UpdateFrom(outputItem);
-         else
+         } else
+         {
             solutionItem.Children.Add(outputItem);
+         }
       }
 
       private async void SaveSolution(Solution solution)
@@ -742,14 +778,17 @@ namespace Dm8Main.Services
       {
          // keep status of files
          if (!parent.IsFolder)
+         {
             return;
-
+         }
 
          GitHelper.GitStatus rc = GitHelper.GitStatus.NoGit;
          foreach (var item in parent.Children.OfType<ProjectItem>())
          {
             if (item.IsFolder)
+            {
                this.SetGitStatus(item);
+            }
 
             // combine status of children
             switch (item.GitStatus)
@@ -760,17 +799,26 @@ namespace Dm8Main.Services
 
                case GitHelper.GitStatus.Added:
                   if (rc != GitHelper.GitStatus.Modified)
+                  {
                      rc = GitHelper.GitStatus.Added;
+                  }
+
                   break;
 
                case GitHelper.GitStatus.Deleted:
                   if (rc != GitHelper.GitStatus.Added && rc != GitHelper.GitStatus.Modified)
+                  {
                      rc = GitHelper.GitStatus.Deleted;
+                  }
+
                   break;
 
                case GitHelper.GitStatus.Unchanged:
                   if (rc != GitHelper.GitStatus.Added && rc != GitHelper.GitStatus.Modified && rc != GitHelper.GitStatus.Deleted)
+                  {
                      rc = GitHelper.GitStatus.Unchanged;
+                  }
+
                   break;
 
                case GitHelper.GitStatus.NoGit:

@@ -89,7 +89,10 @@ namespace Dm8Main.Views
             // recreate new collection
             var newCollection = new HamburgerMenuItemCollection();
             foreach (var item in collection)
+            {
                newCollection.Add(item);
+            }
+
             this.HamburgerMenuControl.ItemsSource = newCollection;
          }
          if (e.OldItems != null)
@@ -113,7 +116,10 @@ namespace Dm8Main.Views
 
             var newCollection = new HamburgerMenuItemCollection();
             foreach (var item in collection)
+            {
                newCollection.Add(item);
+            }
+
             this.HamburgerMenuControl.ItemsSource = newCollection;
 
          }
@@ -130,14 +136,18 @@ namespace Dm8Main.Views
       private void EditGrid_OnSelectedCellsChanged(object sender ,SelectedCellsChangedEventArgs e)
       {
          if (e.AddedCells.Any())
+         {
             this.editGrid.BeginEdit();
+         }
       }
 
       private void EditGrid_CellKeyDown(object sender ,KeyEventArgs e)
       {
 #pragma warning disable CS8073 // The result of the expression is always the same since a value of this type is never equal to 'null'
          if (this.editGrid.CurrentCell == null)
+         {
             return;
+         }
 #pragma warning restore CS8073 // The result of the expression is always the same since a value of this type is never equal to 'null'
 
          switch (e.Key)

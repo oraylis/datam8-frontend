@@ -155,7 +155,9 @@ namespace Dm8Main.ViewModels
          this.eventAggregator = eventAggregator;
          this.solution = this.solutionService.Solution;
          if (this.solution == null)
+         {
             throw new ArgumentNullException(nameof(this.solution));
+         }
 
          // register events
          this.eventAggregator.GetEvent<RefreshSolution>().Subscribe((i) => System.Windows.Application.Current.Dispatcher.InvokeAsync(() => this.SaveSolution()));
@@ -204,9 +206,12 @@ namespace Dm8Main.ViewModels
          foreach (var projectItem in this.GitItems)
          {
             if (string.IsNullOrEmpty(this.SearchText))
+            {
                projectItem.ResetFilter();
-            else
+            } else
+            {
                projectItem.Filter(pi => pi.Name.ToLowerInvariant().Contains(this.SearchText.ToLowerInvariant()));
+            }
          }
       }
 
@@ -343,7 +348,10 @@ namespace Dm8Main.ViewModels
          foreach (var p in pathComp)
          {
             if (string.IsNullOrEmpty(p))
+            {
                continue;
+            }
+
             fullPath = Path.Combine(fullPath ,p);
 
             var folderNew = folder.Children.OfType<GitItem>().Where(c => StringComparer.InvariantCultureIgnoreCase.Equals(c.Name ,p)).FirstOrDefault();

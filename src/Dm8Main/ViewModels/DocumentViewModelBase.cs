@@ -226,14 +226,20 @@ namespace Dm8Main.ViewModels
          string file = e.FullPath;
          // message for this window
          if (this.FilePath != file)
+         {
             return;
+         }
 
          if (this.IsSaving)
+         {
             return;
+         }
 
          // this was "my" change - no write from outside
          if (new FileInfo(file).LastWriteTimeUtc < this.LastWriteTimeUtc)
+         {
             return;
+         }
 
          if (!this.IsModified)
          {
@@ -371,7 +377,9 @@ namespace Dm8Main.ViewModels
                lock (this.documentOperations)
                {
                   if (!this.documentOperations.Any())
+                  {
                      break;
+                  }
                }
 
                operation = this.documentOperations.Dequeue();

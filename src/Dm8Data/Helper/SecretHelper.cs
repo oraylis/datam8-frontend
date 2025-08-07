@@ -107,7 +107,9 @@ namespace Dm8Data.Helper
          var keyVaultSecret = await secretClient.GetSecretAsync(secretName);
 
          if (keyVaultSecret.Value == null)
+         {
             throw new NullReferenceException($"Unable to get secret {secretName} from {keyVaultName}");
+         }
 
          return keyVaultSecret.Value.Value;
       }

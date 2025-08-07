@@ -68,7 +68,9 @@ namespace Dm8Locator.Db.TSql
          // get constraints
          var nullableConstraint = col.Constraints.OfType<NullableConstraintDefinition>().FirstOrDefault();
          if (nullableConstraint != null)
+         {
             Adl.IsNullable = nullableConstraint.Nullable;
+         }
 
          var defaultConstraint = col.DefaultConstraint;
          if (defaultConstraint != null)
@@ -78,9 +80,12 @@ namespace Dm8Locator.Db.TSql
                Adl.DefaultExpression = literal.Value;
                Adl.DefaultExpressionType = ConvertLiteralType2AdlType(literal.LiteralType);
             } else if (defaultConstraint.Expression is IntegerLiteral integerLiteral)
+            {
                Adl.DefaultExpression = integerLiteral.Value;
-            else if (defaultConstraint.Expression is NumericLiteral numericLiteral)
+            } else if (defaultConstraint.Expression is NumericLiteral numericLiteral)
+            {
                Adl.DefaultExpression = numericLiteral.Value;
+            }
          }
 
          // get identity

@@ -90,7 +90,9 @@ namespace Dm8Locator.Db.TSql
 
          // Check if errors occurred
          if (errors.Count() > 0)
+         {
             throw new TSqlParserException($"Error parsing {sqlFile}" ,errors);
+         }
 
          // Parse Tables
          TSqlTableVisitor tableVisitor = new TSqlTableVisitor();

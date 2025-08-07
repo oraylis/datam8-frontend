@@ -40,12 +40,18 @@ namespace Dm8Locator.Db
                if (addLeft)
                {
                   if (value.left != null)
+                  {
                      throw new DuplicateDm8LocatorException(Adl ,"Found twice on left side");
+                  }
+
                   value.left = Adl;
                } else
                {
                   if (value.right != null)
+                  {
                      throw new DuplicateDm8LocatorException(Adl ,"Found twice on right side");
+                  }
+
                   value.right = Adl;
                }
             } else

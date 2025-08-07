@@ -73,7 +73,9 @@ namespace Dm8Locator.Db.TSql
                {
                   string createTable = t.Scripts.Where(v => v.Contains("CREATE TABLE" ,StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                   if (createTable == null)
+                  {
                      return;
+                  }
 
                   // Create parser statement
                   TSqlParser parser = new TSql150Parser(false);
@@ -82,11 +84,15 @@ namespace Dm8Locator.Db.TSql
 
                   // Check if errors occurred
                   if (errors.Count() > 0)
+                  {
                      throw new TSqlParserException($"Error parsing {t.Name}" ,errors);
+                  }
 
                   // check if system table
                   if (IsSystemTable(t.Schema ,t.Name))
+                  {
                      return;
+                  }
 
                   // Parse Views
                   TSqlTableVisitor tableVisitor = new TSqlTableVisitor();
@@ -111,7 +117,9 @@ namespace Dm8Locator.Db.TSql
                {
                   string createView = v.Scripts.Where(vs => vs.Contains("CREATE VIEW" ,StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                   if (createView == null)
+                  {
                      return;
+                  }
 
                   // Create parser statement
                   TSqlParser parser = new TSql150Parser(false);
@@ -120,7 +128,9 @@ namespace Dm8Locator.Db.TSql
 
                   // Check if errors occurred
                   if (errors.Count() > 0)
+                  {
                      throw new TSqlParserException($"Error parsing {v.Name}" ,errors);
+                  }
 
                   // Parse Views
                   TSqlViewVisitor viewVisitor = new TSqlViewVisitor();
@@ -162,7 +172,10 @@ namespace Dm8Locator.Db.TSql
             {
                retry++;
                if (retry >= Properties.Settings.Default.ConnectRetry)
+               {
                   throw;
+               }
+
                System.Threading.Thread.Sleep(Properties.Settings.Default.ConnectRetry);
             }
          }
@@ -190,14 +203,18 @@ namespace Dm8Locator.Db.TSql
                   {
                      var res = await sqlRdr.ReadAsync();
                      if (!res)
+                     {
                         break;
+                     }
 
                      string tableName = sqlRdr.GetString(TABLE_NAME);
                      string tableSchema = sqlRdr.GetString(TABLE_SCHEMA);
 
                      // check if system table
                      if (IsSystemTable(tableSchema ,tableName))
+                     {
                         continue;
+                     }
 
                      string AdlName = this.CreateDm8DataLocatorName(new string[] { tableSchema ,tableName });
                      Dm8LocatorTable AdlTable = new Dm8LocatorTable(AdlName);
@@ -246,7 +263,9 @@ namespace Dm8Locator.Db.TSql
                   {
                      var res = await sqlRdr.ReadAsync();
                      if (!res)
+                     {
                         break;
+                     }
 
                      string tableName = sqlRdr.GetString(TABLE_NAME);
                      string tableSchema = sqlRdr.GetString(TABLE_SCHEMA);
@@ -261,13 +280,17 @@ namespace Dm8Locator.Db.TSql
 
                      // check if system table
                      if (IsSystemTable(tableSchema ,tableName))
+                     {
                         continue;
+                     }
 
                      string AdlName = this.CreateDm8DataLocatorName(new string[] { tableSchema ,tableName ,columnName });
                      Dm8LocatorColumn AdlColumn = new Dm8LocatorColumn(AdlName);
                      // get constraints
                      if (isNullable == "NO")
+                     {
                         AdlColumn.IsNullable = false;
+                     }
 
                      if (columnDefault != null)
                      {

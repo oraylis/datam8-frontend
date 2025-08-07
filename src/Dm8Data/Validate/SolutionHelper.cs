@@ -120,7 +120,9 @@ namespace Dm8Data.Validate
 
 
          if (this.isLoading)
+         {
             return;
+         }
 
          try
          {
@@ -138,14 +140,19 @@ namespace Dm8Data.Validate
             // raw - layer list
             var rawFileList = new List<string>();
             if (!Directory.Exists(this.solution.RawFolderPath))
+            {
                Directory.CreateDirectory(this.solution.RawFolderPath);
+            }
+
             foreach (var f in Directory.EnumerateFiles(this.solution.RawFolderPath ,"*.json" ,
                          SearchOption.AllDirectories))
             {
                rawFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
                if (fileDate > dateTimeFile)
+               {
                   dateTimeFile = fileDate;
+               }
             }
 
             layerList.Add(Properties.Resources.Folder_Raw ,rawFileList);
@@ -153,14 +160,19 @@ namespace Dm8Data.Validate
             // stage - layer list
             var stageFileList = new List<string>();
             if (!Directory.Exists(this.solution.StagingFolderPath))
+            {
                Directory.CreateDirectory(this.solution.StagingFolderPath);
+            }
+
             foreach (var f in Directory.EnumerateFiles(this.solution.StagingFolderPath ,"*.json" ,
                          SearchOption.AllDirectories))
             {
                stageFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
                if (fileDate > dateTimeFile)
+               {
                   dateTimeFile = fileDate;
+               }
             }
 
             layerList.Add(Properties.Resources.Folder_Staging ,stageFileList);
@@ -168,14 +180,19 @@ namespace Dm8Data.Validate
             // core - layer list
             var coreFileList = new List<string>();
             if (!Directory.Exists(this.solution.CoreFolderPath))
+            {
                Directory.CreateDirectory(this.solution.CoreFolderPath);
+            }
+
             foreach (var f in Directory.EnumerateFiles(this.solution.CoreFolderPath ,"*.json" ,
                          SearchOption.AllDirectories))
             {
                coreFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
                if (fileDate > dateTimeFile)
+               {
                   dateTimeFile = fileDate;
+               }
             }
 
             layerList.Add(Properties.Resources.Folder_Core ,coreFileList);
@@ -183,14 +200,19 @@ namespace Dm8Data.Validate
             // curated - layer list
             var curatedFileList = new List<string>();
             if (!Directory.Exists(this.solution.CuratedFolderPath))
+            {
                Directory.CreateDirectory(this.solution.CuratedFolderPath);
+            }
+
             foreach (var f in Directory.EnumerateFiles(this.solution.CuratedFolderPath ,"*.json" ,
                          SearchOption.AllDirectories))
             {
                curatedFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
                if (fileDate > dateTimeFile)
+               {
                   dateTimeFile = fileDate;
+               }
             }
 
             layerList.Add(Properties.Resources.Folder_Curated ,curatedFileList);
@@ -198,14 +220,19 @@ namespace Dm8Data.Validate
             // diagram - layer list
             var diagramFileList = new List<string>();
             if (!Directory.Exists(this.solution.DiagramFolderPath))
+            {
                Directory.CreateDirectory(this.solution.DiagramFolderPath);
+            }
+
             foreach (var f in Directory.EnumerateFiles(this.solution.DiagramFolderPath ,"*.json" ,
                          SearchOption.AllDirectories))
             {
                diagramFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
                if (fileDate > dateTimeFile)
+               {
                   dateTimeFile = fileDate;
+               }
             }
 
             layerList.Add(Properties.Resources.Folder_Diagram ,diagramFileList);
@@ -302,9 +329,13 @@ namespace Dm8Data.Validate
                   oldEntity = new Dm8lEntity(v.Key);
                   newEntity = new Dm8lEntity(oldEntity.Parent as Dm8lModule ,newEntityName);
                   if (this.dm8l2File.ContainsKey(newEntity))
+                  {
                      this.dm8l2File[newEntity] = newFilePath;
-                  else
+                  } else
+                  {
                      this.dm8l2File.Add(newEntity ,newFilePath);
+                  }
+
                   this.dm8l2File.Remove(v.Key);
                   break;
                }
@@ -731,7 +762,9 @@ namespace Dm8Data.Validate
       {
          // recreate index
          if (this.isLoading)
+         {
             return;
+         }
 
          lock (this)
          {

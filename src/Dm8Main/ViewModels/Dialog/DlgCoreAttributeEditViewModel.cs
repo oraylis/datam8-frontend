@@ -189,7 +189,10 @@ namespace Dm8Main.ViewModels.Dialog
             case nameof(this.Attribute):
             case nameof(this.DataTypes):
                if (this.DataTypes != null && this.Attribute != null)
+               {
                   this.SelectedDataType = this.DataTypes.FirstOrDefault(dt => dt.Name == this.Attribute.DataType);
+               }
+
                break;
 
             case nameof(this.SelectedDataType):

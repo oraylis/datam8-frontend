@@ -74,7 +74,9 @@ namespace Dm8Main.ViewModels
          this.solutionService = solutionService;
          this.solution = this.solutionService.Solution;
          if (this.solution == null)
+         {
             throw new ArgumentNullException(nameof(this.solution));
+         }
 
          this.eventAggregator = eventAggregator;
          base.solutionService.PropertyChanged += this.SolutionServicePropertyChanged;
@@ -151,7 +153,9 @@ namespace Dm8Main.ViewModels
       private void RegisterItemChanged(INotifyPropertyChanged n)
       {
          if (n == null)
+         {
             return;
+         }
 
          // register for property changes
          n.PropertyChanged += this.Item_PropertyChanged;
@@ -238,7 +242,9 @@ namespace Dm8Main.ViewModels
       {
          // save file
          if (!this.IsModified)
+         {
             return;
+         }
 
          this.IsSaving = true;
          try
@@ -269,7 +275,9 @@ namespace Dm8Main.ViewModels
       public override async Task ValidateAsync()
       {
          if (!this.IsJsonLoaded)
+         {
             return;
+         }
 
          try
          {
@@ -340,7 +348,9 @@ namespace Dm8Main.ViewModels
             this.ErrorList = new ObservableCollection<ModelReaderException>(this.ErrorList.Union(newErrorList));
             this.updatingJson = false;
             if (!this.IsLoading)
+            {
                this.IsModified = true;
+            }
 
             // set items
             this.Item = newItem;
@@ -387,7 +397,9 @@ namespace Dm8Main.ViewModels
             this.ErrorList = new ObservableCollection<ModelReaderException>(this.ErrorList.Union(newErrorList));
             this.updatingItems = false;
             if (!this.IsLoading)
+            {
                this.IsModified = true;
+            }
 
             // check errors
             await this.ValidateAsync();

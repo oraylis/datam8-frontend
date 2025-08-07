@@ -121,7 +121,9 @@ namespace Dm8LakeConnector
       {
          var comps = v.Split('.');
          if (comps.Length < 2)
+         {
             return null;
+         }
 
          if (comps[1].StartsWith("["))
          {
@@ -138,9 +140,12 @@ namespace Dm8LakeConnector
          foreach (var c in str)
          {
             if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') || c == '$')
+            {
                sb.Append(c);
-            else
+            } else
+            {
                sb.Append('_');
+            }
          }
 
          return sb.ToString();

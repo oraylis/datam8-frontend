@@ -52,10 +52,15 @@ namespace Dm8Main.Base
          set
          {
             if (this.content != null)
+            {
                this.content.PropertyChanged -= this.OnPropertyChanged;
+            }
+
             this.SetProperty(ref this.content ,value);
             if (this.content != null)
+            {
                this.content.PropertyChanged += this.OnPropertyChanged;
+            }
          }
       }
       private T content;

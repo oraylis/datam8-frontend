@@ -143,7 +143,9 @@ namespace Dm8Main.ViewModels
       private void EditSource()
       {
          if (this.SelectedItem == null)
+         {
             return;
+         }
 
          var viewModel = new DlgDataSourceEditViewModel(this.dialogService ,this.solution)
          {
@@ -180,7 +182,9 @@ namespace Dm8Main.ViewModels
       private void RemoveSource()
       {
          if (this.SelectedItem == null)
+         {
             return;
+         }
 
          this.Items.Remove(this.SelectedItem);
       }

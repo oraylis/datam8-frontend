@@ -44,7 +44,11 @@ namespace Dm8Data.Validate
 
       public virtual async Task<IEnumerable<TObj>> ReadFromFileAsync(string fileName)
       {
-         if (fileName == null) throw new ArgumentNullException(nameof(fileName));
+         if (fileName == null)
+         {
+            throw new ArgumentNullException(nameof(fileName));
+         }
+
          string json = await FileHelper.ReadFileAsync(fileName);
          return await ((IModelReaderList<TObj>)this).ReadFromStringAsync(json);
       }
@@ -60,14 +64,19 @@ namespace Dm8Data.Validate
                var objectList = JsonConvert.DeserializeObject<TObjList>(json);
                // validate if JSON is valid
                if (objectList != null)
+               {
                   items = objectList.Values.ToList();
+               }
             } catch (Exception)
             {
                throw;
             }
          });
          if (items == null)
+         {
             throw new NullReferenceException(string.Format(Resources.ModelReaderList_ReadFromStringAsync_Cannot_deserialize_json__0_ ,json));
+         }
+
          return items;
       }
 

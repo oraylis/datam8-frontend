@@ -79,7 +79,10 @@ namespace Dm8Data.Helper
             try
             {
                if (!Directory.Exists(Path.GetDirectoryName(filePath)))
+               {
                   Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+               }
+
                await File.WriteAllTextAsync(filePath ,content);
                while (IsFileInUse(filePath))
                {

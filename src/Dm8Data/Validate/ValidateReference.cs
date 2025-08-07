@@ -68,7 +68,9 @@ namespace Dm8Data.Validate
                      }
                      firstItem = false;
                      if (refObjectFound)
+                     {
                         break;
+                     }
                   }
 
                   if (!refObjectFound)

@@ -220,7 +220,9 @@ namespace Dm8Main.ViewModels
          }
 
          if (exeFileNameFullPath == null)
+         {
             return;
+         }
 
          var inFile = Path.GetTempFileName();
          var outFile = Path.GetTempFileName().Replace(".tmp" ,".png");

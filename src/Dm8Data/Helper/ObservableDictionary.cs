@@ -77,7 +77,9 @@ namespace Dm8Data.Helper
       public new bool Remove(TKey key)
       {
          if (!base.TryGetValue(key ,out _))
+         {
             return false;
+         }
 
          var item = new KeyValuePair<TKey ,TValue>(key ,base[key]);
          var result = base.Remove(key);

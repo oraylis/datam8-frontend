@@ -172,7 +172,9 @@ namespace Dm8Data.Helper
       {
          // query for all main directories
          foreach (var repository in this.Repositories)
+         {
             repository.IsUpdated = false;
+         }
 
          bool rc = true;
          rc &= await this.QueryGitStatusAsync(gitPath ,solution ,solution.BaseFilePath);
@@ -204,7 +206,7 @@ namespace Dm8Data.Helper
          {
             Directory.SetCurrentDirectory(dir);
 
-            await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,command ,(s) => { if (this.ReportGit != null) this.ReportGit(s); });
+            await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,command ,(s) => { if (this.ReportGit != null) { this.ReportGit(s); } });
             return true;
          } catch
          {
@@ -218,8 +220,8 @@ namespace Dm8Data.Helper
          {
             Directory.SetCurrentDirectory(dir);
 
-            await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,$"add --all" ,(s) => { if (this.ReportGit != null) this.ReportGit(s); });
-            await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,$"commit -a -m \"{message}\"" ,(s) => { if (this.ReportGit != null) this.ReportGit(s); });
+            await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,$"add --all" ,(s) => { if (this.ReportGit != null) { this.ReportGit(s); } });
+            await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,$"commit -a -m \"{message}\"" ,(s) => { if (this.ReportGit != null) { this.ReportGit(s); } });
             return true;
          } catch
          {
@@ -279,7 +281,9 @@ namespace Dm8Data.Helper
       private void QueryGitStatusLine(GitRepository repo ,ref string context ,string s)
       {
          if (this.ReportGit != null)
+         {
             this.ReportGit(s);
+         }
 
          if (s.Trim().StartsWith("Fetch URL:"))
          {
@@ -331,10 +335,14 @@ namespace Dm8Data.Helper
       private void QueryGitFileLine(GitRepository repo ,string s)
       {
          if (s.Length < 3)
+         {
             return;
+         }
 
          if (this.ReportGit != null)
+         {
             this.ReportGit(s);
+         }
 
          char x = s[0];
          char y = s[1];

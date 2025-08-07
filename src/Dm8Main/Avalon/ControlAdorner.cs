@@ -75,9 +75,17 @@ namespace Dm8Main.Avalon
 
       private void UpdateLocation()
       {
-         if (this.Placeholder == null) return;
+         if (this.Placeholder == null)
+         {
+            return;
+         }
+
          Transform t = (Transform)this.TransformToDescendant(this.Placeholder);
-         if (t == Transform.Identity) return;
+         if (t == Transform.Identity)
+         {
+            return;
+         }
+
          var oldTransfor = this.RenderTransform;
          if (oldTransfor == null || oldTransfor == Transform.Identity)
          {

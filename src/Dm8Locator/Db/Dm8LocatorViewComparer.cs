@@ -35,14 +35,21 @@ namespace Dm8Locator.Db
       {
          // check if one is null and the other not
          if (ReferenceEquals(x ,null) != ReferenceEquals(y ,null))
+         {
             return false;
+         }
 
          Dm8LocatorView viewX = x as Dm8LocatorView;
          if (viewX == null)
+         {
             throw new ArgumentException($"{x} is not of type column {x.GetType().ToString()}");
+         }
+
          Dm8LocatorView viewY = y as Dm8LocatorView;
          if (viewY == null)
+         {
             throw new ArgumentException($"{y} is not of type column {y.GetType().ToString()}");
+         }
 
          // Views need to be compared by script
          string scriptX = viewX.SpecializedProperties?.GetCompareScript();

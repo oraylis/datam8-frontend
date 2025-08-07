@@ -104,11 +104,15 @@ namespace Dm8Main.Models
       public bool Filter(Func<HierarchicalItem<T> ,bool> filter ,HierarchicalItem<T> item = null)
       {
          if (item == null)
+         {
             item = this;
+         }
 
          // store IsExpanded for reset
          if (item.isExpanded_Restore == null)
+         {
             item.isExpanded_Restore = item.IsExpanded;
+         }
 
          bool rc = false;
          foreach (var subItem in item.Children)

@@ -171,12 +171,16 @@ namespace Dm8Main.ViewModels.Dialog
                break;
             case nameof(IsShowMapped):
                if (this.IsShowMapped == true && this.AttributeAll != null)
+               {
                   this.AttributeAll_Filtered =
                       new ObservableCollection<CheckableContent<MappingEntry>>(
                           this.AttributeAll.Where(a => string.IsNullOrEmpty(a.Content.Name)));
-               else if (this.AttributeAll != null)
+               } else if (this.AttributeAll != null)
+               {
                   this.AttributeAll_Filtered =
                       new ObservableCollection<CheckableContent<MappingEntry>>(this.AttributeAll);
+               }
+
                break;
          }
          await Task.Yield();

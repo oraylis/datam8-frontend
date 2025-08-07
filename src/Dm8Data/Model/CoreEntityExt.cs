@@ -98,7 +98,10 @@ namespace Dm8Data.Core
             foreach (var a in e.NewItems.OfType<Attribute>())
             {
                if (a.Tags == null)
+               {
                   a.Tags = new ObservableCollection<string>();
+               }
+
                a.Tags.CollectionChanged += (s ,e) => TagsOnCollectionChanged(a ,s ,e);
                a.PropertyChanged += AttrPropertyChanged;
             }
@@ -110,7 +113,9 @@ namespace Dm8Data.Core
          if (sender is Attribute attr)
          {
             if (attr.RefactorNames == null)
+            {
                attr.RefactorNames = new ObservableCollection<string>();
+            }
          }
          this.CallProperyChanged(nameof(this.Attribute));
       }

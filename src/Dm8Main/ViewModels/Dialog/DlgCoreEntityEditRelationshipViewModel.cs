@@ -275,7 +275,9 @@ namespace Dm8Main.ViewModels.Dialog
                foreach (var keyAttributeEdit in this.KeyAttributes)
                {
                   if (keyAttributeEdit.SelectedAttribute == null)
+                  {
                      return;
+                  }
                }
                this.NumSelectablePages = 3;
                this.IsNextEnabled = true;
@@ -288,7 +290,9 @@ namespace Dm8Main.ViewModels.Dialog
       private async Task ReadCoreEntityAsync()
       {
          if (this.selectedEntity == null)
+         {
             return;
+         }
 
          CoreModelReader coreModelReader = new CoreModelReader();
          var model = await coreModelReader.ReadFromFileAsync(this.selectedEntity.FilePath);

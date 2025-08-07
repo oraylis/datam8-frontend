@@ -62,7 +62,9 @@ namespace Dm8Locator.Db
       {
          // check if this is not the root
          if (!string.IsNullOrEmpty(dm8l) && dm8l != Dm8DataLocatorSeperator.ToString())
+         {
             throw new InvalidDm8LocatorException(dm8l ,"Layer must be root level (parent must not exist)");
+         }
 
          // no more parents
          return null;

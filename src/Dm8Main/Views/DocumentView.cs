@@ -144,10 +144,15 @@ namespace Dm8Main.Views
                   foreach (var c in this.edit.Text)
                   {
                      if (c == '\r')
+                     {
                         l++;
+                     }
 
                      if (l == jsonReaderException.LineNumber)
+                     {
                         break;
+                     }
+
                      p++;
                   }
                   this.edit.CaretOffset = p + jsonReaderException.LinePosition;
@@ -162,10 +167,15 @@ namespace Dm8Main.Views
                   foreach (var c in this.edit.Text)
                   {
                      if (c == '\r')
+                     {
                         l++;
+                     }
 
                      if (l == jsonSerializationException.LineNumber)
+                     {
                         break;
+                     }
+
                      p++;
                   }
                   this.edit.CaretOffset = p + jsonSerializationException.LinePosition;

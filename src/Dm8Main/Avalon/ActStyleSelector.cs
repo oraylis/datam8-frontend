@@ -41,10 +41,16 @@ namespace Dm8Main.Avalon
       public override Style SelectStyle(object item ,DependencyObject container)
       {
          if (item is IDocumentView)
+         {
             return this.DocumentViewStyle;
+         }
 
          if (item is IAnchorView)
-            return this.AnchorViewStyle; ;
+         {
+            return this.AnchorViewStyle;
+         }
+
+         ;
 
          return base.SelectStyle(item ,container);
       }

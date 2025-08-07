@@ -81,7 +81,9 @@ namespace Dm8Main.ViewModels
       {
          this.solution = solutionService.Solution;
          if (this.solution == null)
+         {
             throw new ArgumentNullException(nameof(this.solution));
+         }
 
          this.eventAggregator = eventAggregator;
          this.solutionService.PropertyChanged += this.SolutionServicePropertyChanged;
@@ -134,7 +136,9 @@ namespace Dm8Main.ViewModels
       private void RegisterItemChanged(INotifyPropertyChanged n)
       {
          if (n == null)
+         {
             return;
+         }
 
          // register for property changes
          n.PropertyChanged += this.Item_PropertyChanged;
@@ -213,7 +217,9 @@ namespace Dm8Main.ViewModels
       {
          // save file
          if (!this.IsModified)
+         {
             return;
+         }
 
          this.IsSaving = true;
          try
@@ -259,7 +265,10 @@ namespace Dm8Main.ViewModels
             foreach (var i in this.Items)
             {
                if (i == this.SelectedItem)
+               {
                   break;
+               }
+
                this.oldSelectedItemNr++;
             }
          }
@@ -309,7 +318,9 @@ namespace Dm8Main.ViewModels
             this.ErrorList = new ObservableCollection<ModelReaderException>(this.ErrorList.Union(newErrorList));
             this.updatingJson = false;
             if (!this.loading)
+            {
                this.IsModified = true;
+            }
 
             // set items
             this.Items = items;
@@ -355,7 +366,10 @@ namespace Dm8Main.ViewModels
          {
             this.updatingItems = false;
             if (!this.loading)
+            {
                this.IsModified = true;
+            }
+
             this.ErrorList = new ObservableCollection<ModelReaderException>(this.ErrorList.Union(newErrorList));
          }
       }
@@ -363,8 +377,9 @@ namespace Dm8Main.ViewModels
       private void ReselectItem()
       {
          if (this.oldSelectedItemNr >= this.Items.Count)
+         {
             this.SelectedItem = this.Items.FirstOrDefault() ?? new TObj();
-         else
+         } else
          {
             this.SelectedItem = this.Items[this.oldSelectedItemNr];
          }

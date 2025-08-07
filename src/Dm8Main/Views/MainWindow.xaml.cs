@@ -108,7 +108,9 @@ namespace Dm8Main.Views
       private void XmlLayoutSerializer_LayoutSerializationCallback(object? sender ,LayoutSerializationCallbackEventArgs e)
       {
          if (e.Model.ContentId == null)
+         {
             return;
+         }
 
          if (e.Model.ContentId.StartsWith("Type$"))
          {
@@ -125,7 +127,9 @@ namespace Dm8Main.Views
             // get solution
             var solution = _solutionService.Solution;
             if (solution == null)
+            {
                throw new ArgumentNullException(nameof(solution));
+            }
 
             // create project item
             var projType = e.Model.ContentId.Replace("Item$" ,"");
@@ -158,7 +162,10 @@ namespace Dm8Main.Views
          var xmlLayoutSerializer = new XmlLayoutSerializer(this.dockManager);
          var stringBuilder = new StringBuilder();
          using (var textWriter = new StringWriter(stringBuilder))
+         {
             xmlLayoutSerializer.Serialize(textWriter);
+         }
+
          var serialized = stringBuilder.ToString();
          await FileHelper.WriteFileAsync(System.IO.Path.Combine(i.CurrentRootFolder ,"datam8.user") ,serialized);
       }

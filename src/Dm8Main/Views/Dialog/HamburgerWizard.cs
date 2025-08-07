@@ -138,14 +138,18 @@ public abstract class HamburgerWizard:MetroWindow, IClosableWindow
    {
       this.GetPrevNextItem(out HamburgerMenuItem prevItem ,out HamburgerMenuItem nextItem);
       if (prevItem != null)
+      {
          this.HamburgerMenuControlProp.SelectedItem = prevItem;
+      }
    }
 
    protected void ButtonNext_Click(object sender ,RoutedEventArgs e)
    {
       this.GetPrevNextItem(out HamburgerMenuItem prevItem ,out HamburgerMenuItem nextItem);
       if (nextItem != null)
+      {
          this.HamburgerMenuControlProp.SelectedItem = nextItem;
+      }
    }
 
 }

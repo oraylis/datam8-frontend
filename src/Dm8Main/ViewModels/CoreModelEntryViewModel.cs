@@ -454,7 +454,10 @@ namespace Dm8Main.ViewModels
          {
             case nameof(this.Item):
                if (this.Item.Entity != null)
+               {
                   this.EntityName = this.Item.Entity.Name;
+               }
+
                break;
 
             case nameof(this.SelectedComputeValue):
@@ -498,7 +501,9 @@ namespace Dm8Main.ViewModels
          // read items
          await base.LoadInternalAsync();
          if (this.IsJsonLoaded)
+         {
             await this.LoadInternalMembersAsync();
+         }
       }
 
       public async Task LoadInternalMembersAsync()
@@ -545,10 +550,13 @@ namespace Dm8Main.ViewModels
             DataTypeModelReader dataSourceModelReader = new DataTypeModelReader();
             var dataTypes = await dataSourceModelReader.ReadFromFileAsync(this.solution.DataTypesFilePath);
             if (this.DataTypes == null)
+            {
                this.DataTypes =
                    new ObservableCollection<Dm8Data.DataTypes.DataType>(dataTypes.OrderBy(d => d.Name));
-            else
+            } else
+            {
                this.DataTypes.Update(dataTypes ,(i) => i.Name);
+            }
 
             // create mapping for each attribute
             var src = this.Item.Function.Source.FirstOrDefault(src => src.Dm8l == "#");
@@ -776,7 +784,9 @@ namespace Dm8Main.ViewModels
          {
             // entity name was change - change file name + references
             if (await this.RenameEntityAsync())
+            {
                return;
+            }
          }
 
          await base.SaveInternalAsync();
@@ -829,7 +839,9 @@ namespace Dm8Main.ViewModels
             {
                // not a source mapping (default mappings cannot be added) -> happens if attribute is removed and added again
                if (me.StageEntity.Name == "#")
+               {
                   continue;
+               }
 
                me.Name = attribute.Attribute.Name; // copy name
                var attr = this.CreateAttributeIfNotExists(me); // create real attribute
@@ -894,12 +906,17 @@ namespace Dm8Main.ViewModels
 
                // if no mapping found continue to next iteration
                if (mappingToRemove == default)
+               {
                   continue;
+               }
 
                if (source.Dm8l == "#")
+               {
                   source.Mapping.Remove(mappingToRemove);
-               else
+               } else
+               {
                   mappingToRemove.Name = null;
+               }
             }
          }
       }
@@ -938,7 +955,9 @@ namespace Dm8Main.ViewModels
          foreach (var attribute in this.Item.Entity.Attribute)
          {
             if (attribute.BusinessKeyNo != null)
+            {
                continue;
+            }
 
             var attrType = this.AttributeTypes.FirstOrDefault(at => attribute.AttributeType == at.Name);
             if (attrType != null &&
@@ -966,7 +985,9 @@ namespace Dm8Main.ViewModels
             obj = this.EditGridCurrentCell.Value.Item as AttributeMapping;
          }
          if (obj == null)
+         {
             return;
+         }
 
          if (this.Item.Entity.Attribute.Remove(obj.Attribute))
          {
@@ -1005,7 +1026,9 @@ namespace Dm8Main.ViewModels
                foreach (var map in src.Mapping)
                {
                   if (map.Name == oldName)
+                  {
                      map.Name = obj.Attribute.Name;
+                  }
                }
             }
 
@@ -1034,7 +1057,9 @@ namespace Dm8Main.ViewModels
             foreach (var s in this.Item.Function.Source)
             {
                if (s.Dm8l == "#")
+               {
                   continue;
+               }
 
                foreach (var m in s.Mapping)
                {
@@ -1051,11 +1076,15 @@ namespace Dm8Main.ViewModels
             {
                var se = this.Item.Function.Source.FirstOrDefault(s => s.Dm8l == nm.StageEntity.Dm8l);
                if (se == null)
+               {
                   continue;
+               }
 
                var me = se.Mapping.FirstOrDefault(m => m.SourceName == nm.SourceName);
                if (me == null)
+               {
                   continue;
+               }
 
                me.Name = nm.Name;
             }
@@ -1071,7 +1100,9 @@ namespace Dm8Main.ViewModels
       {
          // name not change
          if (attr.Name == oldName)
+         {
             return;
+         }
 
          // check if reference exists
          var dm8lEntity = new Dm8lEntity(this.Item.Entity.Dm8l);

@@ -28,7 +28,10 @@ namespace Dm8Main.Base
       public object Convert(object value ,Type targetType ,object parameter ,CultureInfo culture)
       {
          if (value == null)
+         {
             return null;
+         }
+
          return string.IsNullOrEmpty(value.ToString()) ? null : value;
       }
 
@@ -42,9 +45,12 @@ namespace Dm8Main.Base
             } else
             {
                if (int.TryParse(value.ToString() ,out int v))
+               {
                   return v;
-               else
+               } else
+               {
                   return null;
+               }
             }
          }
 

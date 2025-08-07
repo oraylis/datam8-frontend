@@ -108,7 +108,9 @@ namespace Dm8Data.Validate
       public virtual async Task<IEnumerable<SchemaValidateException>> ValidateSchemaFromStringAsync(string json)
       {
          if (this.Schema == null)
+         {
             return new List<SchemaValidateException>();
+         }
 
          var jsonSchema = await NJsonSchema.JsonSchema.FromJsonAsync(this.Schema ,Assembly.GetExecutingAssembly().Location ,this.SchemaResolver);
          var rc = new List<SchemaValidateException>();

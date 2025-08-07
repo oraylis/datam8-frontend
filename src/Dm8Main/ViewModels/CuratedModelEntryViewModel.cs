@@ -394,7 +394,10 @@ namespace Dm8Main.ViewModels
          {
             case nameof(this.Item):
                if (this.Item.Entity != null)
+               {
                   this.EntityName = this.Item.Entity.Name;
+               }
+
                break;
          }
       }
@@ -405,7 +408,9 @@ namespace Dm8Main.ViewModels
          // read items
          await base.LoadInternalAsync();
          if (this.IsJsonLoaded)
+         {
             await this.LoadInternalMembersAsync();
+         }
       }
 
       public async Task LoadInternalMembersAsync()
@@ -431,20 +436,26 @@ namespace Dm8Main.ViewModels
             var attributeTypes =
                 await attributeTypeModelReader.ReadFromFileAsync(this.solution.AttributeTypesFilePath);
             if (this.AttributeTypes == null)
+            {
                this.AttributeTypes =
                    new ObservableCollection<Dm8Data.AttributeTypes.AttributeType>(
                        attributeTypes.OrderBy(a => a.Name));
-            else
+            } else
+            {
                this.AttributeTypes.Update(attributeTypes ,(i) => i.Name);
+            }
 
             // Read data types
             DataTypeModelReader dataSourceModelReader = new DataTypeModelReader();
             var dataTypes = await dataSourceModelReader.ReadFromFileAsync(this.solution.DataTypesFilePath);
             if (this.DataTypes == null)
+            {
                this.DataTypes =
                    new ObservableCollection<Dm8Data.DataTypes.DataType>(dataTypes.OrderBy(d => d.Name));
-            else
+            } else
+            {
                this.DataTypes.Update(dataTypes ,(i) => i.Name);
+            }
 
             // relationships
             var relationshipAttrs = this.Item.Entity.Attribute.Where(ma =>
@@ -553,7 +564,9 @@ namespace Dm8Main.ViewModels
          {
             // entity name was change - change file name + references
             if (await this.RenameEntityAsync())
+            {
                return;
+            }
          }
 
          await base.SaveInternalAsync();
@@ -626,7 +639,9 @@ namespace Dm8Main.ViewModels
          foreach (var attribute in this.Item.Entity.Attribute)
          {
             if (attribute.BusinessKeyNo != null)
+            {
                continue;
+            }
 
             var attrType = this.AttributeTypes.FirstOrDefault(at => attribute.AttributeType == at.Name);
             if (attrType != null &&
@@ -654,7 +669,9 @@ namespace Dm8Main.ViewModels
             attr = this.EditGridCurrentCell.Value.Item;
          }
          if (!(attr is Attribute attribute))
+         {
             return;
+         }
 
          if (this.Item.Entity.Attribute.Remove(attribute))
          {
@@ -666,7 +683,9 @@ namespace Dm8Main.ViewModels
       private async Task EditAttributeAsync(object attr)
       {
          if (!(attr is Attribute attribute))
+         {
             return;
+         }
 
          var attributeJson = JsonConvert.SerializeObject(attribute ,Formatting.Indented ,new Newtonsoft.Json.Converters.StringEnumConverter());
          var oldName = attribute.Name;
@@ -694,7 +713,9 @@ namespace Dm8Main.ViewModels
       {
          // name not change
          if (attr.Name == oldName)
+         {
             return;
+         }
 
          // check if reference exists
          var dm8lEntity = new Dm8lEntity(this.Item.Entity.Dm8l);
@@ -898,7 +919,9 @@ namespace Dm8Main.ViewModels
          }
 
          if (exeFileNameFullPath == null)
+         {
             return;
+         }
 
          var inFile = Path.GetTempFileName();
          var outFile = Path.GetTempFileName().Replace(".tmp" ,".png");

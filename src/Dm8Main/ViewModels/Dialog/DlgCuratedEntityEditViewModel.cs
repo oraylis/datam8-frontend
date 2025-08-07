@@ -302,9 +302,12 @@ namespace Dm8Main.ViewModels.Dialog
                if (this.SelectedIndex == 0)
                {
                   if (this.IsNewMode)
+                  {
                      this.WizardCanComplete = false;
-                  else
+                  } else
+                  {
                      this.WizardCanComplete = true;
+                  }
                } else if (this.SelectedIndex == 1)
                {
                   this.FillDefaultCuratedEntities();

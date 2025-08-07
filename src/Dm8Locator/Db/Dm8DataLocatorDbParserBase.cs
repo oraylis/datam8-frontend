@@ -38,11 +38,15 @@ namespace Dm8Locator.Db
       {
          // At least two identifiers [schema].[table]
          if (identifier.Length < 2)
+         {
             throw new ArgumentOutOfRangeException(nameof(identifier) ,"Schema and Name are mandatory for identifiers");
+         }
 
          // Max three identifiers [schema].[table].[column]
          if (identifier.Length > 3)
+         {
             throw new ArgumentOutOfRangeException(nameof(identifier) ,"More than three identifiers");
+         }
 
          // create Adl for database resource
          string AdlName = string.Empty;

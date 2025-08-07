@@ -35,7 +35,9 @@ namespace Dm8Data.Validate
          var rc = new List<ModelReaderException>();
 
          if (item == null)
+         {
             return rc;
+         }
 
          // add exceptions for unique constraint
          var refList = await solutionHelper.LoadOrGetModelList<DataTypes.DataType ,DataTypes.DataTypes>(solutionHelper.Solution.DataTypesFilePath);

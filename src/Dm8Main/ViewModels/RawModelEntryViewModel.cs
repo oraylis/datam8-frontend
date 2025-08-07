@@ -182,8 +182,12 @@ namespace Dm8Main.ViewModels
       protected override async Task SaveInternalAsync()
       {
          if (this.Item.Entity != null && this.Item.Entity.Name != this.EntityName)
+         {
             if (await this.RenameEntity())
+            {
                return;
+            }
+         }
 
          // in case entity is renamed the rename method saves the object
          await base.SaveInternalAsync();

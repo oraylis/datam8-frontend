@@ -50,14 +50,18 @@ namespace Dm8Main.ViewModels
          // solution must be opened
          this.solution = solutionService.Solution;
          if (this.solution == null)
+         {
             throw new ArgumentNullException(nameof(this.solution));
+         }
       }
 
       public override void SetSyntaxHighlighting()
       {
          string resource = null;
          if (this.FilePath == null)
+         {
             return;
+         }
 
          switch (Path.GetExtension(this.FilePath).ToLower())
          {
@@ -82,7 +86,9 @@ namespace Dm8Main.ViewModels
          }
 
          if (resource == null)
+         {
             return;
+         }
 
          using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resource))
          {

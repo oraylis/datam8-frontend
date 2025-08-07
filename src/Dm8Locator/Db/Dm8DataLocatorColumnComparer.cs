@@ -35,14 +35,21 @@ namespace Dm8Locator.Db
       {
          // check if one is null and the other not
          if (ReferenceEquals(x ,null) != ReferenceEquals(y ,null))
+         {
             return false;
+         }
 
          Dm8LocatorColumn colX = x as Dm8LocatorColumn;
          if (colX == null)
+         {
             throw new ArgumentException($"{x} is not of type column {x.GetType().ToString()}");
+         }
+
          Dm8LocatorColumn colY = y as Dm8LocatorColumn;
          if (colY == null)
+         {
             throw new ArgumentException($"{y} is not of type column {y.GetType().ToString()}");
+         }
 
          // compare elements
          bool rc = true;

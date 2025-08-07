@@ -64,11 +64,12 @@ namespace Dm8Main.ViewModels
             DataTypeModelReader dataSourceModelReader = new DataTypeModelReader();
             var dataTypes = await dataSourceModelReader.ReadFromFileAsync(this.solution.DataTypesFilePath);
             if (this.DataTypes == null)
+            {
                this.DataTypes = new ObservableCollection<Dm8Data.DataTypes.DataType>(dataTypes);
-            else
+            } else
+            {
                this.DataTypes.Update(dataTypes ,(i) => i.Name);
-
-
+            }
          } catch (Exception ex)
          {
             this.ErrorList.Add(new UnknownValidateException(ex ,this.FilePath));

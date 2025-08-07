@@ -88,7 +88,9 @@ namespace Dm8Main.ViewModels
       {
          string resource = null;
          if (this.FilePath == null)
+         {
             return;
+         }
 
          switch (Path.GetExtension(this.FilePath).ToLower())
          {
@@ -113,7 +115,9 @@ namespace Dm8Main.ViewModels
          }
 
          if (resource == null)
+         {
             return;
+         }
 
          using (var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resource))
          {

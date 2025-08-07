@@ -70,7 +70,9 @@ class Program
       }
 
       if (sendValidateOutput.HasSendError)
+      {
          return -1;
+      }
 
       return 0;
    }

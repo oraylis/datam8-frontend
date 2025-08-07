@@ -382,7 +382,9 @@ namespace Dm8Main.ViewModels.Dialog
          string rest = this.RelativePath.Substring(this.RelativePath.IndexOf(Path.DirectorySeparatorChar) + 1);
          string mod = rest.Substring(0 ,rest.IndexOf(Path.DirectorySeparatorChar));
          if (this.DataModules != null)
+         {
             this.SelectedDataModule = this.DataModules.Where(m => m.Name == mod).FirstOrDefault();
+         }
       }
 
       private async void OnOK(IClosableWindow window)

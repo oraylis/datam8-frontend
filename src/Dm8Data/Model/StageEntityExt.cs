@@ -55,7 +55,10 @@ namespace Dm8Data.Stage
             foreach (var a in e.NewItems.OfType<Attribute>())
             {
                if (a.Tags == null)
+               {
                   a.Tags = new ObservableCollection<string>();
+               }
+
                a.Tags.CollectionChanged += (s ,e) => TagsOnCollectionChanged(a ,s ,e);
             }
          }

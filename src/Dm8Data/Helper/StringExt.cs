@@ -31,9 +31,12 @@ namespace Dm8Data.Helper
          foreach (var c in str)
          {
             if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9'))
+            {
                sb.Append(c);
-            else
+            } else
+            {
                sb.Append('_');
+            }
          }
          return sb.ToString();
       }
@@ -43,9 +46,12 @@ namespace Dm8Data.Helper
          foreach (var c in str)
          {
             if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') || c == '$')
+            {
                sb.Append(c);
-            else
+            } else
+            {
                sb.Append('_');
+            }
          }
          return sb.ToString();
       }
@@ -130,7 +136,10 @@ namespace Dm8Data.Helper
          foreach (var s in list)
          {
             if (sb.Length != 0)
+            {
                sb.Append(sep);
+            }
+
             sb.Append(quote);
             sb.Append(s);
             sb.Append(quote);

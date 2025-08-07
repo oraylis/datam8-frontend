@@ -32,7 +32,9 @@ namespace Dm8Data.Validate
          var rc = new List<ModelReaderException>();
 
          if (item == null)
+         {
             return rc;
+         }
 
          // check source entities
          if (item.CoreEntities != null)

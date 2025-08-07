@@ -62,9 +62,12 @@ namespace Dm8Main.Base
       public object Convert(object value ,Type targetType ,object parameter ,CultureInfo culture)
       {
          if (value is bool visibleBool)
+         {
             return !visibleBool ? Visibility.Visible : Visibility.Collapsed;
-         else
+         } else
+         {
             return Visibility.Collapsed;
+         }
       }
 
 

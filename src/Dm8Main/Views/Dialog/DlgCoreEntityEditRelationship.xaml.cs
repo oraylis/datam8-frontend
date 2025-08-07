@@ -144,14 +144,18 @@ namespace Dm8Main.Views.Dialog
       {
          this.GetPrevNextItem(out HamburgerMenuItem prevItem ,out HamburgerMenuItem nextItem);
          if (prevItem != null)
+         {
             this.HamburgerMenuControl.SelectedItem = prevItem;
+         }
       }
 
       private void ButtonNext_Click(object sender ,RoutedEventArgs e)
       {
          this.GetPrevNextItem(out HamburgerMenuItem prevItem ,out HamburgerMenuItem nextItem);
          if (nextItem != null)
+         {
             this.HamburgerMenuControl.SelectedItem = nextItem;
+         }
       }
 
       private void GoBack_OnClick(object sender ,RoutedEventArgs e)

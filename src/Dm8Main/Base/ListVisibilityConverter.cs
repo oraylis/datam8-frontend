@@ -29,7 +29,9 @@ namespace Dm8Main.Base
       public object Convert(object value ,Type targetType ,object parameter ,CultureInfo culture)
       {
          if (value is System.Collections.IEnumerable ts)
+         {
             return ts.GetEnumerator().MoveNext() ? Visibility.Visible : Visibility.Hidden;
+         }
 
          return Visibility.Hidden;
       }

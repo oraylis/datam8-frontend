@@ -40,12 +40,18 @@ namespace Dm8Locator.Db
                if (addLeft)
                {
                   if (value.left != null)
+                  {
                      throw new DuplicateDm8LocatorException(table ,"Found twice on left side");
+                  }
+
                   value.left = table;
                } else
                {
                   if (value.right != null)
+                  {
                      throw new DuplicateDm8LocatorException(table ,"Found twice on right side");
+                  }
+
                   value.right = table;
                }
             } else
@@ -78,12 +84,18 @@ namespace Dm8Locator.Db
                   if (addLeft)
                   {
                      if (colValue.left != null)
+                     {
                         throw new DuplicateDm8LocatorException(column ,"Found twice on left side");
+                     }
+
                      colValue.left = column;
                   } else
                   {
                      if (colValue.right != null)
+                     {
                         throw new DuplicateDm8LocatorException(column ,"Found twice on right side");
+                     }
+
                      colValue.right = column;
                   }
                } else

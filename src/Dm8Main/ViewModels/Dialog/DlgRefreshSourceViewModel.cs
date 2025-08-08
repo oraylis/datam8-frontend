@@ -318,6 +318,7 @@ namespace Dm8Main.ViewModels.Dialog
         private async Task RefreshItem(Item item)
         {
             // TODO efficient
+ 
             string now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
             var reader = ModelReaderFactory.Create(typeof(Dm8Data.Raw.ModelEntry));
             var modelEntry = (Dm8Data.Raw.ModelEntry) await reader.ReadFromFileAsync(Path.Combine(item.Folder, item.Name));
@@ -339,8 +340,7 @@ namespace Dm8Main.ViewModels.Dialog
                 ds.DataProduct = modelEntry.Entity.DataProduct;
                 if (!modelEntry.Function.SourceLocation.ToLower().EndsWith(".csv"))
                 {
-                    await ds.RefreshAttributesAsync(Oraylis.DataM8.PluginBase.Extensions.Extensions
-                        .ConvertClass<RawModelEntryBase, Dm8Data.Raw.ModelEntry>(modelEntry));
+                    await ds.RefreshAttributesAsync(Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<RawModelEntryBase, Dm8Data.Raw.ModelEntry>(modelEntry), true);
                 }
             }
             #endregion
@@ -353,15 +353,12 @@ namespace Dm8Main.ViewModels.Dialog
                 ds1.Layer = Dm8Data.Properties.Resources.Folder_Raw;
                 ds1.DataModule = modelEntry.Entity.DataModule;
                 ds1.DataProduct = modelEntry.Entity.DataProduct;
-
-                await ds1.RefreshAttributesAsync(modelEntry);
+                await ds1.RefreshAttributesAsync(modelEntry, true);
             }
             #endregion
 
-            var countUpdates = modelEntry.Entity.Attribute.Count(a =>
-                StringComparer.InvariantCultureIgnoreCase.Compare(a.DateModified, now) >= 0);
-            var countDeletes = modelEntry.Entity.Attribute.Count(a =>
-                StringComparer.InvariantCultureIgnoreCase.Compare(a.DateDeleted, now) >= 0);
+            var countUpdates = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateModified, now) >= 0);
+            var countDeletes = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateDeleted, now) >= 0);
             if (countUpdates == 0 && countDeletes == 0)
             {
                 item.Info = "No Change";

@@ -77,7 +77,7 @@
 		<PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
 		<PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
 		<PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
-		<PackageReference Include="Oraylis.DataM8.PluginBase" Version="0.1.2" />
+		<PackageReference Include="Oraylis.DataM8.PluginBase" Version="1.0.6" />
 		<PackageReference Include="Prism.Core" Version="9.0.537" />
 		<PackageReference Include="RestSharp" Version="112.1.0" />
 		<PackageReference Include="System.Collections" Version="4.3.0" />

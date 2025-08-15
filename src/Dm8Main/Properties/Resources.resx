@@ -267,7 +267,7 @@
     <value>Source Name</value>
   </data>
   <data name="RawModelEntryViewModel_RefreshSourceResult" xml:space="preserve">
-    <value>Update Attributes={0}/Deleted Attributes={1}</value>
+    <value>Update Attributes={0}/Deleted Attributes={1}/New Attributes={2}</value>
   </data>
   <data name="RawModelEntryViewModel_RefreshSourceResult_No_Change" xml:space="preserve">
     <value>No Change</value>

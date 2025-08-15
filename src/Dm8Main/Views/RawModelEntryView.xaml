@@ -20,84 +20,85 @@
              xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"       
              d:DesignHeight="750" d:DesignWidth="800" d:DataContext="{d:DesignInstance Type=model:RawModelEntryViewModel}">
 
-    <local:DocumentView.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/HamburgerMenuItem.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </local:DocumentView.Resources>
+   <local:DocumentView.Resources>
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/Resources/HamburgerMenuItem.xaml" />
+         </ResourceDictionary.MergedDictionaries>
+      </ResourceDictionary>
+   
+   
+   
+   </local:DocumentView.Resources>
 
-    <local:DocumentView.Content>
+   <local:DocumentView.Content>
+      <Grid Grid.Row="0">
 
+         <Grid.Resources>
+            <ResourceDictionary>
+               <ResourceDictionary.MergedDictionaries>
 
-        <Grid Grid.Row="0">
-            
-            <Grid.Resources>
-                <ResourceDictionary>
-                    <ResourceDictionary.MergedDictionaries>
+                  <ResourceDictionary>
+                     <BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+                     <b:NullToVisibilityConverter x:Key="nullToVisibilityConverter" />
+                     <b:ListToVisibilityConverter x:Key="listToVisibilityConverter" />
+                     <dgext:SimpleContentFilterFactory x:Key="simpleContentFilter" />
+                  </ResourceDictionary>
 
-                        <ResourceDictionary>
-                            <BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
-                            <b:NullToVisibilityConverter x:Key="nullToVisibilityConverter" />
-                            <b:ListToVisibilityConverter x:Key="listToVisibilityConverter" />
-                            <dgext:SimpleContentFilterFactory x:Key="simpleContentFilter" />
-                        </ResourceDictionary>
+                  <ResourceDictionary Source="/Themes/DataGrid.xaml" />
 
-                        <ResourceDictionary Source="/Themes/DataGrid.xaml" />
+               </ResourceDictionary.MergedDictionaries>
 
-                    </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
 
-                </ResourceDictionary>
-                               
-            </Grid.Resources>
+         </Grid.Resources>
 
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+         </Grid.ColumnDefinitions>
+         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+         </Grid.RowDefinitions>
 
-            <controls:HamburgerMenu Grid.Row="2" x:Name="HamburgerMenuControl"
+         <controls:HamburgerMenu Grid.Row="2" x:Name="HamburgerMenuControl"
                                     DisplayMode="CompactOverlay"
                                     IsPaneOpen="False"
                                     ItemInvoked="HamburgerMenuControl_OnItemInvoked"
                                     ItemTemplate="{StaticResource WizardMenuItemTemplate}"
                                     OptionsItemTemplate="{StaticResource WizardMenuItemTemplate}" SelectedIndex="0">
 
-                <controls:HamburgerMenu.ItemsSource>
-                    <controls:HamburgerMenuItemCollection ToolTipService.ToolTip="a">
+            <controls:HamburgerMenu.ItemsSource>
+               <controls:HamburgerMenuItemCollection ToolTipService.ToolTip="a">
 
-                        <controls:HamburgerMenuIconItem Label="Entity" 
+                  <controls:HamburgerMenuIconItem Label="Entity" 
                                                         ToolTip="Edit Entity"
                                                         Icon="{iconPacks:Modern Kind=Table, Height=28, Width=28}"
                                                         >
-                            <controls:HamburgerMenuIconItem.Tag>
+                     <controls:HamburgerMenuIconItem.Tag>
 
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="*" />
-                                    </Grid.RowDefinitions>
+                        <Grid>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto" />
+                              <RowDefinition Height="*" />
+                           </Grid.RowDefinitions>
 
-                                    <Grid Grid.Row="0" Background="{DynamicResource MahApps.HamburgerMenu.Pane.Background}" Margin="-1,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock  VerticalAlignment="Center" Margin="16,0"
+                           <Grid Grid.Row="0" Background="{DynamicResource MahApps.HamburgerMenu.Pane.Background}" Margin="-1,0">
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="Auto" />
+                                 <ColumnDefinition Width="Auto" />
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="Auto" />
+                              </Grid.ColumnDefinitions>
+                              <TextBlock  VerticalAlignment="Center" Margin="16,0"
                                             FontSize="20"
                                             FontWeight="SemiBold"
                                             FontFamily="Verdana"
                                             Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}">
                                     Raw Entity Definition
-                                        </TextBlock>
-                                        <Button Margin="0,4,4,4"
+                              </TextBlock>
+                              <Button Margin="0,4,4,4"
                                                 Grid.Column="1"
                                                 Width="32"
                                                 Height="32"
@@ -105,12 +106,12 @@
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                 Content="{iconPacks:Material Kind=DatabaseRefresh, Height=20, Width=20}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0">
+                              <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0">
 
-                                            <TextBlock  VerticalAlignment="Center" 
+                                 <TextBlock  VerticalAlignment="Center" 
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                 Text="Data Locator:" />
-                                            <TextBox    Margin="0,15" 
+                                 <TextBox    Margin="0,15" 
                                                 BorderThickness="0" 
                                                 Background="Transparent" 
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
@@ -118,44 +119,47 @@
                                                 IsReadOnly="True" 
                                                 Text="{Binding Item.Entity.Dm8l, Mode=OneWay}" />
 
-                                        </StackPanel>
-                                    </Grid>
+                              </StackPanel>
+                           </Grid>
 
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto" Grid.Row="1" Margin="8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
+                           <ScrollViewer VerticalScrollBarVisibility="Auto" Grid.Row="1" Margin="8">
+                              <Grid>
 
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="*" />
-                                            </Grid.RowDefinitions>
 
-                                            <TextBlock  Grid.Column="0" Grid.Row="0" Margin="4" VerticalAlignment="Center">Entity Name:</TextBlock>
-                                            <TextBox    Grid.Column="1" Grid.Row="0" Margin="4" Text="{Binding Item.Entity.Name}" />
 
-                                            <TextBlock  Grid.Column="0" Grid.Row="1" Margin="4" VerticalAlignment="Center">Display Name:</TextBlock>
-                                            <TextBox    Grid.Column="1" Grid.Row="1" Margin="4" Text="{Binding Item.Entity.DisplayName}" />
+                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                 </Grid.ColumnDefinitions>
 
-                                            <TextBlock  Grid.Column="0" Grid.Row="2" Margin="4" VerticalAlignment="Center">Explanation:</TextBlock>
-                                            <TextBox    Grid.Column="1" Grid.Row="2" Margin="4" Text="{Binding Item.Entity.Explanation}" />
+                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                 </Grid.RowDefinitions>
 
-                                            <TextBlock  Grid.Column="0" Grid.Row="3" Margin="4" VerticalAlignment="Top">Purpose:</TextBlock>
-                                            <TextBox    Grid.Column="1" Grid.Row="3" Height="100" Margin="4" Text="{Binding Item.Entity.Purpose}" TextWrapping="Wrap" AcceptsReturn="True" />
+                                 <TextBlock  Grid.Column="0" Grid.Row="0" Margin="4" VerticalAlignment="Center">Entity Name:</TextBlock>
+                                 <TextBox    Grid.Column="1" Grid.Row="0" Margin="4" Text="{Binding Item.Entity.Name}" />
 
-                                            <TextBlock  Grid.Column="0" Grid.Row="4" Margin="4" VerticalAlignment="Center">Tags:</TextBlock>
-                                            <Border Grid.Column="1" Grid.Row="4" BorderThickness="1" BorderBrush="{DynamicResource MahApps.Brushes.TextBox.Border.Focus}" Margin="4">
-                                                <local:TokenizingEditControl Items="{Binding Item.Entity.Tags}" />
-                                            </Border>
+                                 <TextBlock  Grid.Column="0" Grid.Row="1" Margin="4" VerticalAlignment="Center">Display Name:</TextBlock>
+                                 <TextBox    Grid.Column="1" Grid.Row="1" Margin="4" Text="{Binding Item.Entity.DisplayName}" />
 
-                                            <TextBlock  Grid.Column="0" Grid.Row="5" Margin="4,12" VerticalAlignment="Top">Parameters:</TextBlock>
-                                            <DataGrid Grid.Column="1" Grid.Row="5" Margin="4" ItemsSource="{Binding Item.Entity.Parameters}"
+                                 <TextBlock  Grid.Column="0" Grid.Row="2" Margin="4" VerticalAlignment="Center">Explanation:</TextBlock>
+                                 <TextBox    Grid.Column="1" Grid.Row="2" Margin="4" Text="{Binding Item.Entity.Explanation}" />
+
+                                 <TextBlock  Grid.Column="0" Grid.Row="3" Margin="4" VerticalAlignment="Top">Purpose:</TextBlock>
+                                 <TextBox    Grid.Column="1" Grid.Row="3" Height="100" Margin="4" Text="{Binding Item.Entity.Purpose}" TextWrapping="Wrap" AcceptsReturn="True" />
+
+                                 <TextBlock  Grid.Column="0" Grid.Row="4" Margin="4" VerticalAlignment="Center">Tags:</TextBlock>
+                                 <Border Grid.Column="1" Grid.Row="4" BorderThickness="1" BorderBrush="{DynamicResource MahApps.Brushes.TextBox.Border.Focus}" Margin="4">
+                                    <local:TokenizingEditControl Items="{Binding Item.Entity.Tags}" />
+                                 </Border>
+
+                                 <TextBlock  Grid.Column="0" Grid.Row="5" Margin="4,12" VerticalAlignment="Top">Parameters:</TextBlock>
+                                 <DataGrid Grid.Column="1" Grid.Row="5" Margin="4" ItemsSource="{Binding Item.Entity.Parameters}"
                                                       dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
                                                       dgext:DataGridFilter.IsAutoFilterEnabled="True"
                                                       AutoGenerateColumns="False"
@@ -163,59 +167,59 @@
                                                       CanUserDeleteRows="True"
                                                       CanUserReorderColumns="False">
 
-                                                <DataGrid.ColumnHeaderStyle>
-                                                    <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
-                                                </DataGrid.ColumnHeaderStyle>
+                                    <DataGrid.ColumnHeaderStyle>
+                                       <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                                    </DataGrid.ColumnHeaderStyle>
 
-                                                <behaviors:Interaction.Behaviors>
-                                                    <!--dgext:ExtendedStarSizeBehavior-->
-                                                    <dgext:BeginEditOnCtrlEnterBehavior />
-                                                </behaviors:Interaction.Behaviors>
+                                    <behaviors:Interaction.Behaviors>
+                                       <!--dgext:ExtendedStarSizeBehavior-->
+                                       <dgext:BeginEditOnCtrlEnterBehavior />
+                                    </behaviors:Interaction.Behaviors>
 
-                                                <DataGrid.Columns>
-                                                    <DataGridTextColumn Binding="{Binding Name}" Header="Name" IsReadOnly="False" Width="*" />
-                                                    <DataGridTextColumn Binding="{Binding Value}" Header="Value" IsReadOnly="False" Width="2*" />
-                                                </DataGrid.Columns>
-                                            </DataGrid>
+                                    <DataGrid.Columns>
+                                       <DataGridTextColumn Binding="{Binding Name}" Header="Name" IsReadOnly="False" Width="*" />
+                                       <DataGridTextColumn Binding="{Binding Value}" Header="Value" IsReadOnly="False" Width="2*" />
+                                    </DataGrid.Columns>
+                                 </DataGrid>
 
-                                        </Grid>
-                                    </ScrollViewer>
+                              </Grid>
+                           </ScrollViewer>
 
-                                </Grid>
+                        </Grid>
 
-                            </controls:HamburgerMenuIconItem.Tag>
-                        </controls:HamburgerMenuIconItem>
+                     </controls:HamburgerMenuIconItem.Tag>
+                  </controls:HamburgerMenuIconItem>
 
-                        <controls:HamburgerMenuIconItem Label="Attributes"
+                  <controls:HamburgerMenuIconItem Label="Attributes"
                                                         ToolTip="Edit Attributes"
                                                         Icon="{iconPacks:Modern Kind=TableUnselect, Height=28, Width=28}">
-                            <controls:HamburgerMenuIconItem.Tag>
-                               
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="*" />
-                                    </Grid.RowDefinitions>
+                     <controls:HamburgerMenuIconItem.Tag>
 
-    
+                        <Grid>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto" />
+                              <RowDefinition Height="*" />
+                           </Grid.RowDefinitions>
 
-                                    <Grid Grid.Row="0" Background="{DynamicResource MahApps.HamburgerMenu.Pane.Background}" Margin="-1,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock  VerticalAlignment="Center" Margin="16,0"
+
+
+                           <Grid Grid.Row="0" Background="{DynamicResource MahApps.HamburgerMenu.Pane.Background}" Margin="-1,0">
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="Auto" />
+                                 <ColumnDefinition Width="Auto" />
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="Auto" />
+                              </Grid.ColumnDefinitions>
+                              <TextBlock  VerticalAlignment="Center" Margin="16,0"
                                             FontSize="20"
                                             FontWeight="SemiBold"
                                             FontFamily="Verdana"
                                             Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}">
                                             Attributes
-                                        </TextBlock>
+                              </TextBlock>
 
-                                        <StackPanel Orientation="Horizontal" Margin="4" Grid.Column="1">
-                                            <Button 
+                              <StackPanel Orientation="Horizontal" Margin="4" Grid.Column="1">
+                                 <Button 
                                                 Margin="4"                                
                                                 Width="32"
                                                 Height="32"
@@ -225,7 +229,7 @@
                                                 Content="{iconPacks:Coolicons Kind=AddRow, Height=16, Width=16}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 
-                                            <Button 
+                                 <Button 
                                                 Margin="4"
                                                 Width="32"
                                                 Height="32"
@@ -236,14 +240,14 @@
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 
 
-                                        </StackPanel>
+                              </StackPanel>
 
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0">
+                              <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0">
 
-                                            <TextBlock  VerticalAlignment="Center" 
+                                 <TextBlock  VerticalAlignment="Center" 
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                 Text="Data Locator:" />
-                                            <TextBox    Margin="0,15" 
+                                 <TextBox    Margin="0,15" 
                                                 BorderThickness="0" 
                                                 Background="Transparent" 
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
@@ -251,12 +255,14 @@
                                                 IsReadOnly="True" 
                                                 Text="{Binding Item.Entity.Dm8l, Mode=OneWay}" />
 
-                                        </StackPanel>
-                                    </Grid>
+                              </StackPanel>
+                           </Grid>
 
 
-                                    <DataGrid Grid.Row="1" 
-                                              ItemsSource="{Binding Item.Entity.Attribute}" 
+
+
+                           <DataGrid Grid.Row="1" 
+                                              ItemsSource="{Binding FilteredAttributes}" 
                                               dgext:DataGridFilter.ContentFilterFactory="{StaticResource simpleContentFilter}"
                                               dgext:DataGridFilter.IsAutoFilterEnabled="True"
                                               AlternationCount="2" 
@@ -265,44 +271,45 @@
                                               CanUserReorderColumns="False" 
                                               CanUserAddRows="False">
 
-                            <DataGrid.ColumnHeaderStyle>
-                                <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
-                            </DataGrid.ColumnHeaderStyle>
+                              <DataGrid.ColumnHeaderStyle>
+                                 <Style BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" />
+                              </DataGrid.ColumnHeaderStyle>
 
-                            <DataGrid.RowStyle>
-                                <Style BasedOn="{StaticResource  {x:Type DataGridRow}}" TargetType="DataGridRow">
+                              <DataGrid.RowStyle>
+                                 <Style BasedOn="{StaticResource  {x:Type DataGridRow}}" TargetType="DataGridRow">
 
                                     <Style.Triggers>
 
-                                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
-                                            <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray.SemiTransparent}" />
-                                        </Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.DataGrid.Selection.Background.MouseOver}" />
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.DataGrid.Selection.Background}" />
-                                        </Trigger>
+                                       <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                          <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray.SemiTransparent}" />
+                                       </Trigger>
+                                       <Trigger Property="IsMouseOver" Value="True">
+                                          <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.DataGrid.Selection.Background.MouseOver}" />
+                                       </Trigger>
+                                       <Trigger Property="IsSelected" Value="True">
+                                          <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.DataGrid.Selection.Background}" />
+                                       </Trigger>
 
                                     </Style.Triggers>
 
-                                </Style>
-                            </DataGrid.RowStyle>
+                                 </Style>
 
-                            <behaviors:Interaction.Behaviors>
-                                <!--dgext:ExtendedStarSizeBehavior-->
-                                <dgext:BeginEditOnCtrlEnterBehavior />
-                            </behaviors:Interaction.Behaviors>
+                              </DataGrid.RowStyle>
 
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Target Name" Binding="{Binding Name}" IsReadOnly="True" />
+                              <behaviors:Interaction.Behaviors>
+                                 <!--dgext:ExtendedStarSizeBehavior-->
+                                 <dgext:BeginEditOnCtrlEnterBehavior />
+                              </behaviors:Interaction.Behaviors>
 
-                                <DataGridTemplateColumn Header="Edit" 
+                              <DataGrid.Columns>
+                                 <DataGridTextColumn Header="Target Name" Binding="{Binding Name}" IsReadOnly="True"/>
+
+                                 <DataGridTemplateColumn Header="Edit" 
                                                         Width="35" >
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            
-                                            <Button BorderBrush="Transparent" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                       <DataGridTemplateColumn.CellTemplate>
+                                          <DataTemplate>
+
+                                             <Button BorderBrush="Transparent" HorizontalAlignment="Left" VerticalAlignment="Center" 
                                                     Margin="2"
                                                     DataContext="{Binding}"
                                                     Command="{Binding DataContext.EditTargetCommand,  RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type DataGrid}}}"
@@ -310,64 +317,64 @@
                                                     Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                     Content="{iconPacks:Material Kind=ArrowLeft, Height=12, Width=12}" />
 
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
+                                          </DataTemplate>
+                                       </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
-                                <DataGridTextColumn Header="Data Type" Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTextColumn Header="Length" Binding="{Binding CharLength, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTextColumn Header="Precision" Binding="{Binding Precision, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTextColumn Header="Scale" Binding="{Binding Scale, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTemplateColumn Header="Nullable">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" />
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <!--<DataGridCheckBoxColumn Header="Nullable" Binding="{Binding Nullable, UpdateSourceTrigger=PropertyChanged}" />-->
-                                <DataGridTextColumn Header="Unit Name" Binding="{Binding UnitName, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTextColumn Header="Unit Type" Binding="{Binding UnitType, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTextColumn Header="Data Type" Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTextColumn Header="Length" Binding="{Binding CharLength, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTextColumn Header="Precision" Binding="{Binding Precision, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTextColumn Header="Scale" Binding="{Binding Scale, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTemplateColumn Header="Nullable">
+                                       <DataGridTemplateColumn.CellTemplate>
+                                          <DataTemplate>
+                                             <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" />
+                                          </DataTemplate>
+                                       </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <!--<DataGridCheckBoxColumn Header="Nullable" Binding="{Binding Nullable, UpdateSourceTrigger=PropertyChanged}" />-->
+                                    <DataGridTextColumn Header="Unit Name" Binding="{Binding UnitName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTextColumn Header="Unit Type" Binding="{Binding UnitType, UpdateSourceTrigger=PropertyChanged}" />
 
-                                <DataGridTemplateColumn Header="Tags">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <local:TokenizingEditControl 
+                                    <DataGridTemplateColumn Header="Tags">
+                                       <DataGridTemplateColumn.CellTemplate>
+                                          <DataTemplate>
+                                             <local:TokenizingEditControl 
                                                 DataContext="{Binding}"
                                                 Items="{Binding Tags}" />
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                
-                            </DataGrid.Columns>
-                        </DataGrid>
-                                </Grid>
+                                          </DataTemplate>
+                                       </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
-                            </controls:HamburgerMenuIconItem.Tag>
-                        </controls:HamburgerMenuIconItem>
+                              </DataGrid.Columns>
+                           </DataGrid>
+                        </Grid>
+
+                     </controls:HamburgerMenuIconItem.Tag>
+                  </controls:HamburgerMenuIconItem>
 
 
-                        <controls:HamburgerMenuIconItem Label="Preview"
+                  <controls:HamburgerMenuIconItem Label="Preview"
                                                         Icon="{iconPacks:Modern Kind=Database, Height=28, Width=28}">
-                            <controls:HamburgerMenuIconItem.Tag>
+                     <controls:HamburgerMenuIconItem.Tag>
 
-                                <Grid />
+                        <Grid />
 
-                            </controls:HamburgerMenuIconItem.Tag>
-                        </controls:HamburgerMenuIconItem>
-
-
-
-                    </controls:HamburgerMenuItemCollection>
-
-                </controls:HamburgerMenu.ItemsSource>
-
-            </controls:HamburgerMenu>
-
-        </Grid>
+                     </controls:HamburgerMenuIconItem.Tag>
+                  </controls:HamburgerMenuIconItem>
 
 
-    </local:DocumentView.Content>
+
+               </controls:HamburgerMenuItemCollection>
+
+            </controls:HamburgerMenu.ItemsSource>
+
+         </controls:HamburgerMenu>
+
+      </Grid>
+
+
+   </local:DocumentView.Content>
 
 
 </local:DocumentView>

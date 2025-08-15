@@ -17,17 +17,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Dm8Data.Validate.Exceptions;
 
 namespace Dm8Data.Validate
 {
-    public class ValidationResult
-    {
-        public IEnumerable<ModelReaderException> ValidationExceptions { get; set; }
-    }
+   public class ValidationResult
+   {
+      public IEnumerable<ModelReaderException> ValidationExceptions { get; set; }
+   }
 }

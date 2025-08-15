@@ -18,48 +18,45 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.Composition;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Prism.Commands;
 
 namespace Dm8Main.ViewModels
 {
-    [Export]
-    public abstract class AnchorViewModel : ViewModelBase
-    {
-        public event Action Closed;
+   [Export]
+   public abstract class AnchorViewModel:ViewModelBase
+   {
+      public event Action Closed;
 
-        #region Property HideCommand
-        public DelegateCommand HideCommand
-        {
-            get => this.hideCommand;
-            set => this.SetProperty(ref this.hideCommand, value);
-        }
+      #region Property HideCommand
+      public DelegateCommand HideCommand
+      {
+         get => this.hideCommand;
+         set => this.SetProperty(ref this.hideCommand ,value);
+      }
 
-        public DelegateCommand hideCommand;
+      public DelegateCommand hideCommand;
 
-        #endregion
+      #endregion
 
-        public AnchorViewModel()
-        {
-            this.Closed += this.AnchorViewModel_Closed;
-            this.HideCommand = new DelegateCommand(() => this.Hide());
-            this.IsModified = false;
-        }
+      public AnchorViewModel()
+      {
+         this.Closed += this.AnchorViewModel_Closed;
+         this.HideCommand = new DelegateCommand(() => this.Hide());
+         this.IsModified = false;
+      }
 
-        private void AnchorViewModel_Closed()
-        {
+      private void AnchorViewModel_Closed()
+      {
 
-        }
+      }
 
-        private void Hide()
-        {
-            this.Closed.Invoke();
-        }
+      private void Hide()
+      {
+         this.Closed.Invoke();
+      }
 
-        public abstract Task SaveAsync();
-    }
+      public abstract Task SaveAsync();
+   }
 }

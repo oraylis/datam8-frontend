@@ -17,7 +17,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dm8Data.Validate.Base;
@@ -25,17 +24,17 @@ using Dm8Data.Validate.Exceptions;
 
 namespace Dm8Data.Validate.Generic
 {
-    public interface IModelReader<TObj> : IModelReader
-        where TObj : class, new()
-    {
-        new Task<TObj> ReadFromFileAsync(string fileName);
+   public interface IModelReader<TObj>:IModelReader
+       where TObj : class, new()
+   {
+      new Task<TObj> ReadFromFileAsync(string fileName);
 
-        new Task<TObj> ReadFromStringAsync(string json);
+      new Task<TObj> ReadFromStringAsync(string json);
 
-        Task<IEnumerable<SchemaValidateException>> ValidateSchemaFromFileAsync(string file);
+      Task<IEnumerable<SchemaValidateException>> ValidateSchemaFromFileAsync(string file);
 
-        Task<IEnumerable<SchemaValidateException>> ValidateSchemaFromStringAsync(string json);
+      Task<IEnumerable<SchemaValidateException>> ValidateSchemaFromStringAsync(string json);
 
-        Task<IEnumerable<ModelReaderException>> ValidateObjectAsync(SolutionHelper solutionHelper, TObj o);
-    }
+      Task<IEnumerable<ModelReaderException>> ValidateObjectAsync(SolutionHelper solutionHelper ,TObj o);
+   }
 }

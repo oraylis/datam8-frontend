@@ -17,29 +17,24 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Windows.Controls;
 using System.Windows;
-using AvalonDock.Layout;
+using System.Windows.Controls;
 
 namespace Dm8Main.Avalon
 {
 
-    class TemplateSelector : DataTemplateSelector
-    {
-        public TemplateSelector()
-        {
+   class TemplateSelector:DataTemplateSelector
+   {
+      public TemplateSelector()
+      {
 
-        }
+      }
 
-        public override DataTemplate SelectTemplate(object item, DependencyObject container)
-        {
-            return base.SelectTemplate(item, container);
-        }
-    }
+      public override DataTemplate SelectTemplate(object item ,DependencyObject container)
+      {
+         return base.SelectTemplate(item ,container);
+      }
+   }
 }
 
 

@@ -37,166 +37,166 @@ using Unity;
 
 namespace Dm8Main.ViewModels
 {
-    [Export]
-    public class ProjectViewModel : AnchorViewModel
-    {
-        private readonly IDialogService dialogService;
+   [Export]
+   public class ProjectViewModel:AnchorViewModel
+   {
+      private readonly IDialogService dialogService;
 
-        private readonly IEventAggregator eventAggregator;
+      private readonly IEventAggregator eventAggregator;
 
-        private readonly ISolutionService solutionService;
+      private readonly ISolutionService solutionService;
 
-        #region Property Solution
-        public Solution Solution
-        {
-            get => solution;
-            set => this.SetProperty(ref solution, value);
-        }
+      #region Property Solution
+      public Solution Solution
+      {
+         get => solution;
+         set => this.SetProperty(ref solution ,value);
+      }
 
-        private Solution solution;
-        #endregion
+      private Solution solution;
+      #endregion
 
-        #region Property ProjectItems
-        public ObservableCollection<ProjectItem> ProjectItems
-        {
-            get => this.projectItems;
-            set => this.SetProperty(ref this.projectItems, value);
-        }
+      #region Property ProjectItems
+      public ObservableCollection<ProjectItem> ProjectItems
+      {
+         get => this.projectItems;
+         set => this.SetProperty(ref this.projectItems ,value);
+      }
 
-        private ObservableCollection<ProjectItem> projectItems;
-        #endregion
+      private ObservableCollection<ProjectItem> projectItems;
+      #endregion
 
-        #region Property SelectedProjectItem
-        public ProjectItem SelectedProjectItem
-        {
-            get => selectedProjectItem;
-            set => this.SetProperty(ref selectedProjectItem, value);
-        }
+      #region Property SelectedProjectItem
+      public ProjectItem SelectedProjectItem
+      {
+         get => selectedProjectItem;
+         set => this.SetProperty(ref selectedProjectItem ,value);
+      }
 
-        private ProjectItem selectedProjectItem;
-        #endregion
+      private ProjectItem selectedProjectItem;
+      #endregion
 
-        #region Property IconSource
-        public object IconSource
-        {
-            get => iconSource;
-            set => this.SetProperty(ref iconSource, value);
-        }
+      #region Property IconSource
+      public object IconSource
+      {
+         get => iconSource;
+         set => this.SetProperty(ref iconSource ,value);
+      }
 
-        private object iconSource;
-        #endregion
+      private object iconSource;
+      #endregion
 
-        #region Property ItemOpenCommand
-        public DelegateCommand<MouseButtonEventArgs> ItemOpenCommand
-        {
-            get => itemOpenCommand;
-            set => this.SetProperty(ref itemOpenCommand, value);
-        }
+      #region Property ItemOpenCommand
+      public DelegateCommand<MouseButtonEventArgs> ItemOpenCommand
+      {
+         get => itemOpenCommand;
+         set => this.SetProperty(ref itemOpenCommand ,value);
+      }
 
-        private DelegateCommand<MouseButtonEventArgs> itemOpenCommand;
-        #endregion
+      private DelegateCommand<MouseButtonEventArgs> itemOpenCommand;
+      #endregion
 
-        #region Property SearchText
-        public string SearchText
-        {
-            get => _searchText;
-            set => this.SetProperty(ref _searchText, value);
-        }
+      #region Property SearchText
+      public string SearchText
+      {
+         get => _searchText;
+         set => this.SetProperty(ref _searchText ,value);
+      }
 
-        private string _searchText;
-        #endregion
+      private string _searchText;
+      #endregion
 
-        public ProjectViewModel(IUnityContainer container, IDialogService dialogService, ISolutionService solutionService, IEventAggregator eventAggregator)
-        {
-            this.dialogService = dialogService;
-            this.eventAggregator = eventAggregator;
-            this.solutionService = solutionService;
-            this.Solution = this.solutionService.Solution;
-            if (this.Solution == null)
-            {
-                throw new ArgumentNullException(nameof(this.Solution));
-            }
+      public ProjectViewModel(IUnityContainer container ,IDialogService dialogService ,ISolutionService solutionService ,IEventAggregator eventAggregator)
+      {
+         this.dialogService = dialogService;
+         this.eventAggregator = eventAggregator;
+         this.solutionService = solutionService;
+         this.Solution = this.solutionService.Solution;
+         if (this.Solution == null)
+         {
+            throw new ArgumentNullException(nameof(this.Solution));
+         }
 
-            this.ProjectItems = this.solutionService.ProjectItems;
-            if (this.ProjectItems == null)
-            {
-                throw new ArgumentNullException(nameof(this.ProjectItems));
-            }
-            this.Title = Properties.Resources.Title_Project;
-            this.IconSource = new PackIconMaterial()
-            {
-                Kind = PackIconMaterialKind.SourceRepository,
-                Foreground = this.solutionService.Theme == Base.ColorTheme.Dark ? Brushes.White : Brushes.Black,
-                Width = 16,
-                Height = 16,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            this.ItemOpenCommand = new DelegateCommand<MouseButtonEventArgs>((o) => this.ItemOpen(o));
-            this.PropertyChanged += this.ProjectViewModel_PropertyChanged;
-        }
+         this.ProjectItems = this.solutionService.ProjectItems;
+         if (this.ProjectItems == null)
+         {
+            throw new ArgumentNullException(nameof(this.ProjectItems));
+         }
+         this.Title = Properties.Resources.Title_Project;
+         this.IconSource = new PackIconMaterial()
+         {
+            Kind = PackIconMaterialKind.SourceRepository ,
+            Foreground = this.solutionService.Theme == Base.ColorTheme.Dark ? Brushes.White : Brushes.Black ,
+            Width = 16 ,
+            Height = 16 ,
+            VerticalAlignment = VerticalAlignment.Center
+         };
+         this.ItemOpenCommand = new DelegateCommand<MouseButtonEventArgs>((o) => this.ItemOpen(o));
+         this.PropertyChanged += this.ProjectViewModel_PropertyChanged;
+      }
 
-        private void ProjectViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            switch (e.PropertyName)
-            {
-                case nameof(this.SearchText):
-                    this.FilterProjectTree();
-                    break;
-            }
-        }
+      private void ProjectViewModel_PropertyChanged(object? sender ,PropertyChangedEventArgs e)
+      {
+         switch (e.PropertyName)
+         {
+            case nameof(this.SearchText):
+               this.FilterProjectTree();
+               break;
+         }
+      }
 
-        private void ItemOpen(MouseButtonEventArgs o)
-        {
-            var item = ((Selector)o.Source).SelectedItem;
-            if (item is ProjectItem projectItem)
-            {
-                switch (projectItem.Type)
-                {
-                    case ProjectItem.Types.Folder:
-                    case ProjectItem.Types.RawSubFolder:
-                    case ProjectItem.Types.GenerateSubFolder:
-                        break;
-
-                    default:
-                        this.eventAggregator.GetEvent<OpenDocumentEvent>().Publish(projectItem);
-                        break;
-                }
-            }
-        }
-        public void ItemSelect(ProjectItem projectItem)
-        {
+      private void ItemOpen(MouseButtonEventArgs o)
+      {
+         var item = ((Selector)o.Source).SelectedItem;
+         if (item is ProjectItem projectItem)
+         {
             switch (projectItem.Type)
             {
-                case ProjectItem.Types.Folder:
-                case ProjectItem.Types.RawSubFolder:
-                case ProjectItem.Types.GenerateSubFolder:
-                    break;
+               case ProjectItem.Types.Folder:
+               case ProjectItem.Types.RawSubFolder:
+               case ProjectItem.Types.GenerateSubFolder:
+                  break;
 
-                default:
-                    this.eventAggregator.GetEvent<SelectDocumentEvent>().Publish(projectItem);
-                    break;
+               default:
+                  this.eventAggregator.GetEvent<OpenDocumentEvent>().Publish(projectItem);
+                  break;
             }
-        }
+         }
+      }
+      public void ItemSelect(ProjectItem projectItem)
+      {
+         switch (projectItem.Type)
+         {
+            case ProjectItem.Types.Folder:
+            case ProjectItem.Types.RawSubFolder:
+            case ProjectItem.Types.GenerateSubFolder:
+               break;
 
-        public override async Task SaveAsync()
-        {
-            await Task.Yield();
-        }
+            default:
+               this.eventAggregator.GetEvent<SelectDocumentEvent>().Publish(projectItem);
+               break;
+         }
+      }
 
-        private void FilterProjectTree()
-        {
-            foreach (var projectItem in this.solutionService.ProjectItems)
+      public override async Task SaveAsync()
+      {
+         await Task.Yield();
+      }
+
+      private void FilterProjectTree()
+      {
+         foreach (var projectItem in this.solutionService.ProjectItems)
+         {
+            if (string.IsNullOrEmpty(this.SearchText))
             {
-                if (string.IsNullOrEmpty(this.SearchText))
-                {
-                    projectItem.ResetFilter();
-                }
-                else
-                {
-                    projectItem.Filter(projectItem =>
-                        projectItem.Name.ToLowerInvariant().Contains(this.SearchText.ToLowerInvariant()));
-                }
+               projectItem.ResetFilter();
             }
-        }
-    }
+            else
+            {
+               projectItem.Filter(projectItem =>
+                   projectItem.Name.ToLowerInvariant().Contains(this.SearchText.ToLowerInvariant()));
+            }
+         }
+      }
+   }
 }

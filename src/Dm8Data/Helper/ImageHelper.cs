@@ -38,73 +38,73 @@ using System.Runtime.Versioning;
 
 namespace Dm8Data.Helper
 {
-    public static class PngHelper
-    {
-        [SupportedOSPlatform("windows")]
-        public static string Crop(string path, int width, int height)
-        {
-            Rectangle cropRect = new Rectangle(0,0,width,height);
-            using (Bitmap src = Image.FromFile(path) as Bitmap)
+   public static class PngHelper
+   {
+      [SupportedOSPlatform("windows")]
+      public static string Crop(string path ,int width ,int height)
+      {
+         Rectangle cropRect = new Rectangle(0 ,0 ,width ,height);
+         using (Bitmap src = Image.FromFile(path) as Bitmap)
+         {
+            using (Bitmap target = new Bitmap(cropRect.Width ,cropRect.Height))
             {
-                using (Bitmap target = new Bitmap(cropRect.Width, cropRect.Height))
-                {
-                    using (Graphics g = Graphics.FromImage(target))
-                    {
-                        g.DrawImage(src, new Rectangle(0, 0, target.Width, target.Height),
-                            cropRect,
-                            GraphicsUnit.Pixel);
-                    }
-                    var outFile = Path.GetTempFileName().Replace(".tmp", ".png");
-                    target.Save(outFile, ImageFormat.Png);
-                    return outFile;
-                }
+               using (Graphics g = Graphics.FromImage(target))
+               {
+                  g.DrawImage(src ,new Rectangle(0 ,0 ,target.Width ,target.Height) ,
+                      cropRect ,
+                      GraphicsUnit.Pixel);
+               }
+               var outFile = Path.GetTempFileName().Replace(".tmp" ,".png");
+               target.Save(outFile ,ImageFormat.Png);
+               return outFile;
             }
-        }
+         }
+      }
 
 
-        /// <summary>
-        /// Gets the dimensions of an image.
-        /// </summary>
-        /// <param name="path">The path of the image to get the dimensions of.</param>
-        /// <returns>The dimensions of the specified image.</returns>
-        /// <exception cref="ArgumentException">The image was of an unrecognized format.</exception>
-        public static Size GetDimensions(string path)
-        {
-            using (BinaryReader binaryReader = new BinaryReader(File.OpenRead(path)))
+      /// <summary>
+      /// Gets the dimensions of an image.
+      /// </summary>
+      /// <param name="path">The path of the image to get the dimensions of.</param>
+      /// <returns>The dimensions of the specified image.</returns>
+      /// <exception cref="ArgumentException">The image was of an unrecognized format.</exception>
+      public static Size GetDimensions(string path)
+      {
+         using (BinaryReader binaryReader = new BinaryReader(File.OpenRead(path)))
+         {
+            try
             {
-                try
-                {
-                    return DecodePng(binaryReader);
-                }
-                catch (ArgumentException e)
-                {
-                    if (e.Message.StartsWith("Could not recognize image format."))
-                    {
-                        throw new ArgumentException("Could not recognize image format.", path, e);
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
+               return DecodePng(binaryReader);
             }
-        }
+            catch (ArgumentException e)
+            {
+               if (e.Message.StartsWith("Could not recognize image format."))
+               {
+                  throw new ArgumentException("Could not recognize image format." ,path ,e);
+               }
+               else
+               {
+                  throw;
+               }
+            }
+         }
+      }
 
-        // Other decoding methods for different image formats (e.g., GIF, JPEG) go here...
+      // Other decoding methods for different image formats (e.g., GIF, JPEG) go here...
 
-        private static Size DecodePng(BinaryReader reader)
-        {
-            // Extract dimensions from PNG header
-            reader.BaseStream.Position = 16;
-            byte[] widthBytes = reader.ReadBytes(4);
-            byte[] heightBytes = reader.ReadBytes(4);
-            int width = BitConverter.ToInt32(widthBytes.Reverse().ToArray(), 0);
-            int height = BitConverter.ToInt32(heightBytes.Reverse().ToArray(), 0);
-            return new Size(width, height);
-        }
+      private static Size DecodePng(BinaryReader reader)
+      {
+         // Extract dimensions from PNG header
+         reader.BaseStream.Position = 16;
+         byte[] widthBytes = reader.ReadBytes(4);
+         byte[] heightBytes = reader.ReadBytes(4);
+         int width = BitConverter.ToInt32(widthBytes.Reverse().ToArray() ,0);
+         int height = BitConverter.ToInt32(heightBytes.Reverse().ToArray() ,0);
+         return new Size(width ,height);
+      }
 
-        // Other decoding methods for different image formats (e.g., GIF, JPEG) go here...
-    }
+      // Other decoding methods for different image formats (e.g., GIF, JPEG) go here...
+   }
 }
 
 

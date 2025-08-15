@@ -17,17 +17,15 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Dm8Data.Base;
 using Newtonsoft.Json;
 
 namespace Dm8Data.Generic
 {
-    public interface IModelEntryList<TObj> : IModelEntryList
-    {
-        [JsonIgnore]
-        new ObservableCollection<TObj> Values { get; }
-    }
+   public interface IModelEntryList<TObj>:IModelEntryList
+   {
+      [JsonIgnore]
+      new ObservableCollection<TObj> Values { get; }
+   }
 }

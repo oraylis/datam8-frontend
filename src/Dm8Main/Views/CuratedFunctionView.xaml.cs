@@ -17,30 +17,24 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Linq;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
 using Dm8Main.ViewModels;
-using ICSharpCode.AvalonEdit.Search;
 using MahApps.Metro.Controls;
 
 namespace Dm8Main.Views
 {
-    /// <summary>
-    /// Interaction logic for AttributeTypesView.xaml
-    /// </summary>
-    public partial class CuratedFunctionView : HamburgerMenuIconItem
-    {
-        public object DataContext { get; set; }
+   /// <summary>
+   /// Interaction logic for AttributeTypesView.xaml
+   /// </summary>
+   public partial class CuratedFunctionView:HamburgerMenuIconItem
+   {
+      public object DataContext { get; set; }
 
-        public CuratedFunctionView(CuratedFunctionViewModel curatedFunctionViewModel)
-        {
-            this.InitializeComponent();
-            this.DataContext = curatedFunctionViewModel;
-            this.FunctionGrid.DataContext = curatedFunctionViewModel;
-        }
+      public CuratedFunctionView(CuratedFunctionViewModel curatedFunctionViewModel)
+      {
+         this.InitializeComponent();
+         this.DataContext = curatedFunctionViewModel;
+         this.FunctionGrid.DataContext = curatedFunctionViewModel;
+      }
 
-    }
+   }
 }

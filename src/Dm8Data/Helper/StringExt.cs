@@ -19,127 +19,136 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Dm8Data.Helper
 {
-    public static class StringExt
-    {
-        public static string ToName(this string str)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (var c in str)
+   public static class StringExt
+   {
+      public static string ToName(this string str)
+      {
+         StringBuilder sb = new StringBuilder();
+         foreach (var c in str)
+         {
+            if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9'))
             {
-                if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9'))
-                    sb.Append(c);
-                else
-                    sb.Append('_');
+               sb.Append(c);
             }
-            return sb.ToString();
-        }
-        public static string ToNameSql(this string str)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (var c in str)
+            else
             {
-                if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') || c == '$')
-                    sb.Append(c);
-                else
-                    sb.Append('_');
+               sb.Append('_');
             }
-            return sb.ToString();
-        }
-
-        public static Int64 GetInt64HashCode(this string strText)
-        {
-            Int64 hashCode = 0;
-            if (!string.IsNullOrEmpty(strText))
+         }
+         return sb.ToString();
+      }
+      public static string ToNameSql(this string str)
+      {
+         StringBuilder sb = new StringBuilder();
+         foreach (var c in str)
+         {
+            if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') || c == '$')
             {
-                //Unicode Encode Covering all character set
-                byte[] byteContents = Encoding.Unicode.GetBytes(strText);
-                System.Security.Cryptography.SHA256 hash = System.Security.Cryptography.SHA256.Create();
-                byte[] hashText = hash.ComputeHash(byteContents);
-
-                //32Byte hashText separate
-                //hashCodeStart = 0~7  8Byte
-                //hashCodeMedium = 8~23  8Byte
-                //hashCodeEnd = 24~31  8Byte
-                //and Fold
-                Int64 hashCodeStart = BitConverter.ToInt64(hashText, 0);
-                Int64 hashCodeMedium = BitConverter.ToInt64(hashText, 8);
-                Int64 hashCodeEnd = BitConverter.ToInt64(hashText, 24);
-                hashCode = hashCodeStart ^ hashCodeMedium ^ hashCodeEnd;
+               sb.Append(c);
             }
-            return (hashCode);
-        }
-
-        public static string Right(this string sValue, int iMaxLength)
-        {
-            //Check if the value is valid
-            if (string.IsNullOrEmpty(sValue))
+            else
             {
-                //Set valid empty string as string could be null
-                sValue = string.Empty;
+               sb.Append('_');
             }
-            else if (sValue.Length > iMaxLength)
+         }
+         return sb.ToString();
+      }
+
+      public static Int64 GetInt64HashCode(this string strText)
+      {
+         Int64 hashCode = 0;
+         if (!string.IsNullOrEmpty(strText))
+         {
+            //Unicode Encode Covering all character set
+            byte[] byteContents = Encoding.Unicode.GetBytes(strText);
+            System.Security.Cryptography.SHA256 hash = System.Security.Cryptography.SHA256.Create();
+            byte[] hashText = hash.ComputeHash(byteContents);
+
+            //32Byte hashText separate
+            //hashCodeStart = 0~7  8Byte
+            //hashCodeMedium = 8~23  8Byte
+            //hashCodeEnd = 24~31  8Byte
+            //and Fold
+            Int64 hashCodeStart = BitConverter.ToInt64(hashText ,0);
+            Int64 hashCodeMedium = BitConverter.ToInt64(hashText ,8);
+            Int64 hashCodeEnd = BitConverter.ToInt64(hashText ,24);
+            hashCode = hashCodeStart ^ hashCodeMedium ^ hashCodeEnd;
+         }
+         return (hashCode);
+      }
+
+      public static string Right(this string sValue ,int iMaxLength)
+      {
+         //Check if the value is valid
+         if (string.IsNullOrEmpty(sValue))
+         {
+            //Set valid empty string as string could be null
+            sValue = string.Empty;
+         }
+         else if (sValue.Length > iMaxLength)
+         {
+            //Make the string no longer than the max length
+            sValue = sValue.Substring(sValue.Length - iMaxLength ,iMaxLength);
+         }
+
+         //Return the string
+         return sValue;
+      }
+
+      /// <summary>
+      /// Splits the string by specified separator (string version of split).
+      /// </summary>
+      /// <param name="input">The input.</param>
+      /// <param name="separator">The separator.</param>
+      /// <returns></returns>
+      public static IEnumerable<string> Split(this string input ,string separator)
+      {
+         int startOfSegment = 0;
+         int index = 0;
+         while (index < input.Length)
+         {
+            index = input.IndexOf(separator ,index);
+            if (index == -1)
             {
-                //Make the string no longer than the max length
-                sValue = sValue.Substring(sValue.Length - iMaxLength, iMaxLength);
+               break;
             }
+            yield return input[startOfSegment..index];
+            index += separator.Length;
+            startOfSegment = index;
+         }
+         yield return input[startOfSegment..];
+      }
+   }
 
-            //Return the string
-            return sValue;
-        }
 
-        /// <summary>
-        /// Splits the string by specified separator (string version of split).
-        /// </summary>
-        /// <param name="input">The input.</param>
-        /// <param name="separator">The separator.</param>
-        /// <returns></returns>
-        public static IEnumerable<string> Split(this string input, string separator)
-        {
-            int startOfSegment = 0;
-            int index = 0;
-            while (index < input.Length)
+   public static class StringEnumExt
+   {
+
+      public static string ToCommaList(this IEnumerable<string> list)
+      {
+         return list.ToSeparatorList();
+      }
+
+      public static string ToSeparatorList(this IEnumerable<string> list ,string sep = "," ,string quote = "")
+      {
+         var sb = new StringBuilder();
+         foreach (var s in list)
+         {
+            if (sb.Length != 0)
             {
-                index = input.IndexOf(separator, index);
-                if (index == -1)
-                {
-                    break;
-                }
-                yield return input[startOfSegment..index];
-                index += separator.Length;
-                startOfSegment = index;
+               sb.Append(sep);
             }
-            yield return input[startOfSegment..];
-        }
-    }
 
-
-    public static class StringEnumExt
-    {
-
-        public static string ToCommaList(this IEnumerable<string> list)
-        {
-            return list.ToSeparatorList();
-        }
-
-        public static string ToSeparatorList(this IEnumerable<string> list, string sep = ",", string quote = "")
-        {
-            var sb = new StringBuilder();
-            foreach (var s in list)
-            {
-                if (sb.Length != 0)
-                    sb.Append(sep);
-                sb.Append(quote);
-                sb.Append(s);
-                sb.Append(quote);
-            }
-            return sb.ToString();
-        }
-    }
+            sb.Append(quote);
+            sb.Append(s);
+            sb.Append(quote);
+         }
+         return sb.ToString();
+      }
+   }
 
 }

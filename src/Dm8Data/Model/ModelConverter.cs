@@ -17,20 +17,18 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Helper;
 
-namespace Dm8Data.Source
+namespace Dm8Data.Raw
 {
-   public interface IDataSourceExplorer
+   //public static implicit operator NACH?(VON? src) => ObjectMapper.Map<VON ,NACH>(src);
+   public partial class ModelEntry:Prism.Mvvm.BindableBase
    {
-      public DataSources.DataSource Source { get; set; }
-      public string Layer { get; set; }
-      public string DataModule { get; set; }
-      public string DataProduct { get; set; }
-      public Task ConnectAsync(string connectionString);
-      public Task<IList<Raw.ModelEntry>> QueryEntitiesAsync(string schemaFilter = null ,string tableFilter = null);
-      public Task<DateTime> RefreshAttributesAsync(Raw.ModelEntry selectedEntity ,bool update = false);
+      public static implicit operator RawModelEntryBase(ModelEntry src) => ObjectMapper.Map<ModelEntry ,RawModelEntryBase>(src);
+   }
+   public partial class Attribute:Prism.Mvvm.BindableBase
+   {
+      public static implicit operator RawAttributBase(Dm8Data.Raw.Attribute src) => ObjectMapper.Map<Dm8Data.Raw.Attribute ,RawAttributBase>(src);
    }
 }

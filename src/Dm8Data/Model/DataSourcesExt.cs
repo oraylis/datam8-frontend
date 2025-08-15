@@ -17,7 +17,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -26,21 +25,21 @@ using Dm8Data.Generic;
 
 namespace Dm8Data.DataSources
 {
-    public partial class DataSources : Prism.Mvvm.BindableBase, IModelEntryList<DataSource>
-    {
-        public DataSources()
-        {
-            this.Items = new ObservableCollection<DataSource>();
-        }
+   public partial class DataSources:Prism.Mvvm.BindableBase, IModelEntryList<DataSource>
+   {
+      public DataSources()
+      {
+         this.Items = new ObservableCollection<DataSource>();
+      }
 
-        public ObservableCollection<DataSource> Values => this.Items as ObservableCollection<DataSource>;
+      public ObservableCollection<DataSource> Values => this.Items as ObservableCollection<DataSource>;
 
-        IEnumerable IModelEntryList.Values => this.Items;
-    }
+      IEnumerable IModelEntryList.Values => this.Items;
+   }
 
-    public partial class DataSource
-    {
-        public Dictionary<string, string> ExtendedProperties = new Dictionary<string, string>();
+   public partial class DataSource
+   {
+      public Dictionary<string ,string> ExtendedProperties = new Dictionary<string ,string>();
 
-    }
+   }
 }

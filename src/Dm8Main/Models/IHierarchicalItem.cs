@@ -22,24 +22,24 @@ using System.Collections.ObjectModel;
 
 namespace Dm8Main.Models
 {
-    public interface IHierarchicalItem<T> where T : class, IHierarchicalItem<T>
-    {
-        string Name { get; set; }
+   public interface IHierarchicalItem<T> where T : class, IHierarchicalItem<T>
+   {
+      string Name { get; set; }
 
-        ObservableCollection<HierarchicalItem<T>> Children { get; }
+      ObservableCollection<HierarchicalItem<T>> Children { get; }
 
-        bool HasItems { get; }
+      bool HasItems { get; }
 
-        bool IsExpanded { get; set; }
+      bool IsExpanded { get; set; }
 
-        bool IsSelected { get; set; }
+      bool IsSelected { get; set; }
 
-        T GetThis();
+      T GetThis();
 
-        void UpdateFrom(HierarchicalItem<T> other);
+      void UpdateFrom(HierarchicalItem<T> other);
 
-        void CopyAttributes(HierarchicalItem<T> other);
+      void CopyAttributes(HierarchicalItem<T> other);
 
-        public IEnumerable<HierarchicalItem<T>> GetItems();
-    }
+      public IEnumerable<HierarchicalItem<T>> GetItems();
+   }
 }

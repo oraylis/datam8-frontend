@@ -172,6 +172,7 @@ namespace Dm8Data.Raw
         private System.Collections.ObjectModel.ObservableCollection<string> _tags;
         private string _dateModified;
         private string _dateDeleted;
+        private string _dateAdded;
 
         [Newtonsoft.Json.JsonProperty("name", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -269,6 +270,14 @@ namespace Dm8Data.Raw
             get { return _dateDeleted; }
 
             set { SetProperty(ref _dateDeleted, value); }
+        }
+
+        [Newtonsoft.Json.JsonProperty("dateAdded", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string DateAdded
+        {
+            get { return _dateAdded; }
+
+            set { SetProperty(ref _dateAdded, value); }
         }
 
 

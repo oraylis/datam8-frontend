@@ -34,7 +34,8 @@ namespace Dm8Data.Validate
          if (lambda.Body is UnaryExpression unaryExpression)
          {
             memberExpression = (MemberExpression)(unaryExpression.Operand);
-         } else
+         }
+         else
          {
             memberExpression = (MemberExpression)(lambda.Body);
          }

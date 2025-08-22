@@ -69,7 +69,8 @@ namespace Dm8Data.Validate
                }
             }
             this.SchemaResolver = this.CreateSchemaResolver();
-         } catch
+         }
+         catch
          {
             this.Schema = null;
          }
@@ -147,7 +148,8 @@ namespace Dm8Data.Validate
                   return referenceResolverFactory;
                }
             }
-         } catch
+         }
+         catch
          {
             this.Schema = null;
          }

@@ -42,12 +42,14 @@ namespace Dm8Main.Base
             if (string.IsNullOrEmpty(s))
             {
                return null;
-            } else
+            }
+            else
             {
                if (int.TryParse(value.ToString() ,out int v))
                {
                   return v;
-               } else
+               }
+               else
                {
                   return null;
                }

@@ -67,7 +67,8 @@ namespace Dm8Main.Views
             this.Git.Visibility = Visibility.Visible;
             this.Git.Width = 80;
             _solutionService.GitActive = true;
-         } else
+         }
+         else
          {
             this.Git.Visibility = Visibility.Hidden;
             this.Git.Width = 0;
@@ -87,7 +88,8 @@ namespace Dm8Main.Views
          {
             var serialized = await FileHelper.ReadFileAsync(System.IO.Path.Combine(i.CurrentRootFolder ,"datam8.user") ,true);
             this.OpenLayout(serialized);
-         } catch
+         }
+         catch
          {
             this.OpenLayout(Properties.Resources.Layout_Default);
          }
@@ -182,7 +184,8 @@ namespace Dm8Main.Views
          {
             ThemeManager.Current.ChangeTheme(Application.Current ,"Dark.Blue");
             this.dockManager.Theme = new AvalonDock.Themes.Vs2013DarkTheme();
-         } else if (this.dockManager != null)
+         }
+         else if (this.dockManager != null)
          {
             ThemeManager.Current.ChangeTheme(Application.Current ,"Light.Blue");
             this.dockManager.Theme = new AvalonDock.Themes.Vs2013LightTheme();

@@ -55,7 +55,8 @@ namespace Dm8Data.Source
          if (plugin != null)
          {
             return plugin;
-         } else
+         }
+         else
          {
             var e = _factory.FirstOrDefault(k => k.Key.Name == t);
             if (e.Key != null)

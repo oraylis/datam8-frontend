@@ -114,14 +114,16 @@ namespace Dm8Main.Avalon
                layer.Add(newAdorner);
                SetInternalAdorner(adorned ,newAdorner);
             }
-         } else
+         }
+         else
          {
             if (controlTemplate != null && isVisible)
             {
                // switch template
                Control ctrl = existingAdorner.Child;
                ctrl.Template = controlTemplate;
-            } else
+            }
+            else
             {
                // hide
                existingAdorner.Child = null;

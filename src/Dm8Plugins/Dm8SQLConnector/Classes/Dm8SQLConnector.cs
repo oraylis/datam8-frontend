@@ -111,7 +111,8 @@ namespace Dm8LakeConnector
          if (comps[0].StartsWith("["))
          {
             return comps[0].Substring(1 ,comps[0].Length - 2);
-         } else
+         }
+         else
          {
             return comps[0];
          }
@@ -128,7 +129,8 @@ namespace Dm8LakeConnector
          if (comps[1].StartsWith("["))
          {
             return comps[1].Substring(1 ,comps[1].Length - 2);
-         } else
+         }
+         else
          {
             return comps[1];
          }
@@ -142,7 +144,8 @@ namespace Dm8LakeConnector
             if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') || c == '$')
             {
                sb.Append(c);
-            } else
+            }
+            else
             {
                sb.Append('_');
             }
@@ -159,8 +162,10 @@ namespace Dm8LakeConnector
          }
       }
 
-      public async Task<DateTime> RefreshAttributesAsync(RawModelEntryBase sourceEntity ,bool update = false)
+      public async Task<DateTime> RefreshAttributesAsync<T, T1>(T sourceEntityIn ,T1 elementsIn ,bool update = false)
       {
+         RawModelEntryBase sourceEntity = sourceEntityIn as RawModelEntryBase;
+         ObservableCollection<RawAttributBase> elements = elementsIn as ObservableCollection<RawAttributBase>;
          DateTime now = DateTime.UtcNow;
 
          DataSourceSql source = Extensions.ConvertClass<DataSourceSql ,DataSourceBase>(this.Source);
@@ -178,9 +183,12 @@ namespace Dm8LakeConnector
                         Dm8SQLConnector.GetTableName(sourceEntity.Function.SourceLocation), null
                 });
             var rc = new ObservableCollection<RawAttributBase>();
+
+            bool isNew = (elements == null || elements.Count == 0);
+
             foreach (var col in tables.Rows.OfType<DataRow>().OrderBy(r => r.Field<int>(ORDINAL_POSITION)))
             {
-               rc.Add(new RawAttributBase()
+               var rec = new RawAttributBase()
                {
                   Name = col.Field<string>(COLUMN_NAME) ,
                   Type = col.Field<string>(DATA_TYPE) ,
@@ -188,24 +196,35 @@ namespace Dm8LakeConnector
                   Precision = col.GetInt(NUMERIC_PRECISION) >= 0 ? col.GetInt(NUMERIC_PRECISION) : null ,
                   Scale = col.GetInt(NUMERIC_SCALE) >= 0 ? col.GetInt(NUMERIC_SCALE) : null ,
                   Nullable = col.Field<string>(IS_NULLABLE) == "YES" ,
-                  DateModified = now.ToString("yyyy-MM-dd HH:mm:ss") ,
-                  DateDeleted = null
-               });
+                  DateModified = null ,
+                  DateDeleted = null ,
+                  DateAdded = null
+               };
+               if (isNew)
+               {
+                  rec.DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss");
+               }
+               rc.Add(rec);
             }
 
-            if (sourceEntity?.Entity?.Attribute == null)
+            if (isNew)
             {
-               sourceEntity.Entity.Attribute = rc;
-            } else
+               elements = rc;
+            }
+            else
             {
-               foreach (var attr in sourceEntity.Entity.Attribute)
+               foreach (var attr in elements)
                {
                   var newAttr = rc.FirstOrDefault(a => a.Name == attr.Name);
-                  if (newAttr == null && attr.DateDeleted == null)
+                  if (newAttr == null)
                   {
-                     // attr does not exist anymore
-                     attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
-                  } else if (update)
+                     if (attr.DateDeleted == null)
+                     {
+                        // attr does not exist anymore
+                        attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
+                     }
+                  }
+                  else if (update)
                   {
                      if (attr.Type != newAttr?.Type ||
                          attr.CharLength != newAttr.CharLength ||
@@ -225,10 +244,11 @@ namespace Dm8LakeConnector
 
                foreach (var attr in rc)
                {
-                  var currentAttr = sourceEntity.Entity.Attribute.FirstOrDefault(a => a.Name == attr.Name);
+                  var currentAttr = elements.FirstOrDefault(a => a.Name == attr.Name);
                   if (currentAttr == null)
                   {
-                     sourceEntity.Entity.Attribute.Add(attr);
+                     attr.DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss");
+                     elements.Add(attr);
                   }
                }
             }
@@ -301,8 +321,7 @@ namespace Dm8LakeConnector
                   Function = new RawFunctionBase()
                   {
                      DataSource = this.Source.Name ,
-                     SourceLocation =
-                           $"[{schemaName}].[{tableName}]"
+                     SourceLocation = $"[{schemaName}].[{tableName}]"
                   }
                };
                if (addFile(me.Entity.Dm8l))
@@ -326,13 +345,17 @@ namespace Dm8LakeConnector
                   tables = await sqlConnection.GetSchemaAsync("Columns" ,
                       new string[]
                       {
-                                null, Dm8SQLConnector.GetSchemaName(sourceEntity.Function.SourceLocation),
-                                Dm8SQLConnector.GetTableName(sourceEntity.Function.SourceLocation), null
+                                null,
+                                Dm8SQLConnector.GetSchemaName(sourceEntity.Function.SourceLocation),
+                                Dm8SQLConnector.GetTableName(sourceEntity.Function.SourceLocation),
+                                null
                       });
                   var rc2 = new ObservableCollection<RawAttributBase>();
+                  bool isNew = sourceEntity?.Entity?.Attribute == null || sourceEntity?.Entity?.Attribute?.Count == 0;
+
                   foreach (var col in tables.Rows.OfType<DataRow>().OrderBy(r => r.Field<int>(ORDINAL_POSITION)))
                   {
-                     rc2.Add(new RawAttributBase()
+                     var rec = new RawAttributBase()
                      {
                         Name = col.Field<string>(COLUMN_NAME) ,
                         Type = col.Field<string>(DATA_TYPE) ,
@@ -340,24 +363,37 @@ namespace Dm8LakeConnector
                         Precision = col.GetInt(NUMERIC_PRECISION) >= 0 ? col.GetInt(NUMERIC_PRECISION) : null ,
                         Scale = col.GetInt(NUMERIC_SCALE) >= 0 ? col.GetInt(NUMERIC_SCALE) : null ,
                         Nullable = col.Field<string>(IS_NULLABLE) == "YES" ,
-                        DateModified = now.ToString("yyyy-MM-dd HH:mm:ss") ,
-                        DateDeleted = null
-                     });
+                        DateAdded = null ,
+                        DateDeleted = null ,
+                        DateModified = null
+                     };
+
+                     if (isNew)
+                     {
+                        rec.DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss");
+                     }
+                     rc2.Add(rec);
+
                   }
 
-                  if (sourceEntity?.Entity?.Attribute == null)
+                  if (isNew)
                   {
                      sourceEntity.Entity.Attribute = rc2;
-                  } else
+                  }
+                  else
                   {
                      foreach (var attr in sourceEntity.Entity.Attribute)
                      {
                         var newAttr = rc2.FirstOrDefault(a => a.Name == attr.Name);
-                        if (newAttr == null && attr.DateDeleted == null)
+                        if (newAttr == null)
                         {
-                           // attr does not exist anymore
-                           attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
-                        } else if (update)
+                           if (attr.DateDeleted == null)
+                           {
+                              // attr does not exist anymore
+                              attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
+                           }
+                        }
+                        else if (update)
                         {
                            if (attr.Type != newAttr.Type ||
                                attr.CharLength != newAttr.CharLength ||
@@ -380,7 +416,8 @@ namespace Dm8LakeConnector
                         var currentAttr = sourceEntity.Entity.Attribute.FirstOrDefault(a => a.Name == attr.Name);
                         if (currentAttr == null)
                         {
-                           // attr does not exist anymore
+                           // attr does not exist 
+                           attr.DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss");
                            sourceEntity.Entity.Attribute.Add(attr);
                         }
                      }

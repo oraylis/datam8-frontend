@@ -126,7 +126,8 @@ namespace Dm8LakeConnector
                   if (!String.IsNullOrEmpty(this.Password))
                   {
                      con.Password = this.Password;
-                  } else
+                  }
+                  else
                   {
                      if (this.ExtendedProperties.TryGetValue("EncryptedData" ,out string cfile) &&
                          !String.IsNullOrEmpty(cfile))
@@ -165,7 +166,8 @@ namespace Dm8LakeConnector
                   if (con.IntegratedSecurity)
                   {
                      this.Authentication = DataSourceSqlAuthentication.Windows_Authentication;
-                  } else
+                  }
+                  else
                   {
                      this.UserId = con.UserID;
                      this.Password = con.Password;
@@ -219,7 +221,8 @@ namespace Dm8LakeConnector
                }
 
                retVal = true;
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                if (showMessage)
                {
@@ -253,7 +256,8 @@ namespace Dm8LakeConnector
                   }
                }
                sqlConnection.Close();
-            } catch
+            }
+            catch
             {
             }
          }

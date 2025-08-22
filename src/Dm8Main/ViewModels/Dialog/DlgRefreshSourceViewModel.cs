@@ -333,8 +333,19 @@ namespace Dm8Main.ViewModels.Dialog
             ds.DataProduct = modelEntry.Entity.DataProduct;
             if (!modelEntry.Function.SourceLocation.ToLower().EndsWith(".csv"))
             {
-               await ds.RefreshAttributesAsync(Oraylis.DataM8.PluginBase.Extensions.Extensions
-                   .ConvertClass<RawModelEntryBase ,Dm8Data.Raw.ModelEntry>(modelEntry));
+               ObservableCollection<RawAttributBase> elements = new ObservableCollection<RawAttributBase>();
+               foreach (Dm8Data.Raw.Attribute a in modelEntry.Entity.Attribute)
+               {
+                  elements.Add(a);
+               }
+               await ds.RefreshAttributesAsync<RawModelEntryBase ,ObservableCollection<RawAttributBase>>(modelEntry ,elements ,true);
+               modelEntry.Entity.Attribute.Clear();
+               foreach (RawAttributBase a in elements)
+               {
+                  Dm8Data.Raw.Attribute a1 = ObjectMapper.Map<RawAttributBase ,Dm8Data.Raw.Attribute>(a);
+
+                  modelEntry.Entity.Attribute.Add(a1);
+               }
             }
          }
          #endregion
@@ -347,21 +358,19 @@ namespace Dm8Main.ViewModels.Dialog
             ds1.Layer = Dm8Data.Properties.Resources.Folder_Raw;
             ds1.DataModule = modelEntry.Entity.DataModule;
             ds1.DataProduct = modelEntry.Entity.DataProduct;
-
-            await ds1.RefreshAttributesAsync(modelEntry);
+            await ds1.RefreshAttributesAsync(modelEntry ,true);
          }
          #endregion
 
-         var countUpdates = modelEntry.Entity.Attribute.Count(a =>
-             StringComparer.InvariantCultureIgnoreCase.Compare(a.DateModified ,now) >= 0);
-         var countDeletes = modelEntry.Entity.Attribute.Count(a =>
-             StringComparer.InvariantCultureIgnoreCase.Compare(a.DateDeleted ,now) >= 0);
-         if (countUpdates == 0 && countDeletes == 0)
+         var countUpdates = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateModified ,now) >= 0);
+         var countDeletes = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateDeleted ,now) >= 0);
+         var countAdded = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateAdded ,now) >= 0);
+         if (countUpdates == 0 && countDeletes == 0 && countAdded == 0)
          {
             item.Info = "No Change";
             return;
          }
-         item.Info = $"Changes #{countUpdates}; Deleted #{countDeletes}";
+         item.Info = $"Changes #{countUpdates}; Added #{countAdded}; Deleted #{countDeletes}";
          item.RawEntry = modelEntry;
       }
 
@@ -374,7 +383,8 @@ namespace Dm8Main.ViewModels.Dialog
                string jsonCode = FileHelper.MakeJson(this.SelectedEntity.Content.RawEntry);
 
                await FileHelper.WriteFileAsync(Path.Combine(this.SelectedEntity.Content.Folder ,this.SelectedEntity.Content.Name) ,jsonCode);
-            } else
+            }
+            else
             {
                foreach (var item in this.Entities.Select(i => i.Content))
                {
@@ -394,7 +404,8 @@ namespace Dm8Main.ViewModels.Dialog
             window.DialogResult = true;
             this.DialogResult = true;
             window.Close();
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             this.dialogService.ShowException(this ,ex);
          }

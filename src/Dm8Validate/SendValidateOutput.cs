@@ -45,7 +45,8 @@ namespace Dm8Validate
          {
             this.logger.LogError($"[{outputItem.Layer}-{outputItem.Code}] File {outputItem.FilePath} ({outputItem.Line}) - {outputItem.Source}:  {outputItem.Description}");
             this.HasSendError = true;
-         } else
+         }
+         else
          {
             this.logger.LogInformation(outputItem.Description);
          }

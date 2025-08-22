@@ -58,13 +58,15 @@ namespace Dm8Data.Helper
          if (response.StatusCode != System.Net.HttpStatusCode.OK)
          {
             throw new Exception(response.StatusCode.ToString() + " - " + response.Content);
-         } else
+         }
+         else
          {
             var res = JsonConvert.DeserializeObject<dynamic>(response.Content);
             if (res.TryGetValue("access_token" ,out object accessToken))
             {
                return accessToken.ToString();
-            } else
+            }
+            else
             {
                throw new Exception("ResponseError: access_token not found");
             }

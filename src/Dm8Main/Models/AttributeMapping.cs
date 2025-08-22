@@ -59,7 +59,8 @@ public class AttributeMapping:Prism.Mvvm.BindableBase
             if (mappingEntry.StageEntity.Name == "#")
             {
                defaultMap = "[" + mappingEntry.SourceComputation + "]";
-            } else
+            }
+            else
             {
                if (sb.Length > 0)
                {

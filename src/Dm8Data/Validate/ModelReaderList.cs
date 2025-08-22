@@ -67,7 +67,8 @@ namespace Dm8Data.Validate
                {
                   items = objectList.Values.ToList();
                }
-            } catch (Exception)
+            }
+            catch (Exception)
             {
                throw;
             }

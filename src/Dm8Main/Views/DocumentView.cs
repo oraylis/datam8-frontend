@@ -197,10 +197,12 @@ namespace Dm8Main.Views
          if (this.grid.RowDefinitions[2].ActualHeight - verticalChange <= 0)
          {
             this.ShowDesignOnly();
-         } else if (this.grid.RowDefinitions[0].ActualHeight + verticalChange <= 0)
+         }
+         else if (this.grid.RowDefinitions[0].ActualHeight + verticalChange <= 0)
          {
             this.ShowEditOnly();
-         } else
+         }
+         else
          {
             this.ShowDesignAndEdit();
          }

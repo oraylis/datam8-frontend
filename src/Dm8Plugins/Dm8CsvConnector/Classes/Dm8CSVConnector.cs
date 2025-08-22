@@ -17,6 +17,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System.Collections.ObjectModel;
 using Dm8CSVConnector.Views;
 using Oraylis.DataM8.PluginBase.BaseClasses;
 using Oraylis.DataM8.PluginBase.Interfaces;
@@ -87,96 +88,16 @@ namespace Dm8CSVConnector
 
          return (retVal);
       }
-      public async Task<DateTime> RefreshAttributesAsync(RawModelEntryBase sourceEntity ,bool update = false)
+      public async Task<DateTime> RefreshAttributesAsync<T, T1>(T sourceEntityIn ,T1 elementsIn ,bool update = false)
       {
+         RawModelEntryBase sourceEntity = sourceEntityIn as RawModelEntryBase;
+         ObservableCollection<RawAttributBase> elements = elementsIn as ObservableCollection<RawAttributBase>;
          DateTime now = DateTime.UtcNow;
 
          DataSourceCSV source = Extensions.ConvertClass<DataSourceCSV ,DataSourceBase>(this.Source);
          source.RealConnectionString = true;
          source.Connect(source.ConnectionString);
 
-         //var rc = new ObservableCollection<RawAttributBase>();
-         //var filePath = sourceEntity.Function.SourceLocation;
-         //bool fileSelected = false;
-
-
-         //while (item != null || fileSelected == true)
-         //{
-         //    if (item.Name.EndsWith(".parquet"))
-         //    {
-         //        fileSelected = true;
-
-
-         //        using (Stream fileStream = new MemoryStream(ms.ToArray()))
-         //        {
-         //            using (var parquetReader = new ParquetReader(fileStream))
-         //            {
-         //                DataField[] dataFields = parquetReader.Schema.GetDataFields();
-
-         //                foreach (var field in dataFields)
-         //                {
-
-         //                    rc.Add(new RawAttributBase
-         //                    {
-         //                        Name = field.Name,
-         //                        Type = field.DataType.ToString().ToLower(),
-         //                        CharLength = null,
-         //                        Precision = null,
-         //                        Scale = null,
-         //                        Nullable = field.HasNulls,
-         //                        DateModified = now.ToString("yyyy-MM-dd HH:mm:ss"),
-         //                        DateDeleted = null
-         //                    });
-         //                }
-
-         //                if (sourceEntity.Entity.Attribute == null)
-         //                {
-         //                    sourceEntity.Entity.Attribute = rc;
-         //                }
-
-         //                else
-         //                {
-         //                    foreach (var attr in sourceEntity.Entity.Attribute)
-         //                    {
-         //                        var newAttr = rc.FirstOrDefault(a => a.Name == attr.Name);
-         //                        if (newAttr == null && attr.DateDeleted == null)
-         //                        {
-         //                            // attr does not exist anymore
-         //                            attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
-         //                        }
-         //                        else if (update)
-         //                        {
-         //                            if (attr.Type != newAttr.Type ||
-         //                                attr.CharLength != newAttr.CharLength ||
-         //                                attr.Precision != newAttr.Precision ||
-         //                                attr.Scale != newAttr.Scale ||
-         //                                attr.Nullable != newAttr.Nullable)
-         //                            {
-         //                                attr.Type = newAttr.Type;
-         //                                attr.CharLength = newAttr.CharLength;
-         //                                attr.Precision = newAttr.Precision;
-         //                                attr.Scale = newAttr.Scale;
-         //                                attr.Nullable = newAttr.Nullable;
-         //                                attr.DateModified = now.ToString("yyyy-MM-dd HH:mm:ss");
-         //                            }
-         //                        }
-         //                    }
-
-         //                    foreach (var attr in rc)
-         //                    {
-         //                        var currentAttr = sourceEntity.Entity.Attribute.FirstOrDefault(a => a.Name == attr.Name);
-         //                        if (currentAttr == null)
-         //                        {
-         //                            // attr does not exist anymore
-         //                            sourceEntity.Entity.Attribute.Add(attr);
-         //                        }
-         //                    }
-         //                }
-         //            }
-         //            return now;
-         //        }
-         //    }
-         //}
          source.RealConnectionString = false;
          return now;
       }

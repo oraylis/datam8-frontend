@@ -153,7 +153,8 @@ namespace Dm8Main.ViewModels
                {
                   collection.CollectionChanged += this.Items_CollectionChanged;
                }
-            } else if (typeof(INotifyPropertyChanged).IsAssignableFrom(prop.PropertyType))
+            }
+            else if (typeof(INotifyPropertyChanged).IsAssignableFrom(prop.PropertyType))
             {
                var sub = (INotifyPropertyChanged)prop.GetValue(n);
                if (sub != null)
@@ -198,7 +199,8 @@ namespace Dm8Main.ViewModels
             {
                this.JsonCode = jsonCode;
                await this.UpdateFromJsonCodeAsync();
-            } else
+            }
+            else
             {
                this.ErrorList = new ObservableCollection<ModelReaderException>();
                await this.ValidateAsync();
@@ -232,7 +234,8 @@ namespace Dm8Main.ViewModels
 
             // check errors
             await this.ValidateAsync();
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             this.ErrorList.Add(new UnknownValidateException(ex ,this.FilePath));
          }
@@ -298,15 +301,18 @@ namespace Dm8Main.ViewModels
 
                this.ReselectItem();
             }));
-         } catch (JsonSerializationException jsonEx)
+         }
+         catch (JsonSerializationException jsonEx)
          {
             newErrorList.Add(new SchemaValidateException(jsonEx.Message ,jsonEx.LineNumber ,jsonEx.LinePosition ,FilePath));
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             try
             {
                var obj = JToken.Parse(this.JsonCode);
-            } catch (JsonReaderException jsonEx)
+            }
+            catch (JsonReaderException jsonEx)
             {
                newErrorList.Add(new UnknownValidateException(jsonEx ,this.FilePath));
             }
@@ -358,7 +364,8 @@ namespace Dm8Main.ViewModels
                this.JsonCode = jsonCode;
                this.ReselectPosition();
             }));
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             newErrorList.Add(new UnknownValidateException(ex ,this.FilePath));
          }
@@ -379,7 +386,8 @@ namespace Dm8Main.ViewModels
          if (this.oldSelectedItemNr >= this.Items.Count)
          {
             this.SelectedItem = this.Items.FirstOrDefault() ?? new TObj();
-         } else
+         }
+         else
          {
             this.SelectedItem = this.Items[this.oldSelectedItemNr];
          }

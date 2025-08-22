@@ -97,31 +97,25 @@ namespace Dm8LakeConnector
       {
          this.Source.Connect(connectionString);
       }
-      public async Task<DateTime> RefreshAttributesAsync(RawModelEntryBase sourceEntity ,bool update = false)
+      public async Task<DateTime> RefreshAttributesAsync<T, T1>(T sourceEntityIn ,T1 elementsIn ,bool update = false)
       {
          DateTime now = DateTime.UtcNow;
+
+         RawModelEntryBase sourceEntity = sourceEntityIn as RawModelEntryBase;
+         ObservableCollection<RawAttributBase> elements = elementsIn as ObservableCollection<RawAttributBase>;
 
          DataSourceLake source = Extensions.ConvertClass<DataSourceLake ,DataSourceBase>(this.Source);
          source.RealConnectionString = true;
          source.Connect(source.ConnectionString);
 
          var rc = new ObservableCollection<RawAttributBase>();
-
-         var fileSystemClient = source.SetFilesystemClient(source.ConnectionString ,source.AuthenticationMethod.ToString() ,source.RealStoragePath);
-         bool fileSelected = false;
-
          var filePath = sourceEntity.Function.SourceLocation;
-         filePath = filePath.Replace("*" ,sourceEntity.Entity.Name);
+         var fileSystemClient = source.SetFilesystemClient(source.ConnectionString ,source.AuthenticationMethod.ToString() ,source.StoragePath);
+         bool fileSelected = false;
 
          IAsyncEnumerator<PathItem> enumerator = fileSystemClient.GetPathsAsync(path: filePath ,recursive: true).GetAsyncEnumerator();
 
-         try
-         {
-            await enumerator.MoveNextAsync();
-         } catch (Exception e)
-         {
-            Console.WriteLine(e);
-         }
+         await enumerator.MoveNextAsync();
          PathItem item = enumerator.Current;
 
          while (item != null || fileSelected == true)
@@ -159,36 +153,49 @@ namespace Dm8LakeConnector
                         // however, get only data fields as only they contain data values
                         DataField[] dataFields = parquetReader.Schema.GetDataFields();
 
+                        bool isNew = elements == null || elements.Count == 0;
+
                         // Add Properties to List
                         foreach (var field in dataFields)
                         {
-
-                           rc.Add(new RawAttributBase
+                           var rec = new RawAttributBase
                            {
                               Name = field.Name ,
-                              Type = field.ClrType.Name.ToLower() ,
+                              Type = field.ClrType.ToString().ToLower() ,
                               CharLength = null ,
                               Precision = null ,
                               Scale = null ,
                               Nullable = field.IsNullable ,
-                              DateModified = now.ToString("yyyy-MM-dd HH:mm:ss") ,
-                              DateDeleted = null
-                           });
+                              DateModified = null ,
+                              DateDeleted = null ,
+                              DateAdded = null
+                           };
+
+                           if (isNew)
+                           {
+                              rec.DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss");
+                           }
+                           rc.Add(rec);
                         }
 
-                        if (sourceEntity.Entity.Attribute == null)
+                        if (isNew)
                         {
-                           sourceEntity.Entity.Attribute = rc;
-                        } else
+                           elements = rc;
+                        }
+                        else
                         {
-                           foreach (var attr in sourceEntity.Entity.Attribute)
+                           foreach (var attr in elements)
                            {
                               var newAttr = rc.FirstOrDefault(a => a.Name == attr.Name);
-                              if (newAttr == null && attr.DateDeleted == null)
+                              if (newAttr == null)
                               {
-                                 // attr does not exist anymore
-                                 attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
-                              } else if (update)
+                                 if (attr.DateDeleted == null)
+                                 {
+                                    // attr does not exist anymore
+                                    attr.DateDeleted = now.ToString("yyyy-MM-dd HH:mm:ss");
+                                 }
+                              }
+                              else if (update)
                               {
                                  if (attr.Type != newAttr.Type ||
                                      attr.CharLength != newAttr.CharLength ||
@@ -208,11 +215,12 @@ namespace Dm8LakeConnector
 
                            foreach (var attr in rc)
                            {
-                              var currentAttr = sourceEntity.Entity.Attribute.FirstOrDefault(a => a.Name == attr.Name);
+                              var currentAttr = elements.FirstOrDefault(a => a.Name == attr.Name);
                               if (currentAttr == null)
                               {
-                                 // attr does not exist anymore
-                                 sourceEntity.Entity.Attribute.Add(attr);
+                                 // new attrib?
+                                 attr.DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss");
+                                 elements.Add(attr);
                               }
                            }
                         }
@@ -222,6 +230,7 @@ namespace Dm8LakeConnector
                   return now;
                }
             }
+
 
             if (item.Name.ToLower().EndsWith(".csv"))
             {
@@ -252,7 +261,7 @@ namespace Dm8LakeConnector
                   }
                }
 
-               if (sourceEntity.Entity.Attribute == null || sourceEntity.Entity.Attribute.Count == 0)
+               if (elements == null || elements.Count == 0)
                {
                   Dm8CSVConnector.Dm8CSVConnector conCsv = new()
                   {
@@ -273,12 +282,13 @@ namespace Dm8LakeConnector
                            Precision = df.Precision ,
                            Scale = null ,
                            Nullable = df.NullEnabled ,
-                           DateModified = now.ToString("yyyy-MM-dd HH:mm:ss") ,
-                           DateDeleted = null
+                           DateAdded = now.ToString("yyyy-MM-dd HH:mm:ss") ,
+                           DateDeleted = null ,
+                           DateModified = null
                         });
                      }
 
-                     sourceEntity.Entity.Attribute = rc;
+                     elements = rc;
                   }
                }
             }
@@ -294,7 +304,8 @@ namespace Dm8LakeConnector
          if (fileSelected != true)
          {
             throw new InvalidOperationException($"No Parquet file found in path: {filePath}");
-         } else
+         }
+         else
          {
             return now;
          }
@@ -343,7 +354,8 @@ namespace Dm8LakeConnector
          if (storageItems.Length == 1)
          {
             enumerator = fileSystemClient.GetPathsAsync(recursive: true).GetAsyncEnumerator();
-         } else
+         }
+         else
          {
             string folderPath = String.Join("/" ,storageItems.Skip(1).ToArray());
             DataLakeDirectoryClient directoryClient = fileSystemClient.GetDirectoryClient(folderPath);

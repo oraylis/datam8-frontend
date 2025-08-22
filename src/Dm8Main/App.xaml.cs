@@ -107,7 +107,8 @@ namespace Dm8Main
                    MessageBoxResult.Yes)
             {
                Current.Shutdown();
-            } else if (promptUserForShutdown)
+            }
+            else if (promptUserForShutdown)
             {
                rc = true;
             }
@@ -165,7 +166,8 @@ namespace Dm8Main
          {
             Application.Current.MainWindow.Cursor = System.Windows.Input.Cursors.Wait;
             Application.Current.MainWindow.CaptureMouse();
-         } else
+         }
+         else
          {
             Application.Current.MainWindow.Cursor = System.Windows.Input.Cursors.Arrow;
             Application.Current.MainWindow.ReleaseMouseCapture();

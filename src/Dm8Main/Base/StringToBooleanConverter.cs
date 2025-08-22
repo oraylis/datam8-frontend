@@ -30,7 +30,8 @@ namespace Dm8Main.Base
          if (value is bool b)
          {
             return b ? "True" : "False";
-         } else
+         }
+         else
          {
             return "False";
          }

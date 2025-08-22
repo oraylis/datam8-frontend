@@ -62,7 +62,8 @@ namespace Dm8Locator
          if (this.equalityComparer.TryGetValue(x.GetType() ,out IEqualityComparer<Dm8LocatorBase> comp))
          {
             return comp.Equals(x ,y);
-         } else
+         }
+         else
          {
             return this.baseEqualityComparer.Equals(x ,y);
          }

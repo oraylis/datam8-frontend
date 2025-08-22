@@ -57,7 +57,8 @@ namespace Dm8Data.Helper
          if (this.graphType == GraphType.ErDiagram)
          {
             mermaid.AppendLine(@"erDiagram");
-         } else
+         }
+         else
          {
             mermaid.AppendLine(@"classDiagram");
          }
@@ -117,7 +118,7 @@ namespace Dm8Data.Helper
                    bkAttr.BusinessKeyNo != null)
                {
                   rc.AppendLine(
-                      $"{bkAttr.DataType} {bkAttr.Name} {(bkAttr.BusinessKeyNo != null ? "PK" : "")} \"-{bkAttr.AttributeType}- {bkAttr.DisplayName}\"");
+                            $"{bkAttr.DataType} {bkAttr.Name} {(bkAttr.BusinessKeyNo != null ? "PK" : "")} \"-{bkAttr.AttributeType}- {bkAttr.DisplayName}\"");
                }
             }
             rc.AppendLine($"}}");
@@ -134,7 +135,7 @@ namespace Dm8Data.Helper
                    bkAttr.BusinessKeyNo != null)
                {
                   rc.AppendLine(
-                      $"      + {bkAttr.DataType} {bkAttr.Name}");
+                            $"      + {bkAttr.DataType} {bkAttr.Name}");
                }
             }
             rc.AppendLine($"    }}");

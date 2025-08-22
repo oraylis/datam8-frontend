@@ -90,7 +90,8 @@ namespace Dm8Main.Updates
             {
                solution = JsonConvert.DeserializeObject<Dm8Data.Solution>(content);
                loop = false;
-            } catch
+            }
+            catch
             {
                Solution s = new Solution();
                content = FileHelper.MakeJson(s);

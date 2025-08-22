@@ -89,7 +89,8 @@ public abstract class HamburgerWizard:MetroWindow, IClosableWindow
       if (prevItem == null)
       {
          this.ButtonPrevProp.IsEnabled = false;
-      } else
+      }
+      else
       {
          this.ButtonPrevProp.IsEnabled = true;
       }
@@ -113,7 +114,8 @@ public abstract class HamburgerWizard:MetroWindow, IClosableWindow
          if (i == this.HamburgerMenuControlProp.SelectedItem)
          {
             foundSelected = true;
-         } else
+         }
+         else
          {
             i.IsEnabled = true;
             prevItem = i;
@@ -125,7 +127,8 @@ public abstract class HamburgerWizard:MetroWindow, IClosableWindow
          this.ButtonNextProp.Width = 0;
          this.ButtonOK.Visibility = Visibility.Visible;
          this.ButtonOK.Width = 80;
-      } else
+      }
+      else
       {
          this.ButtonNextProp.Visibility = Visibility.Visible;
          this.ButtonNextProp.Width = 80;

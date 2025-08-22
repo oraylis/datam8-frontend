@@ -47,7 +47,8 @@ namespace Dm8Data.MessageOutput
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
                this.FillJsonException(validateException ,solution ,jsonSerializationException);
-            } else
+            }
+            else
             {
                this.Code = validateException.Code;
                this.Description = validateException.Message;
@@ -69,7 +70,8 @@ namespace Dm8Data.MessageOutput
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
                this.FillJsonException(validateException ,solution ,jsonSerializationException);
-            } else
+            }
+            else
             {
                this.Code = validateException.Code;
                this.Description = validateException.Message;
@@ -90,7 +92,8 @@ namespace Dm8Data.MessageOutput
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
                this.FillJsonException(validateException ,solution ,jsonSerializationException);
-            } else
+            }
+            else
             {
                this.Code = validateException.Code;
                this.Description = validateException.Message;
@@ -111,7 +114,8 @@ namespace Dm8Data.MessageOutput
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
                this.FillJsonException(validateException ,solution ,jsonSerializationException);
-            } else
+            }
+            else
             {
                this.Code = validateException.Code;
                this.Description = validateException.Message;
@@ -132,7 +136,8 @@ namespace Dm8Data.MessageOutput
             if (validateException is UnknownValidateException && validateException.InnerException is JsonSerializationException jsonSerializationException)
             {
                this.FillJsonException(validateException ,solution ,jsonSerializationException);
-            } else
+            }
+            else
             {
                this.Code = validateException.Code;
                this.Description = validateException.Message;

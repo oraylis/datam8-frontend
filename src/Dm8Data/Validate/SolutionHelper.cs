@@ -91,8 +91,8 @@ namespace Dm8Data.Validate
          lock (this)
          {
             this.index = new Index.Index();
-            this.dm8l2File = new Dictionary<Dm8lEntity ,string>(Dm8LocatorComparer.IgnoreCase);
-            this.dm8lReferenced = new Dictionary<Dm8lEntity ,List<Dm8lEntity>>(Dm8LocatorComparer.IgnoreCase);
+            this.dm8l2File = new Dictionary<Dm8lEntity ,string>(Dm8LocatorComparer.Default);
+            this.dm8lReferenced = new Dictionary<Dm8lEntity ,List<Dm8lEntity>>(Dm8LocatorComparer.Default);
             this.cache = new Dictionary<string ,object>();
             this.coreCache = new Dictionary<string ,CoreEntity>();
             this.functionCache = new Dictionary<Dm8lEntity ,List<Curated.CuratedFunction>>();
@@ -105,7 +105,8 @@ namespace Dm8Data.Validate
          try
          {
             File.Delete(file);
-         } catch
+         }
+         catch
          {
 
          }
@@ -145,7 +146,7 @@ namespace Dm8Data.Validate
             }
 
             foreach (var f in Directory.EnumerateFiles(this.solution.RawFolderPath ,"*.json" ,
-                         SearchOption.AllDirectories))
+                             SearchOption.AllDirectories))
             {
                rawFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
@@ -165,7 +166,7 @@ namespace Dm8Data.Validate
             }
 
             foreach (var f in Directory.EnumerateFiles(this.solution.StagingFolderPath ,"*.json" ,
-                         SearchOption.AllDirectories))
+                             SearchOption.AllDirectories))
             {
                stageFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
@@ -185,7 +186,7 @@ namespace Dm8Data.Validate
             }
 
             foreach (var f in Directory.EnumerateFiles(this.solution.CoreFolderPath ,"*.json" ,
-                         SearchOption.AllDirectories))
+                             SearchOption.AllDirectories))
             {
                coreFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
@@ -205,7 +206,7 @@ namespace Dm8Data.Validate
             }
 
             foreach (var f in Directory.EnumerateFiles(this.solution.CuratedFolderPath ,"*.json" ,
-                         SearchOption.AllDirectories))
+                             SearchOption.AllDirectories))
             {
                curatedFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
@@ -225,7 +226,7 @@ namespace Dm8Data.Validate
             }
 
             foreach (var f in Directory.EnumerateFiles(this.solution.DiagramFolderPath ,"*.json" ,
-                         SearchOption.AllDirectories))
+                             SearchOption.AllDirectories))
             {
                diagramFileList.Add(f);
                var fileDate = File.GetLastWriteTimeUtc(f);
@@ -285,7 +286,8 @@ namespace Dm8Data.Validate
                         if (this.dm8lReferenced.TryGetValue(new Dm8lEntity(refDm8l) ,out var refList))
                         {
                            refList.Add(new Dm8lEntity(coreEntry.Locator));
-                        } else
+                        }
+                        else
                         {
                            var newRefList = new List<Dm8lEntity>();
                            newRefList.Add(new Dm8lEntity(coreEntry.Locator));
@@ -297,7 +299,8 @@ namespace Dm8Data.Validate
                }
             });
             return true;
-         } catch
+         }
+         catch
          {
             // recreate index
             this.InitCacheObjects();
@@ -331,7 +334,8 @@ namespace Dm8Data.Validate
                   if (this.dm8l2File.ContainsKey(newEntity))
                   {
                      this.dm8l2File[newEntity] = newFilePath;
-                  } else
+                  }
+                  else
                   {
                      this.dm8l2File.Add(newEntity ,newFilePath);
                   }
@@ -550,7 +554,8 @@ namespace Dm8Data.Validate
             if (this.dm8l2File.TryGetValue(dm8lEntity ,out string fileName))
             {
                return fileName;
-            } else
+            }
+            else
             {
                return null;
             }
@@ -567,7 +572,8 @@ namespace Dm8Data.Validate
          if (this.dm8l2File.ContainsKey(dm8lEntity))
          {
             this.dm8l2File[dm8lEntity] = path;
-         } else
+         }
+         else
          {
             this.dm8l2File.Add(dm8lEntity ,path);
          }
@@ -642,7 +648,8 @@ namespace Dm8Data.Validate
             var reader = new CuratedModelReader();
             var obj = await this.LoadOrGetCoreEntityAsync(filePath ,reader);
             return obj;
-         } else
+         }
+         else
          {
             var obj = await this.LoadOrGetCoreEntityAsync(filePath ,new CoreModelReader());
             return obj;
@@ -656,7 +663,8 @@ namespace Dm8Data.Validate
          {
             var obj = await this.LoadOrGetCoreEntityAsync(filePath ,new CuratedModelReader());
             return obj;
-         } else
+         }
+         else
          {
             var obj = await this.LoadOrGetCoreEntityAsync(filePath ,new CoreModelReader());
             return obj;
@@ -833,7 +841,8 @@ namespace Dm8Data.Validate
 
 
             // add no error result - filtered out in case error is added
-            this.sendOutputEvents.SendOutputEvent(new OutputItem { Code = "" ,Description = Resources.Validate_NoError });
+            this.sendOutputEvents.SendOutputEvent(new OutputItem
+            { Code = "" ,Description = Resources.Validate_NoError });
 
             // save index files
             await this.SaveAsync();
@@ -858,7 +867,8 @@ namespace Dm8Data.Validate
                validateException.FilePath = filePath;
                this.sendOutputEvents.SendOutputEvent(new OutputItem(validateException ,this.solution));
             }
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             this.sendOutputEvents.SendOutputEvent(new OutputItem(new UnknownValidateException(ex ,filePath) ,
                 this.Solution));
@@ -897,7 +907,8 @@ namespace Dm8Data.Validate
                   validateException.FilePath = rawEntityFileName;
                   this.sendOutputEvents.SendOutputEvent(new OutputItem(validateException ,this.solution));
                }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                this.sendOutputEvents.SendOutputEvent(
                    new OutputItem(new UnknownValidateException(ex ,rawEntityFileName) ,this.solution));
@@ -937,7 +948,8 @@ namespace Dm8Data.Validate
                   validateException.FilePath = stageEntityFileName;
                   this.sendOutputEvents.SendOutputEvent(new OutputItem(validateException ,this.solution));
                }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                this.sendOutputEvents.SendOutputEvent(
                    new OutputItem(new UnknownValidateException(ex ,stageEntityFileName) ,this.solution));
@@ -977,7 +989,8 @@ namespace Dm8Data.Validate
                         if (this.dm8lReferenced.TryGetValue(new Dm8lEntity(reference) ,out var refList))
                         {
                            refList.Add(new Dm8lEntity(coreEntity.Entity.Dm8l));
-                        } else
+                        }
+                        else
                         {
                            var newRefList = new List<Dm8lEntity>();
                            newRefList.Add(new Dm8lEntity(coreEntity.Entity.Dm8l));
@@ -993,7 +1006,8 @@ namespace Dm8Data.Validate
                   validateException.FilePath = coreEntityFileName;
                   this.sendOutputEvents.SendOutputEvent(new OutputItem(validateException ,this.solution));
                }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                this.sendOutputEvents.SendOutputEvent(
                    new OutputItem(new UnknownValidateException(ex ,coreEntityFileName) ,this.solution));
@@ -1038,7 +1052,8 @@ namespace Dm8Data.Validate
                         if (this.dm8lReferenced.TryGetValue(new Dm8lEntity(reference) ,out var refList))
                         {
                            refList.Add(new Dm8lEntity(curatedObject.Entity.Dm8l));
-                        } else
+                        }
+                        else
                         {
                            var newRefList = new List<Dm8lEntity>();
                            newRefList.Add(new Dm8lEntity(curatedObject.Entity.Dm8l));
@@ -1047,7 +1062,8 @@ namespace Dm8Data.Validate
                      }
                   }
                }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                this.sendOutputEvents.SendOutputEvent(
                    new OutputItem(new UnknownValidateException(ex ,curatedEntityFileName) ,this.solution));
@@ -1064,7 +1080,8 @@ namespace Dm8Data.Validate
                   validateException.FilePath = curatedObject.Key;
                   this.sendOutputEvents.SendOutputEvent(new OutputItem(validateException ,this.solution));
                }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                this.sendOutputEvents.SendOutputEvent(
                    new OutputItem(new UnknownValidateException(ex ,curatedObject.Key) ,this.solution));

@@ -208,7 +208,8 @@ namespace Dm8Data.Helper
 
             await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,command ,(s) => { if (this.ReportGit != null) { this.ReportGit(s); } });
             return true;
-         } catch
+         }
+         catch
          {
             return false;
          }
@@ -223,7 +224,8 @@ namespace Dm8Data.Helper
             await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,$"add --all" ,(s) => { if (this.ReportGit != null) { this.ReportGit(s); } });
             await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,$"commit -a -m \"{message}\"" ,(s) => { if (this.ReportGit != null) { this.ReportGit(s); } });
             return true;
-         } catch
+         }
+         catch
          {
             return false;
          }
@@ -271,7 +273,8 @@ namespace Dm8Data.Helper
             await ProcessExt.RunAsync(Path.Combine(gitPath ,"git.exe") ,"status -s -b --porcelain --untracked-files" ,(s) => this.QueryGitFileLine(repo ,s));
             this.Repositories.Add(repo);
             return true;
-         } catch
+         }
+         catch
          {
             return false;
          }
@@ -289,15 +292,18 @@ namespace Dm8Data.Helper
          {
             var split = s.Split(' ');
             repo.NameFetch = split?.Last();
-         } else if (s.Trim().StartsWith("Push  URL:"))
+         }
+         else if (s.Trim().StartsWith("Push  URL:"))
          {
             var split = s.Split(' ');
             repo.NamePush = split?.Last();
-         } else if (s.Trim().StartsWith("HEAD branch:"))
+         }
+         else if (s.Trim().StartsWith("HEAD branch:"))
          {
             var split = s.Split(' ');
             repo.Branch = split?.Last();
-         } else if (s.Trim().StartsWith("HEAD branch:"))
+         }
+         else if (s.Trim().StartsWith("HEAD branch:"))
          {
             var split = s.Split(' ');
             repo.Branch = split?.Last();
@@ -307,11 +313,13 @@ namespace Dm8Data.Helper
          {
             context = "remote";
             return;
-         } else if (s.Trim().StartsWith("Local branch"))
+         }
+         else if (s.Trim().StartsWith("Local branch"))
          {
             context = "local";
             return;
-         } else if (s.Trim().StartsWith("Local ref"))
+         }
+         else if (s.Trim().StartsWith("Local ref"))
          {
             context = "ref";
             return;
@@ -321,11 +329,13 @@ namespace Dm8Data.Helper
          {
             var split = s.Trim().Split(' ');
             repo.RemoteBranches.Add(split.First());
-         } else if (context == "local")
+         }
+         else if (context == "local")
          {
             var split = s.Trim().Split(' ');
             repo.PullBranches.Add(split.First());
-         } else if (context == "ref")
+         }
+         else if (context == "ref")
          {
             var split = s.Trim().Split(' ');
             repo.PushBranches.Add(split.First());
@@ -376,7 +386,8 @@ namespace Dm8Data.Helper
          if (repo.FileStatus.ContainsKey(fullFileName))
          {
             repo.FileStatus[fullFileName] = status;
-         } else
+         }
+         else
          {
             repo.FileStatus.Add(fullFileName ,status);
          }

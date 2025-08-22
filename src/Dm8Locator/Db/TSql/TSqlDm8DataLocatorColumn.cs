@@ -79,10 +79,13 @@ namespace Dm8Locator.Db.TSql
             {
                Adl.DefaultExpression = literal.Value;
                Adl.DefaultExpressionType = ConvertLiteralType2AdlType(literal.LiteralType);
-            } else if (defaultConstraint.Expression is IntegerLiteral integerLiteral)
+            }
+
+            else if (defaultConstraint.Expression is IntegerLiteral integerLiteral)
             {
                Adl.DefaultExpression = integerLiteral.Value;
-            } else if (defaultConstraint.Expression is NumericLiteral numericLiteral)
+            }
+            else if (defaultConstraint.Expression is NumericLiteral numericLiteral)
             {
                Adl.DefaultExpression = numericLiteral.Value;
             }
@@ -136,14 +139,17 @@ namespace Dm8Locator.Db.TSql
             if (int.TryParse(this.OriginalDataTypeParameters[0] ,out int value))
             {
                Adl.DataTypeLength = value;
-            } else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
+            }
+            else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
             {
                Adl.DataTypeLength = int.MaxValue;
-            } else
+            }
+            else
             {
                throw new ArgumentException($"Wrong length '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
             }
-         } else
+         }
+         else
          {
             Adl.DataTypeLength = int.MaxValue;
          }
@@ -156,14 +162,17 @@ namespace Dm8Locator.Db.TSql
             if (int.TryParse(this.OriginalDataTypeParameters[0] ,out int value))
             {
                Adl.DataTypePrecision = value;
-            } else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
+            }
+            else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
             {
                Adl.DataTypeLength = 38;       // max for SQL Server
-            } else
+            }
+            else
             {
                throw new ArgumentException($"Wrong scale '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
             }
-         } else
+         }
+         else
          {
             Adl.DataTypeLength = 38;       // max for SQL Server
          }
@@ -173,14 +182,17 @@ namespace Dm8Locator.Db.TSql
             if (int.TryParse(this.OriginalDataTypeParameters[1] ,out int value))
             {
                Adl.DataTypeScale = value;
-            } else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
+            }
+            else if (this.OriginalDataTypeParameters[0].ToLowerInvariant() == "max")
             {
                Adl.DataTypeScale = 0;       // max for SQL Server
-            } else
+            }
+            else
             {
                throw new ArgumentException($"Wrong scale '{this.OriginalDataTypeParameters[0]}' specified for '{Adl}'");
             }
-         } else
+         }
+         else
          {
             Adl.DataTypeScale = 0;       // max for SQL Server
          }

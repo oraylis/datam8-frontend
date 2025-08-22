@@ -45,7 +45,8 @@ namespace Dm8Locator.Db
                   }
 
                   value.left = table;
-               } else
+               }
+               else
                {
                   if (value.right != null)
                   {
@@ -54,7 +55,8 @@ namespace Dm8Locator.Db
 
                   value.right = table;
                }
-            } else
+            }
+            else
             {
                var newValue = new Dm8DataLocatorPairWithChildren { left = addLeft ? table : null ,right = addLeft ? null : table };
                this.result.Add(table ,newValue);
@@ -89,7 +91,8 @@ namespace Dm8Locator.Db
                      }
 
                      colValue.left = column;
-                  } else
+                  }
+                  else
                   {
                      if (colValue.right != null)
                      {
@@ -98,11 +101,13 @@ namespace Dm8Locator.Db
 
                      colValue.right = column;
                   }
-               } else
+               }
+               else
                {
                   tblValue.Children.Add(column ,new Dm8DataLocatorPair { left = addLeft ? column : null ,right = addLeft ? null : column });
                }
-            } else
+            }
+            else
             {
                // column added before table
                var newValue = new Dm8DataLocatorPairWithChildren();

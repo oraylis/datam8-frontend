@@ -45,10 +45,12 @@ namespace Dm8Locator.Db
          if (Adl is Dm8LocatorTable table)
          {
             this.tableCompareStorage.StoreTable(addLeft ,table);
-         } else if (Adl is Dm8LocatorColumn column && Adl.Parent is Dm8LocatorTable)
+         }
+         else if (Adl is Dm8LocatorColumn column && Adl.Parent is Dm8LocatorTable)
          {
             this.tableCompareStorage.StoreColumn(addLeft ,column);
-         } else
+         }
+         else
          {
             // all other data resource locators are stored by script
             this.Dm8DataLocatorCompareStorage.StoreDm8DataLocator(addLeft ,Adl);
@@ -66,11 +68,13 @@ namespace Dm8Locator.Db
                 tblEntry.Value.right == null)
             {
                rc.Add(new Dm8LocatorChange { ChangeType = Dm8LocatorChangeType.New ,Changes = { tblEntry.Value } });
-            } else if (tblEntry.Value.left == null &&
-                 tblEntry.Value.right != null)
+            }
+            else if (tblEntry.Value.left == null &&
+               tblEntry.Value.right != null)
             {
                rc.Add(new Dm8LocatorChange { ChangeType = Dm8LocatorChangeType.Deleted ,Changes = { tblEntry.Value } });
-            } else
+            }
+            else
             {
                var changeEntry = new Dm8LocatorChange { ChangeType = Dm8LocatorChangeType.Changed };
                var isChanged = !this.TypeComparer.Equals(tblEntry.Value.left ,tblEntry.Value.right);
@@ -98,11 +102,13 @@ namespace Dm8Locator.Db
               Adl.Value.right == null)
             {
                rc.Add(new Dm8LocatorChange { ChangeType = Dm8LocatorChangeType.New ,Changes = { Adl.Value } });
-            } else if (Adl.Value.left == null &&
-                 Adl.Value.right != null)
+            }
+            else if (Adl.Value.left == null &&
+               Adl.Value.right != null)
             {
                rc.Add(new Dm8LocatorChange { ChangeType = Dm8LocatorChangeType.Deleted ,Changes = { Adl.Value } });
-            } else
+            }
+            else
             {
                var changeEntry = new Dm8LocatorChange { ChangeType = Dm8LocatorChangeType.Changed };
                var isChanged = !this.TypeComparer.Equals(Adl.Value.left ,Adl.Value.right);

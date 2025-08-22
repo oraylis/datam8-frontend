@@ -124,12 +124,14 @@ namespace Dm8Main.Models
          {
             item.IsExpanded = true;
             item.Visibility = Visibility.Visible;
-         } else if (filter(item)) // this item is contained in filter
+         }
+         else if (filter(item)) // this item is contained in filter
          {
             rc = true;
             item.IsExpanded = false;
             item.Visibility = Visibility.Visible;
-         } else // item not contained in filter
+         }
+         else // item not contained in filter
          {
             item.Visibility = Visibility.Collapsed;
          }
@@ -150,18 +152,24 @@ namespace Dm8Main.Models
             {
                // done
                break;
-            } else if (iThis < this.Children.Count &&
-                  iOther >= other.Children.Count)
+            }
+
+            else if (iThis < this.Children.Count &&
+                iOther >= other.Children.Count)
             {
                this.Children.RemoveAt(iThis);
                iThis++;
-            } else if (iThis >= this.Children.Count &&
-                  iOther < other.Children.Count)
+            }
+
+            else if (iThis >= this.Children.Count &&
+                iOther < other.Children.Count)
             {
                this.Children.Add(other.Children[iOther]);
                iOther++;
                iThis++;
-            } else
+            }
+
+            else
             {
                int comp = StringComparer.InvariantCultureIgnoreCase.Compare(this.Children[iThis].Name ,this.Children[iOther].Name);
 
@@ -210,75 +218,6 @@ namespace Dm8Main.Models
       public virtual void CopyAttributes(HierarchicalItem<T> other)
       {
          this.Name = other.Name;
-      }
-
-      public bool Select(Func<HierarchicalItem<T> ,bool> filter ,HierarchicalItem<T> item ,bool multiSelect)
-      {
-         if (item == null)
-         {
-            item = this;
-         }
-
-         bool rc = false;
-         foreach (var subItem in item.Children)
-         {
-            rc |= this.Select(filter ,subItem ,multiSelect);
-         }
-
-         if (rc) // one subitem is contained in Select
-         {
-            if (!item.isExpanded)
-            {
-               item.IsExpanded = true;
-            }
-            if (!multiSelect)
-            {
-               if (item.IsSelected)
-               {
-                  item.IsSelected = false;
-               }
-            }
-            if (item.Visibility != Visibility.Visible)
-            {
-               item.Visibility = Visibility.Visible;
-            }
-         } else if (filter(item)) // this item is contained in filter
-         {
-            rc = true;
-            if (item.IsExpanded)
-            {
-               item.IsExpanded = false;
-            }
-            if (!item.IsSelected)
-            {
-               item.IsSelected = true;
-            }
-            if (item.Visibility != Visibility.Visible)
-            {
-               item.Visibility = Visibility.Visible;
-            }
-         } else
-         {
-            if (!multiSelect)
-            {
-               if (item.IsSelected)
-               {
-                  item.IsSelected = false;
-               }
-            }
-         }
-
-         return rc;
-      }
-      public void UnSelectAll()
-      {
-         foreach (var item in this.GetItems())
-         {
-            if (item.IsSelected)
-            {
-               item.IsSelected = false;
-            }
-         }
       }
 
    }

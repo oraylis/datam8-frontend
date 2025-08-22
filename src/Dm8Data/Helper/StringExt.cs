@@ -33,7 +33,8 @@ namespace Dm8Data.Helper
             if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9'))
             {
                sb.Append(c);
-            } else
+            }
+            else
             {
                sb.Append('_');
             }
@@ -48,7 +49,8 @@ namespace Dm8Data.Helper
             if (((c >= 'A' && c <= 'Z') || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') || c == '$')
             {
                sb.Append(c);
-            } else
+            }
+            else
             {
                sb.Append('_');
             }
@@ -86,7 +88,8 @@ namespace Dm8Data.Helper
          {
             //Set valid empty string as string could be null
             sValue = string.Empty;
-         } else if (sValue.Length > iMaxLength)
+         }
+         else if (sValue.Length > iMaxLength)
          {
             //Make the string no longer than the max length
             sValue = sValue.Substring(sValue.Length - iMaxLength ,iMaxLength);

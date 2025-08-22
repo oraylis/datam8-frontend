@@ -45,7 +45,8 @@ namespace Dm8Locator
              x?.GetType() == y?.GetType())
          {
             return true;
-         } else
+         }
+         else
          {
             return false;
          }

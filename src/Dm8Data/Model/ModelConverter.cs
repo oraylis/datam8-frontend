@@ -17,43 +17,18 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-using System.Windows;
-using System.Windows.Controls;
-using Dm8Main.Views;
+using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Helper;
 
-namespace Dm8Main.Avalon
+namespace Dm8Data.Raw
 {
-   public class ActStyleSelector:StyleSelector
+   //public static implicit operator NACH?(VON? src) => ObjectMapper.Map<VON ,NACH>(src);
+   public partial class ModelEntry:Prism.Mvvm.BindableBase
    {
-      public Style AnchorViewStyle
-      {
-         get;
-         set;
-      }
-
-
-      public Style DocumentViewStyle
-      {
-         get;
-         set;
-      }
-
-      public override Style SelectStyle(object item ,DependencyObject container)
-      {
-         if (item is IDocumentView)
-         {
-            return this.DocumentViewStyle;
-         }
-
-         if (item is IAnchorView)
-         {
-            return this.AnchorViewStyle;
-         }
-
-       ;
-
-         return base.SelectStyle(item ,container);
-      }
+      public static implicit operator RawModelEntryBase(ModelEntry src) => ObjectMapper.Map<ModelEntry ,RawModelEntryBase>(src);
+   }
+   public partial class Attribute:Prism.Mvvm.BindableBase
+   {
+      public static implicit operator RawAttributBase(Dm8Data.Raw.Attribute src) => ObjectMapper.Map<Dm8Data.Raw.Attribute ,RawAttributBase>(src);
    }
 }
-

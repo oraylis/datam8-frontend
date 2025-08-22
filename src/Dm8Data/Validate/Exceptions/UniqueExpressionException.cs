@@ -43,10 +43,12 @@ namespace Dm8Data.Validate.Exceptions
             if (this.FieldList.Count == 1)
             {
                return string.Format(MessageFormat1 ,this.ValueList.ToCommaList());
-            } else if (this.FieldList.Count > 1)
+            }
+            else if (this.FieldList.Count > 1)
             {
                return string.Format(MessageFormat2 ,this.ValueList.ToCommaList());
-            } else
+            }
+            else
             {
                return MessageFormat0;
             }

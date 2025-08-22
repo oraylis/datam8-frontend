@@ -55,7 +55,8 @@ namespace Dm8Data.Helper
             if (exist)
             {
                this.OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace ,newItem ,oldItem ,base.Keys.ToList().IndexOf(key)));
-            } else
+            }
+            else
             {
                this.OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add ,newItem ,base.Keys.ToList().IndexOf(key)));
                this.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));

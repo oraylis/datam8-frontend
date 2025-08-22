@@ -30,6 +30,16 @@ namespace Dm8Data.Raw
       {
          this.RaisePropertyChanged(propertyName);
       }
+
+      [Newtonsoft.Json.JsonIgnore]
+      public bool IsDeleted
+      {
+         get
+         {
+            return String.IsNullOrEmpty(this.DateDeleted) == false;
+         }
+      }
+
    }
 
    public partial class RawEntity:Prism.Mvvm.BindableBase

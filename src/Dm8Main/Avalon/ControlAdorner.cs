@@ -90,7 +90,8 @@ namespace Dm8Main.Avalon
          if (oldTransfor == null || oldTransfor == Transform.Identity)
          {
             this.RenderTransform = t;
-         } else
+         }
+         else
          {
             var g = new TransformGroup();
             g.Children.Add(oldTransfor);

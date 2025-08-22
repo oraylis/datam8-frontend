@@ -26,7 +26,7 @@ using System.Xml.Serialization;
 namespace Dm8Locator
 {
    /// <summary>
-   /// Abstract locator representing the path to a data resource 
+   /// Abstract locator representing the path to a data resource
    /// e.g. /dwh/serving/delivery/controlling/costElement/
    /// </summary>
    /// <seealso cref="System.Runtime.Serialization.ISerializable" />
@@ -60,7 +60,8 @@ namespace Dm8Locator
             if (this.dm8DataLocatorType == null || this.dm8DataLocatorType != value)
             {
                this.dm8DataLocatorType = value;
-            } else if (this.dm8DataLocatorType != value)
+            }
+            else if (this.dm8DataLocatorType != value)
             {
                throw new InvalidOperationException($"Changing Dm8DataLocator values is not supported {this.Dm8DataLocatorType}");
             }
@@ -95,8 +96,9 @@ namespace Dm8Locator
          {
             if (this.value == null)
             {
-               this.Init(value.ToLower());
-            } else
+               this.Init(value);
+            }
+            else
             {
                throw new InvalidOperationException($"Changing Dm8DataLocator values is not supported {this.Value}");
             }
@@ -184,6 +186,7 @@ namespace Dm8Locator
          {
             throw new ArgumentNullException(nameof(info));
          }
+
          // get data resource locator string representation
          this.IsRoot = info.GetBoolean("IsRoot");
          this.Value = info.GetString("Adl");
@@ -207,16 +210,19 @@ namespace Dm8Locator
          {
             this.value = Dm8DataLocatorSeperator + this.value;
          }
+
          if (this.value.EndsWith(Dm8DataLocatorSeperator))
          {
             this.value = this.value.Substring(0 ,this.value.Length - 1);
          }
+
          // create parent
          var adlParent = this.Value.Substring(0 ,this.Value.LastIndexOf(Dm8DataLocatorSeperator));
          try
          {
             this.Parent = this.CreateParent(adlParent);
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             throw new AggregateException($"Not a valid dm8 locator {adl}; cannot create parent {adlParent}" ,ex);
          }
@@ -225,7 +231,8 @@ namespace Dm8Locator
          if (this.IsRoot && this.Parent != null)
          {
             throw new InvalidDm8LocatorException(this.Value ,"Resource Locator is root but has a parent resource");
-         } else if (!this.IsRoot && this.Parent == null)
+         }
+         else if (!this.IsRoot && this.Parent == null)
          {
             throw new InvalidDm8LocatorException(this.Value ,"Resource Locator is not root and has no parent resource");
          }
@@ -265,6 +272,7 @@ namespace Dm8Locator
          {
             throw new ArgumentNullException(nameof(info));
          }
+
          this.GetObjectData(info ,context);
       }
       #endregion
@@ -301,11 +309,11 @@ namespace Dm8Locator
       /// Returns a hash code for this instance.
       /// </summary>
       /// <returns>
-      /// A hash code for this instance, suitable for use in hashing algorithms and data structures like a hash table. 
+      /// A hash code for this instance, suitable for use in hashing algorithms and data structures like a hash table.
       /// </returns>
       public override int GetHashCode()
       {
-         return this.Value.ToLower().GetHashCode();
+         return this.Value.GetHashCode();
       }
 
       /// <summary>
@@ -326,6 +334,7 @@ namespace Dm8Locator
                // null == null = true.
                return true;
             }
+
             // Only the left side is null.
             return false;
          }
@@ -361,7 +370,8 @@ namespace Dm8Locator
          if (value.EndsWith(Dm8LocatorBase.Dm8DataLocatorSeperator))
          {
             return string.Concat(value ,entityName);
-         } else
+         }
+         else
          {
             return string.Concat(value ,Dm8LocatorBase.Dm8DataLocatorSeperator ,entityName);
          }

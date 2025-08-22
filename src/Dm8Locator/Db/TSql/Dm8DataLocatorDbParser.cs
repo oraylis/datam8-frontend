@@ -168,7 +168,8 @@ namespace Dm8Locator.Db.TSql
                serverInstance.ConnectionContext.MultipleActiveResultSets = true;
                db = serverInstance.Databases.OfType<Database>().Where(d => d.Name == database).First();
                break;
-            } catch (Exception)
+            }
+            catch (Exception)
             {
                retry++;
                if (retry >= Properties.Settings.Default.ConnectRetry)
@@ -323,7 +324,8 @@ namespace Dm8Locator.Db.TSql
          if (length != null && length > 0)
          {
             Adl.DataTypeLength = length;
-         } else
+         }
+         else
          {
             Adl.DataTypeLength = int.MaxValue;
          }
@@ -334,7 +336,8 @@ namespace Dm8Locator.Db.TSql
          if (precision != null)
          {
             Adl.DataTypePrecision = precision;
-         } else
+         }
+         else
          {
             Adl.DataTypeLength = 38;       // max for SQL Server
          }
@@ -342,7 +345,8 @@ namespace Dm8Locator.Db.TSql
          if (scale != null)
          {
             Adl.DataTypeScale = scale;
-         } else
+         }
+         else
          {
             Adl.DataTypeScale = 0;       // max for SQL Server
          }

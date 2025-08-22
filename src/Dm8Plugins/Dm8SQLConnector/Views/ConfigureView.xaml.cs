@@ -63,7 +63,8 @@ namespace Dm8LakeConnector.Views
                string file = _source.ExtendedProperties["EncryptedData"];
                string data = Password.Password;
                UserData.Save(file ,data);
-            } else
+            }
+            else
             {
                _source.ExtendedProperties["RememberPassword"] = "false";
                if (_source.ExtendedProperties.ContainsKey("EncryptedData"))
@@ -101,7 +102,8 @@ namespace Dm8LakeConnector.Views
                }
                string file = _source.ExtendedProperties["EncryptedData"];
                Password.Password = UserData.Load(file);
-            } else
+            }
+            else
             {
                _source.ExtendedProperties.Remove("EncryptedData");
             }

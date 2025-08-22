@@ -56,7 +56,8 @@ class Program
                    var solutionContent = File.ReadAllText(o.Dm8SolutionFile);
                    solution = JsonConvert.DeserializeObject<Dm8Data.Solution>(solutionContent);
                    solution.CurrentRootFolder = Path.GetDirectoryName(o.Dm8SolutionFile);
-                } catch (Exception e)
+                }
+                catch (Exception e)
                 {
                    logger.LogCritical(e ,$"Error opening Dm8 solution {o.Dm8SolutionFile}");
                    throw;

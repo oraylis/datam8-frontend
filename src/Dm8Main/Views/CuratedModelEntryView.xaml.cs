@@ -168,7 +168,8 @@ namespace Dm8Main.Views
                      itemTab = this.EditGrid_SelectPreviousRow(sender);
                      colIdx = this.editGrid.Columns.Count - 1;
                   }
-               } else
+               }
+               else
                {
                   colIdx++;
                   if (colIdx >= this.editGrid.Columns.Count)

@@ -75,12 +75,14 @@ namespace Dm8Data.Helper
             try
             {
                return DecodePng(binaryReader);
-            } catch (ArgumentException e)
+            }
+            catch (ArgumentException e)
             {
                if (e.Message.StartsWith("Could not recognize image format."))
                {
                   throw new ArgumentException("Could not recognize image format." ,path ,e);
-               } else
+               }
+               else
                {
                   throw;
                }

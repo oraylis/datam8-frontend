@@ -45,7 +45,8 @@ namespace Dm8Main.Base
             This.Width = double.Parse(state[2]);
             This.Height = double.Parse(state[3]);
             This.WindowState = Enum.Parse<WindowState>(state[4]);
-         } catch
+         }
+         catch
          {
          }
       }

@@ -83,7 +83,8 @@ namespace Dm8Data.Validate
                   }
                }
             });
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             rc.Add(new UnknownValidateException(ex ,"Unknown"));
          }

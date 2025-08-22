@@ -171,7 +171,8 @@ namespace Dm8Main.ViewModels
                {
                   collection.CollectionChanged += this.Items_CollectionChanged;
                }
-            } else if (typeof(INotifyPropertyChanged).IsAssignableFrom(prop.PropertyType))
+            }
+            else if (typeof(INotifyPropertyChanged).IsAssignableFrom(prop.PropertyType))
             {
                var sub = (INotifyPropertyChanged)prop.GetValue(n);
                if (sub != null)
@@ -222,7 +223,8 @@ namespace Dm8Main.ViewModels
             {
                this.JsonCode = jsonCode;
                await this.UpdateFromJsonCodeAsync();
-            } else
+            }
+            else
             {
                this.ErrorList = new ObservableCollection<ModelReaderException>();
                await this.ValidateAsync();
@@ -259,7 +261,8 @@ namespace Dm8Main.ViewModels
 
             // check errors
             await this.ValidateAsync();
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             this.ErrorList = new ObservableCollection<ModelReaderException>();
             this.ErrorList.Add(new UnknownValidateException(ex ,this.FilePath));
@@ -284,7 +287,8 @@ namespace Dm8Main.ViewModels
             var v = ModelReaderFactory.Create(typeof(TObj));
             var newErrorList = await v.ValidateObjectAsync(this.solutionService.SolutionHelper ,this.Item);
             this.ErrorList = new ObservableCollection<ModelReaderException>(this.ErrorList.Union(newErrorList));
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             this.dialogService.ShowException(this ,ex);
          }
@@ -320,7 +324,8 @@ namespace Dm8Main.ViewModels
 
             this.Item = newItem;
             this.IsJsonLoaded = true;
-         } catch (AggregateException ex)
+         }
+         catch (AggregateException ex)
          {
             // clear other errors
             foreach (var childEx in ex.InnerExceptions)
@@ -329,17 +334,20 @@ namespace Dm8Main.ViewModels
                {
                   modelReaderException.FilePath = this.FilePath;
                   newErrorList.Add(modelReaderException);
-               } else
+               }
+               else
                {
                   newErrorList.Add(new UnknownValidateException(childEx ,this.FilePath));
                }
 
             }
-         } catch (ModelReaderException ex)
+         }
+         catch (ModelReaderException ex)
          {
             ex.FilePath = this.FilePath;
             newErrorList.Add(ex);
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             newErrorList.Add(new UnknownValidateException(ex ,this.FilePath));
          }
@@ -387,7 +395,8 @@ namespace Dm8Main.ViewModels
                jsonCode = FileHelper.MakeJson(this.Item);
             });
             this.JsonCode = jsonCode;
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             // json cannot be serialized -> why
             newErrorList.Add(new UnknownValidateException(ex ,this.FilePath));

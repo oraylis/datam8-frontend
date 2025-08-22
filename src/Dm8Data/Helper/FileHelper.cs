@@ -1,4 +1,4 @@
-﻿/* DataM8
+/* DataM8
  * Copyright (C) 2024-2025 ORAYLIS GmbH
  *
  * This file is part of DataM8.
@@ -121,7 +121,25 @@ namespace Dm8Data.Helper
 
       public static string MakeJson(object obj)
       {
-         string retVal = JsonConvert.SerializeObject(obj ,Formatting.Indented ,new Newtonsoft.Json.Converters.StringEnumConverter());
+         var settings = new JsonSerializerSettings
+         {
+            NullValueHandling = NullValueHandling.Ignore ,
+            ContractResolver = new DefaultContractResolver
+            {
+               NamingStrategy = new CamelCaseNamingStrategy
+               {
+                  ProcessDictionaryKeys = true ,
+                  OverrideSpecifiedNames = false
+               }
+            } ,
+            Converters =
+            {
+               new StringEnumConverter(new CamelCaseNamingStrategy(), allowIntegerValues: false)
+            }
+         };
+
+         string retVal = JsonConvert.SerializeObject(obj ,Formatting.Indented ,settings);
+
          return (retVal);
       }
    }

@@ -45,7 +45,8 @@ namespace Dm8Locator.Db
                   }
 
                   value.left = Adl;
-               } else
+               }
+               else
                {
                   if (value.right != null)
                   {
@@ -54,7 +55,8 @@ namespace Dm8Locator.Db
 
                   value.right = Adl;
                }
-            } else
+            }
+            else
             {
                var newValue = new Dm8DataLocatorPair { left = addLeft ? Adl : null ,right = addLeft ? null : Adl };
                this.result.Add(Adl ,newValue);

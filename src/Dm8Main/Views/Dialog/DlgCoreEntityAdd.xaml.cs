@@ -96,7 +96,8 @@ namespace Dm8Main.Views.Dialog
          if (prevItem == null)
          {
             this.ButtonBack.IsEnabled = false;
-         } else
+         }
+         else
          {
             this.ButtonBack.IsEnabled = true;
          }
@@ -107,7 +108,8 @@ namespace Dm8Main.Views.Dialog
             this.ButtonNext.Width = 0;
             this.OkButton.Visibility = Visibility.Visible;
             this.OkButton.Width = 80;
-         } else
+         }
+         else
          {
             this.ButtonNext.Visibility = Visibility.Visible;
             this.ButtonNext.Width = 80;
@@ -134,7 +136,8 @@ namespace Dm8Main.Views.Dialog
             if (i == this.HamburgerMenuControl.SelectedItem)
             {
                foundSelected = true;
-            } else
+            }
+            else
             {
                i.IsEnabled = true;
                prevItem = i;

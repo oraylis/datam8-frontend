@@ -60,7 +60,8 @@ namespace Dm8Locator.Db.TSql
          try
          {
             this.ParseTSqlFile(sqlFile ,storeAction);
-         } catch (TSqlParserException ex)
+         }
+         catch (TSqlParserException ex)
          {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (var err in ex.Errors)
@@ -70,7 +71,8 @@ namespace Dm8Locator.Db.TSql
                stringBuilder.Append(") ");
             }
             throw new TSqlParserException($"Error parsing file '{sqlFile}' ({ex.Message}): ${stringBuilder.ToString()}" ,ex);
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             throw new TSqlParserException($"Error parsing file '{sqlFile}' ({ex.Message})" ,ex);
          }

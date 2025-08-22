@@ -18,11 +18,13 @@
  */
 
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Composition;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using Dm8Data.DataSources;
 using Dm8Data.Helper;
 using Dm8Data.MessageOutput;
@@ -34,6 +36,7 @@ using Dm8Main.Properties;
 using Dm8Main.Services;
 using MvvmDialogs;
 using Oraylis.DataM8.PluginBase.BaseClasses;
+using Oraylis.DataM8.PluginBase.Helper;
 using Oraylis.DataM8.PluginBase.Interfaces;
 using Prism.Commands;
 using Prism.Events;
@@ -124,6 +127,9 @@ namespace Dm8Main.ViewModels
       private string entityName;
       #endregion
 
+      public ICollectionView FilteredAttributes { get; set; }
+
+
       public RawModelEntryViewModel(IUnityContainer unityContainer ,ISolutionService solutionService ,IEventAggregator eventAggregator ,IDialogService dialogService)
           : base(unityContainer ,solutionService ,eventAggregator ,dialogService)
       {
@@ -131,6 +137,7 @@ namespace Dm8Main.ViewModels
          this.RefreshSourceCommand = new DelegateCommand(async () => await this.RefreshSourceAsync());
          this.DeleteRowCommand = new DelegateCommand(this.DeleteRow);
          this.PropertyChanged += this.OnPropertyChanged;
+
       }
 
       private void OnPropertyChanged(object? sender ,PropertyChangedEventArgs e)
@@ -140,6 +147,43 @@ namespace Dm8Main.ViewModels
             this.Item.Entity.PropertyChanged += this.EntityOnPropertyChanged;
             this.EntityName = this.Item.Entity.Name;
          }
+         _ = InitFilter();
+      }
+
+      public async Task InitFilter(bool force = false)
+      {
+         // Früh raus, wenn nichts zu tun
+         if (this.Item?.Entity?.Attribute is null || this.Item.Entity.Attribute.Count == 0)
+         {
+            return;
+         }
+
+         // Alles, was WPF-Objekte anfasst, auf den UI-Thread
+         await Application.Current.Dispatcher.InvokeAsync(() =>
+         {
+            if (FilteredAttributes is null || force)
+            {
+               var view = CollectionViewSource.GetDefaultView(this.Item.Entity.Attribute);
+
+               using (view.DeferRefresh()) // vermeidet mehrfaches Refresh
+               {
+                  view.Filter = o =>
+                  {
+                     Dm8Data.Raw.Attribute a = (Dm8Data.Raw.Attribute)o;
+                     if (a is null)
+                     {
+                        return false;
+                     }
+                     return !a.IsDeleted;
+                  }
+                  ;
+
+               }
+
+               FilteredAttributes = view;
+            }
+            FilteredAttributes?.Refresh();
+         });
       }
 
       private async void EntityOnPropertyChanged(object? sender ,PropertyChangedEventArgs e)
@@ -171,7 +215,8 @@ namespace Dm8Main.ViewModels
                await base.SaveAsync();
                this.EntityName = newEntityName;
                return true;
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                this.dialogService.ShowException(this ,ex);
             }
@@ -181,6 +226,7 @@ namespace Dm8Main.ViewModels
 
       protected override async Task SaveInternalAsync()
       {
+         await InitFilter();
          if (this.Item.Entity != null && this.Item.Entity.Name != this.EntityName)
          {
             if (await this.RenameEntity())
@@ -218,28 +264,52 @@ namespace Dm8Main.ViewModels
             DataTypeModelReader dataTypeModelReader = new DataTypeModelReader();
             var dataTypes = await dataTypeModelReader.ReadFromFileAsync(this.solution.DataTypesFilePath);
 
-            var dataSource = dataSources.FirstOrDefault(ds => modelEntry.Function.DataSource == ds.Name);
+            var dataSource = dataSources.FirstOrDefault(ds => modelEntry.Function.DataSource.ToLower() == ds.Name.ToLower());
 
-            // refresh data source
-            IDm8PluginConnectorSourceExplorerV1 ds = (IDm8PluginConnectorSourceExplorerV1)DataSourceExplorerFactory.Create(dataSource.Type);
+            IDm8PluginConnectorSourceExplorerV1 ds = (IDm8PluginConnectorSourceExplorerV1)(IDm8PluginConnectorSourceExplorerV1)DataSourceExplorerFactory.Create(dataSource.Type);
+
             ds.Source = Oraylis.DataM8.PluginBase.Extensions.Extensions.ConvertClass<DataSourceBase ,DataSource>(dataSource);
             ds.Layer = Dm8Data.Properties.Resources.Folder_Raw;
             ds.DataModule = modelEntry.Entity.DataModule;
             ds.DataProduct = modelEntry.Entity.DataProduct;
-            await ds.RefreshAttributesAsync(modelEntry ,true);
+            if (!modelEntry.Function.SourceLocation.ToLower().EndsWith(".csv"))
+            {
+               ObservableCollection<RawAttributBase> elements = [.. modelEntry.Entity.Attribute];
+               await ds.RefreshAttributesAsync<RawModelEntryBase ,ObservableCollection<RawAttributBase>>(modelEntry ,elements ,true);
+               modelEntry.Entity.Attribute.Clear();
+               foreach (RawAttributBase a in elements)
+               {
+                  Dm8Data.Raw.Attribute a1 = ObjectMapper.Map<RawAttributBase ,Dm8Data.Raw.Attribute>(a);
+
+                  modelEntry.Entity.Attribute.Add(a1);
+               }
+            }
+
+
             var countUpdates = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateModified ,now) >= 0);
             var countDeletes = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateDeleted ,now) >= 0);
-            if (countUpdates == 0 && countDeletes == 0)
+            var countAdded = modelEntry.Entity.Attribute.Count(a => StringComparer.InvariantCultureIgnoreCase.Compare(a.DateAdded ,now) >= 0);
+            if (countUpdates == 0 && countDeletes == 0 && countAdded == 0)
             {
                info = Resources.RawModelEntryViewModel_RefreshSourceResult_No_Change;
-            } else
+            }
+            else
             {
-               info = string.Format(Resources.RawModelEntryViewModel_RefreshSourceResult ,countUpdates ,countDeletes);
+               info = string.Format(Resources.RawModelEntryViewModel_RefreshSourceResult ,countUpdates ,countDeletes ,countAdded);
             }
             this.eventAggregator.GetEvent<OutputItemEvent>().Publish(new OutputItem(new UpdateInfoException($"Refresh {modelEntry.Entity.DisplayName}: {info}" ,this.FilePath) ,this.solution));
-            var JsonCode = FileHelper.MakeJson(modelEntry);
+            var jsonCode = FileHelper.MakeJson(modelEntry);
+            await FileHelper.WriteFileAsync(this.FilePath ,jsonCode);
 
-         } catch (Exception ex)
+            this.JsonCode = "";
+            this.IsJsonLoaded = false;
+
+            await this.LoadAsync();
+            this.IsModified = false;
+            await this.InitFilter(true);
+
+         }
+         catch (Exception ex)
          {
             this.dialogService.ShowException(this ,ex);
          }

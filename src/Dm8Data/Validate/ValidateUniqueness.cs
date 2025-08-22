@@ -67,7 +67,8 @@ namespace Dm8Data.Validate
                   {
                      uniqueError.Add(key);
                      uniqueHash[key].objs.Add(item);
-                  } else
+                  }
+                  else
                   {
                      var objs = new List<TObj>
                         {
@@ -86,7 +87,8 @@ namespace Dm8Data.Validate
                }
 
             });
-         } catch (Exception ex)
+         }
+         catch (Exception ex)
          {
             rc.Add(new UnknownValidateException(ex ,"Unknown"));
          }

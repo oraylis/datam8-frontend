@@ -361,6 +361,57 @@ namespace Dm8Main.ViewModels
             {
                // this task is running the operation
                this.runningOperations = true;
+            }
+         }
+      }
+
+      public async Task LoadAsync()
+      {
+         lock (this.documentOperations)
+         {
+            this.documentOperations.Enqueue(DocumentOperation.LoadDocument);
+         }
+
+         await this.RunOperations();
+      }
+
+
+      public async Task SaveAsync()
+      {
+         lock (this.documentOperations)
+         {
+            this.documentOperations.Enqueue(DocumentOperation.SaveDocument);
+         }
+
+         await this.RunOperations();
+      }
+
+      public virtual Task SaveAllAsync(IList<ProjectItem> rc)
+      {
+         throw new NotImplementedException();
+      }
+
+      public virtual Task ValidateAsync()
+      {
+         throw new NotImplementedException();
+      }
+
+
+      protected virtual async Task CloseAsync()
+      {
+         await Task.Yield();
+         this.Closed?.Invoke();
+         this.Dispose();
+      }
+
+      private async Task RunOperations()
+      {
+         lock (this)
+         {
+            if (!this.runningOperations)
+            {
+               // this task is running the operation
+               this.runningOperations = true;
             } else
             {
                return;

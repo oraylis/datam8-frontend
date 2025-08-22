@@ -77,7 +77,8 @@ namespace Dm8Data.Validate
                      rc.Add(new ForeignKeyException(relationshipField ,primaryEntity ,attrKey.Name));
                   }
                }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                rc.Add(new UnknownValidateException(ex ,"Unknown"));
             }

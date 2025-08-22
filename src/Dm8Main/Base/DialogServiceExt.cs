@@ -37,7 +37,8 @@ namespace Dm8Main.Base
                 try
                 {
                    dialogService.ShowMessageBox(owner ,rc ,"Errormessage:1");
-                } catch (ViewNotRegisteredException)
+                }
+                catch (ViewNotRegisteredException)
                 {
                    dialogService.ShowMessageBox(Application.Current.MainWindow.DataContext as INotifyPropertyChanged ,rc ,"Errormessage:2");
                 }

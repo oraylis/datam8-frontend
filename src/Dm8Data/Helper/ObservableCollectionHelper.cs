@@ -43,7 +43,8 @@ namespace Dm8Data.Helper
             if (dictOther.TryGetValue(identifier(This[i]) ,out Type newObj))
             {
                Copy(This[i] ,newObj);
-            } else
+            }
+            else
             {
                toRemove.Add(This[i]);
             }

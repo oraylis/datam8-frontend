@@ -49,7 +49,8 @@ namespace Dm8Data.Validate.Exceptions
             if (this.ValueList.Count > 1)
             {
                return string.Format(MessageFormat2 ,this.ValueList.ToCommaList() ,this.FieldNames.Select(i => i.Item1).ToCommaList());
-            } else
+            }
+            else
             {
                return MessageFormat0;
             }

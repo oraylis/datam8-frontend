@@ -21,13 +21,13 @@
                       TitleCharacterCasing="Normal"
                       Width="600"
                       Height="450"
-                      GlowBrush="{DynamicResource MahApps.Brushes.AccentBase}"
                       WindowStartupLocation="CenterScreen"
                       WindowTransitionsEnabled="False"
                       Loaded="DlgCoreEntityAdd_OnLoaded"
                       Closing="DlgCoreEntityAdd_OnClosing"
                       md:DialogServiceViews.IsRegistered="True"
-                      mc:Ignorable="d">
+                      mc:Ignorable="d"
+                      GlowColor="{DynamicResource MahApps.Brushes.AccentBase}">
 
 
     

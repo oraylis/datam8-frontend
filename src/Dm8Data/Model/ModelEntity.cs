@@ -34,23 +34,20 @@ namespace Dm8Data
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.4.0.0 (Newtonsoft.Json v13.0.0.0)")]
     public partial class Locator : Prism.Mvvm.BindableBase
     {
-        private string _zone;
+        private string _entityType;
         private System.Collections.Generic.ICollection<string> _folders = new System.Collections.ObjectModel.Collection<string>();
-        private string _modelEntity;
+        private string _entityName;
 
 
-        /// <summary>
-        /// Reference to the top-level folder within the model folder.
-        /// </summary>
-        [Newtonsoft.Json.JsonProperty("zone", Required = Newtonsoft.Json.Required.Always)]
+        [Newtonsoft.Json.JsonProperty("entityType", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Zone    {
-            get { return _zone; }
-            set { SetProperty(ref _zone, value); }
+        public string EntityType    {
+            get { return _entityType; }
+            set { SetProperty(ref _entityType, value); }
         }
 
         /// <summary>
-        /// Hierarchical list of olders under the zone. Order is relevant.
+        /// Hierarchical list of olders under the base-/modelpath. Order is relevant.
         /// </summary>
         [Newtonsoft.Json.JsonProperty("folders", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required]
@@ -60,13 +57,12 @@ namespace Dm8Data
         }
 
         /// <summary>
-        /// Name property of the modelEntity object.
+        /// Name property of the entity object.
         /// </summary>
-        [Newtonsoft.Json.JsonProperty("modelEntity", Required = Newtonsoft.Json.Required.Always)]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string ModelEntity    {
-            get { return _modelEntity; }
-            set { SetProperty(ref _modelEntity, value); }
+        [Newtonsoft.Json.JsonProperty("entityName", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string EntityName    {
+            get { return _entityName; }
+            set { SetProperty(ref _entityName, value); }
         }
 
     }
@@ -326,7 +322,6 @@ namespace Dm8Data
 
         [Newtonsoft.Json.JsonProperty("sources", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.MinLength(1)]
         public System.Collections.Generic.ICollection<InternalModelSource> Sources    {
             get { return _sources; }
             set { SetProperty(ref _sources, value); }
@@ -337,7 +332,6 @@ namespace Dm8Data
         /// </summary>
         [Newtonsoft.Json.JsonProperty("transformations", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.MinLength(1)]
         public System.Collections.Generic.ICollection<ModelTransformation> Transformations    {
             get { return _transformations; }
             set { SetProperty(ref _transformations, value); }

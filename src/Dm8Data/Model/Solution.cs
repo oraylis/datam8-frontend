@@ -34,9 +34,24 @@ namespace Dm8Data
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "11.4.0.0 (Newtonsoft.Json v13.0.0.0)")]
     public partial class GeneratorTarget : Prism.Mvvm.BindableBase
     {
+        private string _name;
+        private bool _isDefault = false;
         private string _sourcePath;
         private string _outputPath;
 
+
+        [Newtonsoft.Json.JsonProperty("name", Required = Newtonsoft.Json.Required.Always)]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Name    {
+            get { return _name; }
+            set { SetProperty(ref _name, value); }
+        }
+
+        [Newtonsoft.Json.JsonProperty("isDefault", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public bool IsDefault    {
+            get { return _isDefault; }
+            set { SetProperty(ref _isDefault, value); }
+        }
 
         /// <summary>
         /// A path relative to the folder where the the solution file lies.

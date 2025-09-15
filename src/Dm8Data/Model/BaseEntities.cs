@@ -115,7 +115,6 @@ namespace Dm8Data
 
         [Newtonsoft.Json.JsonProperty("sources", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.MinLength(1)]
         public System.Collections.Generic.ICollection<InternalModelSource> Sources    {
             get { return _sources; }
             set { SetProperty(ref _sources, value); }
@@ -126,7 +125,6 @@ namespace Dm8Data
         /// </summary>
         [Newtonsoft.Json.JsonProperty("transformations", Required = Newtonsoft.Json.Required.Always)]
         [System.ComponentModel.DataAnnotations.Required]
-        [System.ComponentModel.DataAnnotations.MinLength(1)]
         public System.Collections.Generic.ICollection<ModelTransformation> Transformations    {
             get { return _transformations; }
             set { SetProperty(ref _transformations, value); }

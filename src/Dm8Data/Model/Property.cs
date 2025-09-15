@@ -124,7 +124,8 @@ namespace Dm8Data
         /// <summary>
         /// The name of the associated property.
         /// </summary>
-        [Newtonsoft.Json.JsonProperty("property", Required = Newtonsoft.Json.Required.DisallowNull, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        [Newtonsoft.Json.JsonProperty("property", Required = Newtonsoft.Json.Required.Always)]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Property    {
             get { return _property; }
             set { SetProperty(ref _property, value); }

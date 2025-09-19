@@ -24,8 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.8" />
-    <PackageReference Include="WixSharp_wix4" Version="2.7.7" />
+    <PackageReference Include="NJsonSchema" Version="11.5.0" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.9" />
+    <PackageReference Include="WixSharp_wix4" Version="2.8.0" />
   </ItemGroup>
 
   <ItemGroup>

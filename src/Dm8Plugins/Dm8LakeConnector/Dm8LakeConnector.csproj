@@ -19,10 +19,11 @@
     <PackageReference Include="Azure.Storage.Files.DataLake" Version="12.23.0" />
     <PackageReference Include="DataGridExtensions" Version="2.7.0" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+    <PackageReference Include="NJsonSchema" Version="11.5.0" />
     <PackageReference Include="Oraylis.DataM8.PluginBase" Version="1.0.6" />
     <PackageReference Include="Parquet.Net" Version="5.2.0" />
     <PackageReference Include="Prism.Core" Version="9.0.537" />
-    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.8" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.9" />
   </ItemGroup>
 
   <ItemGroup>

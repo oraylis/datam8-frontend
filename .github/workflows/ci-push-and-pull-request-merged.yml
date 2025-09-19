@@ -83,11 +83,12 @@ jobs:
           NugetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build DataM8 Solution
+        working-directory: ./src
         # INFO: build the Dm8Build projects once before otherwise references
         # to DLLs are not working
         run: |
-          dotnet build src/Dm8Build
-          dotnet build src/Dm8Main.sln
+          dotnet msbuild Dm8Build
+          dotnet msbuild Dm8Main.sln
 
       - name: Build DataM8 Generator
         working-directory: ./datam8-generator

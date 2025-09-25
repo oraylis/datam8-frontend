@@ -23,7 +23,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: windows-2022
+    runs-on: windows-2025
     env:
       DevEnvDir: "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\IDE\\"
       SolutionDir: ${{ github.workspace }}\src

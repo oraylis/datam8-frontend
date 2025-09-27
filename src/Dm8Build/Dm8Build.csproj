@@ -1,33 +1,30 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	  <TargetFrameworks>net8.0;net48</TargetFrameworks>
+	  <TargetFrameworks>net48</TargetFrameworks>
+     <RuntimeIdentifiers>win-x86</RuntimeIdentifiers>
 	  <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <ApplicationIcon />
     <OutputType>Exe</OutputType>
     <StartupObject />
     <BaseOutputPath>bin</BaseOutputPath>
     <BaseIntermediateOutputPath>obj</BaseIntermediateOutputPath>
-    <Configurations>Debug;Release;Debug_Main</Configurations>
+     <Configurations>Debug;Release;Debug_Main;Debug_Linux</Configurations>
+     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'" />
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Main|AnyCPU'" />
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'" />
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'" />
 
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net6.0|AnyCPU'">
-    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
-  </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_Linux|AnyCPU'" />
 
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net48|AnyCPU'">
+   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net48|AnyCPU'">
     <NoWarn>NU1701;NU1702;NU0063</NoWarn>
     <WarningLevel>6</WarningLevel>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net6.0|AnyCPU'">
-    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+    <Optimize>True</Optimize>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net48|AnyCPU'">
@@ -35,16 +32,19 @@
     <WarningLevel>6</WarningLevel>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug_Main|net6.0|AnyCPU'">
-    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
-  </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug_Main|net48|AnyCPU'">
+      <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+      <WarningLevel>6</WarningLevel>
+      <Optimize>True</Optimize>
+   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug_Main|net48|AnyCPU'">
-    <NoWarn>NU1701;NU1702;NU0063</NoWarn>
-    <WarningLevel>6</WarningLevel>
-  </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug_Linux|net48|AnyCPU'">
+      <NoWarn>NU1701;NU1702;NU0063</NoWarn>
+      <WarningLevel>6</WarningLevel>
+      <Optimize>True</Optimize>
+   </PropertyGroup>
 
-  <ItemGroup>
+   <ItemGroup>
     <Compile Remove="Example\Generate\**" />
     <Compile Remove="Properties\**" />
     <EmbeddedResource Remove="Example\Generate\**" />
@@ -54,18 +54,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NJsonSchema" Version="11.1.0" />
     <PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
     <PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
     <PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
     <PackageReference Include="Prism.Core" Version="9.0.537" />
-    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.7" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.9" />
     <PackageReference Include="System.Private.Uri" Version="4.3.2" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.0" />
-    <PackageReference Include="System.Text.Json" Version="9.0.1" />
-    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+    <PackageReference Include="System.Text.Json" Version="9.0.9" />
   </ItemGroup>
 
   <ItemGroup>

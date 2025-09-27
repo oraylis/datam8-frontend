@@ -17,7 +17,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+using System;
+using System.IO;
+using NJsonSchema;
 using NJsonSchema.CodeGeneration.CSharp;
+using NJsonSchema.Generation;
+using NJsonSchema.NewtonsoftJson;
+using NJsonSchema.NewtonsoftJson.Generation;
+
 
 namespace Dm8Base
 {
@@ -32,6 +39,8 @@ namespace Dm8Base
       {
          var t = typeof(System.Runtime.CompilerServices.Unsafe);
          var generator = new CSharpGenerator("" ,new CSharpGeneratorSettings { Namespace = "Dm8Data.AttributeTypes" ,GenerateDataAnnotations = true ,ClassStyle = CSharpClassStyle.Prism ,GenerateNullableReferenceTypes = true });
+
+
       }
    }
 }

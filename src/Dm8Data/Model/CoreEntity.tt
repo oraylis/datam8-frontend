@@ -1,35 +1,6 @@
-﻿<#@ Import Namespace="System.Data.Common" #>
-<#@ template debug="false" hostspecific="true" language="C#" #>
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
 <#@ output extension=".cs" #>
-<#@ assembly name="netstandard" #>
-<#@ Assembly Name="System.Core" #>
-<#@ Assembly Name="Microsoft.CSharp" #>
-<#@ assembly name="System.Data" #>
-<#@ assembly name="System.Data.Entity" #>
-<#@ assembly name="System.Xml" #>
-<#@ assembly name="System.Xml.Linq"#>
-<#@ assembly name="System.Runtime.dll"#>
-<#@ assembly name=".\Dm8Build\bin\Debug\net48\Newtonsoft.Json.dll" #>
-<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.dll" #>
-<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.dll" #>
-<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.CSharp.dll" #>
-<#@ import namespace="System" #>
-<#@ import namespace="System.Data" #>
-<#@ import namespace="System.Data.Objects" #>
-<#@ import namespace="System.Linq" #>
-<#@ import namespace="System.IO" #>
-<#@ import namespace="System.Collections.Generic" #>
-<#@ import namespace="System.Data.Objects.DataClasses" #>
-<#@ import namespace="System.Text.RegularExpressions" #>
-<#@ import namespace="System.Globalization" #>
-<#@ import namespace="System.Reflection" #>
-<#@ import namespace="System.CodeDom" #>
-<#@ import namespace="System.CodeDom.Compiler" #>
-<#@ import namespace="Microsoft.CSharp"#>
-<#@ import namespace="System.Text"#>
-<#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
-<#@ import namespace="NJsonSchema" #>
-<#@ import namespace="NJsonSchema.CodeGeneration.CSharp" #>
+<#@ include file="T4.ttinclude" #>
 <#
 	try
     {

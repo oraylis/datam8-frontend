@@ -38,7 +38,7 @@ namespace Dm8Main.Models
 #pragma warning disable IDE0060
 #pragma warning disable IDE0057 // Use range operator
 #pragma warning disable CA1416
-
+#pragma warning disable CS0618   // disable deprecate for Icons
    public class ProjectItem:HierarchicalItem<ProjectItem>
    {
       public enum Types

@@ -1,0 +1,109 @@
+<#@ assembly name=".\Dm8Build\bin\Debug\net48\Newtonsoft.Json.dll" #>
+<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.dll" #>
+<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.dll" #>
+<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.CodeGeneration.CSharp.dll" #>
+<#@ assembly name=".\Dm8Build\bin\Debug\net48\NJsonSchema.NewtonsoftJson.dll" #>
+<#@ assembly name="netstandard" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Data" #>
+<#@ assembly name="System.Data.Entity" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="System.Xml.Linq"#>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Text" #>
+<#@ import Namespace="System.Data.Common" #>
+<#@ import namespace="NJsonSchema" #>
+<#@ import namespace="NJsonSchema.CodeGeneration.CSharp" #>
+<#@ import namespace="NJsonSchema.NewtonsoftJson.Generation" #>
+<#@ import namespace="System.Linq" #>
+<#
+    // --------- Robuster Assembly-Resolver f¸r T4 (net48) ----------
+
+    System.Func<string, string> _safe = p =>
+    {
+        try { return System.IO.Path.GetFullPath(p); } catch { return p; }
+    };
+
+    var _probeDirs = new System.Collections.Generic.List<string>();
+    try
+    {
+        var _templateDir = System.IO.Path.GetDirectoryName(Host.TemplateFile);
+
+        if (!string.IsNullOrEmpty(_templateDir))
+            _probeDirs.Add(_templateDir);
+
+        var _binPath = System.IO.Path.Combine(_templateDir ?? ".", "Dm8Build", "bin", "Debug", "net48");
+        _probeDirs.Add(_safe(_binPath));
+
+        // NuGet-Cache des aktuellen Users
+        var _nugetRoot = System.IO.Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+            ".nuget", "packages"
+        );
+        if (System.IO.Directory.Exists(_nugetRoot)) _probeDirs.Add(_nugetRoot);
+
+        // Optional: repo-eigenes packages-Verzeichnis
+        var _repoPackages = System.IO.Path.Combine(_templateDir ?? ".", "packages");
+        if (System.IO.Directory.Exists(_repoPackages)) _probeDirs.Add(_safe(_repoPackages));
+    }
+    catch { /* egal ñ wir haben immer noch einen Suchpfad */ }
+
+    // Einmalig registrieren (idempotent):
+    if ((bool)(System.AppDomain.CurrentDomain.GetData("T4_AsmResolver_Installed") ?? false) == false)
+    {
+        System.AppDomain.CurrentDomain.SetData("T4_AsmResolver_Installed", true);
+
+        // kleine Helper-Funktion: ungeeignete TFM-Pfade ausschlieﬂen
+        Func<string, bool> _isCompatible = path =>
+        {
+            var p = path?.ToLowerInvariant() ?? "";
+            // Bevorzugt: net48 / net472 / net471 / net461 / net46 / net45 / net40 / netstandard2.0
+            // Ausschluss: netstandard2.1, net5.0+, net6/7/8
+            if (p.Contains("netstandard2.1")) return false;
+            if (p.Contains(@"\net5")) return false;
+            if (p.Contains(@"\net6")) return false;
+            if (p.Contains(@"\net7")) return false;
+            if (p.Contains(@"\net8")) return false;
+            return true;
+        };
+
+        System.AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+        {
+            try
+            {
+                var requested = new System.Reflection.AssemblyName(args.Name);
+                var fileName = requested.Name + ".dll";
+
+                // 1) Direkte Treffer in bekannten Ordnern
+                foreach (var dir in _probeDirs)
+                {
+                    try
+                    {
+                        var direct = System.IO.Path.Combine(dir, fileName);
+                        if (System.IO.File.Exists(direct) && _isCompatible(direct))
+                            return System.Reflection.Assembly.LoadFrom(direct);
+                    }
+                    catch { /* weiter versuchen */ }
+                }
+
+                // 2) Rekursive Suche (sp‰ter, da teurer)
+                foreach (var dir in _probeDirs)
+                {
+                    try
+                    {
+                        var hit = System.IO.Directory
+                            .EnumerateFiles(dir, fileName, System.IO.SearchOption.AllDirectories)
+                            .FirstOrDefault(f => _isCompatible(f));
+
+                        if (hit != null)
+                            return System.Reflection.Assembly.LoadFrom(hit);
+                    }
+                    catch { /* weiter versuchen */ }
+                }
+            }
+            catch { /* keine Panik ñ wir geben null zur¸ck */ }
+            return null;
+        };
+    }
+#>

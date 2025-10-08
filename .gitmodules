@@ -5,4 +5,4 @@
 [submodule "datam8-generator"]
 	path = datam8-generator
 	url = https://github.com/oraylis/datam8-generator
-	branch = release/v1.0.0
+	branch = release/v1.0.1

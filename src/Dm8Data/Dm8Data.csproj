@@ -236,9 +236,12 @@
 		</EmbeddedResource>
 	</ItemGroup>
 
+  <UsingTask TaskName="Dm8Build.GenerateCodeTask" AssemblyFile="$(MSBuildProjectDirectory)\..\..\src\Dm8Build\bin\Debug\net48\Dm8Build.dll" />
+
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-		<Exec Command="PowerShell -Command &quot;&amp; { Set-Location '$(SolutionDir)'; if ('$(ConfigurationName)' -eq 'Debug_Main') { exit }; $ttFiles = Get-ChildItem -Path '.\Dm8Data\' -Filter *.tt -Recurse; foreach ($ttFile in $ttFiles) { $ttFilePath = $ttFile.FullName; Write-Host ('Running TextTransform for {0}' -f $ttFile.Name); &amp; '$(DevEnvDir)TextTransform' $ttFilePath } }&quot;" />
-	</Target>
+    <GenerateCodeTask JsonSchemaPath="$(MSBuildProjectDirectory)\..\..\datam8-model\schema" OutputPath="$(MSBuildProjectDirectory)\Model" OutputAssemblyName="Dm8Data" />
+  </Target>
+
 	<!-- Import Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TextTemplating\Microsoft.TextTemplating.targets" /-->
 
 </Project>

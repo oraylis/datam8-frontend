@@ -1,16 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	  <TargetFrameworks>net48</TargetFrameworks>
-     <RuntimeIdentifiers>win-x86</RuntimeIdentifiers>
-	  <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <ApplicationIcon />
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <StartupObject />
     <BaseOutputPath>bin</BaseOutputPath>
     <BaseIntermediateOutputPath>obj</BaseIntermediateOutputPath>
-     <Configurations>Debug;Release;Debug_Main;Debug_Linux</Configurations>
-     <PlatformTarget>AnyCPU</PlatformTarget>
+    <Configurations>Debug;Release;Debug_Main;Debug_Linux</Configurations>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'" />
@@ -51,17 +50,20 @@
     <EmbeddedResource Remove="Properties\**" />
     <None Remove="Example\Generate\**" />
     <None Remove="Properties\**" />
+    <EmbeddedResource Include="Embedded\license.txt" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NJsonSchema" Version="11.1.0" />
-    <PackageReference Include="NJsonSchema.CodeGeneration" Version="11.1.0" />
-    <PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.1.0" />
-    <PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.1.0" />
+    <PackageReference Include="NJsonSchema" Version="11.5.0" />
+    <PackageReference Include="NJsonSchema.CodeGeneration" Version="11.5.0" />
+    <PackageReference Include="NJsonSchema.CodeGeneration.CSharp" Version="11.5.0" />
+    <PackageReference Include="NJsonSchema.NewtonsoftJson" Version="11.5.0" />
     <PackageReference Include="Prism.Core" Version="9.0.537" />
     <PackageReference Include="System.DirectoryServices.Protocols" Version="9.0.9" />
     <PackageReference Include="System.Private.Uri" Version="4.3.2" />
     <PackageReference Include="System.Text.Json" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Build" Version="17.11.48" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.11.48" />
   </ItemGroup>
 
   <ItemGroup>

@@ -87,7 +87,7 @@ jobs:
         # INFO: build the Dm8Build projects once before otherwise references
         # to DLLs are not working
         run: |
-          dotnet msbuild Dm8Build
+          dotnet publish Dm8Build -f net8.0
           dotnet msbuild Dm8Main.sln
 
       - name: Build DataM8 Generator

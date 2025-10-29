@@ -223,6 +223,21 @@
 
             </Fluent:RibbonGroupBox>
 
+            <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding GenerateGroupName}">
+
+               <Fluent:Button x:Name="RunStage" 
+                                   Command="{Binding GenerateStageCommand}"
+                                   Header="{Binding GenerateStageName}"
+                                   ToolTip="{x:Static p:Resources.MainWindow_AddStage_ToolTip}"
+                                   LargeIcon="{iconPacks:Material Kind=CodeJson}"/>
+
+               <Fluent:Button x:Name="RunOutput" 
+                                   Command="{Binding GenerateOutputCommand}"
+                                   Header="{x:Static p:Resources.Menu_GenerateOutput}"
+                                   ToolTip="{x:Static p:Resources.MainWindow_AddOutput_ToolTip}"
+                                   LargeIcon="{iconPacks:Material Kind=FolderZip}"/>
+            </Fluent:RibbonGroupBox>
+
             <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding RawGroupName}">
 
                <Fluent:Button x:Name="AddRaw" 
@@ -237,21 +252,6 @@
                                    ToolTip="{x:Static p:Resources.Main_RefreshSource_ToolTip}"
                                    LargeIcon="{iconPacks:PicolIcons Kind=DatabaseRun}"/>
 
-            </Fluent:RibbonGroupBox>
-
-            <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding GenerateGroupName}">
-
-               <Fluent:Button x:Name="RunStage" 
-                                   Command="{Binding GenerateStageCommand}"
-                                   Header="{Binding GenerateStageName}"
-                                   ToolTip="{x:Static p:Resources.MainWindow_AddStage_ToolTip}"
-                                   LargeIcon="{iconPacks:Material Kind=FileTableBoxMultipleOutline}"/>
-
-               <Fluent:Button x:Name="RunOutput" 
-                                   Command="{Binding GenerateOutputCommand}"
-                                   Header="{x:Static p:Resources.Menu_GenerateOutput}"
-                                   ToolTip="{x:Static p:Resources.MainWindow_AddOutput_ToolTip}"
-                                   LargeIcon="{iconPacks:Material Kind=FileTableBoxMultipleOutline}"/>
             </Fluent:RibbonGroupBox>
 
             <Fluent:RibbonGroupBox IsEnabled="{Binding IsSolutionOpen}" Header="{Binding CoreGroupName}">

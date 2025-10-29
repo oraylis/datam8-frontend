@@ -277,7 +277,7 @@
 Do you want to save changes before closing the file?</value>
   </data>
   <data name="Menu_GenerateStage" xml:space="preserve">
-    <value>Generate Stage</value>
+    <value>Stage</value>
   </data>
   <data name="Menu_AddCurated" xml:space="preserve">
     <value>Add Curated</value>
@@ -341,7 +341,7 @@ Check if renamed column is influencing the referenced objects (incl. auto save)?
     <value>Generate Output</value>
   </data>
   <data name="Menu_GenerateOutput" xml:space="preserve">
-    <value>Generate Output</value>
+    <value>Output</value>
   </data>
   <data name="Menu_NewJinja2Generate" xml:space="preserve">
     <value>New .Jinja2 Template</value>

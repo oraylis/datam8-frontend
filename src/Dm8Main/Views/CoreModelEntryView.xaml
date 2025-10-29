@@ -506,7 +506,7 @@
                                                 Height="32"
                                                 ToolTip="Add Attribute"
                                                 Command="{Binding AddSourceAttributesCommand}"
-                                                Content="{iconPacks:Coolicons Kind=PlayArrow, RotationAngle=180, Height=16, Width=16}"
+                                                Content="{iconPacks:Coolicons Kind=Play, RotationAngle=180, Height=16, Width=16}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 
                                             <Button 
@@ -515,7 +515,7 @@
                                                 Height="32"
                                                 ToolTip="Remove Attribute"
                                                 Command="{Binding RemoveSourceAttributesCommand}"
-                                                Content="{iconPacks:Coolicons Kind=PlayArrow, Height=16, Width=16}"
+                                                Content="{iconPacks:Coolicons Kind=Play, Height=16, Width=16}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 
                                             <CheckBox Margin="4,32">
@@ -1185,7 +1185,7 @@
                                                       IsChecked="{Binding RelationshipAttrVisible, Converter={StaticResource notBoolConverter}}"
                                                       Command="{Binding RelationshipAttrVisibleCommand}"
                                                       CommandParameter="{StaticResource FalseValue}"
-                                                      Content="{iconPacks:Coolicons Kind=ListChecklistAlt, Height=16, Width=16}"
+                                                      Content="{iconPacks:Coolicons Kind=ListChecklist, Height=16, Width=16}"
                                                       Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                       Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 
@@ -1208,7 +1208,7 @@
                                                 ToolTip="Add Relationship"
                                                 Visibility="{Binding RelationshipAttrVisible, Converter={StaticResource notBoolToVisibilityConverter}}"
                                                 Command="{Binding AddRelationshipCommand}"
-                                                Content="{iconPacks:Coolicons Kind=ListPlus, Height=16, Width=16}"
+                                                Content="{iconPacks:Coolicons Kind=ListAdd, Height=16, Width=16}"
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 
@@ -1221,7 +1221,7 @@
                                                 Visibility="{Binding RelationshipAttrVisible, Converter={StaticResource notBoolToVisibilityConverter}}"
                                                 Command="{Binding RemoveRelationshipCommand}"
                                                 CommandParameter="{Binding SelectedRelationship}"
-                                                Content="{iconPacks:Coolicons Kind=ListMinus, Height=16, Width=16}"
+                                                Content="{iconPacks:Coolicons Kind=ListRemove, Height=16, Width=16}"
                                                 Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 

@@ -27,7 +27,7 @@
                       Closing="DlgCoreEntityAdd_OnClosing"
                       md:DialogServiceViews.IsRegistered="True"
                       mc:Ignorable="d"
-                      GlowColor="{DynamicResource MahApps.Brushes.AccentBase}">
+                      GlowBrush="{DynamicResource MahApps.Brushes.AccentBase}">
 
 
     

@@ -199,6 +199,7 @@ jobs:
         with:
           tag_name: ${{ env.FRONTEND_VERSION }}
           generate_release_notes: true
+          target_commitish: main
           files: |
             src/DataM8.win-x64.zip
             src/DataM8Validate.win-x64.zip

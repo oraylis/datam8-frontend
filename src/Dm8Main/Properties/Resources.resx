@@ -292,7 +292,7 @@ Do you want to save changes before closing the file?</value>
     <value>Select Source Entities</value>
   </data>
   <data name="MainWindow.AddStage.ToolTip" xml:space="preserve">
-    <value>Create Stage</value>
+    <value>Generate Stage</value>
   </data>
   <data name="MainWindow.AddCore.ToolTip" xml:space="preserve">
     <value>Create New Core Entity</value>

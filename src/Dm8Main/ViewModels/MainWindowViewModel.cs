@@ -672,13 +672,12 @@ namespace Dm8Main.ViewModels
 
       public void RefreshMenu(Solution solution)
       {
-         this.GenerateStageName = $"Generate {solution.AreaTypes.Stage}";
+         this.GenerateStageName = solution.AreaTypes.Stage;
          this.AddCoreName = $"Add {solution.AreaTypes.Core}";
          this.AddRawName = $"Add {solution.AreaTypes.Raw}";
          this.RefreshRawName = $"Refresh {solution.AreaTypes.Raw}";
          this.CoreGroupName = solution.AreaTypes.Core;
          this.RawGroupName = solution.AreaTypes.Raw;
-         this.GenerateGroupName = solution.AreaTypes.Stage;
       }
 
       private async Task NewDocument(KeyValuePair<ProjectItem ,ProjectItem.Types> kv)

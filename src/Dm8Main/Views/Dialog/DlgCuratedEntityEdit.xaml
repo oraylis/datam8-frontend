@@ -19,7 +19,7 @@
                       TitleCharacterCasing="Normal"
                       Width="600"
                       Height="450"
-                      GlowColor="{DynamicResource MahApps.Brushes.AccentBase}"
+                      GlowBrush="{DynamicResource MahApps.Brushes.AccentBase}"
                       WindowStartupLocation="CenterScreen"
                       WindowTransitionsEnabled="False"
                       Loaded="DlgCuratedEntityAdd_OnLoaded"

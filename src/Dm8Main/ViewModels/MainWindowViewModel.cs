@@ -452,13 +452,13 @@ namespace Dm8Main.ViewModels
          this.Title = this.Title_Main;
          this.Zoom = 1.0;
 
-         this.GenerateStageName = "Generate Stage";
+         this.GenerateStageName = "Stage";
          this.AddCoreName = "Add Core";
          this.AddRawName = "Add Raw";
          this.RefreshRawName = "Refresh Raw";
          this.RawGroupName = "Raw";
          this.CoreGroupName = "Core";
-         this.GenerateGroupName = "Stage";
+         this.GenerateGroupName = "Generate";
 
       }
 

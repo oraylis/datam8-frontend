@@ -1,6 +1,5 @@
 ﻿<controls:HamburgerMenuIconItem 
     x:Class="Dm8Main.Views.CuratedFunctionView"
-
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:s="clr-namespace:System;assembly=mscorlib"
@@ -11,8 +10,8 @@
     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
     xmlns:properties="clr-namespace:Dm8Main.Properties"
     xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
-    xmlns:viewModels="clr-namespace:Dm8Main.ViewModels"
     xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
+    xmlns:viewModels="clr-namespace:Dm8Main.ViewModels"
     d:DataContext="{d:DesignInstance viewModels:CuratedFunctionViewModel}"
     xmlns:a="clr-namespace:Dm8Main.Avalon"
     xmlns:pt="http://propertytools.org/wpf"
@@ -58,7 +57,7 @@
                     Height="32"
                     ToolTip="Add Source"
                     Command="{Binding EditCommand}"
-                    Content="{iconPacks:Coolicons Kind=Edit, Height=16, Width=16}"
+                    Content="{iconPacks:Coolicons Kind=EditPencil01, Height=16, Width=16}"
                     Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                     Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 

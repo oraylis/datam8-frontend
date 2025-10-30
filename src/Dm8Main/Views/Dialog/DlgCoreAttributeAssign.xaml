@@ -19,7 +19,7 @@
                       TitleCharacterCasing="Normal"
                       Width="600"
                       Height="450"
-                      GlowColor="{DynamicResource MahApps.Brushes.AccentBase}"
+                      GlowBrush="{DynamicResource MahApps.Brushes.AccentBase}"
                       WindowStartupLocation="CenterScreen"
                       WindowTransitionsEnabled="False"
                       Loaded="DlgCoreEntityAdd_OnLoaded"
@@ -124,7 +124,7 @@
                                                 Height="32"
                                                 ToolTip="Add Attribute"
                                                 Command="{Binding AddSourceAttributesCommand}"
-                                                Content="{iconPacks:Coolicons Kind=PlayArrow, RotationAngle=180, Height=16, Width=16}"
+                                                Content="{iconPacks:Coolicons Kind=Play, RotationAngle=180, Height=16, Width=16}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}">
                     </Button>
 
@@ -134,7 +134,7 @@
                                                 Height="32"
                                                 ToolTip="Remove Attribute"
                                                 Command="{Binding RemoveSourceAttributesCommand}"
-                                                Content="{iconPacks:Coolicons Kind=PlayArrow, Height=16, Width=16}"
+                                                Content="{iconPacks:Coolicons Kind=Play, Height=16, Width=16}"
                                                 Style="{DynamicResource MahApps.Styles.Button.Circle}">
                     </Button>
 

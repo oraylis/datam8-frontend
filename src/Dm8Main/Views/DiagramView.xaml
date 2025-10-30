@@ -119,7 +119,7 @@
                                             Height="32"
                                             ToolTip="Add Source"
                                             Command="{Binding EditCommand}"
-                                            Content="{iconPacks:Coolicons Kind=Edit, Height=16, Width=16}"
+                                            Content="{iconPacks:Coolicons Kind=EditPencil01, Height=16, Width=16}"
                                             Foreground="{DynamicResource MahApps.HamburgerMenu.Pane.Foreground}"
                                             Style="{DynamicResource MahApps.Styles.Button.Circle}" />
 

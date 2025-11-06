@@ -1,0 +1,53 @@
+<Window x:Class="Dm8DuckDbConnector.Views.ConfigureView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Dm8DuckDbConnector.Views"
+        mc:Ignorable="d"
+        Title="Configure DuckDB Connection" 
+        Height="200" 
+        Width="600" 
+        ShowInTaskbar="False" 
+        WindowStartupLocation="CenterOwner" 
+        ForceCursor="True" Topmost="True"
+        >
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            <Label Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">Data Source Name:</Label>
+            <Label Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">DuckDB File:</Label>
+            <TextBox Grid.Row="0" Grid.Column="1" Name="DataSourceName" VerticalAlignment="Center" TextChanged="OnControlChanged"/>
+            <Grid Grid.Row="1" Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Name="FilePath" VerticalAlignment="Center" IsReadOnly="True" TextChanged="OnControlChanged"/>
+                <Button Grid.Column="1" Name="BrowseButton" Content="Browse..." Margin="5,0,0,0" Width="80" Click="BrowseButton_Click"/>
+            </Grid>
+        </Grid>
+        <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="TestConnectionButton" Content="Test Connection"  VerticalAlignment="Center" Width="120" Height="25" IsEnabled="False" Click="TestConnectionButton_Click"/>
+            <Button x:Name="OkButton" Content="OK"  VerticalAlignment="Center" Width="80" Margin="40,0,8,0" Height="25" IsDefault="True" IsEnabled="False" Click="OkButton_Click"/>
+            <Button x:Name="CancelButton" Content="Cancel"  VerticalAlignment="Center" Height="25" Width="80" IsCancel="True" Click="CancelButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
+

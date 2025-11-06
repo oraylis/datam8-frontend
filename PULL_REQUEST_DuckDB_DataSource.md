@@ -2,10 +2,9 @@
 
 ## 📋 Summary
 
-This PR adds DuckDB as a native data source option for DataM8 unlocking access to the entire DuckDB ecosystem (50+ extensions, multiple data formats, and high-performance analytical queries).
+This PR adds DuckDB as a native data source option for DataM8, unlocking access to the entire DuckDB ecosystem (50+ extensions, multiple data formats, and high-performance analytical queries).
 
 ## 🎯 Motivation
-
 
 Currently, DataM8 supports SQL Server, CSV, and Lake connectors. Adding DuckDB as a data source provides:
 
@@ -22,93 +21,52 @@ Currently, DataM8 supports SQL Server, CSV, and Lake connectors. Adding DuckDB a
 - **Location**: `src/Dm8Plugins/Dm8DuckDbConnector/`
 - **Features**:
   - DuckDB file connection management
-  - ODBC connection string generation
-  - Power BI M query generation for DuckDB
-  - Support for DuckDB extensions (PostgreSQL, Parquet, JSON)
-
-### 2. DuckDB File Generator Service
-- **Location**: `src/Dm8Data/Services/DuckDbFileGenerator.cs`
-- **Functionality**:
-  - Generate DuckDB staging files from metadata
-  - Create tables from Parquet/CSV sources
-  - Attach PostgreSQL metadata catalog
-  - Create analytical views
-
-### 3. TMDL Generator Updates
-- **Location**: `src/Dm8Data/Services/TmdlGenerator.cs`
-- **Changes**:
-  - Added `use_duckdb` flag to TMDL configuration
-  - Generate M queries for DuckDB ODBC connections
-  - Support for DuckDB file paths in TMDL output
-
-### 4. Data Source Explorer Integration
-- **Location**: `src/Dm8Data/Source/`
-- **Updates**:
-  - New `DuckDbDataSourceExplorer` implementing `IDataSourceExplorer`
   - Browse DuckDB files and tables
-  - Preview data from DuckDB files
+  - Support for DuckDB extensions (PostgreSQL, Parquet, JSON)
+  - Table and view selection from DuckDB databases
 
-### 5. UI Updates
-- **Location**: `src/Dm8Main/Views/`
+### 2. UI Updates
+- **Location**: `src/Dm8Plugins/Dm8DuckDbConnector/Views/`
 - **Changes**:
-  - Add "DuckDB" option to data source selection
-  - DuckDB connection dialog
+  - DuckDB connection configuration dialog
   - File path picker for DuckDB files
-  - Extension management UI
+  - Table/view selection interface
 
 ## 📁 Files Changed
 
 ```
 src/
-├── Dm8Data/
-│   ├── Services/
-│   │   ├── DuckDbFileGenerator.cs (NEW)
-│   │   ├── DuckDbOdbcService.cs (NEW)
-│   │   └── TmdlGenerator.cs (MODIFIED)
-│   └── Source/
-│       └── DuckDbDataSourceExplorer.cs (NEW)
-├── Dm8Plugins/
-│   └── Dm8DuckDbConnector/
-│       ├── Dm8DuckDbConnector.csproj (NEW)
-│       ├── DuckDbConnector.cs (NEW)
-│       └── DuckDbConnectionDialog.xaml (NEW)
-└── Dm8Main/
-    └── Views/
-        └── DataSourceViews/
-            └── DuckDbConnectionView.xaml (NEW)
+└── Dm8Plugins/
+    └── Dm8DuckDbConnector/
+        ├── Dm8DuckDbConnector.csproj (NEW)
+        ├── Classes/
+        │   ├── DuckDbConnector.cs (NEW)
+        │   └── DataSourceDuckDb.cs (NEW)
+        └── Views/
+            ├── ConfigureView.xaml (NEW)
+            ├── ConfigureView.xaml.cs (NEW)
+            ├── SelectObjects.xaml (NEW)
+            └── SelectObjects.xaml.cs (NEW)
 ```
 
 ## 🧪 Testing
 
 ### Manual Testing Performed
 
-1. **DuckDB File Generation**
-   - ✅ Generate DuckDB file from Parquet sources
-   - ✅ Create tables from metadata definitions
-   - ✅ Attach PostgreSQL metadata catalog
-   - ✅ Verify table structure matches metadata
-
-2. **Power BI Integration**
-   - ✅ Generate TMDL with DuckDB data source
-   - ✅ Import TMDL into Power BI Desktop
-   - ✅ Verify ODBC connection to DuckDB file
-   - ✅ Test DirectQuery mode with DuckDB
-
-3. **Data Source Explorer**
+1. **Data Source Explorer**
    - ✅ Browse DuckDB files
-   - ✅ List tables and views
-   - ✅ Preview data from DuckDB tables
+   - ✅ List tables and views from DuckDB databases
+   - ✅ Select tables and views for import
    - ✅ Test with various DuckDB extensions enabled
 
-4. **UI Testing**
+2. **UI Testing**
    - ✅ DuckDB connection dialog
-   - ✅ File path selection
-   - ✅ Extension management
+   - ✅ File path selection and validation
    - ✅ Error handling for invalid files
+   - ✅ Table/view selection interface
 
 ### Test Data
 
-- Used sample Parquet files from staging layer
 - Tested with DuckDB files containing 1K, 10K, and 100K rows
 - Verified with DuckDB extensions: postgres, parquet, json
 
@@ -117,13 +75,6 @@ src/
 ### New NuGet Packages
 
 - `DuckDB.NET` (v0.10.0) - DuckDB .NET bindings
-- `System.Data.Odbc` (existing) - ODBC support
-
-### External Requirements
-
-- **DuckDB ODBC Driver**: Users need to install DuckDB ODBC driver separately
-  - Download: https://duckdb.org/docs/guides/odbc
-  - Installation instructions included in documentation
 
 ## 📚 Documentation Updates
 
@@ -140,36 +91,19 @@ No breaking changes. DuckDB is an **additional** data source option. Existing SQ
 
 ### For New Users
 
-1. Install DuckDB ODBC driver
-2. Select "DuckDB" as data source type
-3. Browse to DuckDB file or create new one
-4. Use in TMDL generation for Power BI models
+1. Select "DuckDB" as data source type
+2. Browse to DuckDB file or create new one
+3. Select tables and views to import into your DataM8 solution
 
 ## 🚀 Usage Example
 
 ```csharp
-// Generate DuckDB file from staging data
-var generator = new DuckDbFileGenerator(metadataConnection);
-await generator.GenerateStagingDuckDb(
-    solutionPath: @"C:\Solutions\MySolution",
-    outputPath: @"C:\Solutions\MySolution\staging.duckdb"
-);
+// Connect to DuckDB file
+var connector = new DuckDbConnector();
+await connector.ConnectAsync(@"Data Source=C:\Data\mydatabase.duckdb;");
 
-// Generate TMDL with DuckDB as data source
-var tmdlConfig = new TmdlConfig
-{
-    UseDuckDb = true,
-    DuckDbPath = @"C:\Solutions\MySolution\staging.duckdb",
-    CompatibilityLevel = 1567,
-    Culture = "en-US"
-};
-
-var tmdlGenerator = new TmdlGenerator(metadataConnection);
-await tmdlGenerator.GenerateTmdlFolder(
-    modelName: "SalesModel",
-    outputPath: @"C:\Output\SalesModel",
-    config: tmdlConfig
-);
+// Browse and select tables
+var tables = await connector.SelectObjects(addFile);
 ```
 
 ## ✅ Checklist
@@ -205,27 +139,14 @@ await tmdlGenerator.GenerateTmdlFolder(
 
 ### Known Limitations
 
-- DuckDB ODBC driver must be installed separately
-- Windows-only ODBC driver support (Linux/Mac support via alternative methods)
 - Large DuckDB files (>10GB) may have slower query performance
+- DuckDB file must exist before connecting (no automatic file creation)
 
 ## 👥 Reviewers
 
 Please review:
 - @[reviewer1] - Data source architecture
 - @[reviewer2] - UI/UX changes
-- @[reviewer3] - TMDL generation logic
-
-## 📸 Screenshots
-
-### DuckDB Connection Dialog
-![DuckDB Connection Dialog](docs/images/duckdb-connection-dialog.png)
-
-### TMDL with DuckDB Data Source
-![TMDL Output](docs/images/tmdl-duckdb-output.png)
-
-### Power BI Integration
-![Power BI Connection](docs/images/powerbi-duckdb-connection.png)
 
 ---
 

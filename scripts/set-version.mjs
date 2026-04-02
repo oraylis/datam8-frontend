@@ -4,8 +4,14 @@ import path from "path";
 function normalizeVersion(input) {
   const raw = String(input || "").trim();
   const version = raw.startsWith("v") ? raw.slice(1) : raw;
-  if (!/^\d+\.\d+\.\d+$/.test(version)) {
-    throw new Error(`Invalid version "${raw}". Expected X.Y.Z (optionally prefixed with "v").`);
+  // SemVer: X.Y.Z with optional pre-release and build metadata.
+  // Examples: 1.2.3, 2.0.0-beta.1, 1.0.0+build.5, 1.0.0-rc.1+sha.abc
+  const semverRe =
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+  if (!semverRe.test(version)) {
+    throw new Error(
+      `Invalid version "${raw}". Expected SemVer (e.g. 1.2.3, 2.0.0-beta.1), optionally prefixed with "v".`,
+    );
   }
   return version;
 }

@@ -12,7 +12,7 @@
     "dev": "tsc && concurrently \"tsc -w\" \"cross-env DATAM8_MODE=electron VITE_APP_MODE=electron electronmon .\"",
     "start": "electron .",
     "lint": "eslint \"src/**/*.ts\"",
-    "prepare:prod-deps": "npm --prefix . install --workspaces=false --omit=dev --install-strategy=nested --package-lock=false",
+    "prepare:prod-deps": "npm install --install-strategy=nested --include-workspace-root=false",
     "package:win:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --dir --publish never",
     "package:win": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
     "package:mac:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --dir --publish never",

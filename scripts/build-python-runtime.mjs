@@ -151,7 +151,8 @@ if (!runtimePython) {
 }
 
 runChecked(runtimePython, ["-m", "pip", "install", "--disable-pip-version-check", "--upgrade", "pip", "setuptools", "wheel"]);
-runChecked(runtimePython, ["-m", "pip", "install", "--disable-pip-version-check", "--upgrade", generatorRoot]);
+const generatorInstallSpec = `${generatorRoot}[api,sql]`;
+runChecked(runtimePython, ["-m", "pip", "install", "--disable-pip-version-check", "--upgrade", generatorInstallSpec]);
 
 const probe = spawnSync(runtimePython, ["-m", "datam8", "--help"], { shell: false, stdio: "pipe", encoding: "utf8" });
 if ((probe.status ?? 1) !== 0) {

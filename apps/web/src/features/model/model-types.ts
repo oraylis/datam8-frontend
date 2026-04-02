@@ -38,7 +38,11 @@ export type BaseDataProduct = LooseObject & {
 };
 
 export type BaseZone = LooseObject & {
+  name?: string;
+  displayName?: string;
+  targetName?: string;
   localFolderName?: string;
+  properties?: PropertyAssignment[];
 };
 
 export type BaseDataSource = LooseObject & {

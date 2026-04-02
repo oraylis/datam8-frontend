@@ -507,7 +507,7 @@ export const useBaseEditorState = ({
       }
       case "zones": {
         const name = nextPlaceholderName("Zone", currentList);
-        nextItem = { name, targetName: name.toLowerCase(), displayName: name };
+        nextItem = { name, targetName: name.toLowerCase(), displayName: name, properties: [] };
         draft.zones = [...currentList, nextItem];
         break;
       }

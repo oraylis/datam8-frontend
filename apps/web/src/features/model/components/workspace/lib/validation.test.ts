@@ -29,6 +29,23 @@ describe("validateBaseContent duplicate names", () => {
     expect(result.errors.some((message) => message.includes("duplicate module names"))).toBe(true);
   });
 
+  it("accepts zone properties assignments", () => {
+    const result = validateBaseContent("zones", {
+      zones: [
+        {
+          name: "Stage",
+          displayName: "Stage",
+          targetName: "stage",
+          localFolderName: "010-Stage",
+          properties: [{ property: "domain", value: "sales" }],
+        },
+      ],
+    });
+
+    expect(result.errors).toHaveLength(0);
+    expect(Object.keys(result.missing)).toHaveLength(0);
+  });
+
   it("flags duplicate property names", () => {
     const result = validateBaseContent("properties", {
       properties: [

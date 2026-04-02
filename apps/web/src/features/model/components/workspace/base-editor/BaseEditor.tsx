@@ -934,12 +934,46 @@ export const BaseEditor = (props: BaseEditorProps) => {
                       );
                       setBaseDraft({ ...(baseDraft || {}), zones: updatedList });
                     };
+                    const zoneProps: { property?: string; value?: string }[] = Array.isArray(current.properties)
+                      ? current.properties
+                      : [];
+                    const zonePropertyItems: PropertyChipItem[] = zoneProps
+                      .map((p: any, pIdx: number): PropertyChipItem | null => {
+                        const property = `${p?.property ?? ""}`;
+                        if (!property.trim()) return null;
+                        return {
+                          key: `zone-prop-${pIdx}-${property}`,
+                          property,
+                          value: `${p?.value ?? ""}`,
+                          inherited: false,
+                          title: "Zone property",
+                          removeKey: pIdx,
+                        };
+                      })
+                      .filter((item): item is PropertyChipItem => item !== null);
+                    const zoneUsed = new Set<string>(
+                      zoneProps.map((p: any) => `${p?.property ?? ""}`).filter((v: string) => v.trim().length > 0),
+                    );
                     return (
                       <div>
                         <div className="item-header">
                           <div className="item-title-row">
                             <div className="item-title">{current.name || "Unnamed"}</div>
                           </div>
+                          <PropertyChips
+                            className="chips--sm item-chips"
+                            items={zonePropertyItems}
+                            propertyOptions={propertyOptions}
+                            usedPropertyNames={zoneUsed}
+                            onAdd={(property, value) => {
+                              updateField("properties", [...zoneProps, { property, value }]);
+                              persistAfterStateFlush("add-item");
+                            }}
+                            onRemove={(idx) =>
+                              updateField("properties", zoneProps.filter((_p: any, i: number) => i !== idx))
+                            }
+                            addLabel="Add property"
+                          />
                         </div>
                         <div className="form-grid">
                         <div>

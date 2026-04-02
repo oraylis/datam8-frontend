@@ -339,8 +339,12 @@ async function smokeBackend() {
       throw new Error("`POST /model/generate` is missing (404).");
     }
     if (generate.ok) {
-      if (payload?.status !== "succeeded") {
-        throw new Error(`Unexpected generate status: ${JSON.stringify(payload)}`);
+      if (typeof payload?.target === "string" && payload.target !== "test") {
+        throw new Error(`Unexpected generate target: ${JSON.stringify(payload)}`);
+      }
+      const generatedHello = path.join(path.dirname(fixture.solutionPath), "Output", "generated", "hello.txt");
+      if (!fs.existsSync(generatedHello)) {
+        throw new Error(`Generate call returned ${generate.status}, but expected output is missing: ${generatedHello}`);
       }
     } else {
       console.warn(`[ci-gates] Generate endpoint reachable but fixture run failed: ${generate.status} ${JSON.stringify(payload)}`);

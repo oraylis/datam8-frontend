@@ -58,12 +58,18 @@ function probePythonInfo(command, preArgs = []) {
   }
 }
 
+function isSupportedRuntimePython(info) {
+  // datam8-generator build hooks are currently validated on 3.12/3.13.
+  // Rejecting 3.14+ avoids late failures during pip install/metadata generation.
+  return info.major === 3 && (info.minor === 12 || info.minor === 13);
+}
+
 function resolveBuildPython() {
   const override = `${process.env.DATAM8_RUNTIME_PYTHON || ""}`.trim();
   if (override) {
     const info = probePythonInfo(override, []);
-    if (!info || info.major < 3 || (info.major === 3 && info.minor < 12)) {
-      fail(`DATAM8_RUNTIME_PYTHON must point to Python 3.12+: ${override}`);
+    if (!info || !isSupportedRuntimePython(info)) {
+      fail(`DATAM8_RUNTIME_PYTHON must point to Python 3.12 or 3.13: ${override}`);
     }
     return { command: override, preArgs: [], info };
   }
@@ -71,12 +77,16 @@ function resolveBuildPython() {
   const candidates =
     process.platform === "win32"
       ? [
-          { command: "python", preArgs: [] },
           { command: "py", preArgs: ["-3.12"] },
+          { command: "py", preArgs: ["-3.13"] },
+          { command: "python3.12", preArgs: [] },
+          { command: "python3.13", preArgs: [] },
           { command: "py", preArgs: ["-3"] },
+          { command: "python", preArgs: [] },
         ]
       : [
           { command: "python3.12", preArgs: [] },
+          { command: "python3.13", preArgs: [] },
           { command: "python3", preArgs: [] },
           { command: "python", preArgs: [] },
         ];
@@ -84,7 +94,7 @@ function resolveBuildPython() {
   for (const candidate of candidates) {
     const info = probePythonInfo(candidate.command, candidate.preArgs);
     if (!info) continue;
-    if (info.major > 3 || (info.major === 3 && info.minor >= 12)) {
+    if (isSupportedRuntimePython(info)) {
       return { ...candidate, info };
     }
   }
@@ -107,7 +117,7 @@ if (!fs.existsSync(path.join(generatorRoot, "pyproject.toml"))) {
 
 const buildPython = resolveBuildPython();
 if (!buildPython) {
-  fail("Python 3.12+ not found. Install Python 3.12 or set DATAM8_RUNTIME_PYTHON.");
+  fail("Python 3.12/3.13 not found. Install Python 3.12 (recommended) or set DATAM8_RUNTIME_PYTHON.");
 }
 const sourcePrefix = path.resolve(buildPython.info.basePrefix);
 if (!fs.existsSync(sourcePrefix) || !fs.statSync(sourcePrefix).isDirectory()) {

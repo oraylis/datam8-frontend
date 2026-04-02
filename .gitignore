@@ -4,7 +4,6 @@ node_modules
 .npm
 .cache
 dist
-build
 
 # OS
 .DS_Store

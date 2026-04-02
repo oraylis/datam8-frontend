@@ -1,6 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from "electron";
 import { autoUpdater } from "electron-updater";
-import AdmZip from "adm-zip";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
@@ -656,13 +655,27 @@ function importPluginArtifacts(params: { solutionPath: string; artifactPaths: st
 }
 
 function importPluginZipArtifact(zipPath: string, pluginsTargetDir: string): void {
-  const zip = new AdmZip(zipPath);
-  const entries = zip.getEntries();
+  const AdmZipModule = (() => {
+    try {
+      // Lazy-load ZIP support so a missing optional module cannot crash app startup.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require("adm-zip");
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`Cannot import ZIP plugin artifacts because 'adm-zip' is unavailable. ${detail}`);
+    }
+  })();
+  const AdmZipCtor = AdmZipModule?.default || AdmZipModule;
+  if (typeof AdmZipCtor !== "function") {
+    throw new Error("Cannot import ZIP plugin artifacts because 'adm-zip' did not export a constructor.");
+  }
+  const zip = new AdmZipCtor(zipPath) as any;
+  const entries = zip.getEntries() as any[];
   if (!entries.length) {
     throw new Error(`Plugin ZIP is empty: ${zipPath}`);
   }
 
-  const pluginJsonEntry = entries.find((entry) => {
+  const pluginJsonEntry = entries.find((entry: any) => {
     const normalized = entry.entryName.replace(/\\/g, "/").toLowerCase();
     return !entry.isDirectory && normalized.endsWith("plugin.json");
   });

@@ -8,7 +8,7 @@ type UseSaveFailureToastParams = {
 };
 
 export function useSaveFailureToast({ contextKey, onRetry, retryLabel = "Retry" }: UseSaveFailureToastParams) {
-  const { showError, clearError } = useErrorSurface();
+  const { showError } = useErrorSurface();
   const dismissedSignatureRef = useRef<string | null>(null);
 
   const notifySaveFailure = useCallback(
@@ -28,8 +28,7 @@ export function useSaveFailureToast({ contextKey, onRetry, retryLabel = "Retry" 
 
   const resetSaveFailureToastMemory = useCallback(() => {
     dismissedSignatureRef.current = null;
-    clearError("app");
-  }, [clearError]);
+  }, []);
 
   return {
     notifySaveFailure,

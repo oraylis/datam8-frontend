@@ -233,7 +233,7 @@ export function AppShell() {
   const [validatorResolvedPath, setValidatorResolvedPath] = useState<string | null>(null);
   const [validatorError, setValidatorError] = useState<string | null>(null);
   const validatorRunInFlightRef = useRef(false);
-  const { showError, clearError: clearSurfaceError } = useErrorSurface();
+  const { showError } = useErrorSurface();
   const confirm = useConfirm();
   const { width: sidebarSize, setWidth: setSidebarSize, startResize } = useResizablePane({
     initialWidth: sidebarWidth,
@@ -265,10 +265,8 @@ export function AppShell() {
   useEffect(() => {
     if (error) {
       showAppError("Failed to load solution", error);
-      return;
     }
-    clearSurfaceError("app");
-  }, [clearSurfaceError, error, showAppError]);
+  }, [error, showAppError]);
 
   useEffect(() => {
     const stored = localStorage.getItem("dm8_solution_path");
@@ -970,9 +968,6 @@ export function AppShell() {
           setActiveWorkTab(null);
         }
 
-        if (options?.notifySuccess !== false) {
-          clearSurfaceError("app");
-        }
         return true;
       } catch (err) {
         if (options?.notifyFailure !== false) {
@@ -995,7 +990,6 @@ export function AppShell() {
       setSelectedFolderPath,
       setSelectedRelPath,
       setSelectedRelPaths,
-      clearSurfaceError,
       showAppError,
     ],
   );
@@ -1041,9 +1035,6 @@ export function AppShell() {
       setApplyingBaseActions(false);
     }
 
-    if (applied > 0) {
-      clearSurfaceError("app");
-    }
     if (failed.length > 0) {
       showAppError("Some actions were not applied", `${failed.length} action(s) failed.`);
       setBaseActionPrompt({ ...prompt, actions: failed });
@@ -1077,7 +1068,6 @@ export function AppShell() {
     runPropertyRefactor,
     solutionPath,
     solutionSource,
-      clearSurfaceError,
     showAppError,
   ]);
 
@@ -1131,13 +1121,12 @@ export function AppShell() {
       }
 
       setBaseActionPrompt(null);
-      clearSurfaceError("app");
     } catch (err) {
       showAppError("Undo failed", (err as Error).message);
     } finally {
       setApplyingBaseActions(false);
     }
-  }, [applyingBaseActions, baseActionPrompt, clearSurfaceError, formatBaseTitle, setActiveWorkTab, setBaseEntities, setBaseTabs, setFolderEntities, setSelectedFolderPath, setTabDirty, showAppError]);
+  }, [applyingBaseActions, baseActionPrompt, formatBaseTitle, setActiveWorkTab, setBaseEntities, setBaseTabs, setFolderEntities, setSelectedFolderPath, setTabDirty, showAppError]);
 
   const handleSaveBase = useCallback(
     async (updated: BaseEntity) => {

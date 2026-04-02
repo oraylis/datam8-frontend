@@ -26,7 +26,7 @@ type BulkSaveState = {
 };
 
 export function useBulkSaveProgress(toast: ToastInvoker) {
-  const { showError, clearError } = useErrorSurface();
+  const { showError } = useErrorSurface();
   const bulkSaveRef = useRef<BulkSaveState>({
     active: false,
     total: 0,
@@ -45,11 +45,9 @@ export function useBulkSaveProgress(toast: ToastInvoker) {
         title: summaryTitle,
         description: summaryDescription,
       });
-    } else {
-      clearError("app");
     }
     bulkSaveRef.current = { active: false, total: 0, completed: 0, successes: 0, failures: [] };
-  }, [clearError, showError]);
+  }, [showError]);
 
   const startBulkSave = useCallback(
     (total: number) => {

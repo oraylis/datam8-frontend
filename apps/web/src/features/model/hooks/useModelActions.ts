@@ -22,7 +22,7 @@ export function useModelActions() {
   } = useModelEditor() as any;
 
   const confirm = useConfirm();
-  const { showError, clearError } = useErrorSurface();
+  const { showError } = useErrorSurface();
 
   const generateNewName = useCallback(
     (originalName: string, existingNames: Set<string>) => {
@@ -221,13 +221,11 @@ export function useModelActions() {
               setSelectedRelPath(newEntities[0].relPath);
           }
 
-          clearError("app");
-
       } catch (err) {
           showError("app", { title: "Duplication failed", description: (err as Error).message });
       }
     },
-    [clearError, generateNewName, modelEntities, setModelEntities, setSelectedRelPaths, setSelectedRelPath, showError]
+    [generateNewName, modelEntities, setModelEntities, setSelectedRelPaths, setSelectedRelPath, showError]
   );
 
   const deleteModelEntities = useCallback(
@@ -409,13 +407,11 @@ export function useModelActions() {
            setSelectedRelPaths(new Set());
            setSelectedRelPath(null);
 
-           clearError("app");
-
        } catch (err) {
            showError("app", { title: "Delete failed", description: (err as Error).message });
        }
     },
-    [clearError, closeTab, confirm, modelEntities, setModelEntities, setSelectedRelPath, setSelectedRelPaths, showError]
+    [closeTab, confirm, modelEntities, setModelEntities, setSelectedRelPath, setSelectedRelPaths, showError]
   );
 
   return { duplicateModelEntities, deleteModelEntities };

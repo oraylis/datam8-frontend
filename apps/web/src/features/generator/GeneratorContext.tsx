@@ -86,7 +86,7 @@ function readGenerateMessages(payload: unknown): string[] {
 
 export function GeneratorProvider({ children }: { children: React.ReactNode }) {
   const { solution, solutionPath } = useSolution();
-  const { showError, clearError } = useErrorSurface();
+  const { showError } = useErrorSurface();
   const [generatorTarget, setGeneratorTarget] = useState<string>("default");
   const [generatorLogLevel, setGeneratorLogLevel] = useState<GeneratorLogLevel>("info");
   const [generatorLog, setGeneratorLog] = useState("");
@@ -134,7 +134,6 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
       setGeneratorStderr(null);
       setGeneratorError(null);
       setGeneratorExit(null);
-      clearError("app");
 
       try {
         const desktopGenerate = window.desktop?.solution?.generate;
@@ -205,7 +204,7 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
         setGeneratorRunning(false);
       }
     },
-    [clearError, generatorLogLevel, generatorTarget, generatorTargets, showError, solutionPath],
+    [generatorLogLevel, generatorTarget, generatorTargets, showError, solutionPath],
   );
 
   return (

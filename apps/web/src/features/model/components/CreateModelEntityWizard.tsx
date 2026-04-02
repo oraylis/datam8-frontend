@@ -19,7 +19,6 @@ import {
   Label,
   Checkbox,
   cn,
-  useToast,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -46,6 +45,7 @@ import { useWizardSubmit } from "./wizard/useWizardSubmit";
 import { useWizardBaseData } from "./wizard/useWizardBaseData";
 import { apiBase } from "../../../config";
 import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
+import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 // --- Main Component ---
 
@@ -72,7 +72,7 @@ export function CreateModelEntityWizard({
   } = useModelEditor();
   
   const { solutionPath } = useSolution();
-  const { toast } = useToast();
+  const { showError, clearError } = useErrorSurface();
   const [step, setStep] = useState(1);
   
   // Bulk Mode States
@@ -192,7 +192,7 @@ export function CreateModelEntityWizard({
             const data = await res.json();
             setAvailableTables(Array.isArray(data?.items) ? data.items : []);
         } catch (err) {
-            toast({ title: "Error loading tables", description: (err as Error).message, variant: "destructive" });
+            showError("dialog:create-entity-wizard", { title: "Error loading tables", description: (err as Error).message });
         } finally {
             setIsLoadingTables(false);
         }
@@ -255,7 +255,6 @@ export function CreateModelEntityWizard({
       setSelectedRelPath,
       setExpanded,
       solutionPath,
-      toast,
       dataSources: dataSourcesResolved,
       canonicalDataTypes: dataTypes,
   });
@@ -269,8 +268,9 @@ export function CreateModelEntityWizard({
       setStep(1);
       reset(defaultValues);
       setAvailableTables([]);
+      clearError("dialog:create-entity-wizard");
     }
-  }, [defaultValues, open, reset]);
+  }, [clearError, defaultValues, open, reset]);
 
   // --- Render Steps ---
 
@@ -835,6 +835,9 @@ export function CreateModelEntityWizard({
               </Button>
             )}
           </DialogFooter>
+          <div className="error-surface-slot error-surface-slot--flush">
+            <ErrorSurfaceHost scope="dialog:create-entity-wizard" />
+          </div>
         </div>
       </DialogContent>
     </Dialog>

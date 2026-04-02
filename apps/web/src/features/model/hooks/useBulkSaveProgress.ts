@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 type SaveKind = "entity" | "base";
 
@@ -25,6 +26,7 @@ type BulkSaveState = {
 };
 
 export function useBulkSaveProgress(toast: ToastInvoker) {
+  const { showError, clearError } = useErrorSurface();
   const bulkSaveRef = useRef<BulkSaveState>({
     active: false,
     total: 0,
@@ -34,35 +36,27 @@ export function useBulkSaveProgress(toast: ToastInvoker) {
   });
 
   const finishBulkSave = useCallback((bulk: BulkSaveState) => {
-    const summaryTitle = `Saved ${bulk.total} files (${bulk.successes} ok${bulk.failures.length ? `, ${bulk.failures.length} failed` : ""})`;
-    const summaryDescription =
-      bulk.failures.length > 0
-        ? bulk.failures
-            .map((f) => `${f.kind === "base" ? "Base" : "Entity"}: ${f.relPath}${f.message ? ` - ${f.message}` : ""}`)
-            .join("\n")
-        : undefined;
-    bulk.toast?.update({
-      title: summaryTitle,
-      description: summaryDescription,
-      variant: bulk.failures.length ? "destructive" : "success",
-    });
-    if (!bulk.failures.length) {
-      setTimeout(() => bulk.toast?.dismiss(), 3500);
+    if (bulk.failures.length > 0) {
+      const summaryTitle = `Saved ${bulk.total} files (${bulk.successes} ok, ${bulk.failures.length} failed)`;
+      const summaryDescription = bulk.failures
+        .map((f) => `${f.kind === "base" ? "Base" : "Entity"}: ${f.relPath}${f.message ? ` - ${f.message}` : ""}`)
+        .join("\n");
+      showError("app", {
+        title: summaryTitle,
+        description: summaryDescription,
+      });
+    } else {
+      clearError("app");
     }
     bulkSaveRef.current = { active: false, total: 0, completed: 0, successes: 0, failures: [] };
-  }, []);
+  }, [clearError, showError]);
 
   const startBulkSave = useCallback(
     (total: number) => {
       if (total <= 0) return;
-      const toastHandle = toast({
-        title: "Saving files...",
-        description: `0/${total} saved`,
-        duration: 1000000,
-      });
-      bulkSaveRef.current = { active: true, total, completed: 0, successes: 0, failures: [], toast: toastHandle };
+      bulkSaveRef.current = { active: true, total, completed: 0, successes: 0, failures: [] };
     },
-    [toast],
+    [],
   );
 
   const recordBulkResult = useCallback(
@@ -72,8 +66,6 @@ export function useBulkSaveProgress(toast: ToastInvoker) {
       bulk.completed += 1;
       if (ok) bulk.successes += 1;
       else bulk.failures.push({ relPath, kind, message });
-      const desc = `${bulk.completed}/${bulk.total} saved${bulk.failures.length ? ` (${bulk.failures.length} failed)` : ""}`;
-      bulk.toast?.update({ title: "Saving files...", description: desc });
       if (bulk.completed >= bulk.total) {
         finishBulkSave(bulk);
       }

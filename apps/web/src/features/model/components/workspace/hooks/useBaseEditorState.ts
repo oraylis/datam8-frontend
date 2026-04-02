@@ -10,6 +10,7 @@ import {
 import { validateBaseContent } from "../lib/validation";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
 import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
+import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 const baseSelectedItemMemory = new Map<string, string | null>();
@@ -87,6 +88,7 @@ export const useBaseEditorState = ({
   getBaseDraft,
   setBaseEditorDraft,
 }: BaseStateParams) => {
+  const { showError } = useErrorSurface();
   const propertyValuesEntry = useMemo(() => baseEntities.find((b) => isPropertyValuesBase(b)), [baseEntities]);
 
   const [selectedBaseItemState, setSelectedBaseItemState] = useState<string | null>(null);
@@ -558,7 +560,10 @@ export const useBaseEditorState = ({
       const requiresAtLeastOne = ["attributeTypes", "dataTypes", "dataSourceTypes", "dataProducts"].includes(baseData.type);
       const currentList = baseData.items || [];
       if (requiresAtLeastOne && currentList.length <= 1) {
-        window.alert("At least one item is required and cannot be removed.");
+        showError("app", {
+          title: "Delete blocked",
+          description: "At least one item is required and cannot be removed.",
+        });
         return null;
       }
       const targetIndex = findBaseItemIndex(currentList, itemKey);
@@ -587,7 +592,7 @@ export const useBaseEditorState = ({
         },
       };
     },
-    [baseData.items, baseData.type, baseDraft, markBaseDirty, selectedBase],
+    [baseData.items, baseData.type, baseDraft, markBaseDirty, selectedBase, showError],
   );
 
   const onSubmitBase = useCallback(async (): Promise<boolean> => {

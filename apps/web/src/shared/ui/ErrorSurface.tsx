@@ -1,0 +1,116 @@
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+
+export type ErrorSurfaceScope = string;
+
+type ErrorSurfacePayload = {
+  title: string;
+  description?: string | null;
+  onRetry?: (() => void) | null;
+  retryLabel?: string;
+};
+
+type ErrorSurfaceEntry = {
+  title: string;
+  description: string;
+  onRetry?: (() => void) | null;
+  retryLabel: string;
+};
+
+type ErrorSurfaceContextValue = {
+  showError: (scope: ErrorSurfaceScope, payload: ErrorSurfacePayload) => void;
+  clearError: (scope: ErrorSurfaceScope) => void;
+  getError: (scope: ErrorSurfaceScope) => ErrorSurfaceEntry | null;
+};
+
+const ErrorSurfaceContext = createContext<ErrorSurfaceContextValue | undefined>(undefined);
+
+export function ErrorSurfaceProvider({ children }: { children: ReactNode }) {
+  const [entries, setEntries] = useState<Record<string, ErrorSurfaceEntry>>({});
+
+  const showError = useCallback((scope: ErrorSurfaceScope, payload: ErrorSurfacePayload) => {
+    const title = `${payload.title || ""}`.trim() || "Operation failed";
+    const description = `${payload.description || ""}`.trim();
+    const retryLabel = `${payload.retryLabel || ""}`.trim() || "Retry";
+    setEntries((prev) => ({
+      ...prev,
+      [scope]: {
+        title,
+        description,
+        onRetry: payload.onRetry || null,
+        retryLabel,
+      },
+    }));
+  }, []);
+
+  const clearError = useCallback((scope: ErrorSurfaceScope) => {
+    setEntries((prev) => {
+      if (!prev[scope]) return prev;
+      const next = { ...prev };
+      delete next[scope];
+      return next;
+    });
+  }, []);
+
+  const getError = useCallback(
+    (scope: ErrorSurfaceScope) => {
+      return entries[scope] || null;
+    },
+    [entries],
+  );
+
+  const value = useMemo<ErrorSurfaceContextValue>(
+    () => ({
+      showError,
+      clearError,
+      getError,
+    }),
+    [clearError, getError, showError],
+  );
+
+  return <ErrorSurfaceContext.Provider value={value}>{children}</ErrorSurfaceContext.Provider>;
+}
+
+export function useErrorSurface() {
+  const ctx = useContext(ErrorSurfaceContext);
+  if (!ctx) {
+    throw new Error("useErrorSurface must be used within an ErrorSurfaceProvider");
+  }
+  return ctx;
+}
+
+export function ErrorSurfaceHost({ scope }: { scope: ErrorSurfaceScope }) {
+  const { clearError, getError } = useErrorSurface();
+  const entry = getError(scope);
+
+  if (!entry) return null;
+
+  return (
+    <div className="error-surface" role="alert" aria-live="assertive">
+      <div className="error-surface__head">
+        <div className="error-surface__title">{entry.title}</div>
+        <button
+          type="button"
+          className="error-surface__close"
+          onClick={() => clearError(scope)}
+          aria-label="Close error"
+          title="Close"
+        >
+          x
+        </button>
+      </div>
+      {entry.description ? <div className="error-surface__description">{entry.description}</div> : null}
+      {entry.onRetry ? (
+        <div className="error-surface__actions">
+          <button
+            type="button"
+            className="error-surface__retry"
+            onClick={() => entry.onRetry?.()}
+          >
+            {entry.retryLabel}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+

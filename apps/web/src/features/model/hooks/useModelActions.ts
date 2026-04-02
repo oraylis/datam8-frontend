@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { useToast } from "@datam8/ui";
 import { useModelEditor } from "../ModelEditorContext";
 import { useConfirm } from "../../../shared/hooks/useConfirm";
 import { ModelEntity } from "../model-types";
@@ -7,6 +6,7 @@ import { findModelEntityDependents, EntityDependency } from "../model-deps";
 import { generateModelEntityId } from "../model-utils";
 import { modelLocatorFromRelPath } from "../locator-utils";
 import { deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
+import { useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 export function useModelActions() {
   const { 
@@ -22,7 +22,7 @@ export function useModelActions() {
   } = useModelEditor() as any;
 
   const confirm = useConfirm();
-  const { toast } = useToast();
+  const { showError, clearError } = useErrorSurface();
 
   const generateNewName = useCallback(
     (originalName: string, existingNames: Set<string>) => {
@@ -221,13 +221,13 @@ export function useModelActions() {
               setSelectedRelPath(newEntities[0].relPath);
           }
 
-          toast({ title: `Duplicated ${newEntities.length} entities` });
+          clearError("app");
 
       } catch (err) {
-          toast({ title: "Duplication failed", description: (err as Error).message, variant: "destructive" });
+          showError("app", { title: "Duplication failed", description: (err as Error).message });
       }
     },
-    [modelEntities, setModelEntities, setSelectedRelPaths, setSelectedRelPath, toast, generateNewName]
+    [clearError, generateNewName, modelEntities, setModelEntities, setSelectedRelPaths, setSelectedRelPath, showError]
   );
 
   const deleteModelEntities = useCallback(
@@ -409,13 +409,13 @@ export function useModelActions() {
            setSelectedRelPaths(new Set());
            setSelectedRelPath(null);
 
-           toast({ title: `Deleted ${deletable.length} entities` });
+           clearError("app");
 
        } catch (err) {
-           toast({ title: "Delete failed", description: (err as Error).message, variant: "destructive" });
+           showError("app", { title: "Delete failed", description: (err as Error).message });
        }
     },
-    [closeTab, confirm, modelEntities, setModelEntities, setSelectedRelPath, setSelectedRelPaths, toast]
+    [clearError, closeTab, confirm, modelEntities, setModelEntities, setSelectedRelPath, setSelectedRelPaths, showError]
   );
 
   return { duplicateModelEntities, deleteModelEntities };

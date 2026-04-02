@@ -9,11 +9,11 @@ import {
   DialogTitle,
   Input,
   Label,
-  cn,
 } from "@datam8/ui";
 import { FolderOpen, Loader2 } from "lucide-react";
 import { useSolution } from "../features/solution/SolutionContext";
 import type { BaseEntity, FolderEntity, ModelEntity } from "../features/model/model-types";
+import { ErrorSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 
 type SolutionDialogProps = {
   open: boolean;
@@ -21,6 +21,7 @@ type SolutionDialogProps = {
 };
 
 export function SolutionDialog({ open, onLoaded }: SolutionDialogProps) {
+  const scope = "dialog:solution-open";
   const {
     pickerInput,
     setPickerInput,
@@ -30,6 +31,7 @@ export function SolutionDialog({ open, onLoaded }: SolutionDialogProps) {
     loading,
     loadSolution,
   } = useSolution();
+  const { showError, clearError } = useErrorSurface();
 
   // Handle open-file event from main process
   useEffect(() => {
@@ -69,6 +71,18 @@ export function SolutionDialog({ open, onLoaded }: SolutionDialogProps) {
     }
   }, [loadSolution, onLoaded, pickerInput, setPickerInput, setPickerOpen]);
 
+  useEffect(() => {
+    if (!open) {
+      clearError(scope);
+      return;
+    }
+    if (pickerError) {
+      showError(scope, { title: "Load failed", description: pickerError });
+      return;
+    }
+    clearError(scope);
+  }, [clearError, open, pickerError, showError]);
+
   return (
     <Dialog open={open} onOpenChange={(next) => setPickerOpen(next)}>
       <DialogContent className="max-w-3xl">
@@ -98,11 +112,6 @@ export function SolutionDialog({ open, onLoaded }: SolutionDialogProps) {
               />
             </div>
           </div>
-          {pickerError ? (
-            <div className={cn("codex-popup-error")}>
-              Load failed: {pickerError}
-            </div>
-          ) : null}
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => setPickerOpen(false)} disabled={loading}>
@@ -121,6 +130,9 @@ export function SolutionDialog({ open, onLoaded }: SolutionDialogProps) {
             </Button>
           )}
         </DialogFooter>
+        <div className="error-surface-slot error-surface-slot--flush">
+          <ErrorSurfaceHost scope={scope} />
+        </div>
       </DialogContent>
     </Dialog>
   );

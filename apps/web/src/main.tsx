@@ -4,7 +4,6 @@ import App from "./App";
 import { ThemeProvider } from "@datam8/ui/theme";
 import "@datam8/ui/styles.css";
 import "./index.css";
-import { AppToaster } from "./toaster";
 
 let didLogAuthShimInstalled = false;
 
@@ -50,7 +49,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="system" storageKey="datam8-ui-theme-v2">
       <App />
-      <AppToaster />
     </ThemeProvider>
   </React.StrictMode>,
 );

@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, CSSProperties, type ChangeEvent } from "react";
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
   Button,
   Dialog,
   DialogContent,
@@ -13,7 +10,6 @@ import {
   Input,
   Label,
   WorkTabs,
-  useToast,
 } from "@datam8/ui";
 import { useTheme } from "@datam8/ui/theme";
 import { Bot, ShieldCheck } from "lucide-react";
@@ -49,6 +45,7 @@ import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
 import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
 import { createEntity, deleteEntity, moveEntities, patchEntity, saveModel } from "../shared/api/v2Client";
+import { ErrorSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
 type PendingBaseAction =
@@ -133,7 +130,7 @@ export function AppShell() {
     setPickerOpen,
     setPickerInput,
     setPickerError,
-    clearError,
+    clearError: clearSolutionError,
     loadSolution,
   } = useSolution();
   const [appMode, setAppMode] = useState<RuntimeAppMode>(config.mode);
@@ -236,7 +233,7 @@ export function AppShell() {
   const [validatorResolvedPath, setValidatorResolvedPath] = useState<string | null>(null);
   const [validatorError, setValidatorError] = useState<string | null>(null);
   const validatorRunInFlightRef = useRef(false);
-  const { toast } = useToast();
+  const { showError, clearError: clearSurfaceError } = useErrorSurface();
   const confirm = useConfirm();
   const { width: sidebarSize, setWidth: setSidebarSize, startResize } = useResizablePane({
     initialWidth: sidebarWidth,
@@ -246,6 +243,13 @@ export function AppShell() {
   useEffect(() => {
     setSidebarSize(sidebarWidth);
   }, [setSidebarSize, sidebarWidth]);
+
+  const showAppError = useCallback(
+    (title: string, description?: string, onRetry?: (() => void) | null) => {
+      showError("app", { title, description, onRetry: onRetry || null, retryLabel: "Retry" });
+    },
+    [showError],
+  );
 
   useEffect(() => {
     (async () => {
@@ -257,6 +261,14 @@ export function AppShell() {
       setAppMode(cfg.mode);
     })();
   }, []);
+
+  useEffect(() => {
+    if (error) {
+      showAppError("Failed to load solution", error);
+      return;
+    }
+    clearSurfaceError("app");
+  }, [clearSurfaceError, error, showAppError]);
 
   useEffect(() => {
     const stored = localStorage.getItem("dm8_solution_path");
@@ -400,11 +412,7 @@ export function AppShell() {
         setBaseTabs((tabs) =>
           tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)),
         );
-        toast({
-          title: "Save failed",
-          description: (err as Error).message,
-          variant: "destructive",
-        });
+        showAppError("Save failed", (err as Error).message);
       } finally {
         patchedBaseInFlightRef.current.delete(relPath);
         if (patchedBaseQueuedRef.current.has(relPath)) {
@@ -417,7 +425,7 @@ export function AppShell() {
         }
       }
     },
-    [clearPatchedBaseTimer, formatBaseTitle, setBaseTabs, setTabDirty, toast],
+    [clearPatchedBaseTimer, formatBaseTitle, setBaseTabs, setTabDirty, showAppError],
   );
 
   const schedulePatchedBaseAutosave = useCallback(
@@ -619,9 +627,9 @@ export function AppShell() {
         setPickerInput(stored);
       }
 
-      clearError();
+      clearSolutionError();
     })();
-  }, [clearError, serverDialog, setPickerError, setPickerInput, solution]);
+  }, [clearSolutionError, serverDialog, setPickerError, setPickerInput, solution]);
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -876,14 +884,9 @@ export function AppShell() {
       }
       const updatedByRelPath = new Map(result.updatedEntities.map((entity) => [entity.relPath, entity]));
       setModelEntities((prev) => prev.map((entity) => updatedByRelPath.get(entity.relPath) || entity));
-      const impact = summarizePropertyRefactorImpact(result);
-      toast({
-        title: "Property refactor applied",
-        description: `${impact.entityCount} entities, ${impact.changeCount} changes updated.`,
-        variant: "success",
-      });
+      void summarizePropertyRefactorImpact(result);
     },
-    [modelEntities, setModelEntities, toast],
+    [modelEntities, setModelEntities],
   );
 
   const deleteFolderTree = useCallback(
@@ -895,11 +898,7 @@ export function AppShell() {
       const normalized = normalizedRaw.replace(/^Model\/?/i, "");
       if (!normalized) return true;
       if (!options?.allowZoneRoot && normalized.split("/").filter(Boolean).length <= 1) {
-        toast({
-          title: "Delete folder not allowed",
-          description: "Zone root folders cannot be deleted from the model tree.",
-          variant: "destructive",
-        });
+        showAppError("Delete folder not allowed", "Zone root folders cannot be deleted from the model tree.");
         return false;
       }
 
@@ -972,20 +971,12 @@ export function AppShell() {
         }
 
         if (options?.notifySuccess !== false) {
-          toast({
-            title: "Folder deleted",
-            description: normalizedRaw,
-            variant: "success",
-          });
+          clearSurfaceError("app");
         }
         return true;
       } catch (err) {
         if (options?.notifyFailure !== false) {
-          toast({
-            title: "Delete folder failed",
-            description: (err as Error).message || "Unknown error",
-            variant: "destructive",
-          });
+          showAppError("Delete folder failed", (err as Error).message || "Unknown error");
         }
         throw err;
       }
@@ -1004,7 +995,8 @@ export function AppShell() {
       setSelectedFolderPath,
       setSelectedRelPath,
       setSelectedRelPaths,
-      toast,
+      clearSurfaceError,
+      showAppError,
     ],
   );
 
@@ -1042,11 +1034,7 @@ export function AppShell() {
           applied += 1;
         } catch (err) {
           failed.push(action);
-          toast({
-            title: "Apply action failed",
-            description: (err as Error).message,
-            variant: "destructive",
-          });
+          showAppError("Apply action failed", (err as Error).message);
         }
       }
     } finally {
@@ -1054,18 +1042,10 @@ export function AppShell() {
     }
 
     if (applied > 0) {
-      toast({
-        title: "Actions applied",
-        description: `${applied} action(s) applied.`,
-        variant: "success",
-      });
+      clearSurfaceError("app");
     }
     if (failed.length > 0) {
-      toast({
-        title: "Some actions were not applied",
-        description: `${failed.length} action(s) failed.`,
-        variant: "destructive",
-      });
+      showAppError("Some actions were not applied", `${failed.length} action(s) failed.`);
       setBaseActionPrompt({ ...prompt, actions: failed });
       return;
     }
@@ -1082,11 +1062,7 @@ export function AppShell() {
           applyLoadedSolution(result);
         }
       } catch (err) {
-        toast({
-          title: "Reload after actions failed",
-          description: (err as Error).message || "Unknown error",
-          variant: "destructive",
-        });
+        showAppError("Reload after actions failed", (err as Error).message || "Unknown error");
       }
     }
     setBaseActionPrompt(null);
@@ -1101,7 +1077,8 @@ export function AppShell() {
     runPropertyRefactor,
     solutionPath,
     solutionSource,
-    toast,
+      clearSurfaceError,
+    showAppError,
   ]);
 
   const undoBaseActionPrompt = useCallback(async () => {
@@ -1154,21 +1131,13 @@ export function AppShell() {
       }
 
       setBaseActionPrompt(null);
-      toast({
-        title: "Change reverted",
-        description: "Change was undone.",
-        variant: "success",
-      });
+      clearSurfaceError("app");
     } catch (err) {
-      toast({
-        title: "Undo failed",
-        description: (err as Error).message,
-        variant: "destructive",
-      });
+      showAppError("Undo failed", (err as Error).message);
     } finally {
       setApplyingBaseActions(false);
     }
-  }, [applyingBaseActions, baseActionPrompt, formatBaseTitle, setActiveWorkTab, setBaseEntities, setBaseTabs, setFolderEntities, setSelectedFolderPath, setTabDirty, toast]);
+  }, [applyingBaseActions, baseActionPrompt, clearSurfaceError, formatBaseTitle, setActiveWorkTab, setBaseEntities, setBaseTabs, setFolderEntities, setSelectedFolderPath, setTabDirty, showAppError]);
 
   const handleSaveBase = useCallback(
     async (updated: BaseEntity) => {
@@ -1458,11 +1427,7 @@ export function AppShell() {
         }
         setTreeFilter("");
       } catch (err) {
-        toast({
-          title: "Move failed",
-          description: (err as Error).message,
-          variant: "destructive",
-        });
+        showAppError("Move failed", (err as Error).message);
       }
     },
     [
@@ -1475,7 +1440,7 @@ export function AppShell() {
       setSelectedRelPath,
       setSelectedRelPaths,
       setTreeFilter,
-      toast,
+      showAppError,
     ],
   );
 
@@ -1537,11 +1502,7 @@ export function AppShell() {
         throw new Error(message);
       }
     } catch (err) {
-      toast({
-        title: "Reload failed",
-        description: (err as Error).message,
-        variant: "destructive",
-      });
+      showAppError("Reload failed", (err as Error).message);
       return;
     }
 
@@ -1554,7 +1515,7 @@ export function AppShell() {
     if (result) {
       applyLoadedSolution(result);
     }
-  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, solutionPath, solutionSource, toast]);
+  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solutionPath, solutionSource]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")
@@ -1764,21 +1725,13 @@ export function AppShell() {
     const folderName = (newFolderName || "").replace(/[\\/]/g, "").trim();
     if (!parent) return;
     if (!folderName) {
-      toast({
-        title: "Folder creation failed",
-        description: "Folder name is required.",
-        variant: "destructive",
-      });
+      showAppError("Folder creation failed", "Folder name is required.");
       return;
     }
 
     const newFolderPath = normalizeFolderPath(`${parent}/${folderName}`);
     if (folderEntityByPath.has(newFolderPath)) {
-      toast({
-        title: "Folder creation failed",
-        description: "A folder with this path already exists.",
-        variant: "destructive",
-      });
+      showAppError("Folder creation failed", "A folder with this path already exists.");
       return;
     }
 
@@ -1801,7 +1754,7 @@ export function AppShell() {
     setActiveWorkTab(`folder:${newFolderPath}`);
     setNewFolderDialogOpen(false);
     setNewFolderName("");
-  }, [ensureExpandedPath, folderEntityByPath, newFolderName, newFolderParentPath, saveFolderMetadata, setActiveWorkTab, setSelectedFolderPath, toast]);
+  }, [ensureExpandedPath, folderEntityByPath, newFolderName, newFolderParentPath, saveFolderMetadata, setActiveWorkTab, setSelectedFolderPath, showAppError]);
 
   const deleteFolder = useCallback(
     async (folderPath: string) => {
@@ -1861,11 +1814,7 @@ export function AppShell() {
     if (validatorRunInFlightRef.current) return;
 
     if (!solutionPath) {
-      toast({
-        title: "No solution loaded",
-        description: "Cannot run validator without a loaded solution.",
-        variant: "destructive",
-      });
+      showAppError("No solution loaded", "Cannot run validator without a loaded solution.");
       return;
     }
 
@@ -1930,16 +1879,12 @@ export function AppShell() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred";
       setValidatorError(message);
-      toast({
-        title: "Validator execution failed",
-        description: message,
-        variant: "destructive",
-      });
+      showAppError("Validator execution failed", message);
     } finally {
       validatorRunInFlightRef.current = false;
       setValidatorRunning(false);
     }
-  }, [generatorLogLevel, solutionPath, toast]);
+  }, [generatorLogLevel, showAppError, solutionPath]);
 
   const handleToggleTheme = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -2389,11 +2334,7 @@ export function AppShell() {
                       (b.content?.dataSources || []).some((d) => d?.name === name),
                     );
                     if (!dsBase) {
-                      toast({
-                        title: "Data source not found",
-                        description: `Could not locate data source "${name}" in the loaded base files.`,
-                        variant: "destructive",
-                      });
+                      showAppError("Data source not found", `Could not locate data source "${name}" in the loaded base files.`);
                       return;
                     }
                     if (activeWorkTab !== `base:${dsBase.relPath}`) {
@@ -2444,15 +2385,11 @@ export function AppShell() {
               />
             </div>
           </div>
+          <div className="error-surface-slot">
+            <ErrorSurfaceHost scope="app" />
+          </div>
         </section>
       </div>
-
-      {error ? (
-        <Alert variant="destructive" className="shell-error">
-          <AlertTitle>Failed to load solution</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
     </div>
   );
 }

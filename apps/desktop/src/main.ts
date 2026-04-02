@@ -1174,7 +1174,7 @@ function setupMenu() {
         {
           label: "Learn More",
           click: async () => {
-            await shell.openExternal("https://github.com/oraylis/datam8-neon");
+            await shell.openExternal("https://github.com/oraylis/datam8");
           },
         },
       ],

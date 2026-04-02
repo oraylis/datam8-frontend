@@ -1,6 +1,6 @@
-# DataM8 Neon
+# DataM8
 
-DataM8 Neon is the DataM8 2.0 workspace: a React/Vite web app and an Electron shell that starts the DataM8 backend and communicates over HTTP.
+DataM8 is the DataM8 2.0 workspace: a React/Vite web app and an Electron shell that starts the DataM8 backend and communicates over HTTP.
 
 ## Apps and Tech Stack
 - `apps/web` - Vite + React 18 UI with `@datam8/ui`, tabbed workspace, generator panel.
@@ -15,7 +15,7 @@ DataM8 Neon is the DataM8 2.0 workspace: a React/Vite web app and an Electron sh
 - `packages/ui`, `packages/types` - shared packages consumed by apps.
 
 Legacy cleanup:
-- `packages/datam8_cli` was removed from this repository. Neon uses `submodules/datam8-generator` as backend runtime.
+- `packages/datam8_cli` was removed from this repository. Frontend uses `submodules/datam8-generator` as backend runtime.
 
 ## Prerequisites
 - Node.js 20.x or 22.x LTS (repo uses npm workspaces; Node 25+ is unsupported).
@@ -55,8 +55,8 @@ Key runtime env vars:
 
 ## API Contract
 - Canonical backend contract: `submodules/datam8-generator/docs/backend-contract.md`
-- Neon mirror: `docs/backend-contract.md`
-- Neon uses root endpoints (no `/api/*`), for example:
+- Frontend mirror: `docs/backend-contract.md`
+- Frontend uses root endpoints (no `/api/*`), for example:
   - `GET /config`
   - `GET /solution/inspect`, `GET /solution/full`, `POST /solution/new-project`
   - `GET /fs/list`
@@ -72,3 +72,5 @@ Removed:
 
 ## Troubleshooting
 See `docs/troubleshooting.md`.
+
+

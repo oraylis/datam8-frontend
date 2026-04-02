@@ -2,7 +2,7 @@
 
 Plugins are loaded by `datam8 serve` from `DATAM8_PLUGIN_DIR`.
 
-Neon uses plugin management endpoints under root paths:
+Frontend uses plugin management endpoints under root paths:
 
 - `GET /plugins`
 - `POST /plugins/reload`
@@ -10,3 +10,5 @@ Neon uses plugin management endpoints under root paths:
 - `POST /plugins/uninstall`
 - `POST /plugins/enable`
 - `POST /plugins/disable`
+
+

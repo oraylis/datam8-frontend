@@ -39,7 +39,7 @@ function findSingleDm8s(dir) {
 
 function copySampleToTemp(sourceDm8s) {
   const sourceDir = path.dirname(sourceDm8s);
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "datam8-neon-release-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "datam8-release-"));
   const copiedDir = path.join(tempRoot, path.basename(sourceDir));
   fs.cpSync(sourceDir, copiedDir, { recursive: true });
   const copiedDm8s = findSingleDm8s(copiedDir);
@@ -145,3 +145,4 @@ main().catch((err) => {
   console.error(err?.stack || String(err));
   process.exit(1);
 });
+

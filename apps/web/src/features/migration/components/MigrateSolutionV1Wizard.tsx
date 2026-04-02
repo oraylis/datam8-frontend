@@ -136,7 +136,7 @@ export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: 
         <DialogHeader>
           <DialogTitle>Migrate V1 Solution -&gt; V2</DialogTitle>
           <DialogDescription>
-            This solution looks like a V1 project. DataM8 Neon will migrate it to V2 so it can be opened.
+            This solution looks like a V1 project. DataM8 will migrate it to V2 so it can be opened.
           </DialogDescription>
         </DialogHeader>
 
@@ -300,4 +300,5 @@ export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: 
     </Dialog>
   );
 }
+
 

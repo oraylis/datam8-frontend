@@ -98,7 +98,7 @@ function copyFixtureToTemp() {
   const src = path.join(repoRoot, "scripts", "fixtures", "job_solution");
   if (!fs.existsSync(src)) throw new Error(`Missing fixture dir: ${src}`);
 
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "datam8-neon-fixture-"));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "datam8-fixture-"));
   const dst = path.join(tmp, "solution");
   fs.cpSync(src, dst, { recursive: true });
   return { tmp, solutionPath: path.join(dst, "TestSolution.dm8s") };
@@ -285,3 +285,4 @@ main().catch((err) => {
   console.error(err?.stack || String(err));
   process.exit(1);
 });
+

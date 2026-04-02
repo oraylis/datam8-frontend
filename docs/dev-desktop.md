@@ -1,6 +1,6 @@
 # Desktop Development
 
-Neon starts a local FastAPI backend process via Python module execution.
+Frontend starts a local FastAPI backend process via Python module execution.
 
 ## Backend start contract
 
@@ -25,3 +25,5 @@ Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/generate`,
 - `DATAM8_PYTHON_PATH`: optional override, but must still point to that `.venv` interpreter
 - `DATAM8_BACKEND_MODULE`: optional module name (default `datam8`)
 - `DATAM8_PLUGIN_DIR`: plugin root for connector discovery
+
+

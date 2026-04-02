@@ -1,4 +1,4 @@
-# DataM8 Neon Architecture (HTTP + Jobs)
+# DataM8 Architecture (HTTP + Jobs)
 
 ## High-Level View
 ```
@@ -24,7 +24,7 @@
   - `submodules/datam8-generator` is the single source of truth for the `datam8` CLI, FastAPI server, and Job system.
 
 ## Backend Lifecycle (Desktop-safe)
-Neon starts the backend once and keeps it long-lived:
+Frontend starts the backend once and keeps it long-lived:
 - Spawn: `datam8 serve --host 127.0.0.1 --port 0 --token <random>`
 - Readiness: backend prints exactly one JSON line to stdout:
   - `{"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}`

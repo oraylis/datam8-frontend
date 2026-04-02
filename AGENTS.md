@@ -1,11 +1,11 @@
 ## Purpose
-`datam8-neon` is the UI/Electron shell for DataM8 2.0. It opens `.dm8s` solutions, edits base + model entities, and calls the backend over HTTP.
+`datam8` is the UI/Electron shell for DataM8 2.0. It opens `.dm8s` solutions, edits base + model entities, and calls the backend over HTTP.
 
 ## How the Repositories Fit Together (v2)
 - `datam8-model`: source-of-truth schemas for v2 solution/base/model shapes.
 - `datam8-sample-solution`: reference implementation of a v2 solution; use for understanding structure, not as a test dependency.
 - `datam8-generator`: canonical backend (`datam8` CLI + FastAPI).
-- `datam8-neon`: desktop/web editor. Starts `datam8 serve --host 127.0.0.1 --port 0 --token ...` and calls backend root endpoints.
+- `datam8`: desktop/web editor. Starts `datam8 serve --host 127.0.0.1 --port 0 --token ...` and calls backend root endpoints.
 
 Data flow:
 - Electron spawns backend (`python -m datam8 serve`) and reads readiness JSON (`baseUrl`, `version`).
@@ -16,18 +16,18 @@ Data flow:
 ```mermaid
 flowchart LR
     M[datam8-model schemas] --> G[datam8-generator\nCLI + FastAPI]
-    S[datam8-sample-solution\nreference only] -. informs .-> N[datam8-neon\nElectron + Web UI]
+    S[datam8-sample-solution\nreference only] -. informs .-> N[datam8\nElectron + Web UI]
     N -->|spawn datam8 serve| G
     N -->|HTTP root endpoints| G
 ```
 
 Canonical backend contract:
 - `submodules/datam8-generator/docs/backend-contract.md`
-- Neon mirror/link doc: `docs/backend-contract.md`
+- Frontend mirror/link doc: `docs/backend-contract.md`
 
 ## Scope Rules
-- UI-only requirement: change Neon only.
-- Core `generate`/`validate`/`index` semantics: change Generator only; Neon only wiring.
+- UI-only requirement: change Frontend only.
+- Core `generate`/`validate`/`index` semantics: change Generator only; Frontend only wiring.
 - User feature spanning backend + UI: change both repos, update backend contract doc, and add end-to-end coverage.
 - Contract change: update canonical generator contract doc first, then coordinated code changes and contract/e2e tests.
 

@@ -1,10 +1,10 @@
-# Backend Contract (Neon Consumer View)
+# Backend Contract (Frontend Consumer View)
 
 Canonical source of truth is maintained in `datam8-generator/docs/backend-contract.md`.
 
 ## Startup
 
-Neon starts the backend as:
+Frontend starts the backend as:
 
 ```bash
 python -m datam8 serve --host 127.0.0.1 --port 0 --token <token>
@@ -21,9 +21,9 @@ Readiness line on stdout:
 - Unauthenticated: `GET /health`, `GET /version`
 - All other endpoints require `Authorization: Bearer <token>`
 
-## Endpoint namespaces used by Neon
+## Endpoint namespaces used by Frontend
 
-Neon uses root endpoints (no `/api/*` namespace):
+Frontend uses root endpoints (no `/api/*` namespace):
 
 - `GET /config`
 - `GET /solution/inspect`, `GET /solution/full`, `POST /solution/new-project`
@@ -67,3 +67,5 @@ Connector/plugin payloads use normalized capability objects (no `string[]`):
 
 - `/jobs` and `/jobs/*`
 - `/api/*`
+
+

@@ -229,7 +229,7 @@ export function AppShell() {
     runGenerator,
   } = useGenerator();
   const [activeRunPanel, setActiveRunPanel] = useState<"generator" | "validator" | null>(null);
-  const [windowTitle, setWindowTitle] = useState("DataM8 Neon");
+  const [windowTitle, setWindowTitle] = useState("DataM8");
   const [windowMenuLabels, setWindowMenuLabels] = useState<string[]>([]);
   const [validatorRunning, setValidatorRunning] = useState(false);
   const [validatorMessages, setValidatorMessages] = useState<string[]>([]);
@@ -1959,7 +1959,7 @@ export function AppShell() {
       }
     });
     const unsubscribe = desktopWindow?.onTitleChanged?.((title) => {
-      setWindowTitle(title || "DataM8 Neon");
+      setWindowTitle(title || "DataM8");
     });
     return () => {
       unsubscribe?.();
@@ -2456,5 +2456,6 @@ export function AppShell() {
     </div>
   );
 }
+
 
 

@@ -1,6 +1,6 @@
-# Connectors in Neon
+# Connectors in Frontend
 
-Neon consumes connector endpoints directly from the backend root namespace:
+Frontend consumes connector endpoints directly from the backend root namespace:
 
 - `GET /connectors`
 - `GET /connectors/:id/ui-schema`
@@ -13,3 +13,5 @@ Secrets are managed via:
 - `DELETE /secrets/runtime/key`
 
 Desktop main process sets `DATAM8_PLUGIN_DIR` before backend start.
+
+

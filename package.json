@@ -1,5 +1,5 @@
 {
-  "name": "datam8-neon",
+  "name": "datam8",
   "private": true,
   "version": "0.1.4",
   "description": "DataM8 2.0 UI + API + Desktop shell",
@@ -41,3 +41,4 @@
     "typescript-eslint": "^8.24.1"
   }
 }
+

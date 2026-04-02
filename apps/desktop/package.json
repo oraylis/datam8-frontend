@@ -1,10 +1,10 @@
 {
-  "name": "@datam8/neon-desktop",
-  "productName": "DataM8 Neon",
+  "name": "@datam8/desktop",
+  "productName": "DataM8",
   "version": "0.1.4",
   "private": true,
-  "description": "DataM8 Neon Desktop App",
-  "homepage": "https://github.com/oraylis/datam8-neon",
+  "description": "DataM8 Desktop App",
+  "homepage": "https://github.com/oraylis/datam8",
   "author": "DataM8",
   "main": "dist/main.js",
   "scripts": {
@@ -22,12 +22,12 @@
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "build": {
-    "appId": "com.datam8.neon",
-    "productName": "DataM8 Neon",
+    "appId": "com.datam8",
+    "productName": "DataM8",
     "electronVersion": "28.3.3",
     "deb": {
-      "packageName": "datam8-neon",
-      "artifactName": "datam8-neon_${version}_${arch}.${ext}"
+      "packageName": "datam8",
+      "artifactName": "datam8_${version}_${arch}.${ext}"
     },
     "files": [
       "dist/**/*",
@@ -68,7 +68,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "DataM8 Neon"
+      "shortcutName": "DataM8"
     },
     "mac": {
       "target": [
@@ -78,8 +78,8 @@
       "category": "public.app-category.developer-tools",
       "icon": "build/icons/icon.icns",
       "extendInfo": {
-        "CFBundleDisplayName": "DataM8 Neon",
-        "CFBundleName": "DataM8 Neon"
+        "CFBundleDisplayName": "DataM8",
+        "CFBundleName": "DataM8"
       }
     },
     "linux": {
@@ -94,7 +94,7 @@
       {
         "provider": "github",
         "owner": "oraylis",
-        "repo": "datam8-neon"
+        "repo": "datam8"
       }
     ]
   },
@@ -112,3 +112,4 @@
     "zod": "^3.25.76"
   }
 }
+

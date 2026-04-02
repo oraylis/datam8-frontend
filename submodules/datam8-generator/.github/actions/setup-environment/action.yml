@@ -1,0 +1,26 @@
+# .github/actions/setup-environment/action.yml
+
+name: "Setup Environment"
+description: "Sets up UV and Python for the job"
+
+inputs:
+  uv_version:
+    description: "The version of UV to install"
+    required: true
+    default: "latest"
+  python_version_file:
+    description: "The file with the Python version"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: ${{ inputs.uv_version }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: ${{ inputs.python_version_file }}

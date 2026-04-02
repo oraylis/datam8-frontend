@@ -1,0 +1,133 @@
+{
+  "id": 1,
+  "name": "Customer",
+  "displayName": "Customer",
+  "properties": [
+    {
+      "property": "tags",
+      "value": "overwrite"
+    },
+    {
+      "property": "tags",
+      "value": "weekly"
+    }
+  ],
+  "parameters": [],
+  "attributes": [
+    {
+      "ordinalNumber": 1,
+      "name": "KundenNummer",
+      "description": "Unique key for the customer",
+      "attributeType": "ID",
+      "dataType": {
+        "type": "int",
+        "nullable": false
+      },
+      "isBusinessKey": true,
+      "history": "SCD0",
+      "dateAdded": "2025-01-01T01:01:01Z"
+    },
+    {
+      "ordinalNumber": 2,
+      "name": "Vorname",
+      "attributeType": "Name",
+      "history": "SCD0",
+      "properties": [
+        {
+          "property": "column_type",
+          "value": "SK"
+        }
+      ],
+      "dataType": {
+        "type": "string",
+        "nullable": false
+      },
+      "dateAdded": "2025-01-01T01:01:01Z"
+    },
+    {
+      "ordinalNumber": 3,
+      "name": "Nachname",
+      "attributeType": "Name",
+      "history": "SCD0",
+      "dataType": {
+        "type": "string",
+        "nullable": false
+      },
+      "dateAdded": "2025-01-01T01:01:01Z"
+    },
+    {
+      "ordinalNumber": 4,
+      "name": "AddressType",
+      "attributeType": "Address",
+      "dataType": {
+        "type": "string",
+        "nullable": true
+      },
+      "dateAdded": "2025-01-01T01:01:01Z"
+    },
+    {
+      "ordinalNumber": 5,
+      "name": "DisplayName",
+      "displayName": "Anzeigename",
+      "attributeType": "Name",
+      "expression": "Concat(LastName, ', ', FirstName)",
+      "history": "SCD2",
+      "dataType": {
+        "type": "string",
+        "charLen": 128,
+        "nullable": false
+      },
+      "refactorNames": [
+        "Anzeigename"
+      ],
+      "dateAdded": "2025-01-01T01:01:01Z"
+    }
+  ],
+  "sources": [
+    {
+      "sourceLocation": 2,
+      "mapping": [
+        {
+          "targetName": "CustomerID",
+          "sourceName": "KundenID"
+        },
+        {
+          "targetName": "FirstName",
+          "sourceName": "Vorname"
+        },
+        {
+          "targetName": "LastName",
+          "sourceName": "Nachname"
+        },
+        {
+          "targetName": "CompanyName",
+          "sourceName": "Firma"
+        }
+      ]
+    },
+    {
+      "sourceLocation": 3
+    }
+  ],
+  "relationships": [
+    {
+      "targetLocation": 1,
+      "attributes": [
+        {
+          "targetName": "KundenNummer",
+          "sourceName": "KundenNummer"
+        }
+      ]
+    }
+  ],
+  "transformations": [
+    {
+      "stepNo": 1,
+      "kind": "function",
+      "name": "default (migrated)",
+      "function": {
+        "source": "customer.py"
+      }
+    }
+  ]
+}

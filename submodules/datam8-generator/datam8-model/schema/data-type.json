@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oraylis.de/datam8/schema/data-type.json",
+  "title": "DataType",
+  "description": "An datam8 abstract internal data type.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "nullable"
+  ],
+  "properties": {
+    "type": {
+      "type": "string"
+    },
+    "nullable": {
+      "type": "boolean",
+      "default": true
+    },
+    "charLen": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "precision": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "scale": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "definitions": {
+    "DataTypeDefinition": {
+      "description": "Defines a class of data type to configure which `DataType` properties are relevant for a specific type.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "targets"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "hasCharLen": {
+          "type": "boolean",
+          "default": false
+        },
+        "hasPrecision": {
+          "type": "boolean",
+          "default": false
+        },
+        "hasScale": {
+          "type": "boolean",
+          "default": false
+        },
+        "targets": {
+          "description": "Maps target (e.g. databricks, powerbi, sqlserver) to their data types.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

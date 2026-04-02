@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oraylis.de/datam8/schema/common.json",
+  "title": "Common",
+  "description": "An attribute of a model entity.",
+  "definitions": {
+    "Id": {
+      "description": "Internal id of an entity.",
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "readOnly": true
+    }
+  }
+}

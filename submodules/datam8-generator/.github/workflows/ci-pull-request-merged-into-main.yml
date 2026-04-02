@@ -1,0 +1,68 @@
+name: "Lint, Build, Test and Release on merged PR into Main"
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  call-lint-build-test:
+    if: github.event.pull_request.merged == true
+    uses: ./.github/workflows/reusable-lint-build-test.yml
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      upload_artifacts: true
+
+  create-tag-and-release:
+    needs: call-lint-build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating tags & releases
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0 # Ensure full commit history for versioning
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8-0.1
+        with:
+          name: dist-artifacts # Matches the artifact name from the reusable workflow
+          path: dist
+
+      - name: Extract project version from pyproject.toml
+        run: echo "VERSION=v$(grep -oP '(?<=version = ")[^"]+' pyproject.toml)" >> $GITHUB_ENV
+
+      - name: Get latest tag version
+        run: echo "LATEST_TAG_VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+
+      - name: Generate commit log
+        if: env.VERSION != env.LATEST_TAG_VERSION
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}"
+
+          # Fetch the latest commits
+          if git rev-parse "$LATEST_TAG_VERSION" >/dev/null 2>&1; then
+            LOG=$(git log "$LATEST_TAG_VERSION"..HEAD --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
+          else
+            LOG=$(git log --pretty=format:"| [\`%h\`]($REPO_URL/commit/%H) | %s |" --reverse)
+          fi
+
+          printf "CHANGELOG<<EOF\n| Commit ID | Commit Message |\n|-----------|---------------|\n%s\nEOF\n" "$LOG" >> "$GITHUB_ENV"
+
+      # TODO: deactivate automatic release for now, to manully create beta releases
+      # - name: Create GitHub Release
+      #   uses: softprops/action-gh-release@v2
+      #   if: env.VERSION != env.LATEST_TAG_VERSION
+      #   with:
+      #     tag_name: ${{ env.VERSION }}
+      #     body: ${{ env.CHANGELOG }}
+      #     generate_release_notes: true
+      #     files: |
+      #       dist/*.whl
+      #       dist/*.tar.gz

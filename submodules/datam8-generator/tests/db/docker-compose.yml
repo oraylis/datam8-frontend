@@ -1,0 +1,34 @@
+---
+services:
+  adventure-works:
+    image: mcr.microsoft.com/mssql/server:2017-latest
+    container_name: adventure-works-for-datam8
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_PID: Developer
+      SA_PASSWORD: datam8abc#1
+    entrypoint: >
+      /bin/bash -c "bash /restore-db.sh & /opt/mssql/bin/sqlservr"
+    ports:
+      - 1433:1433
+    volumes:
+      - ./data:/var/opt/mssql/data
+      - "${DATAM8_DB_BACKUPS}:/backup"
+      - ./restore-db.sh:/restore-db.sh
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mssql-tools/bin/sqlcmd",
+          "-S",
+          "localhost",
+          "-U",
+          "sa",
+          "-P",
+          "datam8abc#1",
+          "-Q",
+          "SELECT 1",
+        ]
+      interval: 10s
+      timeout: 50s
+      retries: 10

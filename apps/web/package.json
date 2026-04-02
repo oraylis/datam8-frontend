@@ -1,0 +1,39 @@
+{
+  "name": "@datam8/neon-web",
+  "version": "0.1.4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\" \"vite.config.ts\" \"playwright.config.ts\"",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:release": "playwright test -c playwright.release.config.ts"
+  },
+  "dependencies": {
+    "@datam8/ui": "file:../../packages/ui",
+    "@hookform/resolvers": "^5.2.2",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.68.0",
+    "react-router-dom": "^6.28.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.12",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8",
+    "vitest": "^3.2.4"
+  }
+}

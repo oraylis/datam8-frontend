@@ -1,0 +1,451 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: "Manrope", "Inter", "SF Pro Display", "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+    --fs-page-title: 24px;
+    --fs-section-title: 16px;
+    --fs-body: 14px;
+    --fs-label: 12px;
+    --fs-helper: 12px;
+    --fs-code: 13px;
+
+    --lh-title: 1.25;
+    --lh-body: 1.55;
+    --lh-label: 1.25;
+    --lh-helper: 1.35;
+    --lh-code: 1.45;
+
+    --font-page-title: 700 var(--fs-page-title) / var(--lh-title) var(--font-sans);
+    --font-section-title: 600 var(--fs-section-title) / var(--lh-title) var(--font-sans);
+    --font-body: 400 var(--fs-body) / var(--lh-body) var(--font-sans);
+    --font-label: 600 var(--fs-label) / var(--lh-label) var(--font-sans);
+    --font-helper: 400 var(--fs-helper) / var(--lh-helper) var(--font-sans);
+    --font-code: 500 var(--fs-code) / var(--lh-code) var(--font-mono);
+
+    --ui-radius-2xs: 0.125rem;
+    --ui-radius-xs: 0.375rem;
+    --ui-radius-sm: 0.5rem;
+    --ui-radius-md: 0.625rem;
+    --ui-radius-lg: 0.75rem;
+    --ui-radius-xl: 1rem;
+    --ui-radius-2xl: 1.25rem;
+    --ui-radius-3xl: 1.5rem;
+    --ui-radius-pill: 999px;
+
+    --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+    --ui-shadow-md: 0 6px 16px rgba(0, 0, 0, 0.25);
+    --ui-shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.32);
+    --ui-shadow-xl: 0 22px 54px rgba(0, 0, 0, 0.4);
+
+    --ui-transition-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
+    --ui-transition-base: 180ms cubic-bezier(0.2, 0, 0, 1);
+    --ui-transition-slow: 260ms cubic-bezier(0.19, 1, 0.22, 1);
+
+    --ui-background: 225 19% 9%;
+    --ui-foreground: 220 24% 94%;
+    --ui-muted: 221 15% 55%;
+    --ui-muted-foreground: 221 14% 70%;
+
+    --ui-surface-sidebar: 224 17% 12%;
+    --ui-surface-workspace: 223 16% 16%;
+    --ui-surface-panel: 223 16% 19%;
+    --ui-surface-elevated: 223 18% 22%;
+    --ui-surface-dialog: 223 18% 21%;
+    --ui-surface-dialog-subtle: 223 16% 18%;
+    --ui-surface-overlay: 226 25% 8%;
+    --ui-input: 223 15% 18%;
+    --ui-input-disabled: 223 13% 16%;
+
+    --ui-popover: var(--ui-surface-elevated);
+    --ui-popover-foreground: var(--ui-foreground);
+    --ui-card: var(--ui-surface-panel);
+    --ui-card-foreground: var(--ui-foreground);
+
+    --ui-border-subtle: 221 16% 22%;
+    --ui-border: 221 16% 28%;
+    --ui-border-strong: 221 18% 36%;
+
+    --ui-primary: 208 100% 58%;
+    --ui-primary-foreground: 223 27% 11%;
+    --ui-secondary: 221 16% 30%;
+    --ui-secondary-foreground: var(--ui-foreground);
+    --ui-accent: 208 100% 58%;
+    --ui-accent-foreground: 223 27% 11%;
+    --ui-destructive: 0 84% 60%;
+    --ui-destructive-foreground: 0 0% 97%;
+    --ui-ring: 208 100% 63%;
+    --ui-radius: var(--ui-radius-lg);
+
+    --ui-overlay-backdrop: color-mix(in srgb, hsl(var(--ui-surface-overlay)) 72%, transparent);
+
+    --bg: hsl(var(--ui-background));
+    --bg-alt: hsl(var(--ui-surface-workspace));
+    --panel: hsl(var(--ui-surface-sidebar));
+    --surface: hsl(var(--ui-surface-workspace));
+    --text: hsl(var(--ui-foreground));
+    --muted: hsl(var(--ui-muted-foreground));
+    --border: hsl(var(--ui-border));
+    --accent: hsl(var(--ui-primary));
+    --accent-strong: hsl(var(--ui-primary));
+    --accent-subtle: color-mix(in srgb, hsl(var(--ui-primary)) 16%, transparent);
+    --highlight: hsl(273 82% 71%);
+    --danger: hsl(var(--ui-destructive));
+    --neutral-soft: hsl(var(--ui-foreground));
+    --neutral-strong: hsl(var(--ui-muted));
+    --shadow: var(--ui-shadow-lg);
+
+    --panel-bg: color-mix(in srgb, hsl(var(--ui-surface-workspace)) 92%, transparent);
+    --panel-border-color: color-mix(in srgb, hsl(var(--ui-border)) 85%, transparent);
+    --panel-shadow: var(--ui-shadow-md);
+
+    --tree-stripe: rgba(255, 255, 255, 0.08);
+  }
+
+  .light {
+    --ui-background: 220 26% 95%;
+    --ui-foreground: 222 24% 12%;
+    --ui-muted: 221 14% 60%;
+    --ui-muted-foreground: 222 16% 38%;
+
+    --ui-surface-sidebar: 220 22% 91%;
+    --ui-surface-workspace: 0 0% 100%;
+    --ui-surface-panel: 220 24% 97%;
+    --ui-surface-elevated: 0 0% 100%;
+    --ui-surface-dialog: 220 26% 97%;
+    --ui-surface-dialog-subtle: 220 21% 93%;
+    --ui-surface-overlay: 220 29% 10%;
+    --ui-input: 0 0% 100%;
+    --ui-input-disabled: 220 19% 94%;
+
+    --ui-border-subtle: 221 18% 84%;
+    --ui-border: 221 18% 76%;
+    --ui-border-strong: 221 18% 66%;
+
+    --ui-primary: 211 61% 37%;
+    --ui-primary-foreground: 0 0% 100%;
+    --ui-secondary: 221 22% 90%;
+    --ui-secondary-foreground: 222 22% 16%;
+    --ui-accent: 211 61% 37%;
+    --ui-accent-foreground: 0 0% 100%;
+    --ui-destructive: 0 75% 52%;
+    --ui-destructive-foreground: 0 0% 100%;
+    --ui-ring: 211 64% 40%;
+
+    --bg: hsl(var(--ui-background));
+    --bg-alt: hsl(var(--ui-surface-workspace));
+    --panel: hsl(var(--ui-surface-sidebar));
+    --surface: hsl(var(--ui-surface-workspace));
+    --text: hsl(var(--ui-foreground));
+    --muted: hsl(var(--ui-muted-foreground));
+    --border: hsl(var(--ui-border));
+    --accent: hsl(var(--ui-primary));
+    --accent-strong: hsl(var(--ui-primary));
+    --accent-subtle: color-mix(in srgb, hsl(var(--ui-primary)) 11%, transparent);
+    --highlight: hsl(268 66% 52%);
+    --danger: hsl(var(--ui-destructive));
+    --neutral-soft: hsl(var(--ui-foreground));
+    --neutral-strong: hsl(var(--ui-muted));
+    --shadow: 0 18px 44px rgba(18, 28, 44, 0.12);
+
+    --panel-bg: color-mix(in srgb, hsl(var(--ui-surface-workspace)) 94%, transparent);
+    --panel-border-color: color-mix(in srgb, hsl(var(--ui-border)) 82%, transparent);
+    --panel-shadow: 0 10px 24px rgba(18, 28, 44, 0.1);
+
+    --tree-stripe: rgba(0, 0, 0, 0.05);
+  }
+
+  .dark {
+    --ui-background: 225 19% 9%;
+    --ui-foreground: 220 24% 94%;
+    --ui-surface-dialog: 0 0% 15%;
+    --ui-surface-dialog-subtle: 0 0% 15%;
+    --ui-popover: 0 0% 15%;
+    --ui-surface-elevated: 0 0% 15%;
+    --ui-primary: 320 42% 31%;
+    --ui-primary-foreground: 0 0% 100%;
+    --ui-accent: 320 42% 31%;
+    --ui-accent-foreground: 0 0% 100%;
+    --ui-ring: 320 46% 38%;
+  }
+
+  * {
+    border-color: hsl(var(--ui-border));
+  }
+
+  body {
+    @apply text-[hsl(var(--ui-foreground))];
+    font-family: var(--font-sans);
+    font-feature-settings: "liga" 1, "calt" 1;
+    background-color: hsl(var(--ui-background));
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    @apply w-full text-[13px] leading-5 text-foreground transition disabled:cursor-not-allowed disabled:opacity-60;
+    min-height: 2.25rem;
+    border: 1px solid hsl(var(--ui-border-subtle));
+    border-radius: var(--ui-radius-md);
+    background: color-mix(in srgb, hsl(var(--ui-input)) 92%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    padding: 0.44rem 0.72rem;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, hsl(var(--ui-ring)) 58%, hsl(var(--ui-border)));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, hsl(var(--ui-ring)) 38%, transparent),
+      0 10px 22px rgba(0, 0, 0, 0.14);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):disabled,
+  select:disabled,
+  textarea:disabled {
+    background: color-mix(in srgb, hsl(var(--ui-input-disabled)) 90%, transparent);
+    border-color: color-mix(in srgb, hsl(var(--ui-border-subtle)) 86%, transparent);
+  }
+}
+
+@layer components {
+  .codex-dialog-overlay {
+    background: var(--ui-overlay-backdrop);
+    backdrop-filter: blur(10px);
+    animation: codex-dialog-overlay var(--ui-transition-slow) cubic-bezier(0.2, 0, 0, 1);
+    will-change: opacity;
+  }
+
+  .codex-dialog {
+    transform-origin: center center;
+    will-change: transform, opacity;
+    border-radius: var(--ui-radius-2xl);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-border)) 84%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, hsl(var(--ui-foreground)) 6%, transparent), transparent 52%),
+      color-mix(in srgb, hsl(var(--ui-surface-dialog)) 97%, transparent);
+    box-shadow: var(--ui-shadow-xl);
+  }
+
+  .codex-dialog[data-state="open"] {
+    animation: codex-dialog-enter 280ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .codex-dialog[data-state="closed"] {
+    animation: none;
+    opacity: 0;
+  }
+
+  .codex-float-surface {
+    transform-origin: center center;
+    will-change: transform, opacity;
+  }
+
+  .codex-float-surface[data-state="open"] {
+    animation: codex-popup-fade-in 220ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .codex-float-surface[data-state="closed"] {
+    animation: none;
+    opacity: 0;
+  }
+
+  .codex-popup-section {
+    border-radius: var(--ui-radius-xl);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-border-subtle)) 90%, transparent);
+    background: color-mix(in srgb, hsl(var(--ui-surface-dialog-subtle)) 90%, transparent);
+  }
+
+  .codex-popup-scroll {
+    border-radius: var(--ui-radius-lg);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-border-subtle)) 86%, transparent);
+    background: color-mix(in srgb, hsl(var(--ui-surface-dialog-subtle)) 84%, transparent);
+  }
+
+  .codex-popup-error {
+    border-radius: var(--ui-radius-md);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-destructive)) 42%, hsl(var(--ui-border-subtle)));
+    background: color-mix(in srgb, hsl(var(--ui-destructive)) 14%, transparent);
+    color: color-mix(in srgb, hsl(var(--ui-destructive)) 72%, hsl(var(--ui-foreground)));
+    padding: 0.65rem 0.8rem;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .codex-popup-success {
+    border-radius: var(--ui-radius-md);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-primary)) 35%, hsl(var(--ui-border-subtle)));
+    background: color-mix(in srgb, hsl(var(--ui-primary)) 14%, transparent);
+    color: hsl(var(--ui-foreground));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .codex-dialog,
+    .codex-dialog-overlay {
+      animation: none;
+    }
+  }
+
+  @keyframes codex-dialog-enter {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.965);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  @keyframes codex-popup-fade-in {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes codex-dialog-overlay {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 text-sm font-medium;
+    border-radius: var(--ui-radius-lg);
+    border: 1px solid hsl(var(--ui-border-subtle));
+    background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 84%, transparent);
+    color: hsl(var(--ui-foreground));
+    box-shadow: var(--ui-shadow-sm);
+    padding: 0.5rem 0.875rem;
+    transition:
+      background-color var(--ui-transition-fast),
+      border-color var(--ui-transition-fast),
+      color var(--ui-transition-fast),
+      box-shadow var(--ui-transition-fast),
+      transform var(--ui-transition-fast);
+  }
+
+  .btn:hover {
+    background: color-mix(in srgb, hsl(var(--ui-surface-elevated)) 86%, transparent);
+    border-color: color-mix(in srgb, hsl(var(--ui-border)) 80%, hsl(var(--ui-ring)) 20%);
+  }
+
+  .btn:disabled {
+    @apply pointer-events-none opacity-50;
+  }
+
+  .btn--primary {
+    border-color: color-mix(in srgb, hsl(var(--ui-primary)) 45%, transparent);
+    background: color-mix(in srgb, hsl(var(--ui-primary)) 92%, #0b121f 8%);
+    color: hsl(var(--ui-primary-foreground));
+    box-shadow: 0 8px 20px color-mix(in srgb, hsl(var(--ui-primary)) 30%, transparent);
+  }
+
+  .btn--primary:hover {
+    background: color-mix(in srgb, hsl(var(--ui-primary)) 96%, #0b121f 4%);
+    border-color: color-mix(in srgb, hsl(var(--ui-primary)) 62%, transparent);
+  }
+
+  .btn--ghost {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .btn--ghost:hover {
+    background: color-mix(in srgb, hsl(var(--ui-foreground)) 8%, transparent);
+    border-color: color-mix(in srgb, hsl(var(--ui-border-subtle)) 70%, transparent);
+  }
+
+  .icon-btn {
+    @apply inline-flex items-center justify-center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--ui-radius-lg);
+    border: 1px solid hsl(var(--ui-border-subtle));
+    background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 84%, transparent);
+    color: hsl(var(--ui-foreground));
+    box-shadow: var(--ui-shadow-sm);
+    transition: background-color var(--ui-transition-fast), border-color var(--ui-transition-fast), color var(--ui-transition-fast);
+  }
+
+  .icon-btn:hover {
+    background: color-mix(in srgb, hsl(var(--ui-surface-elevated)) 90%, transparent);
+    border-color: color-mix(in srgb, hsl(var(--ui-border)) 78%, hsl(var(--ui-ring)) 22%);
+  }
+
+  .icon-btn--active {
+    background: color-mix(in srgb, hsl(var(--ui-primary)) 22%, transparent);
+    border-color: color-mix(in srgb, hsl(var(--ui-primary)) 48%, transparent);
+    color: hsl(var(--ui-primary));
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-2 text-xs font-medium;
+    border-radius: var(--ui-radius-pill);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-border)) 80%, transparent);
+    background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 80%, transparent);
+    color: hsl(var(--ui-foreground));
+    padding: 0.2rem 0.65rem;
+  }
+
+  .chip__remove {
+    @apply border-none bg-transparent;
+    color: hsl(var(--ui-muted));
+  }
+
+  .chip__remove:hover {
+    color: hsl(var(--ui-foreground));
+  }
+
+  .pill {
+    @apply inline-flex items-center text-xs font-semibold;
+    border-radius: var(--ui-radius-pill);
+    background: color-mix(in srgb, hsl(var(--ui-border)) 40%, transparent);
+    color: hsl(var(--ui-muted-foreground));
+    padding: 0.2rem 0.65rem;
+  }
+
+  .pill--warning {
+    background: color-mix(in srgb, hsl(33 95% 55%) 20%, transparent);
+    color: hsl(35 86% 70%);
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  .inline-code {
+    font: var(--font-code);
+    padding: 0.14em 0.42em;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid color-mix(in srgb, hsl(var(--ui-border)) 88%, transparent);
+    background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 88%, transparent);
+    color: color-mix(in srgb, hsl(var(--ui-foreground)) 85%, white 4%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    word-break: break-word;
+  }
+
+  .helper-text {
+    font: var(--font-helper);
+    @apply text-muted-foreground;
+  }
+}

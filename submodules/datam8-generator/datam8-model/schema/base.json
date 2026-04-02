@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oraylis.de/datam8/schema/base.json",
+  "title": "BaseEntities",
+  "description": "Defines the layout of entity files within the `Base` folder.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "$ref": "#/definitions/EntityType"
+    },
+    "properties": {},
+    "propertyValues": {},
+    "zones": {},
+    "dataTypes": {},
+    "dataSourceTypes": {},
+    "dataProducts": {},
+    "dataModules": {},
+    "attributeTypes": {},
+    "dataSources": {},
+    "folders": {},
+    "modelEntities": {}
+  },
+  "oneOf": [
+    {
+      "title": "ModelEntities",
+      "$comment": "For completeness sake, not actually used currently.",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "modelEntities"
+      ],
+      "properties": {
+        "type": {
+          "const": "modelEntities"
+        },
+        "modelEntities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./model.json"
+          }
+        }
+      }
+    },
+    {
+      "title": "Folders",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "folders"
+      ],
+      "properties": {
+        "type": {
+          "const": "folders"
+        },
+        "folders": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "$ref": "./folder.json"
+          }
+        }
+      }
+    },
+    {
+      "title": "Properties",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "properties"
+      ],
+      "properties": {
+        "type": {
+          "const": "properties"
+        },
+        "properties": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./property.json"
+          }
+        }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "title": "PropertyValues",
+      "required": [
+        "type",
+        "propertyValues"
+      ],
+      "properties": {
+        "type": {
+          "const": "propertyValues"
+        },
+        "propertyValues": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./property.json#/definitions/PropertyValue"
+          }
+        }
+      }
+    },
+    {
+      "title": "Zones",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "zones"
+      ],
+      "properties": {
+        "type": {
+          "const": "zones"
+        },
+        "zones": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./zone.json"
+          }
+        }
+      }
+    },
+    {
+      "title": "DataTypes",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "dataTypes"
+      ],
+      "properties": {
+        "type": {
+          "const": "dataTypes"
+        },
+        "dataTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./data-type.json#/definitions/DataTypeDefinition"
+          }
+        }
+      }
+    },
+    {
+      "title": "DataSourceTypes",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "dataSourceTypes"
+      ],
+      "properties": {
+        "type": {
+          "const": "dataSourceTypes"
+        },
+        "dataSourceTypes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./data-source.json#/definitions/DataSourceType"
+          }
+        }
+      }
+    },
+    {
+      "title": "DataProducts",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "dataProducts"
+      ],
+      "properties": {
+        "type": {
+          "const": "dataProducts"
+        },
+        "dataProducts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./data-product.json"
+          }
+        }
+      }
+    },
+    {
+      "title": "DataModules",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "dataModules"
+      ],
+      "properties": {
+        "type": {
+          "const": "dataModules"
+        },
+        "dataModules": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "$ref": "./data-product.json#/definitions/DataModule"
+          }
+        }
+      }
+    },
+    {
+      "title": "AttributeTypes",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "attributeTypes"
+      ],
+      "properties": {
+        "type": {
+          "const": "attributeTypes"
+        },
+        "attributeTypes": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "$ref": "./attribute.json#/definitions/AttributeType"
+          }
+        }
+      }
+    },
+    {
+      "title": "DataSources",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "dataSources"
+      ],
+      "properties": {
+        "type": {
+          "const": "dataSources"
+        },
+        "dataSources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./data-source.json"
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "EntityType": {
+      "title": "EntityType",
+      "enum": [
+        "properties",
+        "propertyValues",
+        "zones",
+        "dataTypes",
+        "dataSourceTypes",
+        "dataProducts",
+        "dataModules",
+        "attributeTypes",
+        "dataSources",
+        "folders",
+        "modelEntities"
+      ]
+    },
+    "BaseEntity": {
+      "description": "A union type for all internal objects.",
+      "anyOf": [
+        { "$ref": "./property.json" },
+        { "$ref": "./property.json#/definitions/PropertyValue" },
+        { "$ref": "./zone.json" },
+        { "$ref": "./data-type.json#/definitions/DataTypeDefinition" },
+        { "$ref": "./data-source.json#/definitions/DataSourceType" },
+        { "$ref": "./data-product.json" },
+        { "$ref": "./data-product.json#/definitions/DataModule" },
+        { "$ref": "./attribute.json#/definitions/AttributeType" },
+        { "$ref": "./data-source.json" },
+        { "$ref": "./folder.json" },
+        { "$ref": "./model.json" }
+      ]
+    }
+  }
+}

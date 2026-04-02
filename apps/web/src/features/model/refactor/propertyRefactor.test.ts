@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+import {
+  createPropertyRefactorPayload,
+  diffPropertyChanges,
+  diffPropertyValueChanges,
+} from "./propertyRefactor";
+
+describe("propertyRefactor", () => {
+  it("detects single property rename", () => {
+    const prevContent = { properties: [{ name: "domain" }] };
+    const nextContent = { properties: [{ name: "businessDomain" }] };
+
+    expect(diffPropertyChanges(prevContent, nextContent)).toEqual({
+      propertyRenames: [{ oldName: "domain", newName: "businessDomain" }],
+      deletedProperties: [],
+    });
+  });
+
+  it("detects deleted properties", () => {
+    const prevContent = { properties: [{ name: "domain" }, { name: "retention" }] };
+    const nextContent = { properties: [{ name: "domain" }] };
+
+    expect(diffPropertyChanges(prevContent, nextContent)).toEqual({
+      propertyRenames: [],
+      deletedProperties: ["retention"],
+    });
+  });
+
+  it("detects value rename per property", () => {
+    const prevContent = { propertyValues: [{ property: "domain", name: "sales" }] };
+    const nextContent = { propertyValues: [{ property: "domain", name: "finance" }] };
+
+    expect(diffPropertyValueChanges(prevContent, nextContent)).toEqual({
+      valueRenames: [{ property: "domain", oldValue: "sales", newValue: "finance" }],
+      deletedValues: [],
+    });
+  });
+
+  it("does not emit refactor changes when previous values were empty placeholders", () => {
+    const prevProps = { properties: [{ name: "" }] };
+    const nextProps = { properties: [{ name: "businessDomain" }] };
+    expect(diffPropertyChanges(prevProps, nextProps)).toEqual({
+      propertyRenames: [],
+      deletedProperties: [],
+    });
+
+    const prevValues = { propertyValues: [{ property: "domain", name: "" }] };
+    const nextValues = { propertyValues: [{ property: "domain", name: "sales" }] };
+    expect(diffPropertyValueChanges(prevValues, nextValues)).toEqual({
+      valueRenames: [],
+      deletedValues: [],
+    });
+  });
+
+  it("builds payload only when changes are present", () => {
+    expect(
+      createPropertyRefactorPayload({
+        propertyRenames: [],
+        valueRenames: [],
+        deletedProperties: [],
+        deletedValues: [],
+      }),
+    ).toBeNull();
+
+    expect(
+      createPropertyRefactorPayload({
+        propertyRenames: [{ oldName: "a", newName: "b" }],
+      }),
+    ).toEqual({
+      propertyRenames: [{ oldName: "a", newName: "b" }],
+      valueRenames: [],
+      deletedProperties: [],
+      deletedValues: [],
+    });
+  });
+});

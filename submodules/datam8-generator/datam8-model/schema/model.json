@@ -1,0 +1,336 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oraylis.de/datam8/schema/model.json",
+  "title": "ModelEntity",
+  "description": "Describes a single entity within datam8. Most commonly a database table.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "attributes",
+    "sources",
+    "relationships",
+    "transformations"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "./common.json#/definitions/Id"
+    },
+    "name": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "parameters": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/ModelParameter"
+      }
+    },
+    "attributes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "./attribute.json"
+      }
+    },
+    "properties": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "./property.json#/definitions/PropertyReference"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/InternalModelSource"
+          },
+          {
+            "$ref": "#/definitions/ExternalModelSource"
+          }
+        ]
+      }
+    },
+    "transformations": {
+      "description": "List of transformations that will be executed in order of stepNo.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/ModelTransformation"
+      }
+    },
+    "relationships": {
+      "description": "List of entity relationships.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/ModelRelationship"
+      }
+    }
+  },
+  "definitions": {
+    "Locator": {
+      "description": "Describes an abstract way to point to and find entities with datam8.",
+      "additionalProperties": false,
+      "required": [
+        "entityType",
+        "folders"
+      ],
+      "properties": {
+        "entityType": {
+          "type": "string"
+        },
+        "folders": {
+          "description": "Hierarchical list of olders under the base-/modelpath. Order is relevant.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "entityName": {
+          "description": "Name property of the entity object.",
+          "type": "string",
+          "default": null
+        }
+      }
+    },
+    "InternalModelSource": {
+      "description": "Internal source definition to reference other entities within datam8.",
+      "additionalProperties": false,
+      "required": [
+        "sourceLocation"
+      ],
+      "properties": {
+        "sourceLocation": {
+          "type": "integer"
+        },
+        "properties": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./property.json#/definitions/PropertyReference"
+          }
+        },
+        "mapping": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/SourceAttributeMapping"
+          }
+        }
+      }
+    },
+    "ExternalModelSource": {
+      "description": "Sources that point to external systems outside of datam8.",
+      "additionalProperties": false,
+      "required": [
+        "dataSource",
+        "sourceLocation"
+      ],
+      "properties": {
+        "dataSource": {
+          "type": "string"
+        },
+        "sourceAlias": {
+          "type": "string"
+        },
+        "sourceLocation": {
+          "type": [
+            "string"
+          ]
+        },
+        "properties": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./property.json#/definitions/PropertyReference"
+          }
+        },
+        "mapping": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/SourceAttributeMapping"
+          }
+        }
+      }
+    },
+    "SourceAttributeMapping": {
+      "description": "Map an attribute in the source to one in the current entity. May optionally contain an explicit source data type.",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/ModelAttributeMapping"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sourceDataType": {
+              "$ref": "./data-type.json"
+            },
+            "properties": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "./property.json#/definitions/PropertyReference"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ModelParameter": {
+      "description": "Key-Value pair parameters for customization of and entity-level attributes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    },
+    "ModelTransformation": {
+      "description": "Describes a single transformation, either builtin or defined within the solution.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepNo",
+        "name",
+        "kind"
+      ],
+      "properties": {
+        "stepNo": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "title": "TransformationKind",
+          "description": "Type of transformation, either `builtin` or `function`.",
+          "enum": [
+            "builtin",
+            "function"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./property.json#/definitions/PropertyReference"
+          }
+        },
+        "function": {
+          "title": "TransformationFunction",
+          "description": "A transformation function defined in the scope of the current solution.",
+          "additionalProperties": false,
+          "required": [
+            "source"
+          ],
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "function"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "function"
+        ],
+        "properties": {
+          "function": true
+        }
+      },
+      "else": {
+        "properties": {
+          "function": false
+        }
+      }
+    },
+    "ModelRelationship": {
+      "description": "Maps attributes to a target location.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetLocation",
+        "attributes"
+      ],
+      "properties": {
+        "targetLocation": {
+          "type": "integer"
+        },
+        "alias": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/ModelAttributeMapping"
+          }
+        }
+      }
+    },
+    "ModelAttributeMapping": {
+      "description": "Single attribute mapping.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceName",
+        "targetName"
+      ],
+      "properties": {
+        "sourceName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "targetName": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

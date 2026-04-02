@@ -1,0 +1,114 @@
+{
+  "name": "@datam8/neon-desktop",
+  "productName": "DataM8 Neon",
+  "version": "0.1.4",
+  "private": true,
+  "description": "DataM8 Neon Desktop App",
+  "homepage": "https://github.com/oraylis/datam8-neon",
+  "author": "DataM8",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && concurrently \"tsc -w\" \"cross-env DATAM8_MODE=electron VITE_APP_MODE=electron electronmon .\"",
+    "start": "electron .",
+    "lint": "eslint \"src/**/*.ts\"",
+    "prepare:prod-deps": "npm install --install-strategy=nested --include-workspace-root=false",
+    "package:win:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --dir --publish never",
+    "package:win": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
+    "package:mac:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --dir --publish never",
+    "package:mac": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never",
+    "package:linux:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux --dir --publish never",
+    "package:linux": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux --publish never",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "build": {
+    "appId": "com.datam8.neon",
+    "productName": "DataM8 Neon",
+    "electronVersion": "28.3.3",
+    "deb": {
+      "packageName": "datam8-neon",
+      "artifactName": "datam8-neon_${version}_${arch}.${ext}"
+    },
+    "files": [
+      "dist/**/*",
+      {
+        "from": "../web/dist",
+        "to": "web"
+      },
+      "node_modules/**/*",
+      "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../../artifacts/python-runtime",
+        "to": "python-runtime"
+      },
+      {
+        "from": "build/icons",
+        "to": "assets/icons"
+      }
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "fileAssociations": [
+      {
+        "ext": "dm8s",
+        "name": "DataM8 Solution",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DataM8 Neon"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icons/icon.icns",
+      "extendInfo": {
+        "CFBundleDisplayName": "DataM8 Neon",
+        "CFBundleName": "DataM8 Neon"
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "maintainer": "DataM8",
+      "icon": "build/icons/icon-512.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "oraylis",
+        "repo": "datam8-neon"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.3.3",
+    "electron-builder": "^26.0.12",
+    "electronmon": "^2.0.4",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2",
+    "zod": "^3.25.76"
+  }
+}

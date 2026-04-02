@@ -81,11 +81,11 @@ async function mockApi(page: import("@playwright/test").Page) {
 
   await page.route("**/entities/**", async (route) => {
     const req = route.request();
-    if (req.method() !== "PATCH" && req.method() !== "PUT") {
+    if (req.method() !== "PATCH" && req.method() !== "PUT" && req.method() !== "DELETE") {
       await route.fulfill({ status: 405, json: { error: "method not allowed" } });
       return;
     }
-    const body = JSON.parse(req.postData() || "{}");
+    const body = req.method() === "DELETE" ? {} : JSON.parse(req.postData() || "{}");
     entityWrites.push({ method: req.method(), url: req.url(), body });
     await route.fulfill({ status: 200, json: { item: { ok: true } } });
   });
@@ -110,11 +110,13 @@ test("saving renamed property patches affected model entities via /entities/*", 
   const propertyNameInput = page.locator('label:has-text("Name *") + input').first();
   await propertyNameInput.fill("businessDomain");
   await propertyNameInput.press("Tab");
-  await page.getByRole("button", { name: "Apply" }).click();
+  const applyActionsButton = page.getByRole("button", { name: /^Apply \d+ Action\(s\)$/ });
+  await expect(applyActionsButton).toBeVisible();
+  await applyActionsButton.click();
 
-  await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
-  const baseWrite = entityWrites.find((entry) => /\/entities\/Base\/Properties$/i.test(entry.url));
-  const modelWrite = entityWrites.find((entry) => /\/entities\/modelEntities\/Raw\/ProductA\/ModuleA\/Customer$/i.test(entry.url));
+  await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(3);
+  const baseWrite = entityWrites.find((entry) => /\/entities\/properties\/businessDomain$/i.test(entry.url));
+  const modelWrite = entityWrites.find((entry) => /\/entities\/(?:modelEntities\/)?Raw\/ProductA\/ModuleA\/Customer$/i.test(entry.url));
 
   expect(baseWrite).toBeTruthy();
   expect(modelWrite).toBeTruthy();

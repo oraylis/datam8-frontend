@@ -10,8 +10,8 @@ function resolveGeneratorProjectRoot() {
   const override = (process.env.DATAM8_GENERATOR_PROJECT || "").trim();
   const candidates = [
     override,
-    path.resolve(repoRoot, "..", "datam8-generator"),
     path.join(repoRoot, "submodules", "datam8-generator"),
+    path.resolve(repoRoot, "..", "datam8-generator"),
   ].filter(Boolean);
 
   for (const candidate of candidates) {
@@ -105,15 +105,47 @@ function copyFixtureToTemp() {
 }
 
 async function waitForReady(proc, timeoutMs = 20_000) {
+  const parseReadyLine = (line) => {
+    try {
+      const data = JSON.parse(line);
+      if (data?.type === "ready" && typeof data?.baseUrl === "string") {
+        return {
+          baseUrl: data.baseUrl,
+          version: typeof data?.version === "string" ? data.version : "0.0.0",
+        };
+      }
+    } catch {
+      // Current datam8 serve output:
+      // "API ready at `http://127.0.0.1:4318`, schemaVersion: 2.0.0"
+      const apiReadyMatch = line.match(/API ready at\s+`([^`]+)`(?:,\s*schemaVersion:\s*(.+))?/i);
+      if (apiReadyMatch?.[1]) {
+        return {
+          baseUrl: `${apiReadyMatch[1]}`.trim(),
+          version: `${apiReadyMatch[2] || "0.0.0"}`.trim() || "0.0.0",
+        };
+      }
+      const uvicornMatch = line.match(/Uvicorn running on (https?:\/\/[^\s]+)/i);
+      if (uvicornMatch?.[1]) {
+        return {
+          baseUrl: uvicornMatch[1].trim().replace(/\/+$/, ""),
+          version: "0.0.0",
+        };
+      }
+    }
+    return null;
+  };
+
   return await new Promise((resolve, reject) => {
-    let buf = "";
+    let stdoutBuf = "";
+    let stderrBuf = "";
     let stderrPreview = "";
     let done = false;
 
     const timeout = setTimeout(() => {
       if (done) return;
       done = true;
-      reject(new Error(`Readiness timed out after ${timeoutMs}ms.\nStderr (preview):\n${stderrPreview}`));
+      cleanup();
+      resolve(null);
     }, timeoutMs);
 
     const cleanup = () => {
@@ -141,30 +173,38 @@ async function waitForReady(proc, timeoutMs = 20_000) {
     const onStderr = (chunk) => {
       if (stderrPreview.length >= 4096) return;
       stderrPreview += String(chunk).slice(0, 4096 - stderrPreview.length);
+      stderrBuf += String(chunk);
+      while (true) {
+        const idx = stderrBuf.indexOf("\n");
+        if (idx < 0) return;
+        const line = stderrBuf.slice(0, idx).trim();
+        stderrBuf = stderrBuf.slice(idx + 1);
+        if (!line) continue;
+        const ready = parseReadyLine(line);
+        if (!ready) continue;
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(ready);
+        return;
+      }
     };
 
     const onStdout = (chunk) => {
-      buf += String(chunk);
+      stdoutBuf += String(chunk);
       while (true) {
-        const idx = buf.indexOf("\n");
+        const idx = stdoutBuf.indexOf("\n");
         if (idx < 0) return;
-        const line = buf.slice(0, idx).trim();
-        buf = buf.slice(idx + 1);
+        const line = stdoutBuf.slice(0, idx).trim();
+        stdoutBuf = stdoutBuf.slice(idx + 1);
         if (!line) continue;
-
-        let data = null;
-        try {
-          data = JSON.parse(line);
-        } catch {
-          continue;
-        }
-        if (data?.type === "ready" && typeof data?.baseUrl === "string") {
-          if (done) return;
-          done = true;
-          cleanup();
-          resolve(data);
-          return;
-        }
+        const ready = parseReadyLine(line);
+        if (!ready) continue;
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(ready);
+        return;
       }
     };
 
@@ -173,6 +213,20 @@ async function waitForReady(proc, timeoutMs = 20_000) {
     proc.stderr?.on("data", onStderr);
     proc.stdout?.on("data", onStdout);
   });
+}
+
+async function waitForHealth(baseUrl, timeoutMs = 20_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`${baseUrl}/health`);
+      if (res.ok) return;
+    } catch {
+      // backend may still be starting
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`Health check timed out after ${timeoutMs}ms (${baseUrl}/health)`);
 }
 
 function killProcessTree(proc) {
@@ -195,13 +249,34 @@ async function smokeBackend() {
   }
 
   const token = "ci-token";
+  const host = "127.0.0.1";
+  const port = Number(process.env.DATAM8_CI_GATE_PORT || "4318");
+  const fallbackBaseUrl = `http://${host}:${port}`;
   const uvCmd = process.platform === "win32" ? "uv.exe" : "uv";
   const env = { ...process.env, DATAM8_MODE: "electron", UV_PROJECT_ENVIRONMENT: ".venv-ci" };
   delete env.VIRTUAL_ENV;
+  const fixture = copyFixtureToTemp();
 
   const proc = spawn(
     uvCmd,
-    ["run", "--project", generatorRoot, "python", "-m", "datam8", "serve", "--host", "127.0.0.1", "--port", "0", "--token", token],
+    [
+      "run",
+      "--project",
+      generatorRoot,
+      "--all-extras",
+      "python",
+      "-m",
+      "datam8",
+      "serve",
+      "--host",
+      host,
+      "--port",
+      `${port}`,
+      "--token",
+      token,
+      "--solution",
+      fixture.solutionPath,
+    ],
     {
       stdio: ["ignore", "pipe", "pipe"],
       env,
@@ -222,10 +297,11 @@ async function smokeBackend() {
     throw e;
   }
 
-  const baseUrl = ready.baseUrl;
+  const baseUrl = ready?.baseUrl || fallbackBaseUrl;
   const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   try {
+    await waitForHealth(baseUrl);
     const health = await fetch(`${baseUrl}/health`);
     if (!health.ok) throw new Error(`/health failed: ${health.status}`);
 
@@ -248,20 +324,19 @@ async function smokeBackend() {
     const protectedRes = await fetch(`${baseUrl}/config`);
     if (protectedRes.status !== 401) throw new Error(`/config should require auth, got ${protectedRes.status}`);
 
-    const fixture = copyFixtureToTemp();
-    const generate = await fetch(`${baseUrl}/generate`, {
+    const generate = await fetch(`${baseUrl}/model/generate`, {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({
-        solutionPath: fixture.solutionPath,
         target: "test",
         cleanOutput: true,
+        payloads: [],
         logLevel: "info",
       }),
     });
     const payload = await generate.json().catch(() => ({}));
     if (generate.status === 404) {
-      throw new Error("`POST /generate` is missing (404).");
+      throw new Error("`POST /model/generate` is missing (404).");
     }
     if (generate.ok) {
       if (payload?.status !== "succeeded") {
@@ -272,6 +347,11 @@ async function smokeBackend() {
     }
   } finally {
     killProcessTree(proc);
+    try {
+      fs.rmSync(fixture.tmp, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup failures
+    }
   }
 }
 

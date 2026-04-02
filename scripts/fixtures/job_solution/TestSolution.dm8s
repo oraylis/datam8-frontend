@@ -2,6 +2,7 @@
   "schemaVersion": "2.0.0",
   "basePath": "Base",
   "modelPath": "Model",
+  "pluginsPath": "plugins",
   "generatorTargets": [
     {
       "name": "test",

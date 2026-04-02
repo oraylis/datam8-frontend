@@ -124,9 +124,39 @@ jobs:
       - name: Collect release artifacts
         shell: bash
         run: |
-          rm -rf apps/desktop/release-artifacts
-          mkdir -p apps/desktop/release-artifacts
-          find apps/desktop/release -maxdepth 1 -type f -print0 | xargs -0 -I{} cp -f {} apps/desktop/release-artifacts/
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+
+          const repoRoot = process.cwd();
+          const releaseDir = path.join(repoRoot, "apps", "desktop", "release");
+          const outDir = path.join(repoRoot, "apps", "desktop", "release-artifacts");
+
+          fs.rmSync(outDir, { recursive: true, force: true });
+          fs.mkdirSync(outDir, { recursive: true });
+
+          if (!fs.existsSync(releaseDir) || !fs.statSync(releaseDir).isDirectory()) {
+            console.error(`Release directory does not exist: ${releaseDir}`);
+            process.exit(1);
+          }
+
+          const entries = fs.readdirSync(releaseDir, { withFileTypes: true });
+          let copied = 0;
+          for (const entry of entries) {
+            if (!entry.isFile()) continue;
+            const src = path.join(releaseDir, entry.name);
+            const dst = path.join(outDir, entry.name);
+            fs.copyFileSync(src, dst);
+            copied += 1;
+          }
+
+          if (!copied) {
+            console.error(`No top-level artifact files found in ${releaseDir}`);
+            process.exit(1);
+          }
+
+          console.log(`Collected ${copied} artifact file(s) into ${outDir}`);
+          NODE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

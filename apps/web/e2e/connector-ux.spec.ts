@@ -131,6 +131,7 @@ async function mockApi(
   },
 ) {
   const saveBodies: SaveBodies = {};
+  const entityWrites: Array<{ method: string; url: string; body: any }> = [];
   const secretPuts: any[] = [];
 
   await page.route("**/config", async (route) => {
@@ -223,19 +224,20 @@ async function mockApi(
 
   await page.route("**/entities/**", async (route) => {
     const req = route.request();
-    if (req.method() !== "PATCH" && req.method() !== "PUT") {
+    if (req.method() !== "PATCH" && req.method() !== "PUT" && req.method() !== "DELETE") {
       await route.fulfill({ status: 405, json: { error: "method not allowed" } });
       return;
     }
     const raw = req.postData() || "{}";
-    const body = JSON.parse(raw);
+    const body = req.method() === "DELETE" ? {} : JSON.parse(raw);
     const reqUrl = new URL(req.url());
     const relPath = decodeURIComponent(reqUrl.pathname.replace(/^.*\/entities\//, "")) + ".json";
     saveBodies[relPath] = body;
+    entityWrites.push({ method: req.method(), url: req.url(), body });
     await route.fulfill({ status: 200, json: { item: { ok: true } } });
   });
 
-  return { saveBodies, secretPuts };
+  return { saveBodies, secretPuts, entityWrites };
 }
 
 async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
@@ -263,7 +265,7 @@ test("stores connector binding in DataSourceType.connectionProperties (Variant A
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
   });
 
-  const { saveBodies } = await mockApi(page, counters, {
+  const { entityWrites } = await mockApi(page, counters, {
     solutionPayload,
     connectors: [
       {
@@ -301,7 +303,9 @@ test("stores connector binding in DataSourceType.connectionProperties (Variant A
   await page.locator("div").filter({ hasText: "sqlserver" }).getByRole("button", { name: /^Link$/ }).first().click();
   await expect(page.getByText("SQL Server").first()).toBeVisible();
 
-  await expect.poll(() => saveBodies["Base/DataSourceTypes.json"]).toBeTruthy();
+  await expect
+    .poll(() => entityWrites.find((entry) => /\/entities\/dataSourceTypes\/MyDbType$/i.test(entry.url)))
+    .toBeTruthy();
 });
 
 test("renders connector-driven form from /ui-schema, saves ref secret, and surfaces validate-connection errors", async ({ page }) => {

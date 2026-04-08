@@ -122,6 +122,7 @@ export function AppShell() {
     solution,
     solutionSource,
     solutionPath,
+    loading: solutionLoading,
     error,
     migrationOpen,
     migrationSourcePath,
@@ -2155,6 +2156,7 @@ export function AppShell() {
             onAddEntity={() => setWizardOpen(true)}
             onToggleTheme={handleToggleTheme}
             resolvedTheme={resolvedTheme}
+            modelTreeLoading={solutionLoading}
           />
         </aside>
 

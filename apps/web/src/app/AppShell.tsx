@@ -318,8 +318,14 @@ export function AppShell() {
   const serverDialog = shouldUseServerDialog(appMode);
 
   const applyLoadedSolution = useCallback(
-    (result?: { modelEntities: ModelEntity[]; baseEntities: BaseEntity[]; folderEntities?: FolderEntity[] } | null) => {
+    (
+      result?: { modelEntities: ModelEntity[]; baseEntities: BaseEntity[]; folderEntities?: FolderEntity[] } | null,
+      options?: { resetWorkspace?: boolean },
+    ) => {
       if (!result) return;
+      if (options?.resetWorkspace) {
+        closeAllTabs();
+      }
       clearAllDrafts();
       setModelEntities(result.modelEntities);
       setBaseEntities(result.baseEntities);
@@ -334,7 +340,7 @@ export function AppShell() {
       setBaseItemSelectionRequest(null);
       setSelectedFolderPath(null);
     },
-    [clearAllDrafts, setBaseEntities, setFolderEntities, setModelEntities, setSelectedFolderPath],
+    [clearAllDrafts, closeAllTabs, setBaseEntities, setFolderEntities, setModelEntities, setSelectedFolderPath],
   );
 
   const formatBaseTitle = useCallback((name: string) => {
@@ -654,7 +660,7 @@ export function AppShell() {
       const file = event.target.files?.[0];
       if (!file) return;
       const result = await loadSolution({ kind: "uploaded-file", file });
-      if (result) applyLoadedSolution(result);
+      if (result) applyLoadedSolution(result, { resetWorkspace: true });
       event.target.value = "";
     },
     [applyLoadedSolution, loadSolution],
@@ -666,7 +672,7 @@ export function AppShell() {
       const path = await window.desktop.solution.pickOpenPath();
       if (!path) return;
       const result = await loadSolution({ kind: "electron-path", path });
-      if (result) applyLoadedSolution(result);
+      if (result) applyLoadedSolution(result, { resetWorkspace: true });
       return;
     }
 
@@ -680,7 +686,7 @@ export function AppShell() {
     const path = typeof selection === "string" ? selection : selection?.path;
     if (!path) return;
     const result = await loadSolution({ kind: "electron-path", path });
-    if (result) applyLoadedSolution(result);
+    if (result) applyLoadedSolution(result, { resetWorkspace: true });
   }, [applyLoadedSolution, loadSolution, setPickerError]);
 
   const triggerSolutionSelect = useCallback(
@@ -1983,14 +1989,14 @@ export function AppShell() {
       <SolutionDialog
         open={dialogOpen}
         onLoaded={(model, base, folders) => {
-          applyLoadedSolution({ modelEntities: model, baseEntities: base, folderEntities: folders });
+          applyLoadedSolution({ modelEntities: model, baseEntities: base, folderEntities: folders }, { resetWorkspace: true });
         }}
       />
       <MigrateSolutionV1Wizard
         open={migrationOpen}
         sourceSolutionPath={migrationSourcePath || ""}
         onLoaded={(model, base, folders) => {
-          applyLoadedSolution({ modelEntities: model, baseEntities: base, folderEntities: folders });
+          applyLoadedSolution({ modelEntities: model, baseEntities: base, folderEntities: folders }, { resetWorkspace: true });
         }}
       />
       <NewProjectDialog

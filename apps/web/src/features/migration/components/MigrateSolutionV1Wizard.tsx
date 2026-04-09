@@ -9,11 +9,11 @@ import {
   DialogTitle,
   Input,
   Label,
-  cn,
 } from "@datam8/ui";
 import { FolderOpen, Loader2, MoveRight } from "lucide-react";
 import { useSolution } from "../../solution/SolutionContext";
 import type { BaseEntity, FolderEntity, ModelEntity } from "../../model/model-types";
+import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 type MigrationResponse = {
   solutionPath: string;
@@ -28,12 +28,14 @@ type Props = {
 type Step = 1 | 2 | 3 | 4;
 
 export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: Props) {
+  const scope = "dialog:migrate-v1";
   const { closeMigration, setPickerOpen, loadSolution } = useSolution();
   const [step, setStep] = useState<Step>(1);
   const [targetDir, setTargetDir] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MigrationResponse | null>(null);
+  const { showError, clearError } = useErrorSurface();
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +44,17 @@ export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: 
     setRunning(false);
     setError(null);
     setResult(null);
-  }, [open, sourceSolutionPath]);
+    clearError(scope);
+  }, [clearError, open, sourceSolutionPath]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (error) {
+      showError(scope, { title: "Migration failed", description: error });
+      return;
+    }
+    clearError(scope);
+  }, [clearError, error, open, showError]);
 
   const canClose = !running;
 
@@ -236,11 +248,6 @@ export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: 
             </div>
           ) : null}
 
-          {error ? (
-            <div className={cn("codex-popup-error", "text-destructive")}>
-              {error}
-            </div>
-          ) : null}
         </div>
 
         <DialogFooter>
@@ -296,6 +303,9 @@ export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: 
             </>
           ) : null}
         </DialogFooter>
+        <div className="error-surface-slot error-surface-slot--flush">
+          <ErrorSurfaceHost scope={scope} />
+        </div>
       </DialogContent>
     </Dialog>
   );

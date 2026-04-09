@@ -334,6 +334,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  gap: 8px;
   border-top: none;
 }
 
@@ -382,6 +383,7 @@ body {
 .sidebar--collapsed .sidebar__footer {
   padding: 8px;
   justify-content: center;
+  gap: 6px;
 }
 
 .sidebar--collapsed .sidebar__actions {

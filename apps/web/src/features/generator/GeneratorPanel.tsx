@@ -129,12 +129,6 @@ export function GeneratorPanel({
       </CardHeader>
 
       <CardContent className="min-h-0 flex flex-1 flex-col gap-3 pb-4">
-        {error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/15 px-3 py-2 text-sm text-destructive">
-            <strong>Run failed:</strong> {error}
-          </div>
-        ) : null}
-
         {!error && stderr ? (
           <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-600 dark:text-yellow-400">
             <strong>Stderr Output:</strong>

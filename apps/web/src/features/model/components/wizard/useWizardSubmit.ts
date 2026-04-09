@@ -15,12 +15,7 @@ import { modelLocatorFromRelPath } from "../../locator-utils";
 import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
 import { createModelEntityByRelPath } from "../../../../shared/api/v2Client";
-
-type ToastOptions = {
-  title: string;
-  description: string;
-  variant: "success" | "destructive";
-};
+import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
 
 type SubmitDeps = {
   modelEntities: ModelEntity[];
@@ -31,7 +26,6 @@ type SubmitDeps = {
   setSelectedRelPath: (path: string | null) => void;
   setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
   solutionPath?: string;
-  toast: (opts: ToastOptions) => void;
   dataSources: Array<ResolvedWizardDataSource & { dataTypeMapping?: unknown }>;
   canonicalDataTypes: string[];
 };
@@ -136,10 +130,10 @@ export function useWizardSubmit(deps: SubmitDeps) {
     setSelectedRelPath,
     setExpanded,
     solutionPath: _solutionPath,
-    toast,
     dataSources,
     canonicalDataTypes,
   } = deps;
+  const { showError, clearError } = useErrorSurface();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -374,19 +368,14 @@ export function useWizardSubmit(deps: SubmitDeps) {
           }
         }
 
-        toast({
-          title: "Success",
-          description: `Created ${createdEntities.length} entities`,
-          variant: "success",
-        });
+        clearError("dialog:create-entity-wizard");
 
         onClose();
       } catch (err: unknown) {
         const description = err instanceof Error ? err.message : "Unknown error";
-        toast({
+        showError("dialog:create-entity-wizard", {
           title: "Create failed",
           description,
-          variant: "destructive",
         });
       } finally {
         setIsSubmitting(false);
@@ -400,10 +389,11 @@ export function useWizardSubmit(deps: SubmitDeps) {
       modelEntities,
       openModelTab,
       setActiveWorkTab,
+      clearError,
       setExpanded,
       setModelEntities,
       setSelectedRelPath,
-      toast,
+      showError,
     ],
   );
 

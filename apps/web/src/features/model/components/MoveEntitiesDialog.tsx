@@ -10,6 +10,7 @@ import {
   Label,
 } from "@datam8/ui";
 import { FolderHierarchyPicker, type FolderHierarchyItem } from "./wizard/FolderHierarchyPicker";
+import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 export type MoveEntitiesDialogProps = {
   open: boolean;
@@ -28,18 +29,30 @@ export function MoveEntitiesDialog({
   folderHierarchyItems,
   onConfirm,
 }: MoveEntitiesDialogProps) {
+  const scope = "dialog:move-entities";
   const safeCount = Math.max(1, count);
   const selectId = useId();
   const pickerId = useMemo(() => `${selectId}-picker`, [selectId]);
 
   const [folderPath, setFolderPath] = useState(initialFolderPath || "");
   const [error, setError] = useState<string | null>(null);
+  const { showError, clearError } = useErrorSurface();
 
   useEffect(() => {
     if (!open) return;
     setFolderPath((initialFolderPath || "").trim());
     setError(null);
-  }, [initialFolderPath, open]);
+    clearError(scope);
+  }, [clearError, initialFolderPath, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (error) {
+      showError(scope, { title: "Move failed", description: error });
+      return;
+    }
+    clearError(scope);
+  }, [clearError, error, open, showError]);
 
   const submit = () => {
     const normalized = (folderPath || "").trim().replace(/^\/+|\/+$/g, "");
@@ -75,7 +88,6 @@ export function MoveEntitiesDialog({
           {folderHierarchyItems.length === 0 ? (
             <div className="muted small">No folders available.</div>
           ) : null}
-          {error ? <div className="codex-popup-error">{error}</div> : null}
         </div>
 
         <DialogFooter>
@@ -84,6 +96,9 @@ export function MoveEntitiesDialog({
           </Button>
           <Button onClick={submit}>Move</Button>
         </DialogFooter>
+        <div className="error-surface-slot error-surface-slot--flush">
+          <ErrorSurfaceHost scope={scope} />
+        </div>
       </DialogContent>
     </Dialog>
   );

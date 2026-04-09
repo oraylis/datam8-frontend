@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, FormSelect, Input, Textarea, useToast } from "@datam8/ui";
+import { Badge, FormSelect, Input, Textarea } from "@datam8/ui";
 import { Trash2 } from "lucide-react";
 import type { BaseEntity } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
@@ -10,6 +10,7 @@ import { ConnectorPickerDialog } from "../../../../../shared/connectors/Connecto
 import { refresh, useConnectorCatalog, type ConnectorSummary } from "../../../../../shared/connectors/connectorCatalog";
 import { apiBase } from "../../../../../config";
 import { readBackendErrorMessage } from "../../../../../shared/api/errorMessage";
+import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
 
 const DEFAULT_CONNECTOR_TYPE_MAPPING = [{ sourceType: "string", targetType: "string" }];
 
@@ -50,7 +51,7 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
   const itemKey = current?.name || `dataSourceType_${currentIndex + 1}`;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [mappingsCollapsed, setMappingsCollapsed] = useState(true);
-  const { toast } = useToast();
+  const { showError } = useErrorSurface();
   const connectors = useConnectorCatalog((s) => s.connectors);
   const boundConnectorId = `${current?.pluginId || ""}`.trim();
   const installedConnector = useMemo(
@@ -235,10 +236,9 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
           void applyConnectorSelection(connector)
             .then(() => setPickerOpen(false))
             .catch((err: any) => {
-              toast({
+              showError("app", {
                 title: "Failed to link connector",
                 description: err?.message || "Connector metadata could not be loaded.",
-                variant: "destructive",
               });
             });
         }}

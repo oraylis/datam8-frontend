@@ -37,6 +37,7 @@ Frontend uses root endpoints (no `/api/*` namespace):
   - Plugin install is wheel-only via `POST /plugins/install`
     - Binary upload: `Content-Type: application/octet-stream` + `x-file-name: <name>.whl`
     - URL install: JSON `{ "url": "https://...whl", "sha256": "<64-hex>" }`
+  - Plugin endpoints expect canonical `plugin_id` values (e.g. `builtin:SQLServer`); legacy short names are rejected by backend.
   - `GET /connectors` includes `dataTypeMapping` on connector summaries.
 
 ## Response contract

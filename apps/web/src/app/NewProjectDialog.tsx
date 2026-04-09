@@ -11,6 +11,7 @@ import {
   Label,
 } from "@datam8/ui";
 import { FolderOpen } from "lucide-react";
+import { ErrorSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 
 type NewProjectDialogProps = {
   open: boolean;
@@ -25,11 +26,13 @@ export function NewProjectDialog({
   onCreated,
   defaultProjectRoot: _defaultProjectRoot,
 }: NewProjectDialogProps) {
+  const scope = "dialog:new-project";
   const isElectron = !!window.desktop?.isElectron;
   const [solutionName, setSolutionName] = useState("");
   const [savePath, setSavePath] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showError, clearError } = useErrorSurface();
 
   const canCreate = useMemo(() => !!solutionName.trim() && !!savePath.trim(), [solutionName, savePath]);
 
@@ -38,7 +41,17 @@ export function NewProjectDialog({
     setSolutionName("");
     setSavePath("");
     setError(null);
-  }, [open]);
+    clearError(scope);
+  }, [clearError, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (error) {
+      showError(scope, { title: "Create failed", description: error });
+      return;
+    }
+    clearError(scope);
+  }, [clearError, error, open, showError]);
 
   const validate = () => {
     const normalizedSolutionName = solutionName.trim();
@@ -147,7 +160,6 @@ export function NewProjectDialog({
             </p>
           </div>
 
-          {error ? <div className="codex-popup-error">{error}</div> : null}
         </div>
 
         <DialogFooter>
@@ -158,6 +170,9 @@ export function NewProjectDialog({
             {creating ? "Creating..." : "Create Solution"}
           </Button>
         </DialogFooter>
+        <div className="error-surface-slot error-surface-slot--flush">
+          <ErrorSurfaceHost scope={scope} />
+        </div>
       </DialogContent>
     </Dialog>
   );

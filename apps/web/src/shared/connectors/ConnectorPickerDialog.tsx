@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button, Dialog, DialogContent, DialogFooter, DialogTitle, cn } from "@datam8/ui";
 import { refresh, useConnectorCatalog, type ConnectorSummary } from "./connectorCatalog";
 import { useSolution } from "../../features/solution/SolutionContext";
+import { ErrorSurfaceHost, useErrorSurface } from "../ui/ErrorSurface";
 
 export function ConnectorPickerDialog(props: {
   open: boolean;
@@ -9,6 +10,7 @@ export function ConnectorPickerDialog(props: {
   onSelect: (connector: ConnectorSummary) => void;
   selectedConnectorId?: string | null;
 }) {
+  const scope = "dialog:connector-picker";
   const { open, onClose, onSelect, selectedConnectorId } = props;
   const { solutionPath, solution } = useSolution();
   const status = useConnectorCatalog((s) => s.status);
@@ -16,11 +18,23 @@ export function ConnectorPickerDialog(props: {
   const error = useConnectorCatalog((s) => s.error);
   const [pluginsError, setPluginsError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { showError, clearError } = useErrorSurface();
 
   useEffect(() => {
     if (!open) return;
     void refresh();
-  }, [open]);
+    clearError(scope);
+  }, [clearError, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const nextError = pluginsError || (status === "error" ? error || "Failed to load connectors" : null);
+    if (nextError) {
+      showError(scope, { title: "Connector load failed", description: nextError });
+      return;
+    }
+    clearError(scope);
+  }, [clearError, error, open, pluginsError, showError, status]);
 
   const sorted = useMemo(() => {
     return [...(connectors || [])].sort((a, b) => (a.displayName || a.id).localeCompare(b.displayName || b.id));
@@ -62,7 +76,6 @@ export function ConnectorPickerDialog(props: {
         {solution?.pluginsPath ? (
           <div className="muted small">Solution plugins path: {solution.pluginsPath}</div>
         ) : null}
-        {pluginsError ? <div className="text-sm text-destructive">{pluginsError}</div> : null}
 
         <div className="codex-popup-scroll mt-3 max-h-[420px] overflow-auto p-2">
           <div className="grid gap-2">
@@ -70,8 +83,6 @@ export function ConnectorPickerDialog(props: {
               <div className="muted small">No connectors available. Import plugin artifacts and reload.</div>
             ) : null}
             {status === "loading" ? <div className="muted small">Loading connectors...</div> : null}
-            {status === "error" ? <div className="text-sm text-destructive">{error || "Failed to load connectors"}</div> : null}
-
             {sorted.map((c) => {
               const isSelected = !!selectedConnectorId && c.id === selectedConnectorId;
               return (
@@ -99,6 +110,9 @@ export function ConnectorPickerDialog(props: {
             Close
           </Button>
         </DialogFooter>
+        <div className="error-surface-slot error-surface-slot--flush">
+          <ErrorSurfaceHost scope={scope} />
+        </div>
       </DialogContent>
     </Dialog>
   );

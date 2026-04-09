@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, ModelTree, cn } from "@datam8/ui";
-import { FolderOpen, MoonStar, PanelLeft, Plus, RefreshCw, Search, Sparkles, SunMedium } from "lucide-react";
+import { FolderOpen, Loader2, MoonStar, PanelLeft, Plus, RefreshCw, Search, Sparkles, SunMedium } from "lucide-react";
 import dm8Logo from "../../../assets/dm8_incl_text.png";
 import type { BaseEntity, TreeNode } from "../model-types";
 
@@ -35,6 +35,7 @@ type SidebarProps = {
   onAddEntity: () => void;
   onToggleTheme: () => void;
   resolvedTheme: "light" | "dark";
+  modelTreeLoading?: boolean;
 };
 
 type SidebarScope = "model" | "base";
@@ -70,6 +71,7 @@ export function Sidebar({
   onAddEntity,
   onToggleTheme,
   resolvedTheme,
+  modelTreeLoading = false,
 }: SidebarProps) {
   const [visibleScope, setVisibleScope] = useState<SidebarScope>(selectedBaseRelPath ? "base" : "model");
   const filterLower = filter.trim().toLowerCase();
@@ -178,28 +180,35 @@ export function Sidebar({
             </div>
           ) : (
             <div className="sidebar__section">
-              <ModelTree
-                tree={tree}
-                filter={filter}
-                onFilterChange={onFilterChange}
-                selectedRelPath={selectedRelPath}
-                selectedRelPaths={selectedRelPaths}
-                selectedFolderPath={selectedFolderPath}
-                selectableFolderPaths={selectableFolderPaths}
-                expanded={expanded}
-                onToggle={onToggle}
-                onSelectEntity={onSelectEntity}
-                onSelectFolder={onSelectFolder}
-                onCreateFolder={onCreateFolder}
-                onDeleteFolder={onDeleteFolder}
-                onMoveEntity={onMoveEntity}
-                onRequestMove={onRequestMove}
-                onDuplicate={onDuplicate}
-                onDelete={onDelete}
-                ensureExpanded={ensureExpanded}
-                sidebarOpen={sidebarOpen}
-                showFilter={false}
-              />
+              {modelTreeLoading ? (
+                <div className="muted flex items-center gap-2 px-2 py-2" role="status" aria-live="polite">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading model tree...</span>
+                </div>
+              ) : (
+                <ModelTree
+                  tree={tree}
+                  filter={filter}
+                  onFilterChange={onFilterChange}
+                  selectedRelPath={selectedRelPath}
+                  selectedRelPaths={selectedRelPaths}
+                  selectedFolderPath={selectedFolderPath}
+                  selectableFolderPaths={selectableFolderPaths}
+                  expanded={expanded}
+                  onToggle={onToggle}
+                  onSelectEntity={onSelectEntity}
+                  onSelectFolder={onSelectFolder}
+                  onCreateFolder={onCreateFolder}
+                  onDeleteFolder={onDeleteFolder}
+                  onMoveEntity={onMoveEntity}
+                  onRequestMove={onRequestMove}
+                  onDuplicate={onDuplicate}
+                  onDelete={onDelete}
+                  ensureExpanded={ensureExpanded}
+                  sidebarOpen={sidebarOpen}
+                  showFilter={false}
+                />
+              )}
             </div>
           )
         ) : null}

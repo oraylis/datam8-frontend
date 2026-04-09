@@ -19,7 +19,6 @@ import {
   Label,
   Checkbox,
   cn,
-  useToast,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -46,6 +45,7 @@ import { useWizardSubmit } from "./wizard/useWizardSubmit";
 import { useWizardBaseData } from "./wizard/useWizardBaseData";
 import { apiBase } from "../../../config";
 import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
+import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 // --- Main Component ---
 
@@ -54,6 +54,9 @@ interface CreateModelEntityWizardProps {
   onOpenChange: (open: boolean) => void;
   folderHierarchyItems: FolderHierarchyItem[];
 }
+
+const normalizeFolderPath = (path: string) =>
+  (path || "").split(/[\\/]/).join("/").replace(/^\/+|\/+$/g, "");
 
 export function CreateModelEntityWizard({
   open,
@@ -72,7 +75,7 @@ export function CreateModelEntityWizard({
   } = useModelEditor();
   
   const { solutionPath } = useSolution();
-  const { toast } = useToast();
+  const { showError, clearError } = useErrorSurface();
   const [step, setStep] = useState(1);
   
   // Bulk Mode States
@@ -82,6 +85,35 @@ export function CreateModelEntityWizard({
 
   const { zones, dataSources, dataTypes, attributeTypes, propertyOptions, dataSourcesResolved } =
     useWizardBaseData(baseEntities);
+
+  const zoneScopedFolderHierarchyItems = useMemo(() => {
+    const zoneRoots = zones
+      .map((zone) => normalizeFolderPath(zone.localFolderName || ""))
+      .filter(Boolean);
+    if (!zoneRoots.length) return folderHierarchyItems;
+
+    const itemsByValue = new Map<string, FolderHierarchyItem>();
+    folderHierarchyItems.forEach((item) => {
+      const normalizedValue = normalizeFolderPath(item.value || "");
+      if (!normalizedValue) return;
+      const inZoneTree = zoneRoots.some((root) => normalizedValue === root || normalizedValue.startsWith(`${root}/`));
+      if (inZoneTree) {
+        itemsByValue.set(normalizedValue, { ...item, value: normalizedValue });
+      }
+    });
+
+    zoneRoots.forEach((root) => {
+      if (itemsByValue.has(root)) return;
+      const matchingZone = zones.find((zone) => normalizeFolderPath(zone.localFolderName || "") === root);
+      const fallbackLabel = root.split("/").pop() || root;
+      itemsByValue.set(root, {
+        value: root,
+        label: matchingZone?.displayName?.trim() || matchingZone?.name?.trim() || fallbackLabel,
+      });
+    });
+
+    return Array.from(itemsByValue.values()).sort((a, b) => a.value.localeCompare(b.value));
+  }, [folderHierarchyItems, zones]);
 
   const defaultValues = useMemo<WizardFormValues>(
     () => ({
@@ -192,7 +224,7 @@ export function CreateModelEntityWizard({
             const data = await res.json();
             setAvailableTables(Array.isArray(data?.items) ? data.items : []);
         } catch (err) {
-            toast({ title: "Error loading tables", description: (err as Error).message, variant: "destructive" });
+            showError("dialog:create-entity-wizard", { title: "Error loading tables", description: (err as Error).message });
         } finally {
             setIsLoadingTables(false);
         }
@@ -255,7 +287,6 @@ export function CreateModelEntityWizard({
       setSelectedRelPath,
       setExpanded,
       solutionPath,
-      toast,
       dataSources: dataSourcesResolved,
       canonicalDataTypes: dataTypes,
   });
@@ -269,8 +300,9 @@ export function CreateModelEntityWizard({
       setStep(1);
       reset(defaultValues);
       setAvailableTables([]);
+      clearError("dialog:create-entity-wizard");
     }
-  }, [defaultValues, open, reset]);
+  }, [clearError, defaultValues, open, reset]);
 
   // --- Render Steps ---
 
@@ -382,7 +414,7 @@ export function CreateModelEntityWizard({
                                       <FolderHierarchyPicker
                                         value={field.value || ""}
                                         onChange={field.onChange}
-                                        folderItems={folderHierarchyItems}
+                                        folderItems={zoneScopedFolderHierarchyItems}
                                         disabled={isSubmitting}
                                         panelClassName="entity-wizard__target-folder-surface"
                                         scrollClassName="entity-wizard__target-folder-scroll"
@@ -580,7 +612,7 @@ export function CreateModelEntityWizard({
                               <FolderHierarchyPicker
                                 value={field.value || ""}
                                 onChange={field.onChange}
-                                folderItems={folderHierarchyItems}
+                                folderItems={zoneScopedFolderHierarchyItems}
                                 disabled={isSubmitting}
                                 panelClassName="entity-wizard__target-folder-surface"
                                 scrollClassName="entity-wizard__target-folder-scroll"
@@ -835,6 +867,9 @@ export function CreateModelEntityWizard({
               </Button>
             )}
           </DialogFooter>
+          <div className="error-surface-slot error-surface-slot--flush">
+            <ErrorSurfaceHost scope="dialog:create-entity-wizard" />
+          </div>
         </div>
       </DialogContent>
     </Dialog>

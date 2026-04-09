@@ -78,12 +78,14 @@ function getWindowsChromeColors(theme: "light" | "dark") {
   if (theme === "light") {
     return {
       backgroundColor: "#f3f3f3",
+      overlayColor: "#00000000",
       symbolColor: "#1f2937",
     };
   }
 
   return {
     backgroundColor: "#202126",
+    overlayColor: "#00000000",
     symbolColor: "#f5f7fb",
   };
 }
@@ -93,7 +95,7 @@ function syncWindowsTitleBarTheme(targetWindow: BrowserWindow | null, theme: "li
   const colors = getWindowsChromeColors(theme);
   targetWindow.setBackgroundColor(colors.backgroundColor);
   targetWindow.setTitleBarOverlay({
-    color: colors.backgroundColor,
+    color: colors.overlayColor,
     symbolColor: colors.symbolColor,
     height: 36,
   });
@@ -1232,7 +1234,8 @@ async function createWindow() {
     ...(process.platform === "win32"
       ? {
           titleBarOverlay: {
-            ...getWindowsChromeColors(currentAppTheme),
+            color: getWindowsChromeColors(currentAppTheme).overlayColor,
+            symbolColor: getWindowsChromeColors(currentAppTheme).symbolColor,
             height: 36,
           },
           autoHideMenuBar: true,

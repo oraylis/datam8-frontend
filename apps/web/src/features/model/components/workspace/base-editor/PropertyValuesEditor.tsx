@@ -94,13 +94,6 @@ export const PropertyValuesEditor = ({
               style={invalidStyle("displayName")}
             />
           </div>
-          <div>
-            <label>Schema</label>
-            <input
-              value={current.schema || ""}
-              onChange={(event) => updateCurrent((item) => ({ ...item, schema: event.target.value }))}
-            />
-          </div>
           <div className="full">
             <SectionCard
               title="Scopes"

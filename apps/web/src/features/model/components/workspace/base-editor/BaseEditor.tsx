@@ -5,9 +5,7 @@ import {
   FormSelect,
   Input,
   Textarea,
-  ToastAction,
   cn,
-  useToast,
 } from "@datam8/ui";
 import { Trash2 } from "lucide-react";
 import type { BaseEntity, PropertyOption } from "../../../model-types";
@@ -92,7 +90,6 @@ export const BaseEditor = (props: BaseEditorProps) => {
     persistNow,
     persistAfterStateFlush,
   } = props;
-  const { toast } = useToast();
 
   const initialListWidth = useMemo(() => {
     try {
@@ -148,9 +145,6 @@ export const BaseEditor = (props: BaseEditorProps) => {
     [persistNow],
   );
 
-  const usesApplyActionsPopup =
-    baseData.type === "zones" || baseData.type === "dataProducts" || baseData.type === "properties" || baseData.type === "propertyValues";
-
   useEffect(() => {
     if (baseMode !== "form") {
       setBaseMode("form");
@@ -203,29 +197,14 @@ export const BaseEditor = (props: BaseEditorProps) => {
             const result = removeBaseItem(selectionKey, { confirm: false });
             if (!result) return;
             persistAfterStateFlush("delete-item");
-            if (usesApplyActionsPopup) return;
-            toast({
-              title: "Deleted",
-              description: primaryLabel,
-              action: (
-                <ToastAction
-                  altText="Undo delete"
-                  onClick={() => {
-                    result.undo();
-                    persistAfterStateFlush("undo-delete");
-                  }}
-                >
-                  Undo
-                </ToastAction>
-              ),
-            });
+            void result;
           }}
         >
           <Trash2 className="h-4 w-4" />
         </IconBtn>
       </div>
     );
-  }, [persistAfterStateFlush, persistNow, removeBaseItem, selectedBaseItem, setSelectedBaseItem, toast, usesApplyActionsPopup]);
+  }, [persistAfterStateFlush, persistNow, removeBaseItem, selectedBaseItem, setSelectedBaseItem]);
 
   if (!selectedBase) return <div className="muted">Select a base entry to view.</div>;
 
@@ -767,23 +746,6 @@ export const BaseEditor = (props: BaseEditorProps) => {
                                                 setSelectedDataModule(fallbackName);
                                               }
                                               persistAfterStateFlush("delete-item");
-                                              if (usesApplyActionsPopup) return;
-                                              toast({
-                                                title: "Deleted",
-                                                description: name,
-                                                action: (
-                                                  <ToastAction
-                                                    altText={`Undo delete ${selectionKey}`}
-                                                    onClick={() => {
-                                                      updateField("dataModules", previous);
-                                                      setSelectedDataModule(previousSelection || name);
-                                                      persistAfterStateFlush("undo-delete");
-                                                    }}
-                                                  >
-                                                    Undo
-                                                  </ToastAction>
-                                                ),
-                                              });
                                             }}
                                           >
                                             <Trash2 className="h-4 w-4" />

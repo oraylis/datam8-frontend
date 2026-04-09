@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useToast } from "@datam8/ui";
 import { useSolution } from "../solution/SolutionContext";
 import { apiBase } from "../../config";
+import { useErrorSurface } from "../../shared/ui/ErrorSurface";
 
 type GeneratorLogLevel = "debug" | "info" | "warning" | "error" | "critical";
 
@@ -86,7 +86,7 @@ function readGenerateMessages(payload: unknown): string[] {
 
 export function GeneratorProvider({ children }: { children: React.ReactNode }) {
   const { solution, solutionPath } = useSolution();
-  const { toast } = useToast();
+  const { showError } = useErrorSurface();
   const [generatorTarget, setGeneratorTarget] = useState<string>("default");
   const [generatorLogLevel, setGeneratorLogLevel] = useState<GeneratorLogLevel>("info");
   const [generatorLog, setGeneratorLog] = useState("");
@@ -121,10 +121,9 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
       const validTargetOverride = typeof targetOverride === "string" ? targetOverride : undefined;
       const target = validTargetOverride || generatorTarget || generatorTargets[0];
       if (!target) {
-        toast({
+        showError("app", {
           title: "No target configured",
           description: "Add a generator target in the solution before running generation.",
-          variant: "destructive",
         });
         return;
       }
@@ -194,10 +193,9 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
         setGeneratorExit(0);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
-        toast({
+        showError("app", {
           title: "Generator execution failed",
           description: errorMessage,
-          variant: "destructive",
         });
         setGeneratorError(errorMessage);
         setGeneratorExit(1);
@@ -206,7 +204,7 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
         setGeneratorRunning(false);
       }
     },
-    [generatorLogLevel, generatorTarget, generatorTargets, solutionPath, toast],
+    [generatorLogLevel, generatorTarget, generatorTargets, showError, solutionPath],
   );
 
   return (

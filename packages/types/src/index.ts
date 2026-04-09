@@ -52,9 +52,17 @@ export type PropertyValueDelete = {
   value: string;
 };
 
+export type PropertyValueMove = {
+  oldProperty: string;
+  oldValue: string;
+  newProperty: string;
+  newValue: string;
+};
+
 export type PropertyRefactorPayload = {
   propertyRenames: PropertyRename[];
   valueRenames: PropertyValueRename[];
   deletedProperties: string[];
   deletedValues: PropertyValueDelete[];
+  valueMoves: PropertyValueMove[];
 };

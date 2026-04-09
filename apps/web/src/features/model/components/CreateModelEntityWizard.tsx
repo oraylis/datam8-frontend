@@ -55,6 +55,9 @@ interface CreateModelEntityWizardProps {
   folderHierarchyItems: FolderHierarchyItem[];
 }
 
+const normalizeFolderPath = (path: string) =>
+  (path || "").split(/[\\/]/).join("/").replace(/^\/+|\/+$/g, "");
+
 export function CreateModelEntityWizard({
   open,
   onOpenChange,
@@ -82,6 +85,35 @@ export function CreateModelEntityWizard({
 
   const { zones, dataSources, dataTypes, attributeTypes, propertyOptions, dataSourcesResolved } =
     useWizardBaseData(baseEntities);
+
+  const zoneScopedFolderHierarchyItems = useMemo(() => {
+    const zoneRoots = zones
+      .map((zone) => normalizeFolderPath(zone.localFolderName || ""))
+      .filter(Boolean);
+    if (!zoneRoots.length) return folderHierarchyItems;
+
+    const itemsByValue = new Map<string, FolderHierarchyItem>();
+    folderHierarchyItems.forEach((item) => {
+      const normalizedValue = normalizeFolderPath(item.value || "");
+      if (!normalizedValue) return;
+      const inZoneTree = zoneRoots.some((root) => normalizedValue === root || normalizedValue.startsWith(`${root}/`));
+      if (inZoneTree) {
+        itemsByValue.set(normalizedValue, { ...item, value: normalizedValue });
+      }
+    });
+
+    zoneRoots.forEach((root) => {
+      if (itemsByValue.has(root)) return;
+      const matchingZone = zones.find((zone) => normalizeFolderPath(zone.localFolderName || "") === root);
+      const fallbackLabel = root.split("/").pop() || root;
+      itemsByValue.set(root, {
+        value: root,
+        label: matchingZone?.displayName?.trim() || matchingZone?.name?.trim() || fallbackLabel,
+      });
+    });
+
+    return Array.from(itemsByValue.values()).sort((a, b) => a.value.localeCompare(b.value));
+  }, [folderHierarchyItems, zones]);
 
   const defaultValues = useMemo<WizardFormValues>(
     () => ({
@@ -382,7 +414,7 @@ export function CreateModelEntityWizard({
                                       <FolderHierarchyPicker
                                         value={field.value || ""}
                                         onChange={field.onChange}
-                                        folderItems={folderHierarchyItems}
+                                        folderItems={zoneScopedFolderHierarchyItems}
                                         disabled={isSubmitting}
                                         panelClassName="entity-wizard__target-folder-surface"
                                         scrollClassName="entity-wizard__target-folder-scroll"
@@ -580,7 +612,7 @@ export function CreateModelEntityWizard({
                               <FolderHierarchyPicker
                                 value={field.value || ""}
                                 onChange={field.onChange}
-                                folderItems={folderHierarchyItems}
+                                folderItems={zoneScopedFolderHierarchyItems}
                                 disabled={isSubmitting}
                                 panelClassName="entity-wizard__target-folder-surface"
                                 scrollClassName="entity-wizard__target-folder-scroll"

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import type { PropertyAssignment } from "@datam8/types";
 import type { BaseDataSourceType, BaseEntity, ModelEntity, PropertyOption, Tab } from "../model-types";
+import { detectBaseType } from "../model-utils";
 import { EntityEditor } from "./workspace/entity-editor/EntityEditor";
 import { BaseEditor } from "./workspace/base-editor/BaseEditor";
 import { useEntityState } from "./workspace/hooks/useEntityState";
@@ -98,7 +99,7 @@ export function Workspace({
   }, [baseEntities]);
 
   const dataSourceTypes = useMemo(() => {
-    const entry = baseEntities.find((b) => b.name === "DataSourceTypes");
+    const entry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSourceTypes");
     return entry?.content?.dataSourceTypes || [];
   }, [baseEntities]);
 
@@ -131,11 +132,11 @@ export function Workspace({
   }, [baseEntities, dataSourceTypes]);
 
   const dataSourcesRelPath = useMemo(
-    () => baseEntities.find((b) => b.name === "DataSources")?.relPath || null,
+    () => baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSources")?.relPath || null,
     [baseEntities],
   );
   const dataSourceTypesRelPath = useMemo(
-    () => baseEntities.find((b) => b.name === "DataSourceTypes")?.relPath || null,
+    () => baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSourceTypes")?.relPath || null,
     [baseEntities],
   );
 

@@ -498,11 +498,7 @@ export function AppShell() {
   );
 
   const dataTypes = useMemo(() => {
-    const entry = baseEntities.find(
-      (b) =>
-        toLower(b.name).includes("datatypes") ||
-        toLower(b.relPath).includes("datatypes"),
-    );
+    const entry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataTypes");
     const list: string[] =
       (entry?.content?.dataTypes || entry?.content?.datatypes || [])
         .map((d: BaseDataTypeDefinition) => d.name)
@@ -511,11 +507,7 @@ export function AppShell() {
   }, [baseEntities]);
 
   const dataTypeDefinitions = useMemo(() => {
-    const entry = baseEntities.find(
-      (b) =>
-        toLower(b.name).includes("datatypes") ||
-        toLower(b.relPath).includes("datatypes"),
-    );
+    const entry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataTypes");
     const defs: Record<string, { hasCharLen?: boolean; hasPrecision?: boolean; hasScale?: boolean }> = {};
     (entry?.content?.dataTypes || entry?.content?.datatypes || []).forEach((dt: BaseDataTypeDefinition) => {
       if (dt?.name) {

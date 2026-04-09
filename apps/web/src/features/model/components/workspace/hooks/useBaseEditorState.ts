@@ -459,7 +459,7 @@ export const useBaseEditorState = ({
     const type = baseData.type;
     const currentList = Array.isArray(baseData.items) ? baseData.items : [];
     let nextItem: any = null;
-    const dataSourceTypesEntry = baseEntities.find((b) => b.name === "DataSourceTypes");
+    const dataSourceTypesEntry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSourceTypes");
     const availableDataSourceTypes = Array.isArray(dataSourceTypesEntry?.content?.dataSourceTypes)
       ? dataSourceTypesEntry.content.dataSourceTypes
       : [];
@@ -729,7 +729,7 @@ export const useBaseEditorState = ({
   }, [baseSaveError, baseSaveStatus, notifySaveFailure, resetSaveFailureToastMemory]);
 
   const dataSourceTypes = useMemo(() => {
-    const entry = baseEntities.find((b) => (b.name || "").toLowerCase().includes("datasourcetypes"));
+    const entry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSourceTypes");
     const content =
       selectedBase && entry && selectedBase.relPath === entry.relPath && baseDraft ? baseDraft : entry?.content;
     return content?.dataSourceTypes || [];

@@ -8,6 +8,7 @@ type RefactorRules = {
   deletedProperties: Set<string>;
   valueRenames: Map<string, string>;
   deletedValues: Set<string>;
+  valueMoves: Map<string, { property: string; value: string }>;
 };
 
 export type PropertyRefactorApplyResult = {
@@ -54,7 +55,18 @@ function buildRules(payload: PropertyRefactorPayload): RefactorRules {
     }
   }
 
-  return { propertyRenames, deletedProperties, valueRenames, deletedValues };
+  const valueMoves = new Map<string, { property: string; value: string }>();
+  for (const item of payload.valueMoves || []) {
+    const oldProperty = normalizeString(item?.oldProperty);
+    const oldValue = normalizeString(item?.oldValue);
+    const newProperty = normalizeString(item?.newProperty);
+    const newValue = normalizeString(item?.newValue);
+    if (oldProperty && oldValue && newProperty && newValue) {
+      valueMoves.set(`${oldProperty}\u0000${oldValue}`, { property: newProperty, value: newValue });
+    }
+  }
+
+  return { propertyRenames, deletedProperties, valueRenames, deletedValues, valueMoves };
 }
 
 function applyNode(node: unknown, rules: RefactorRules): [unknown, number] {
@@ -90,22 +102,43 @@ function applyNode(node: unknown, rules: RefactorRules): [unknown, number] {
     }
   }
 
-  const rawProperty = normalizeString(next.property);
-  if (rawProperty) {
-    if (rules.deletedProperties.has(rawProperty)) {
+  const originalProperty = normalizeString(next.property);
+  if (originalProperty) {
+    const originalValue = normalizeString(next.value);
+    if (originalValue) {
+      const moveKey = `${originalProperty}\u0000${originalValue}`;
+      const movedValue = rules.valueMoves.get(moveKey);
+      if (movedValue) {
+        if (movedValue.property !== originalProperty) {
+          next.property = movedValue.property;
+          changes += 1;
+        }
+        if (movedValue.value !== originalValue) {
+          next.value = movedValue.value;
+          changes += 1;
+        }
+      }
+    }
+
+    const currentProperty = normalizeString(next.property);
+    if (!currentProperty) {
       return [DELETE, changes + 1];
     }
 
-    const renamedProperty = rules.propertyRenames.get(rawProperty);
-    const effectiveProperty = renamedProperty || rawProperty;
+    if (rules.deletedProperties.has(currentProperty)) {
+      return [DELETE, changes + 1];
+    }
+
+    const renamedProperty = rules.propertyRenames.get(currentProperty);
+    const effectiveProperty = renamedProperty || currentProperty;
     if (renamedProperty) {
       next.property = renamedProperty;
       changes += 1;
     }
 
-    const rawValue = normalizeString(next.value);
-    if (rawValue) {
-      const deleteKey = `${effectiveProperty}\u0000${rawValue}`;
+    const nextRawValue = normalizeString(next.value);
+    if (nextRawValue) {
+      const deleteKey = `${effectiveProperty}\u0000${nextRawValue}`;
       if (rules.deletedValues.has(deleteKey)) {
         return [DELETE, changes + 1];
       }

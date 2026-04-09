@@ -117,6 +117,25 @@ const assertNoDuplicateBaseKeys = (entityType: string, items: unknown[]): void =
   }
 };
 
+const buildTopLevelEntityPatch = (
+  previousContent: Record<string, unknown>,
+  nextContent: Record<string, unknown>,
+): Record<string, unknown> => {
+  const patch: Record<string, unknown> = {};
+  const keys = new Set<string>([
+    ...Object.keys(previousContent || {}),
+    ...Object.keys(nextContent || {}),
+  ]);
+  for (const key of keys) {
+    const prevValue = previousContent?.[key];
+    const nextValue = nextContent?.[key];
+    if (!deepEqual(prevValue, nextValue)) {
+      patch[key] = nextValue;
+    }
+  }
+  return patch;
+};
+
 export function AppShell() {
   const {
     solution,
@@ -878,8 +897,15 @@ export function AppShell() {
       if (!payload) return;
       const result = applyPropertyRefactorToModelEntities(modelEntities, payload);
       if (result.updatedEntities.length === 0) return;
+      const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
       for (const entity of result.updatedEntities) {
-        await patchEntity(modelLocatorFromRelPath(entity.relPath), entity.content as Record<string, unknown>);
+        const previous = currentByRelPath.get(entity.relPath);
+        const patch = buildTopLevelEntityPatch(
+          (previous?.content || {}) as Record<string, unknown>,
+          (entity.content || {}) as Record<string, unknown>,
+        );
+        if (Object.keys(patch).length === 0) continue;
+        await patchEntity(modelLocatorFromRelPath(entity.relPath), patch);
       }
       const updatedByRelPath = new Map(result.updatedEntities.map((entity) => [entity.relPath, entity]));
       setModelEntities((prev) => prev.map((entity) => updatedByRelPath.get(entity.relPath) || entity));
@@ -1042,7 +1068,8 @@ export function AppShell() {
       return;
     }
 
-    if (applied > 0) {
+    const hasStructuralActions = prompt.actions.some((action) => action.kind !== "propertyRefactor");
+    if (applied > 0 && hasStructuralActions) {
       try {
         const fallbackSource: SolutionSource | null = solutionSource
           ? solutionSource
@@ -1330,6 +1357,7 @@ export function AppShell() {
             const payload: Partial<PropertyRefactorPayload> = {
               valueRenames: valueDiff.valueRenames,
               deletedValues: valueDiff.deletedValues,
+              valueMoves: valueDiff.valueMoves,
             };
             const resolvedPayload = createPropertyRefactorPayload(payload);
             if (resolvedPayload) {

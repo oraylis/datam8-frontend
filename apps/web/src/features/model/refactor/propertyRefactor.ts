@@ -2,6 +2,7 @@ import type {
   PropertyRefactorPayload,
   PropertyRename,
   PropertyValueDelete,
+  PropertyValueMove,
   PropertyValueRename,
 } from "@datam8/types";
 
@@ -19,7 +20,7 @@ function asNonEmptyString(value: unknown): string | null {
 }
 
 type PropertyDiff = Pick<PropertyRefactorPayload, "propertyRenames" | "deletedProperties">;
-type PropertyValueDiff = Pick<PropertyRefactorPayload, "valueRenames" | "deletedValues">;
+type PropertyValueDiff = Pick<PropertyRefactorPayload, "valueRenames" | "deletedValues" | "valueMoves">;
 
 export function diffPropertyChanges(prevContent: unknown, nextContent: unknown): PropertyDiff {
   const prevProps = asNamedList((prevContent as { properties?: unknown } | null | undefined)?.properties);
@@ -72,11 +73,14 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
   const nextByProperty = groupByProperty(nextValues);
   const valueRenames: PropertyValueRename[] = [];
   const deletedValues: PropertyValueDelete[] = [];
+  const valueMoves: PropertyValueMove[] = [];
+
+  const removedCandidates: Array<{ property: string; value: string }> = [];
+  const addedCandidates: Array<{ property: string; value: string }> = [];
 
   prevByProperty.forEach((prevList, property) => {
-    if (!nextByProperty.has(property)) return;
-
     const nextList = nextByProperty.get(property) || [];
+
     const prevNames = prevList.map((item) => asNonEmptyString(item.name)).filter((n): n is string => !!n);
     const nextNames = nextList.map((item) => asNonEmptyString(item.name)).filter((n): n is string => !!n);
     const prevNameSet = new Set(prevNames);
@@ -89,10 +93,9 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
       valueRenames.push({ property, oldValue: removed[0], newValue: added[0] });
       return;
     }
-    if (removed.length > 0) {
-      removed.forEach((name) => deletedValues.push({ property, value: name }));
-      return;
-    }
+
+    removed.forEach((name) => removedCandidates.push({ property, value: name }));
+    added.forEach((name) => addedCandidates.push({ property, value: name }));
 
     const pairCount = Math.min(prevList.length, nextList.length);
     for (let i = 0; i < pairCount; i += 1) {
@@ -104,7 +107,42 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
     }
   });
 
-  return { valueRenames, deletedValues };
+  nextByProperty.forEach((nextList, property) => {
+    if (prevByProperty.has(property)) return;
+    nextList
+      .map((item) => asNonEmptyString(item.name))
+      .filter((n): n is string => !!n)
+      .forEach((name) => addedCandidates.push({ property, value: name }));
+  });
+
+  for (const removed of removedCandidates) {
+    const matchingAdded = addedCandidates.filter((added) => added.value === removed.value);
+    if (matchingAdded.length !== 1) continue;
+    const target = matchingAdded[0];
+    if (target.property === removed.property) continue;
+
+    valueMoves.push({
+      oldProperty: removed.property,
+      oldValue: removed.value,
+      newProperty: target.property,
+      newValue: target.value,
+    });
+
+    const idx = addedCandidates.findIndex(
+      (added) => added.property === target.property && added.value === target.value,
+    );
+    if (idx >= 0) addedCandidates.splice(idx, 1);
+  }
+
+  const movedKeys = new Set(valueMoves.map((move) => `${move.oldProperty}\u0000${move.oldValue}`));
+  removedCandidates.forEach((removed) => {
+    const key = `${removed.property}\u0000${removed.value}`;
+    if (!movedKeys.has(key)) {
+      deletedValues.push({ property: removed.property, value: removed.value });
+    }
+  });
+
+  return { valueRenames, deletedValues, valueMoves };
 }
 
 export function createPropertyRefactorPayload(changes: Partial<PropertyRefactorPayload>): PropertyRefactorPayload | null {
@@ -113,8 +151,15 @@ export function createPropertyRefactorPayload(changes: Partial<PropertyRefactorP
     valueRenames: changes.valueRenames || [],
     deletedProperties: changes.deletedProperties || [],
     deletedValues: changes.deletedValues || [],
+    valueMoves: changes.valueMoves || [],
   };
-  if (!payload.propertyRenames.length && !payload.valueRenames.length && !payload.deletedProperties.length && !payload.deletedValues.length) {
+  if (
+    !payload.propertyRenames.length &&
+    !payload.valueRenames.length &&
+    !payload.deletedProperties.length &&
+    !payload.deletedValues.length &&
+    !payload.valueMoves.length
+  ) {
     return null;
   }
   return payload;

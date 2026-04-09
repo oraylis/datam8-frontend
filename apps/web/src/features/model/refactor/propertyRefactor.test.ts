@@ -33,6 +33,25 @@ describe("propertyRefactor", () => {
     expect(diffPropertyValueChanges(prevContent, nextContent)).toEqual({
       valueRenames: [{ property: "domain", oldValue: "sales", newValue: "finance" }],
       deletedValues: [],
+      valueMoves: [],
+    });
+  });
+
+  it("detects moving a value to a different property", () => {
+    const prevContent = { propertyValues: [{ property: "domain", name: "sales" }] };
+    const nextContent = { propertyValues: [{ property: "businessDomain", name: "sales" }] };
+
+    expect(diffPropertyValueChanges(prevContent, nextContent)).toEqual({
+      valueRenames: [],
+      deletedValues: [],
+      valueMoves: [
+        {
+          oldProperty: "domain",
+          oldValue: "sales",
+          newProperty: "businessDomain",
+          newValue: "sales",
+        },
+      ],
     });
   });
 
@@ -49,6 +68,7 @@ describe("propertyRefactor", () => {
     expect(diffPropertyValueChanges(prevValues, nextValues)).toEqual({
       valueRenames: [],
       deletedValues: [],
+      valueMoves: [],
     });
   });
 
@@ -59,6 +79,7 @@ describe("propertyRefactor", () => {
         valueRenames: [],
         deletedProperties: [],
         deletedValues: [],
+        valueMoves: [],
       }),
     ).toBeNull();
 
@@ -71,6 +92,7 @@ describe("propertyRefactor", () => {
       valueRenames: [],
       deletedProperties: [],
       deletedValues: [],
+      valueMoves: [],
     });
   });
 });

@@ -25,6 +25,7 @@ describe("applyPropertyRefactorToModelEntities", () => {
       valueRenames: [{ property: "businessDomain", oldValue: "sales", newValue: "finance" }],
       deletedProperties: [],
       deletedValues: [],
+      valueMoves: [],
     });
 
     expect(result.updatedEntities).toHaveLength(1);
@@ -50,12 +51,43 @@ describe("applyPropertyRefactorToModelEntities", () => {
       valueRenames: [],
       deletedProperties: ["sensitivity"],
       deletedValues: [],
+      valueMoves: [],
     });
 
     expect(result.updatedEntities).toHaveLength(1);
     expect((result.updatedEntities[0].content as any).attributes).toEqual([
       { name: "Id", properties: [] },
       { name: "Name", properties: [{ property: "domain", value: "sales" }] },
+    ]);
+  });
+
+  it("moves property assignments to another property when value move rules are present", () => {
+    const entities = [
+      modelEntity({
+        content: {
+          properties: [{ property: "domain", value: "sales" }],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToModelEntities(entities, {
+      propertyRenames: [],
+      valueRenames: [],
+      deletedProperties: [],
+      deletedValues: [],
+      valueMoves: [
+        {
+          oldProperty: "domain",
+          oldValue: "sales",
+          newProperty: "businessDomain",
+          newValue: "sales",
+        },
+      ],
+    });
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).properties).toEqual([
+      { property: "businessDomain", value: "sales" },
     ]);
   });
 });

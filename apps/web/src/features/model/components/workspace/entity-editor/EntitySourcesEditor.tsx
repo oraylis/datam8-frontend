@@ -37,6 +37,7 @@ type EntitySourcesEditorProps = {
   currentEntityAttributeNames: string[];
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   dataSourcesRelPath: string | null;
+  onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
   onDeleteSource?: () => void;
 };
 
@@ -52,6 +53,7 @@ type SourceMappingsProps = {
   isExternal: boolean;
   sourceAttributeNames: string[];
   currentEntityAttributeNames: string[];
+  onAdoptExternalSchema?: () => void;
 };
 
 type SourcePropertiesProps = {
@@ -100,6 +102,7 @@ type ExternalSourceCardProps = {
   currentEntityAttributeNames: string[];
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   dataSourcesRelPath: string | null;
+  onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
 };
 
 export const toPropertyChipItems = (
@@ -172,6 +175,7 @@ const SourceMappings = ({
   isExternal,
   sourceAttributeNames,
   currentEntityAttributeNames,
+  onAdoptExternalSchema,
 }: SourceMappingsProps) => {
   const mappings = source.mapping || [];
   const isCollapsed = collapsedMappings[sourceIdx] ?? true;
@@ -205,6 +209,11 @@ const SourceMappings = ({
           <ActionButton variant="ghost" onClick={toggleCollapsed}>
             {isCollapsed ? `Show mappings (${mappings.length})` : "Hide mappings"}
           </ActionButton>
+          {isExternal && onAdoptExternalSchema ? (
+            <ActionButton variant="ghost" onClick={onAdoptExternalSchema} disabled={!mappings.length}>
+              Adopt Schema
+            </ActionButton>
+          ) : null}
           <ActionButton
             variant="ghost"
             onClick={addMapping}
@@ -583,6 +592,7 @@ const ExternalSourceCard = ({
   currentEntityAttributeNames,
   onPatchBaseEntity,
   dataSourcesRelPath,
+  onAdoptExternalSourceSchema,
 }: ExternalSourceCardProps) => {
   const [showBrowser, setShowBrowser] = useState(false);
   const dataSourceObject = dataSourceDetails[source.dataSource] || {};
@@ -731,6 +741,11 @@ const ExternalSourceCard = ({
         isExternal={true}
         sourceAttributeNames={[]}
         currentEntityAttributeNames={currentEntityAttributeNames}
+        onAdoptExternalSchema={
+          onAdoptExternalSourceSchema
+            ? () => onAdoptExternalSourceSchema(index)
+            : undefined
+        }
       />
     </div>
   );
@@ -757,6 +772,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     currentEntityAttributeNames,
     onPatchBaseEntity,
     dataSourcesRelPath,
+    onAdoptExternalSourceSchema,
     onDeleteSource,
   },
   ref,
@@ -866,6 +882,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             currentEntityAttributeNames={currentEntityAttributeNames}
             onPatchBaseEntity={onPatchBaseEntity}
             dataSourcesRelPath={dataSourcesRelPath}
+            onAdoptExternalSourceSchema={onAdoptExternalSourceSchema}
             cardRef={(el) => {
               sourceCardRefs.current[idx] = el;
             }}

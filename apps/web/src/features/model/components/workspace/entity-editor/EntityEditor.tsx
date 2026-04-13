@@ -14,6 +14,7 @@ import { EntityRelationshipsEditor } from "./EntityRelationshipsEditor";
 import { derivePySourcePath, EntityTransformationsEditor } from "./EntityTransformationsEditor";
 import { EntitySourcesEditor, type EntitySourcesEditorHandle } from "./EntitySourcesEditor";
 import { applyBulkAttributeEditRules, getAttributeIdsInRange, type BulkAttributeEditRule } from "./bulkAttributeEdit";
+import { buildAttributesFromExternalSourceSchema } from "./externalSchemaAdoption";
 import type {
   EntityAttribute,
   EntityPropertyRow,
@@ -344,6 +345,47 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const clearPendingFocus = useCallback(() => setPendingFocusName(null), []);
   const sourcesEditorRef = useRef<EntitySourcesEditorHandle | null>(null);
+
+  const adoptExternalSourceSchema = useCallback(
+    (sourceIndex: number) => {
+      const source = sources[sourceIndex];
+      if (!source) return;
+
+      const dataSourceName = typeof source?.dataSource === "string" ? source.dataSource : "";
+      const dataSourceDetail = dataSourceName ? dataSourceDetails[dataSourceName] : undefined;
+      const defaultAttributeType = attributeTypeOptions[0]?.value || "";
+      const adoptedAttributes = buildAttributesFromExternalSourceSchema({
+        source,
+        dataSourceDetail,
+        canonicalDataTypes: dataTypes,
+        defaultAttributeType,
+      });
+
+      if (!adoptedAttributes.length) return;
+
+      const confirmationMessage =
+        attributes.length > 0
+          ? `Adopt schema from external source and replace all ${attributes.length} current attribute(s)?`
+          : "Adopt schema from external source?";
+      if (!window.confirm(confirmationMessage)) return;
+
+      setOpenAttributeDetails({});
+      setSelectedAttributeIds(new Set());
+      setSelectionAnchorId(null);
+      updateAttributesStructural(() => adoptedAttributes);
+      persistAfterStateFlush("add-item");
+    },
+    [
+      sources,
+      dataSourceDetails,
+      attributeTypeOptions,
+      dataTypes,
+      attributes.length,
+      setOpenAttributeDetails,
+      updateAttributesStructural,
+      persistAfterStateFlush,
+    ],
+  );
 
   useEffect(() => {
     const onSelectChanged = () => persistAfterStateFlush("dropdown-change");
@@ -849,6 +891,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   onPatchBaseEntity={onPatchBaseEntity}
                   dataSourcesRelPath={dataSourcesRelPath}
                   currentEntityAttributeNames={currentEntityAttributeNames}
+                  onAdoptExternalSourceSchema={adoptExternalSourceSchema}
                   onDeleteSource={() => persistAfterStateFlush("delete-item")}
                 />
               )}

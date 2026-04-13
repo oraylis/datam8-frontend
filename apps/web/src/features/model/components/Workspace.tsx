@@ -11,6 +11,7 @@ type DataSourceDetails = {
   name: string;
   typeName?: string;
   extendedProperties: Record<string, unknown>;
+  dataTypeMapping?: unknown;
   dataSourceType: BaseDataSourceType | null;
   connector: {
     id: string | null;
@@ -120,6 +121,7 @@ export function Workspace({
           name: ds.name,
           typeName,
           extendedProperties,
+          dataTypeMapping: ds.dataTypeMapping,
           dataSourceType: dst,
           connector: {
             id: `${dst?.pluginId || ""}`.trim() || null,

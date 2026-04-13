@@ -971,6 +971,11 @@ body {
   text-overflow: ellipsis;
 }
 
+.panel__title-text--entity {
+  line-height: var(--lh-title);
+  padding-bottom: 2px;
+}
+
 .panel__title-label {
   display: inline-flex;
   align-items: baseline;

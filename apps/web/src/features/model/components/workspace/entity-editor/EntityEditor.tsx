@@ -546,7 +546,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
         eyebrow={selectedEntity.relPath}
         title={
           <div className="panel__title-row">
-            <span className="panel__title-text">{selectedEntity.name}</span>
+            <span className="panel__title-text panel__title-text--entity">{selectedEntity.name}</span>
           </div>
         }
         meta={

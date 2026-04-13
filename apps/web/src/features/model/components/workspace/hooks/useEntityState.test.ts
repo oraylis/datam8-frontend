@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { hasIncompleteFormLinkageDraft, normalizeRelationshipsForSave, serializeEntityContent } from "./useEntityState";
+import {
+  hasIncompleteFormLinkageDraft,
+  normalizeOptionalStringField,
+  normalizeRelationshipsForSave,
+  serializeEntityContent,
+} from "./useEntityState";
 
 describe("serializeEntityContent", () => {
   it("does not add description when both draft and base are undefined", () => {
@@ -164,5 +169,20 @@ describe("normalizeRelationshipsForSave", () => {
     expect(result).toEqual([
       { targetModelEntityId: 44, mappings: [{ source: "OrderId", target: "Id" }] },
     ]);
+  });
+});
+
+describe("normalizeOptionalStringField", () => {
+  it("keeps non-empty strings", () => {
+    expect(normalizeOptionalStringField("sql")).toBe("sql");
+  });
+
+  it("drops empty strings", () => {
+    expect(normalizeOptionalStringField("   ")).toBeUndefined();
+  });
+
+  it("drops non-string values", () => {
+    expect(normalizeOptionalStringField(null)).toBeUndefined();
+    expect(normalizeOptionalStringField(12)).toBeUndefined();
   });
 });

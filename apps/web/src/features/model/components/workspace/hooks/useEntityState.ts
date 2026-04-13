@@ -24,6 +24,9 @@ const normalizePropertyAssignments = (value: unknown): Array<{ property: string;
     }))
     .filter((item) => item.property.length > 0);
 
+export const normalizeOptionalStringField = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 ? value : undefined;
+
 export const isValidInternalSourceLocation = (value: unknown): boolean => {
   if (typeof value === "string") return value.trim().length > 0;
   if (typeof value === "number") return Number.isFinite(value);
@@ -438,8 +441,6 @@ export const useEntityState = ({
       const defaultAttrType = attributeTypeOptions?.[0]?.value || "";
       const defaultDataType = dataTypes?.[0] || "string";
       const now = forSave ? new Date().toISOString() : null;
-      const asNonEmptyString = (value: unknown) =>
-        typeof value === "string" && value.trim().length > 0 ? value : undefined;
       return (list || []).map((attr: any, idx: number) => {
         if (!forSave) {
           const out: any = { ...attr };
@@ -469,10 +470,10 @@ export const useEntityState = ({
         out.ordinalNumber = idx + 1;
         out.name = attr?.name || "";
 
-        const displayName = asNonEmptyString(attr?.displayName);
+        const displayName = normalizeOptionalStringField(attr?.displayName);
         if (displayName) out.displayName = displayName;
 
-        const description = asNonEmptyString(attr?.description);
+        const description = normalizeOptionalStringField(attr?.description);
         if (description) out.description = description;
 
         out.attributeType = attr?.attributeType ?? defaultAttrType ?? "";
@@ -486,16 +487,16 @@ export const useEntityState = ({
               : undefined;
         if (typeof isBusinessKey === "boolean") out.isBusinessKey = isBusinessKey;
 
-        const history = asNonEmptyString(attr?.history);
+        const history = normalizeOptionalStringField(attr?.history);
         if (history) out.history = history;
 
-        const expression = asNonEmptyString(attr?.expression);
+        const expression = normalizeOptionalStringField(attr?.expression);
         if (expression) out.expression = expression;
 
-        const expressionLanguage = asNonEmptyString(attr?.expressionLanguage);
-        if (expressionLanguage && expression) out.expressionLanguage = expressionLanguage;
+        const expressionLanguage = normalizeOptionalStringField(attr?.expressionLanguage);
+        if (expressionLanguage) out.expressionLanguage = expressionLanguage;
 
-        const unit = asNonEmptyString(attr?.unit);
+        const unit = normalizeOptionalStringField(attr?.unit);
         if (unit) out.unit = unit;
 
         if (Array.isArray(attr?.refactorNames) && attr.refactorNames.length > 0) {

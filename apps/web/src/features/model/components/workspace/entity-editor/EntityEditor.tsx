@@ -581,10 +581,10 @@ export const EntityEditor = (props: EntityEditorProps) => {
           ) : null
         }
       />
-        <div className="panel__body" onBlurCapture={handleTextFieldBlurCapture}>
+        <div className="panel__body panel__body--entity-editor" onBlurCapture={handleTextFieldBlurCapture}>
           {mode === "form" ? (
             <>
-              <div className="section-nav-row">
+              <div className="section-nav-row entity-section-nav-row">
                 <div className="section-nav">
                   {(["overview", "attributes", "sources", "relationships", "transformations"] as EntitySection[]).map((sec) => (
                     <button

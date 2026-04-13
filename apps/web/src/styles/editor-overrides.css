@@ -55,6 +55,47 @@
   background: color-mix(in srgb, hsl(var(--ui-ring)) 72%, hsl(var(--ui-border-strong)));
 }
 
+.editor-panel .panel__body--entity-editor {
+  --entity-nav-sticky-height: 52px;
+  position: relative;
+  isolation: isolate;
+  padding-top: 0;
+}
+
+.editor-panel .panel__body--entity-editor .entity-section-nav-row {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin-top: 0;
+  margin-bottom: 0;
+  min-height: var(--entity-nav-sticky-height);
+  padding-top: 0;
+  padding-bottom: 0;
+  background: hsl(var(--ui-surface-workspace)) !important;
+}
+
+.editor-panel .panel__body--entity-editor .entity-attributes-table,
+.editor-panel .panel__body--entity-editor .entity-transformations-table,
+.editor-panel .panel__body--entity-editor .entity-mapping-table {
+  margin-top: 0;
+}
+
+.editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child {
+  position: sticky;
+  top: var(--entity-nav-sticky-height);
+  z-index: 26;
+  margin-bottom: 6px;
+  background: hsl(var(--ui-surface-workspace)) !important;
+}
+
+.editor-panel .panel__body--entity-editor .entity-transformations-table > .table-row.table-head,
+.editor-panel .panel__body--entity-editor .entity-mapping-table > .table-row.table-head {
+  position: sticky;
+  top: var(--entity-nav-sticky-height);
+  z-index: 25;
+  background: hsl(var(--ui-surface-workspace)) !important;
+}
+
 .editor-panel .panel__body .toggle-field {
   border-color: var(--editor-form-border);
   background: var(--editor-form-surface);
@@ -106,6 +147,20 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child {
+  position: sticky;
+  top: var(--entity-nav-sticky-height);
+  z-index: 26;
+  margin-bottom: 6px;
+  background: hsl(var(--ui-surface-workspace)) !important;
+}
+
+.editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child .table-row.table-head,
+.editor-panel .panel__body--entity-editor .entity-transformations-table > .table-row.table-head,
+.editor-panel .panel__body--entity-editor .entity-mapping-table > .table-row.table-head {
+  background: hsl(var(--ui-surface-workspace)) !important;
 }
 
 .editor-panel .panel__body .table-row:not(.table-head) {

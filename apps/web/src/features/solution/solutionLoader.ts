@@ -55,7 +55,7 @@ declare global {
         deleteFunctionSource?: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => Promise<{ path?: string } | null>;
         renameFolder?: (payload: { fromFolderPath: string; toFolderPath: string; solutionPath?: string }) => Promise<{ fromPath?: string; toPath?: string } | null>;
         validate?: (payload: { solutionPath: string; logLevel?: string }) => Promise<{ success?: boolean; message?: string; messages?: string[] } | null>;
-        generate?: (payload: { solutionPath: string; target: string; logLevel?: string }) => Promise<{ success?: boolean; message?: string; messages?: string[]; target?: string } | null>;
+        generate?: (payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) => Promise<{ success?: boolean; message?: string; messages?: string[]; target?: string } | null>;
         onOpenPath?: (callback: (path: string) => void) => () => void;
         loadSolution?: (path: string) => Promise<unknown>;
         readSolutionFile?: (path: string) => Promise<unknown>;

@@ -56,7 +56,7 @@ contextBridge.exposeInMainWorld("desktop", {
       ipcRenderer.invoke("solution:rename-folder", payload),
     validate: (payload: { solutionPath: string; logLevel?: string }) =>
       ipcRenderer.invoke("solution:validate", payload),
-    generate: (payload: { solutionPath: string; target: string; logLevel?: string }) =>
+    generate: (payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) =>
       ipcRenderer.invoke("solution:generate", payload),
     onOpenPath: (callback: (path: string) => void) => {
       const handler = (_event: IpcRendererEvent, filePath: string) => callback(filePath);

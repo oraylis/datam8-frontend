@@ -611,6 +611,8 @@ async function generateSolutionViaCli(params: { solutionPath: string; target: st
   if (logLevel) {
     args.push("--log-level", logLevel);
   }
+  // Always clean generator output before rendering to match frontend behavior.
+  args.push("--clean-output");
   const result = runPythonCli(pythonPath, backendModule, args);
   const deduped = parseCliOutputLines(result);
   return {
@@ -1465,7 +1467,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "solution:generate",
-  async (_event, payload: { solutionPath: string; target: string; logLevel?: string }) => {
+  async (_event, payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) => {
     return await generateSolutionViaCli(payload);
   },
 );

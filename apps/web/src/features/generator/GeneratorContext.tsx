@@ -142,6 +142,7 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
             solutionPath,
             target,
             logLevel: generatorLogLevel,
+            cleanOutput: true,
           });
           const payload = {
             messages: Array.isArray(result?.messages) ? result?.messages : result?.message ? [result.message] : [],

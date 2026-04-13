@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Checkbox,
   FormSelect,
@@ -7,7 +7,7 @@ import {
   Textarea,
   cn,
 } from "@datam8/ui";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import type { BaseEntity, PropertyOption } from "../../../model-types";
 import { humanize } from "../../../../../shared/utils/strings";
 import { mergeInheritedProps } from "../../../model-utils";
@@ -17,6 +17,7 @@ import {
   getBaseItemSelectionKey,
   isBaseItemSelected,
 } from "../lib/baseItemSelection";
+import { buildPropertyValueGroups } from "../lib/propertyValueGroups";
 import { ActionButton } from "../common/ActionButton";
 import { EditorPanelHeader } from "../common/EditorPanelHeader";
 import { IconBtn } from "../common/IconBtn";
@@ -117,6 +118,8 @@ export const BaseEditor = (props: BaseEditorProps) => {
     setListWidth(initialListWidth);
   }, [initialListWidth, setListWidth]);
 
+  const [expandedPropertyGroups, setExpandedPropertyGroups] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     const onSelectChanged = () => persistAfterStateFlush("dropdown-change");
     const onCheckboxChanged = () => persistAfterStateFlush("add-item");
@@ -130,6 +133,27 @@ export const BaseEditor = (props: BaseEditorProps) => {
       window.removeEventListener("dm8:value-commit", onValueCommitted as EventListener);
     };
   }, [persistAfterStateFlush]);
+
+  const propertyValueGroups = useMemo(() => {
+    if (baseData?.type !== "propertyValues") return [];
+    return buildPropertyValueGroups(Array.isArray(baseData?.items) ? baseData.items : []);
+  }, [baseData?.items, baseData?.type]);
+
+  useEffect(() => {
+    if (propertyValueGroups.length === 0) {
+      setExpandedPropertyGroups(new Set());
+      return;
+    }
+    setExpandedPropertyGroups((prev) => {
+      const next = new Set<string>();
+      propertyValueGroups.forEach((group) => {
+        if (prev.has(group.propertyKey) || prev.size === 0) {
+          next.add(group.propertyKey);
+        }
+      });
+      return next;
+    });
+  }, [propertyValueGroups]);
 
   const handleTextFieldBlurCapture = useMemo(
     () =>
@@ -151,7 +175,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
     }
   }, [baseMode, setBaseMode]);
 
-  const renderBaseListRow = useCallback((item: any, itemIdx: number) => {
+  const renderBaseListRow = useCallback((item: any, itemIdx: number, opts?: { nested?: boolean }) => {
     const selectionKey = getBaseItemSelectionKey(item, itemIdx);
     const name = getBaseItemLegacySelectionKey(item);
     const displayName =
@@ -163,7 +187,11 @@ export const BaseEditor = (props: BaseEditorProps) => {
     return (
       <div
         key={`${selectionKey}-${itemIdx}`}
-        className={cn("table-row base-list-table__row", isActive ? "base-list-table__row--active" : "")}
+        className={cn(
+          "table-row base-list-table__row",
+          opts?.nested ? "base-list-table__row--nested" : "",
+          isActive ? "base-list-table__row--active" : "",
+        )}
         role="button"
         tabIndex={0}
         style={{ gridTemplateColumns: "1fr auto" }}
@@ -247,8 +275,45 @@ export const BaseEditor = (props: BaseEditorProps) => {
                     Add
                   </ActionButton>
                 </div>
-                <div className="table base-list-table" role="table" aria-label="Base items">
-                  {(baseData.items || []).map((item: any, itemIdx: number) => renderBaseListRow(item, itemIdx))}
+                <div
+                  className={cn("table base-list-table", baseData.type === "propertyValues" ? "base-list-table--property-values" : "")}
+                  role="table"
+                  aria-label="Base items"
+                >
+                  {baseData.type === "propertyValues"
+                    ? propertyValueGroups.map((group) => {
+                        const isExpanded = expandedPropertyGroups.has(group.propertyKey);
+                        return (
+                          <div key={`group-${group.propertyKey}`} className="base-list-table__group">
+                            <button
+                              type="button"
+                              className="table-row base-list-table__group-row"
+                              onClick={() =>
+                                setExpandedPropertyGroups((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(group.propertyKey)) {
+                                    next.delete(group.propertyKey);
+                                  } else {
+                                    next.add(group.propertyKey);
+                                  }
+                                  return next;
+                                })
+                              }
+                              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${group.propertyLabel}`}
+                              aria-expanded={isExpanded}
+                            >
+                              <span className="base-list-table__group-label">
+                                {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                <span title={group.propertyLabel}>{group.propertyLabel}</span>
+                              </span>
+                            </button>
+                            {isExpanded
+                              ? group.items.map((groupItem) => renderBaseListRow(groupItem.item, groupItem.index, { nested: true }))
+                              : null}
+                          </div>
+                        );
+                      })
+                    : (baseData.items || []).map((item: any, itemIdx: number) => renderBaseListRow(item, itemIdx))}
                 </div>
                 <div className="base-list__resizer" onMouseDown={(e) => startResize(e)} />
               </div>

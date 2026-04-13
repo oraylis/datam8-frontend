@@ -694,6 +694,10 @@ body {
   cursor: pointer;
 }
 
+.base-list-table__row--nested {
+  padding-left: 18px;
+}
+
 .base-list-table__row:hover {
   background: color-mix(in srgb, hsl(var(--ui-foreground)) 4%, transparent);
 }
@@ -723,6 +727,75 @@ body {
   pointer-events: none;
   border-color: transparent;
   background: transparent;
+}
+
+.base-list-table__group {
+  margin-bottom: 2px;
+}
+
+.base-list-table__group-row {
+  width: 100%;
+  padding: 2px 8px;
+  min-height: 24px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  color: hsl(var(--ui-muted-foreground));
+  cursor: pointer;
+}
+
+.base-list-table__group-row:hover {
+  background: color-mix(in srgb, hsl(var(--ui-foreground)) 4%, transparent);
+}
+
+.base-list-table__group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.base-list-table__group-label > span:last-child {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.base-list-table--property-values .base-list-table__group-row {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-md);
+  color: hsl(var(--ui-foreground));
+  padding: 6px 10px;
+}
+
+.base-list-table--property-values .base-list-table__group-row:hover {
+  background: color-mix(in srgb, hsl(var(--ui-foreground)) 8%, transparent);
+  border-color: color-mix(in srgb, hsl(var(--ui-border)) 82%, transparent);
+}
+
+.dark .base-list-table--property-values .base-list-table__group-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.base-list-table--property-values .base-list-table__row--nested {
+  min-height: 34px;
+  padding-left: 26px;
+}
+
+.base-list-table--property-values .base-list-table__label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .base-list-table__row:hover .base-list-table__delete,
@@ -1510,6 +1583,11 @@ textarea:not([class]):focus {
   border-radius: 10px;
   transition: background 0.2s ease, border-color 0.2s ease;
   font-size: 13px;
+}
+
+.base-list-table__group-row.table-row {
+  grid-template-columns: 1fr;
+  gap: 6px;
 }
 
 .table-row.table-head {

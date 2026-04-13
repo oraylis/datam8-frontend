@@ -135,6 +135,10 @@
   border-radius: 7px;
 }
 
+.editor-panel .panel__body .base-list-table--property-values .table-row.base-list-table__row.base-list-table__row--nested {
+  padding-left: 26px !important;
+}
+
 .editor-panel .panel__body .table-row.table-head {
   border: none;
   border-radius: 0;

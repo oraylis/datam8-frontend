@@ -167,6 +167,14 @@
   background: hsl(var(--ui-surface-workspace)) !important;
 }
 
+.dark .editor-panel .panel__body--entity-editor .entity-section-nav-row,
+.dark .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child,
+.dark .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child .table-row.table-head,
+.dark .editor-panel .panel__body--entity-editor .entity-transformations-table > .table-row.table-head,
+.dark .editor-panel .panel__body--entity-editor .entity-mapping-table > .table-row.table-head {
+  background: #181818 !important;
+}
+
 .editor-panel .panel__body .table-row:not(.table-head) {
   background: transparent;
   border-bottom: none;

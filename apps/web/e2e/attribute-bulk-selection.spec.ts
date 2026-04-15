@@ -136,7 +136,10 @@ test("attribute selection mode replaces drag handles and restores them on clear"
 
   const attributeRows = page.locator(".entity-attributes-table .value-row");
   await expect(attributeRows).toHaveCount(4);
-  await attributeRows.nth(2).click({ position: { x: 12, y: 12 } });
+  await attributeRows.nth(2).click({ position: { x: 240, y: 12 } });
+  await expect(page.getByRole("button", { name: "Add Attribute" })).toBeVisible();
+  await expect(page.getByLabel("Clear selection")).toHaveCount(0);
+  await attributeRows.nth(2).getByTitle("Click to select or drag to reorder").click();
 
   await expect(page.getByRole("button", { name: "Bulk Edit" })).toBeVisible();
   await expect(page.getByLabel("Clear selection")).toBeVisible();

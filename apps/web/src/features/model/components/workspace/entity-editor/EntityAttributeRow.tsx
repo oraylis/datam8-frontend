@@ -155,32 +155,10 @@ export const EntityAttributeRow = memo(
       [rawAttrProps],
     );
 
-    const shouldIgnoreSelectionTarget = useCallback((target: EventTarget | null) => {
-      const element =
-        target instanceof Element
-          ? target
-          : target && "parentElement" in (target as Node)
-            ? (target as Node).parentElement
-            : null;
-      if (!element) return false;
-      return !!element.closest(
-        'input, textarea, button, [role="combobox"], [role="checkbox"], a, label, [data-no-attribute-select="true"]',
-      );
-    }, []);
-
-    const handleRowClick = useCallback(
-      (event: React.MouseEvent<HTMLDivElement>) => {
-        if (shouldIgnoreSelectionTarget(event.target)) return;
-        onSelect(index, event);
-      },
-      [index, onSelect, shouldIgnoreSelectionTarget],
-    );
-
     return (
       <div
         className={`value-row ${detailsOpen ? "value-row--active" : ""} ${isSelected ? "value-row--selected" : ""} ${dropClass}`}
         ref={(el) => rowRef(index, el)}
-        onClick={handleRowClick}
         onDragOver={
           showSelectionUi
             ? undefined

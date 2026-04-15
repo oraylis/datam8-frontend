@@ -18,6 +18,8 @@ export type WorkTabsProps = {
   onFocusTab: (kind: "base" | "entity", relPath: string) => void;
   onCloseTab: (kind: "base" | "entity", relPath: string) => void;
   onConfirmCloseTab?: (kind: "base" | "entity", relPath: string, isDirty: boolean) => Promise<boolean>;
+  onTabDragStart?: (kind: "base" | "entity", relPath: string) => void;
+  onTabDragEnd?: () => void;
 };
 
 const groupId = (kind: "base" | "model", name?: string) => (kind === "base" ? "base" : `model:${name || ""}`);
@@ -33,6 +35,8 @@ export function WorkTabs({
   onFocusTab,
   onCloseTab,
   onConfirmCloseTab,
+  onTabDragStart,
+  onTabDragEnd,
 }: WorkTabsProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -112,6 +116,16 @@ export function WorkTabs({
         className={`worktab ${isActive ? "worktab--active" : ""}`}
         onClick={() => onFocusTab(kind, tab.relPath)}
         title={tab.relPath}
+        draggable
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("application/x-datam8-worktab", id);
+          event.dataTransfer.setData("text/plain", id);
+          onTabDragStart?.(kind, tab.relPath);
+        }}
+        onDragEnd={() => {
+          onTabDragEnd?.();
+        }}
       >
         <span className="worktab__title">{tab.title}</span>
         {tab.dirty ? <span className="worktab__dot" /> : null}
@@ -133,7 +147,7 @@ export function WorkTabs({
         </span>
       </button>
     );
-  }, [activeWorkTab, onCloseTab, onConfirmCloseTab, onFocusTab]);
+  }, [activeWorkTab, onCloseTab, onConfirmCloseTab, onFocusTab, onTabDragEnd, onTabDragStart]);
 
   const modelContent = modelGroups.map((group) => {
     const collapsed = collapsedGroups.has(groupId("model", group.label));

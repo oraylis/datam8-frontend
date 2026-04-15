@@ -263,6 +263,92 @@ body {
   overflow: hidden;
 }
 
+.editor-panel--split {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.editor-pane {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: outline-color var(--ui-transition-fast), background-color var(--ui-transition-fast);
+}
+
+.editor-pane--primary {
+  flex: 0 0 auto;
+}
+
+.editor-pane--secondary {
+  flex: 1 1 auto;
+}
+
+.editor-pane--focused {
+  outline: 1px solid color-mix(in srgb, hsl(var(--ui-primary)) 32%, transparent);
+  outline-offset: -1px;
+}
+
+.editor-pane--drop-ready {
+  background: color-mix(in srgb, hsl(var(--ui-primary)) 4%, transparent);
+}
+
+.editor-pane--drop-over {
+  background: color-mix(in srgb, hsl(var(--ui-primary)) 9%, transparent);
+}
+
+.editor-pane__empty {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--ui-muted-foreground));
+  border: 1px dashed color-mix(in srgb, hsl(var(--ui-border)) 80%, transparent);
+  border-radius: 12px;
+  margin: 6px;
+  font-size: 13px;
+  text-align: center;
+  padding: 10px;
+}
+
+.editor-split-divider {
+  width: 10px;
+  flex: 0 0 10px;
+  cursor: col-resize;
+  position: relative;
+}
+
+.editor-split-divider::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, hsl(var(--ui-border)) 72%, transparent);
+}
+
+.editor-split-divider:hover::before {
+  background: color-mix(in srgb, hsl(var(--ui-primary)) 44%, transparent);
+}
+
+@media (max-width: 1220px) {
+  .editor-panel--split .editor-pane--secondary,
+  .editor-panel--split .editor-split-divider {
+    display: none;
+  }
+
+  .editor-panel--split .editor-pane--primary {
+    width: 100% !important;
+  }
+}
+
 .sidebar {
   border: none;
   padding: 0;

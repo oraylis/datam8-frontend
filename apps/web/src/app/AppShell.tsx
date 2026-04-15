@@ -12,7 +12,7 @@ import {
   WorkTabs,
 } from "@datam8/ui";
 import { useTheme } from "@datam8/ui/theme";
-import { Bot, ShieldCheck } from "lucide-react";
+import { Bot, Columns2, ShieldCheck } from "lucide-react";
 import type { PropertyRefactorPayload } from "@datam8/types";
 import { Sidebar } from "../features/model/components/Sidebar";
 import { Workspace } from "../features/model/components/Workspace";
@@ -73,6 +73,18 @@ type BaseActionPrompt = {
   actions: PendingBaseAction[];
   rollbackBaseEntity: BaseEntity | null;
   rollbackFolderEntity?: FolderEntity | null;
+};
+
+const WORKTAB_MIME = "application/x-datam8-worktab";
+
+const isEntityOrBaseWorkTab = (workTab: string | null): workTab is string =>
+  !!workTab && (workTab.startsWith("entity:") || workTab.startsWith("base:"));
+
+const parseWorkTab = (workTab: string | null): { kind: "entity" | "base"; relPath: string } | null => {
+  if (!workTab) return null;
+  if (workTab.startsWith("entity:")) return { kind: "entity", relPath: workTab.slice("entity:".length) };
+  if (workTab.startsWith("base:")) return { kind: "base", relPath: workTab.slice("base:".length) };
+  return null;
 };
 
 const buildBaseEntityLocator = (entityType: string, item: Record<string, unknown>): string | null => {
@@ -246,6 +258,12 @@ export function AppShell() {
     runGenerator,
   } = useGenerator();
   const [activeRunPanel, setActiveRunPanel] = useState<"generator" | "validator" | null>(null);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitRatio, setSplitRatio] = useState(0.5);
+  const [focusedPane, setFocusedPane] = useState<"primary" | "secondary">("primary");
+  const [secondaryWorkTab, setSecondaryWorkTab] = useState<string | null>(null);
+  const [draggedWorkTab, setDraggedWorkTab] = useState<string | null>(null);
+  const [secondaryPaneDragOver, setSecondaryPaneDragOver] = useState(false);
   const [windowTitle, setWindowTitle] = useState("DataM8");
   const [windowMenuLabels, setWindowMenuLabels] = useState<string[]>([]);
   const [validatorRunning, setValidatorRunning] = useState(false);
@@ -253,6 +271,9 @@ export function AppShell() {
   const [validatorResolvedPath, setValidatorResolvedPath] = useState<string | null>(null);
   const [validatorError, setValidatorError] = useState<string | null>(null);
   const validatorRunInFlightRef = useRef(false);
+  const secondaryEntityPersistRef = useRef<(() => Promise<boolean>) | null>(null);
+  const secondaryBasePersistRef = useRef<(() => Promise<boolean>) | null>(null);
+  const splitPanelRef = useRef<HTMLDivElement | null>(null);
   const { showError } = useErrorSurface();
   const confirm = useConfirm();
   const { width: sidebarSize, setWidth: setSidebarSize, startResize } = useResizablePane({
@@ -1477,20 +1498,35 @@ export function AppShell() {
 
   const hasAnyDirty = useMemo(() => anyDirty || dirtyFolderPaths.size > 0, [anyDirty, dirtyFolderPaths]);
 
-  const persistActiveEditorBeforeSwitch = useCallback(async (): Promise<boolean> => {
-    const active = activeWorkTab;
-    if (!active) return true;
-    if (active.startsWith("entity:")) {
-      return (await entityPersistRef.current?.()) ?? true;
-    }
-    if (active.startsWith("base:")) {
-      return (await basePersistRef.current?.()) ?? true;
-    }
-    if (active.startsWith("folder:")) {
-      return (await folderPersistRef.current?.()) ?? true;
-    }
-    return true;
-  }, [activeWorkTab]);
+  const persistEditorForWorkTab = useCallback(
+    async (
+      workTab: string | null,
+      refs: {
+        entity: React.MutableRefObject<(() => Promise<boolean>) | null>;
+        base: React.MutableRefObject<(() => Promise<boolean>) | null>;
+        folder?: React.MutableRefObject<(() => Promise<boolean>) | null>;
+      },
+    ): Promise<boolean> => {
+      if (!workTab) return true;
+      if (workTab.startsWith("entity:")) return (await refs.entity.current?.()) ?? true;
+      if (workTab.startsWith("base:")) return (await refs.base.current?.()) ?? true;
+      if (workTab.startsWith("folder:")) return (await refs.folder?.current?.()) ?? true;
+      return true;
+    },
+    [],
+  );
+
+  const persistActiveEditorBeforeSwitch = useCallback(
+    async (): Promise<boolean> =>
+      persistEditorForWorkTab(activeWorkTab, { entity: entityPersistRef, base: basePersistRef, folder: folderPersistRef }),
+    [activeWorkTab, persistEditorForWorkTab],
+  );
+
+  const persistSecondaryEditorBeforeSwitch = useCallback(
+    async (): Promise<boolean> =>
+      persistEditorForWorkTab(secondaryWorkTab, { entity: secondaryEntityPersistRef, base: secondaryBasePersistRef }),
+    [persistEditorForWorkTab, secondaryWorkTab],
+  );
 
   const handleReload = useCallback(async () => {
     if (hasAnyDirty) {
@@ -1533,6 +1569,87 @@ export function AppShell() {
     }
   }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solutionPath, solutionSource]);
 
+  const openWorkTabIds = useMemo(() => {
+    const ids = new Set<string>();
+    modelTabs.forEach((tab) => ids.add(`entity:${tab.relPath}`));
+    baseTabs.forEach((tab) => ids.add(`base:${tab.relPath}`));
+    return ids;
+  }, [baseTabs, modelTabs]);
+
+  useEffect(() => {
+    if (!secondaryWorkTab) return;
+    if (openWorkTabIds.has(secondaryWorkTab)) return;
+    setSecondaryWorkTab(null);
+  }, [openWorkTabIds, secondaryWorkTab]);
+
+  useEffect(() => {
+    if (!splitEnabled || secondaryWorkTab || !isEntityOrBaseWorkTab(activeWorkTab)) return;
+    setSecondaryWorkTab(activeWorkTab);
+  }, [activeWorkTab, secondaryWorkTab, splitEnabled]);
+
+  const toggleSplitView = useCallback(() => {
+    setSplitEnabled((prev) => {
+      if (prev) {
+        setFocusedPane("primary");
+        setSecondaryPaneDragOver(false);
+        return false;
+      }
+      if (isEntityOrBaseWorkTab(activeWorkTab)) {
+        setSecondaryWorkTab(activeWorkTab);
+      }
+      setFocusedPane("secondary");
+      return true;
+    });
+  }, [activeWorkTab]);
+
+  const startSplitResize = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const host = splitPanelRef.current;
+    if (!host) return;
+    const rect = host.getBoundingClientRect();
+    const min = 0.25;
+    const max = 0.75;
+    const onMove = (ev: MouseEvent) => {
+      const nextRatio = (ev.clientX - rect.left) / rect.width;
+      const clamped = Math.min(max, Math.max(min, nextRatio));
+      setSplitRatio(clamped);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
+  const handleSecondaryTabAssign = useCallback(
+    async (workTab: string) => {
+      if (!isEntityOrBaseWorkTab(workTab)) return;
+      const canSwitch = await persistSecondaryEditorBeforeSwitch();
+      if (!canSwitch) return;
+      setSecondaryWorkTab(workTab);
+      setFocusedPane("secondary");
+    },
+    [persistSecondaryEditorBeforeSwitch],
+  );
+
+  const secondaryParsed = useMemo(() => parseWorkTab(secondaryWorkTab), [secondaryWorkTab]);
+  const secondarySelectedEntity = useMemo(
+    () => (secondaryParsed?.kind === "entity" ? modelEntities.find((item) => item.relPath === secondaryParsed.relPath) || null : null),
+    [modelEntities, secondaryParsed],
+  );
+  const secondarySelectedBase = useMemo(
+    () => (secondaryParsed?.kind === "base" ? baseEntities.find((item) => item.relPath === secondaryParsed.relPath) || null : null),
+    [baseEntities, secondaryParsed],
+  );
+  const secondaryEntityFolderContext = useMemo(() => {
+    if (!secondarySelectedEntity) return null;
+    return resolveFolderInheritance({
+      entityRelPath: secondarySelectedEntity.relPath,
+      folderEntities,
+    });
+  }, [folderEntities, secondarySelectedEntity]);
+
   const activeTabId =
     activeWorkTab?.startsWith("base:")
       ? "base"
@@ -1540,6 +1657,7 @@ export function AppShell() {
         ? "entity"
         : activeTab;
   const current = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const secondaryCurrent = tabs.find((t) => t.id === (secondaryParsed?.kind === "base" ? "base" : "entity")) || tabs[0];
 
   const propertyOptions = useMemo(() => {
     return buildPropertyOptionsFromBaseEntities(baseEntities);
@@ -1938,9 +2056,16 @@ export function AppShell() {
     const handler = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
       )
         return;
+
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        toggleSplitView();
+        return;
+      }
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
         e.preventDefault();
@@ -1955,7 +2080,7 @@ export function AppShell() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleDuplicate, handleDelete]);
+  }, [handleDelete, handleDuplicate, toggleSplitView]);
 
   useEffect(() => {
     setValidatorMessages([]);
@@ -2117,6 +2242,7 @@ export function AppShell() {
             tree={tree}
             onSelectEntity={(relPath, multi) => {
               void (async () => {
+                setFocusedPane("primary");
                 if (!multi && activeWorkTab !== `entity:${relPath}`) {
                   const canSwitch = await persistActiveEditorBeforeSwitch();
                   if (!canSwitch) return;
@@ -2131,6 +2257,7 @@ export function AppShell() {
             }}
             onSelectFolder={(folderPath) => {
               void (async () => {
+                setFocusedPane("primary");
                 const normalized = normalizeFolderPath(folderPath);
                 if (`folder:${normalized}` !== activeWorkTab) {
                   const canSwitch = await persistActiveEditorBeforeSwitch();
@@ -2161,6 +2288,7 @@ export function AppShell() {
             baseItems={baseSidebarItems}
             onSelectBase={(rel, title) => {
               void (async () => {
+                setFocusedPane("primary");
                 if (activeWorkTab !== `base:${rel}`) {
                   const canSwitch = await persistActiveEditorBeforeSwitch();
                   if (!canSwitch) return;
@@ -2210,10 +2338,17 @@ export function AppShell() {
                 onToggleGroup={(id: string) => toggleGroup(id)}
                 onFocusTab={(kind: "base" | "entity", relPath: string) => {
                   const target = `${kind}:${relPath}`;
-                  if (target === activeWorkTab) return;
                   void (async () => {
-                    const canSwitch = await persistActiveEditorBeforeSwitch();
-                    if (!canSwitch) return;
+                    if (splitEnabled && focusedPane === "secondary") {
+                      if (target === secondaryWorkTab) return;
+                      const canSwitchSecondary = await persistSecondaryEditorBeforeSwitch();
+                      if (!canSwitchSecondary) return;
+                      setSecondaryWorkTab(target);
+                      return;
+                    }
+                    if (target === activeWorkTab) return;
+                    const canSwitchPrimary = await persistActiveEditorBeforeSwitch();
+                    if (!canSwitchPrimary) return;
                     if (kind === "base") {
                       focusBaseTab(relPath);
                     } else {
@@ -2222,6 +2357,13 @@ export function AppShell() {
                   })();
                 }}
                 onCloseTab={(kind: "base" | "entity", relPath: string) => closeTab(kind, relPath)}
+                onTabDragStart={(kind: "base" | "entity", relPath: string) => {
+                  setDraggedWorkTab(`${kind}:${relPath}`);
+                }}
+                onTabDragEnd={() => {
+                  setDraggedWorkTab(null);
+                  setSecondaryPaneDragOver(false);
+                }}
                 onConfirmCloseTab={async (_kind: "base" | "entity", _relPath: string, isDirty: boolean) => {
                   if (!isDirty) return true;
                   const result = await confirm({
@@ -2257,6 +2399,15 @@ export function AppShell() {
               <div className="workspace-header__run-actions" aria-label="Run actions">
                 <button
                   type="button"
+                  className={`icon-btn workspace-header__run-toggle ${splitEnabled ? "icon-btn--active" : ""}`}
+                  onClick={toggleSplitView}
+                  aria-label="Toggle split view"
+                  title="Split view (Ctrl+Alt+U)"
+                >
+                  <Columns2 className={`workspace-header__run-icon h-4 w-4 ${splitEnabled ? "workspace-header__run-icon--active" : ""}`} />
+                </button>
+                <button
+                  type="button"
                   className={`icon-btn workspace-header__run-toggle ${activeRunPanel === "generator" ? "icon-btn--active" : ""}`}
                   onClick={() => {
                     setActiveRunPanel((prev) => (prev === "generator" ? null : "generator"));
@@ -2280,7 +2431,10 @@ export function AppShell() {
               </div>
             </div>
           </div>
-          <div className="editor-panel">
+          <div
+            className={`editor-panel ${splitEnabled && !activeWorkTab?.startsWith("folder:") ? "editor-panel--split" : ""}`}
+            ref={splitEnabled && !activeWorkTab?.startsWith("folder:") ? splitPanelRef : null}
+          >
             {activeWorkTab?.startsWith("folder:") && selectedFolderPath ? (
               <FolderEditor
                 selectedFolderPath={selectedFolderPath}
@@ -2295,6 +2449,171 @@ export function AppShell() {
                 }}
                 onDirtyChange={setFolderDirty}
               />
+            ) : splitEnabled ? (
+              <>
+                <div
+                  className={`editor-pane editor-pane--primary ${focusedPane === "primary" ? "editor-pane--focused" : ""}`}
+                  style={{ width: `${Math.round(splitRatio * 1000) / 10}%` }}
+                  onMouseDown={() => setFocusedPane("primary")}
+                >
+                  <Workspace
+                    activeTab={current as Tab}
+                    activeWorkTab={activeWorkTab}
+                    selectedEntity={selectedEntity}
+                    onSave={handleSave}
+                    baseEntities={baseEntities}
+                    selectedBase={selectedBase}
+                    onSelectBase={setSelectedBaseRelPath}
+                    onSaveBase={handleSaveBase}
+                    onDirtyEntity={(relPath, dirty) => setTabDirty(relPath, "entity", dirty)}
+                    onDirtyBase={(relPath, dirty) => setTabDirty(relPath, "base", dirty)}
+                    onPatchBaseEntity={onPatchBaseEntity}
+                    getEntityDraft={getEntityDraft}
+                    setEntityDraft={setEntityDraft}
+                    getBaseDraft={getBaseDraft}
+                    setBaseDraft={setBaseDraft}
+                    registerEntityPersist={(persist) => {
+                      entityPersistRef.current = persist;
+                    }}
+                    registerBasePersist={(persist) => {
+                      basePersistRef.current = persist;
+                    }}
+                    dataTypes={dataTypes}
+                    dataTypeDefinitions={dataTypeDefinitions}
+                    attributeTypeOptions={attributeTypeOptions}
+                    baseItemSelectionRequest={baseItemSelectionRequest}
+                    propertyOptions={propertyOptions}
+                    modelEntities={modelEntities}
+                    solutionPath={solutionPath}
+                    generatorTargets={generatorTargets}
+                    entityInheritedProps={{
+                      folderProps: selectedEntityFolderContext?.inheritedProps || [],
+                    }}
+                    entityEffectiveDataProduct={selectedEntityFolderContext?.effectiveDataProduct || ""}
+                    entityEffectiveDataModule={selectedEntityFolderContext?.effectiveDataModule || ""}
+                    onJumpToEntity={(relPath) => {
+                      if (!relPath || activeWorkTab === `entity:${relPath}`) return;
+                      void (async () => {
+                        const canSwitch = await persistActiveEditorBeforeSwitch();
+                        if (!canSwitch) return;
+                        const target = modelEntities.find((m) => m.relPath === relPath);
+                        const title = target?.name || relPath.split("/").pop() || relPath;
+                        openModelTab(relPath, title);
+                        setSelectedRelPath(relPath);
+                        setSelectedFolderPath(null);
+                        focusEntityTab(relPath);
+                      })();
+                    }}
+                    onJumpToDataSource={(name) => {
+                      if (!name) return;
+                      void (async () => {
+                        const dsBase = baseEntities.find((b) =>
+                          (b.content?.dataSources || []).some((d) => d?.name === name),
+                        );
+                        if (!dsBase) {
+                          showAppError("Data source not found", `Could not locate data source "${name}" in the loaded base files.`);
+                          return;
+                        }
+                        if (activeWorkTab !== `base:${dsBase.relPath}`) {
+                          const canSwitch = await persistActiveEditorBeforeSwitch();
+                          if (!canSwitch) return;
+                        }
+                        setBaseItemSelectionRequest({
+                          relPath: dsBase.relPath,
+                          itemName: name,
+                          token: Date.now(),
+                        });
+                        openBaseTab(dsBase.relPath, "Data Sources");
+                        setSelectedBaseRelPath(dsBase.relPath);
+                        focusBaseTab(dsBase.relPath);
+                      })();
+                    }}
+                  />
+                </div>
+                <div className="editor-split-divider" onMouseDown={startSplitResize} role="separator" aria-orientation="vertical" />
+                <div
+                  className={`editor-pane editor-pane--secondary ${focusedPane === "secondary" ? "editor-pane--focused" : ""} ${
+                    secondaryPaneDragOver ? "editor-pane--drop-over" : ""
+                  } ${draggedWorkTab ? "editor-pane--drop-ready" : ""}`}
+                  aria-label="Split secondary pane"
+                  data-pane-worktab={secondaryWorkTab || ""}
+                  onMouseDown={() => setFocusedPane("secondary")}
+                  onDragOver={(event) => {
+                    if (!splitEnabled || !draggedWorkTab) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={(event) => {
+                    if (!splitEnabled || !draggedWorkTab) return;
+                    event.preventDefault();
+                    setSecondaryPaneDragOver(true);
+                  }}
+                  onDragLeave={() => setSecondaryPaneDragOver(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setSecondaryPaneDragOver(false);
+                    setDraggedWorkTab(null);
+                    const payload = event.dataTransfer.getData(WORKTAB_MIME) || event.dataTransfer.getData("text/plain");
+                    if (!payload || !isEntityOrBaseWorkTab(payload)) return;
+                    void handleSecondaryTabAssign(payload);
+                  }}
+                >
+                  {secondaryWorkTab ? (
+                    <Workspace
+                      activeTab={secondaryCurrent as Tab}
+                      activeWorkTab={secondaryWorkTab}
+                      selectedEntity={secondarySelectedEntity}
+                      onSave={handleSave}
+                      baseEntities={baseEntities}
+                      selectedBase={secondarySelectedBase}
+                      onSelectBase={(relPath) => {
+                        void handleSecondaryTabAssign(`base:${relPath}`);
+                      }}
+                      onSaveBase={handleSaveBase}
+                      onDirtyEntity={(relPath, dirty) => setTabDirty(relPath, "entity", dirty)}
+                      onDirtyBase={(relPath, dirty) => setTabDirty(relPath, "base", dirty)}
+                      onPatchBaseEntity={onPatchBaseEntity}
+                      getEntityDraft={getEntityDraft}
+                      setEntityDraft={setEntityDraft}
+                      getBaseDraft={getBaseDraft}
+                      setBaseDraft={setBaseDraft}
+                      registerEntityPersist={(persist) => {
+                        secondaryEntityPersistRef.current = persist;
+                      }}
+                      registerBasePersist={(persist) => {
+                        secondaryBasePersistRef.current = persist;
+                      }}
+                      dataTypes={dataTypes}
+                      dataTypeDefinitions={dataTypeDefinitions}
+                      attributeTypeOptions={attributeTypeOptions}
+                      baseItemSelectionRequest={null}
+                      propertyOptions={propertyOptions}
+                      modelEntities={modelEntities}
+                      solutionPath={solutionPath}
+                      generatorTargets={generatorTargets}
+                      entityInheritedProps={{
+                        folderProps: secondaryEntityFolderContext?.inheritedProps || [],
+                      }}
+                      entityEffectiveDataProduct={secondaryEntityFolderContext?.effectiveDataProduct || ""}
+                      entityEffectiveDataModule={secondaryEntityFolderContext?.effectiveDataModule || ""}
+                      onJumpToEntity={(relPath) => {
+                        if (!relPath) return;
+                        void handleSecondaryTabAssign(`entity:${relPath}`);
+                      }}
+                      onJumpToDataSource={(name) => {
+                        if (!name) return;
+                        const dsBase = baseEntities.find((b) => (b.content?.dataSources || []).some((d) => d?.name === name));
+                        if (!dsBase) return;
+                        void handleSecondaryTabAssign(`base:${dsBase.relPath}`);
+                      }}
+                    />
+                  ) : (
+                    <div className="editor-pane__empty">
+                      Drag a tab here to open it in split view.
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
               <Workspace
                 activeTab={current as Tab}

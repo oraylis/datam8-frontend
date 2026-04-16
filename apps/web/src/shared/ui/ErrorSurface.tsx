@@ -9,6 +9,11 @@ type ErrorSurfacePayload = {
   retryLabel?: string;
 };
 
+type InfoSurfacePayload = {
+  title: string;
+  description?: string | null;
+};
+
 type ErrorSurfaceEntry = {
   title: string;
   description: string;
@@ -16,22 +21,31 @@ type ErrorSurfaceEntry = {
   retryLabel: string;
 };
 
+type InfoSurfaceEntry = {
+  title: string;
+  description: string;
+};
+
 type ErrorSurfaceContextValue = {
   showError: (scope: ErrorSurfaceScope, payload: ErrorSurfacePayload) => void;
   clearError: (scope: ErrorSurfaceScope) => void;
   getError: (scope: ErrorSurfaceScope) => ErrorSurfaceEntry | null;
+  showInfo: (scope: ErrorSurfaceScope, payload: InfoSurfacePayload) => void;
+  clearInfo: (scope: ErrorSurfaceScope) => void;
+  getInfo: (scope: ErrorSurfaceScope) => InfoSurfaceEntry | null;
 };
 
 const ErrorSurfaceContext = createContext<ErrorSurfaceContextValue | undefined>(undefined);
 
 export function ErrorSurfaceProvider({ children }: { children: ReactNode }) {
-  const [entries, setEntries] = useState<Record<string, ErrorSurfaceEntry>>({});
+  const [errorEntries, setErrorEntries] = useState<Record<string, ErrorSurfaceEntry>>({});
+  const [infoEntries, setInfoEntries] = useState<Record<string, InfoSurfaceEntry>>({});
 
   const showError = useCallback((scope: ErrorSurfaceScope, payload: ErrorSurfacePayload) => {
     const title = `${payload.title || ""}`.trim() || "Operation failed";
     const description = `${payload.description || ""}`.trim();
     const retryLabel = `${payload.retryLabel || ""}`.trim() || "Retry";
-    setEntries((prev) => ({
+    setErrorEntries((prev) => ({
       ...prev,
       [scope]: {
         title,
@@ -40,10 +54,43 @@ export function ErrorSurfaceProvider({ children }: { children: ReactNode }) {
         retryLabel,
       },
     }));
+    setInfoEntries((prev) => {
+      if (!prev[scope]) return prev;
+      const next = { ...prev };
+      delete next[scope];
+      return next;
+    });
+  }, []);
+
+  const showInfo = useCallback((scope: ErrorSurfaceScope, payload: InfoSurfacePayload) => {
+    const title = `${payload.title || ""}`.trim() || "Information";
+    const description = `${payload.description || ""}`.trim();
+    setInfoEntries((prev) => ({
+      ...prev,
+      [scope]: {
+        title,
+        description,
+      },
+    }));
+    setErrorEntries((prev) => {
+      if (!prev[scope]) return prev;
+      const next = { ...prev };
+      delete next[scope];
+      return next;
+    });
   }, []);
 
   const clearError = useCallback((scope: ErrorSurfaceScope) => {
-    setEntries((prev) => {
+    setErrorEntries((prev) => {
+      if (!prev[scope]) return prev;
+      const next = { ...prev };
+      delete next[scope];
+      return next;
+    });
+  }, []);
+
+  const clearInfo = useCallback((scope: ErrorSurfaceScope) => {
+    setInfoEntries((prev) => {
       if (!prev[scope]) return prev;
       const next = { ...prev };
       delete next[scope];
@@ -53,9 +100,16 @@ export function ErrorSurfaceProvider({ children }: { children: ReactNode }) {
 
   const getError = useCallback(
     (scope: ErrorSurfaceScope) => {
-      return entries[scope] || null;
+      return errorEntries[scope] || null;
     },
-    [entries],
+    [errorEntries],
+  );
+
+  const getInfo = useCallback(
+    (scope: ErrorSurfaceScope) => {
+      return infoEntries[scope] || null;
+    },
+    [infoEntries],
   );
 
   const value = useMemo<ErrorSurfaceContextValue>(
@@ -63,8 +117,11 @@ export function ErrorSurfaceProvider({ children }: { children: ReactNode }) {
       showError,
       clearError,
       getError,
+      showInfo,
+      clearInfo,
+      getInfo,
     }),
-    [clearError, getError, showError],
+    [clearError, clearInfo, getError, getInfo, showError, showInfo],
   );
 
   return <ErrorSurfaceContext.Provider value={value}>{children}</ErrorSurfaceContext.Provider>;
@@ -110,6 +167,31 @@ export function ErrorSurfaceHost({ scope }: { scope: ErrorSurfaceScope }) {
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+export function InfoSurfaceHost({ scope }: { scope: ErrorSurfaceScope }) {
+  const { clearInfo, getInfo } = useErrorSurface();
+  const entry = getInfo(scope);
+
+  if (!entry) return null;
+
+  return (
+    <div className="info-surface" role="status" aria-live="polite">
+      <div className="error-surface__head">
+        <div className="error-surface__title">{entry.title}</div>
+        <button
+          type="button"
+          className="error-surface__close"
+          onClick={() => clearInfo(scope)}
+          aria-label="Close info"
+          title="Close"
+        >
+          x
+        </button>
+      </div>
+      {entry.description ? <div className="error-surface__description">{entry.description}</div> : null}
     </div>
   );
 }

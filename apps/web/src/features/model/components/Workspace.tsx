@@ -6,6 +6,7 @@ import { EntityEditor } from "./workspace/entity-editor/EntityEditor";
 import { BaseEditor } from "./workspace/base-editor/BaseEditor";
 import { useEntityState } from "./workspace/hooks/useEntityState";
 import { useBaseEditorState } from "./workspace/hooks/useBaseEditorState";
+import { buildPropertyScopeTypeOptions } from "../refactor/propertyRefactorScopes";
 
 type DataSourceDetails = {
   name: string;
@@ -142,6 +143,8 @@ export function Workspace({
     [baseEntities],
   );
 
+  const propertyScopeTypeOptions = useMemo(() => buildPropertyScopeTypeOptions(baseEntities), [baseEntities]);
+
   const entityState = useEntityState({
     selectedEntity,
     modelEntities,
@@ -201,6 +204,7 @@ export function Workspace({
             onPatchBaseEntity={onPatchBaseEntity}
             dataSourcesRelPath={dataSourcesRelPath}
             dataSourceTypesRelPath={dataSourceTypesRelPath}
+            propertyScopeTypeOptions={propertyScopeTypeOptions}
             {...baseState}
           />
         );

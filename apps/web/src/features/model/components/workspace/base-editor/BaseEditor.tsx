@@ -46,6 +46,7 @@ type BaseEditorProps = {
   markBaseDirty: () => void;
   onDirtyBase: (relPath: string, dirty: boolean) => void;
   propertyOptions: PropertyOption[];
+  propertyScopeTypeOptions: Array<{ value: string; label: string }>;
   dataTypes: string[];
   selectedDataModule: string | null;
   setSelectedDataModule: React.Dispatch<React.SetStateAction<string | null>>;
@@ -80,6 +81,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
     markBaseDirty,
     onDirtyBase,
     propertyOptions,
+    propertyScopeTypeOptions,
     dataTypes,
     selectedDataModule,
     setSelectedDataModule,
@@ -1051,6 +1053,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                     markBaseDirty={markBaseDirty}
                     isMissingField={isMissingField}
                     propertyOptions={propertyOptions}
+                    propertyScopeTypeOptions={propertyScopeTypeOptions}
                   />
                 )}
               </>

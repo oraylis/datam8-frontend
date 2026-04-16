@@ -243,6 +243,17 @@ body {
   animation: error-surface-slide-up 180ms ease-out;
 }
 
+.info-surface {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, hsl(var(--ui-accent)) 45%, hsl(var(--ui-border)));
+  background: color-mix(in srgb, hsl(var(--ui-accent)) 12%, hsl(var(--ui-surface-panel)));
+  color: hsl(var(--ui-foreground));
+  border-radius: 0;
+  padding: 10px 12px;
+  box-shadow: var(--ui-shadow-sm);
+  animation: error-surface-slide-up 180ms ease-out;
+}
+
 .error-surface__head {
   display: flex;
   align-items: center;

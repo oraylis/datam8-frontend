@@ -35,8 +35,18 @@ import { useResizablePane } from "../features/layout/useResizablePane";
 import { buildTree, detectBaseType, getFolderMeta, indexFolderEntities, normalizeFolderPath, resolveFolderInheritance } from "../features/model/model-utils";
 import { folderLocatorFromFolderPath, modelLocatorFromRelPath } from "../features/model/locator-utils";
 import { collectZoneFolderDeletes, collectZoneFolderRenames } from "../features/model/refactor/baseSaveEffects";
-import { applyPropertyRefactorToModelEntities, summarizePropertyRefactorImpact } from "../features/model/refactor/applyPropertyRefactor";
+import {
+  applyPropertyRefactorToBaseEntities,
+  applyPropertyRefactorToFolderEntities,
+  applyPropertyRefactorToModelEntities,
+  summarizePropertyRefactorImpact,
+} from "../features/model/refactor/applyPropertyRefactor";
 import { createPropertyRefactorPayload, diffPropertyChanges, diffPropertyValueChanges } from "../features/model/refactor/propertyRefactor";
+import {
+  buildPropertyScopeTargetIndex,
+  type PropertyRefactorScopeTarget,
+  type SupportedBaseScopeTarget,
+} from "../features/model/refactor/propertyRefactorScopes";
 import type { BaseAttributeType, BaseDataProduct, BaseDataTypeDefinition, BaseEntity, BaseZone, FolderEntity, ModelEntity, Tab } from "../features/model/model-types";
 import { buildPropertyOptionsFromBaseEntities } from "../features/model/property-options";
 import { apiBase } from "../config";
@@ -45,7 +55,7 @@ import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
 import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
 import { createEntity, deleteEntity, moveEntities, patchEntity, saveModel } from "../shared/api/v2Client";
-import { ErrorSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
+import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
 type PendingBaseAction =
@@ -65,6 +75,7 @@ type PendingBaseAction =
   | {
       kind: "propertyRefactor";
       payload: Partial<PropertyRefactorPayload>;
+      targets: PropertyRefactorScopeTarget[];
       sourceRelPath: string;
       preview?: string;
     };
@@ -135,6 +146,9 @@ const buildTopLevelEntityPatch = (
   }
   return patch;
 };
+
+const uniqueScopeTargets = (targets: PropertyRefactorScopeTarget[]): PropertyRefactorScopeTarget[] =>
+  Array.from(new Set(targets));
 
 export function AppShell() {
   const {
@@ -253,7 +267,7 @@ export function AppShell() {
   const [validatorResolvedPath, setValidatorResolvedPath] = useState<string | null>(null);
   const [validatorError, setValidatorError] = useState<string | null>(null);
   const validatorRunInFlightRef = useRef(false);
-  const { showError } = useErrorSurface();
+  const { showError, showInfo } = useErrorSurface();
   const confirm = useConfirm();
   const { width: sidebarSize, setWidth: setSidebarSize, startResize } = useResizablePane({
     initialWidth: sidebarWidth,
@@ -401,8 +415,13 @@ export function AppShell() {
               }
               previousByKey.delete(locator);
             } else {
-              await createEntity(locator, item as Record<string, unknown>, { save: false });
-              hadMutation = true;
+              try {
+                await createEntity(locator, item as Record<string, unknown>, { save: false });
+                hadMutation = true;
+              } catch {
+                await patchEntity(locator, item as Record<string, unknown>, { save: false });
+                hadMutation = true;
+              }
             }
           }
 
@@ -485,6 +504,7 @@ export function AppShell() {
       const nextContent = updater(baseEntry.content);
       if (deepEqual(nextContent, baseEntry.content)) return;
       const pendingEntry: BaseEntity = { ...baseEntry, content: nextContent };
+      const detectedType = detectBaseType(nextContent, relPath).type;
 
       setBaseEntities((prev) =>
         prev.map((b) => (b.relPath === relPath ? pendingEntry : b)),
@@ -492,9 +512,13 @@ export function AppShell() {
 
       const title = formatBaseTitle(baseEntry?.name || relPath.split("/").pop() || relPath);
       setBaseTabs((tabs) => (tabs.some((t) => t.relPath === relPath) ? tabs : [...tabs, { relPath, title, dirty: false }]));
+      if (detectedType === "properties" || detectedType === "propertyValues") {
+        setTabDirty(relPath, "base", true);
+        return;
+      }
       schedulePatchedBaseAutosave(pendingEntry, baseEntry.content);
     },
-    [baseEntities, formatBaseTitle, schedulePatchedBaseAutosave, setBaseEntities, setBaseTabs],
+    [baseEntities, formatBaseTitle, schedulePatchedBaseAutosave, setBaseEntities, setBaseTabs, setTabDirty],
   );
 
   const dataTypes = useMemo(() => {
@@ -553,9 +577,13 @@ export function AppShell() {
     () => baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataProducts"),
     [baseEntities],
   );
-  const propertyValuesEntry = useMemo(
-    () => baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "propertyValues"),
+  const propertiesEntry = useMemo(
+    () => baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "properties"),
     [baseEntities],
+  );
+  const propertyScopeTargetsByName = useMemo(
+    () => buildPropertyScopeTargetIndex(propertiesEntry?.content || {}),
+    [propertiesEntry?.content],
   );
 
   const productOptions = useMemo(() => {
@@ -890,12 +918,33 @@ export function AppShell() {
   );
 
   const runPropertyRefactor = useCallback(
-    async (changes: Partial<PropertyRefactorPayload>) => {
+    async (changes: Partial<PropertyRefactorPayload>, targets: PropertyRefactorScopeTarget[]) => {
       const payload = createPropertyRefactorPayload(changes);
-      if (!payload) return;
-      const modelResult = applyPropertyRefactorToModelEntities(modelEntities, payload);
-      const folderResult = applyPropertyRefactorToModelEntities(folderEntities, payload);
-      if (modelResult.updatedEntities.length === 0 && folderResult.updatedEntities.length === 0) return;
+      if (!payload || targets.length === 0) {
+        return { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+      }
+      const targetSet = new Set<PropertyRefactorScopeTarget>(targets);
+      const baseTargets = targets.filter(
+        (target): target is SupportedBaseScopeTarget => target !== "entity" && target !== "folder",
+      );
+
+      const modelResult = targetSet.has("entity")
+        ? applyPropertyRefactorToModelEntities(modelEntities, payload)
+        : { updatedEntities: [] as ModelEntity[], changeCount: 0 };
+      const folderResult = targetSet.has("folder")
+        ? applyPropertyRefactorToFolderEntities(folderEntities, payload)
+        : { updatedEntities: [] as FolderEntity[], changeCount: 0 };
+      const baseResult = baseTargets.length
+        ? applyPropertyRefactorToBaseEntities(baseEntities, payload, baseTargets)
+        : { updatedEntities: [] as BaseEntity[], changeCount: 0 };
+
+      if (
+        modelResult.updatedEntities.length === 0 &&
+        folderResult.updatedEntities.length === 0 &&
+        baseResult.updatedEntities.length === 0
+      ) {
+        return { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+      }
 
       const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
       for (const entity of modelResult.updatedEntities) {
@@ -922,6 +971,48 @@ export function AppShell() {
         await patchEntity(folderLocatorFromFolderPath(folderPath), patch);
       }
 
+      for (const updatedBase of baseResult.updatedEntities) {
+        const previousBase = baseEntities.find((entry) => entry.relPath === updatedBase.relPath);
+        if (!previousBase) continue;
+        const detectedUpdated = detectBaseType(updatedBase.content, updatedBase.relPath);
+        const detectedPrevious = detectBaseType(previousBase.content || {}, previousBase.relPath);
+        const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
+        if (!baseType || baseType === "unknown") continue;
+
+        const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
+        const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
+        assertNoDuplicateBaseKeys(baseType, nextItems);
+
+        const previousByKey = new Map<string, Record<string, unknown>>();
+        prevItems.forEach((item) => {
+          const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
+          if (!locator) return;
+          previousByKey.set(locator, item as Record<string, unknown>);
+        });
+
+        for (const item of nextItems) {
+          const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
+          if (!locator) continue;
+          const previousItem = previousByKey.get(locator);
+          if (previousItem) {
+            if (!deepEqual(previousItem, item)) {
+              await patchEntity(locator, item as Record<string, unknown>);
+            }
+            previousByKey.delete(locator);
+          } else {
+            try {
+              await createEntity(locator, item as Record<string, unknown>);
+            } catch {
+              await patchEntity(locator, item as Record<string, unknown>);
+            }
+          }
+        }
+
+        for (const [locator] of previousByKey) {
+          await deleteEntity(locator);
+        }
+      }
+
       const updatedModelByRelPath = new Map(modelResult.updatedEntities.map((entity) => [entity.relPath, entity]));
       setModelEntities((prev) => prev.map((entity) => updatedModelByRelPath.get(entity.relPath) || entity));
 
@@ -932,9 +1023,18 @@ export function AppShell() {
         prev.map((entry) => updatedFolderByPath.get(normalizeFolderPath(entry.folderPath || "")) || entry),
       );
 
+      const updatedBaseByRelPath = new Map(baseResult.updatedEntities.map((entry) => [entry.relPath, entry]));
+      setBaseEntities((prev) => prev.map((entry) => updatedBaseByRelPath.get(entry.relPath) || entry));
+
       void summarizePropertyRefactorImpact(modelResult);
+      return {
+        modelEntities: modelResult.updatedEntities.length,
+        folderEntities: folderResult.updatedEntities.length,
+        baseEntities: baseResult.updatedEntities.length,
+        changeCount: modelResult.changeCount + folderResult.changeCount + baseResult.changeCount,
+      };
     },
-    [folderEntities, modelEntities, setFolderEntities, setModelEntities],
+    [baseEntities, folderEntities, modelEntities, setBaseEntities, setFolderEntities, setModelEntities],
   );
 
   const deleteFolderTree = useCallback(
@@ -1051,7 +1151,7 @@ export function AppShell() {
     if (action.kind === "deleteFolderTree") {
       return `${action.kind}:${action.folderPath}:${action.reason}`;
     }
-    return `${action.kind}:${JSON.stringify(createPropertyRefactorPayload(action.payload) || {})}`;
+    return `${action.kind}:${JSON.stringify(createPropertyRefactorPayload(action.payload) || {})}:${action.targets.join(",")}`;
   }, []);
 
   const applyPendingBaseActions = useCallback(async () => {
@@ -1073,7 +1173,7 @@ export function AppShell() {
               notifyFailure: false,
             });
           } else {
-            await runPropertyRefactor(action.payload);
+            await runPropertyRefactor(action.payload, action.targets);
           }
           applied += 1;
         } catch (err) {
@@ -1239,85 +1339,13 @@ export function AppShell() {
         );
         setTabDirty(updated.relPath, "base", false);
         const detected = detectBaseType(updated.content, updated.relPath).type;
-        if (detected === "properties" && propertyValuesEntry) {
-          const propDiff = diffPropertyChanges(previous?.content || {}, updated.content);
-          if (propDiff.propertyRenames.length || propDiff.deletedProperties.length) {
-            const renameMap = new Map<string, string>(
-              propDiff.propertyRenames.map((rename) => [rename.oldName, rename.newName]),
-            );
-            const deletedProperties = new Set<string>(propDiff.deletedProperties);
-            const peerPrevious = baseEntities.find((b) => b.relPath === propertyValuesEntry.relPath) || propertyValuesEntry;
-            const peerValues = Array.isArray(peerPrevious.content?.propertyValues) ? peerPrevious.content.propertyValues : [];
-            const nextPeerValues = peerValues
-              .filter((entry: any) => !deletedProperties.has(`${entry?.property ?? ""}`))
-              .map((entry: any) => {
-                const currentProperty = `${entry?.property ?? ""}`;
-                const nextProperty = renameMap.get(currentProperty);
-                return nextProperty ? { ...entry, property: nextProperty } : entry;
-              });
-            const peerContent = { ...(peerPrevious.content || {}), propertyValues: nextPeerValues };
-            if (!deepEqual(peerPrevious.content || {}, peerContent)) {
-              const peerUpdated: BaseEntity = { ...peerPrevious, content: peerContent };
-              const peerDetectedUpdated = detectBaseType(peerUpdated.content, peerUpdated.relPath);
-              const peerDetectedPrevious = detectBaseType(peerPrevious.content || {}, peerPrevious.relPath);
-              const peerType =
-                peerDetectedUpdated.type !== "unknown" ? peerDetectedUpdated.type : peerDetectedPrevious.type;
-              if (peerType && peerType !== "unknown") {
-                const peerPrevItems = Array.isArray(peerDetectedPrevious.items) ? peerDetectedPrevious.items : [];
-                const peerNextItems = Array.isArray(peerDetectedUpdated.items) ? peerDetectedUpdated.items : [];
-                assertNoDuplicateBaseKeys(peerType, peerNextItems);
-                const peerPreviousByKey = new Map<string, Record<string, unknown>>();
-                for (const item of peerPrevItems) {
-                  const locator = buildBaseEntityLocator(peerType, item as Record<string, unknown>);
-                  if (!locator) continue;
-                  peerPreviousByKey.set(locator, item as Record<string, unknown>);
-                }
-                for (const item of peerNextItems) {
-                  const locator = buildBaseEntityLocator(peerType, item as Record<string, unknown>);
-                  if (!locator) continue;
-                  const prevItem = peerPreviousByKey.get(locator);
-                  if (prevItem) {
-                    if (!deepEqual(prevItem, item)) {
-                      await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                      hadMutation = true;
-                    }
-                    peerPreviousByKey.delete(locator);
-                  } else {
-                    await createEntity(locator, item as Record<string, unknown>, { save: false });
-                    hadMutation = true;
-                  }
-                }
-                for (const [locator] of peerPreviousByKey) {
-                  await deleteEntity(locator, { save: false });
-                  hadMutation = true;
-                }
-              } else {
-                const peerLocator = peerUpdated.locator || modelLocatorFromRelPath(peerUpdated.relPath);
-                try {
-                  await patchEntity(peerLocator, peerUpdated.content as Record<string, unknown>, { save: false });
-                  hadMutation = true;
-                } catch {
-                  await createEntity(peerLocator, peerUpdated.content as Record<string, unknown>, { save: false });
-                  hadMutation = true;
-                }
-              }
-              setBaseEntities((list) => list.map((b) => (b.relPath === peerUpdated.relPath ? peerUpdated : b)));
-              setBaseTabs((tabs) =>
-                tabs.map((t) =>
-                  t.relPath === peerUpdated.relPath
-                    ? {
-                        ...t,
-                        dirty: false,
-                        title: formatBaseTitle(peerUpdated.name || peerUpdated.relPath.split("/").pop() || peerUpdated.relPath),
-                      }
-                    : t,
-                ),
-              );
-              setTabDirty(peerUpdated.relPath, "base", false);
-            }
-          }
-        }
-        if (previous?.content) {
+        const pendingPatched = patchedBasePayloadRef.current.get(updated.relPath);
+        const refactorPreviousContent =
+          pendingPatched && deepEqual(pendingPatched.next.content || {}, updated.content || {})
+            ? (pendingPatched.previousContent || previous?.content || {})
+            : (previous?.content || {});
+
+        if (previous?.content || pendingPatched?.previousContent) {
           const hasFolderSource = (folderRelPath: string) => {
             const normalizedFolder = normalizeFolderPath(folderRelPath.replace(/^Model\//, ""));
             if (!normalizedFolder) return false;
@@ -1333,8 +1361,25 @@ export function AppShell() {
           };
 
           const nextActions: PendingBaseAction[] = [];
+          const pushScopedRefactorAction = (
+            payload: Partial<PropertyRefactorPayload>,
+            propertyName: string,
+            options?: { includePropertyValuesTarget?: boolean },
+          ) => {
+            const targets = uniqueScopeTargets([
+              ...(propertyScopeTargetsByName.get(propertyName) || []),
+              ...(options?.includePropertyValuesTarget ? (["propertyValues"] as PropertyRefactorScopeTarget[]) : []),
+            ]);
+            if (targets.length === 0) return;
+            nextActions.push({
+              kind: "propertyRefactor",
+              payload,
+              targets,
+              sourceRelPath: updated.relPath,
+            });
+          };
           if (detected === "zones") {
-            const zoneRenames = collectZoneFolderRenames(previous.content, updated.content);
+            const zoneRenames = collectZoneFolderRenames(refactorPreviousContent, updated.content);
             for (const rename of zoneRenames) {
               if (!hasFolderSource(rename.fromFolder)) continue;
               nextActions.push({
@@ -1345,7 +1390,7 @@ export function AppShell() {
                 reason: "zones",
               });
             }
-            const zoneDeletes = collectZoneFolderDeletes(previous.content, updated.content);
+            const zoneDeletes = collectZoneFolderDeletes(refactorPreviousContent, updated.content);
             for (const folderPath of zoneDeletes) {
               if (!hasFolderSource(folderPath)) continue;
               nextActions.push({
@@ -1357,43 +1402,29 @@ export function AppShell() {
             }
           }
           if (detected === "properties") {
-            const propDiff = diffPropertyChanges(previous.content, updated.content);
-            const payload: Partial<PropertyRefactorPayload> = {
-              propertyRenames: propDiff.propertyRenames,
-              deletedProperties: propDiff.deletedProperties,
-            };
-            const resolvedPayload = createPropertyRefactorPayload(payload);
-            if (resolvedPayload) {
-              const preview = summarizePropertyRefactorImpact(
-                applyPropertyRefactorToModelEntities(modelEntities, resolvedPayload),
-              );
-              nextActions.push({
-                kind: "propertyRefactor",
-                payload,
-                sourceRelPath: updated.relPath,
-                preview: `Property refactor preview: ${preview.entityCount} entities, ${preview.changeCount} changes.`,
+            const propDiff = diffPropertyChanges(refactorPreviousContent, updated.content);
+            propDiff.propertyRenames.forEach((rename) => {
+              pushScopedRefactorAction({ propertyRenames: [rename] }, rename.oldName, {
+                includePropertyValuesTarget: true,
               });
-            }
+            });
+            propDiff.deletedProperties.forEach((name) => {
+              pushScopedRefactorAction({ deletedProperties: [name] }, name, {
+                includePropertyValuesTarget: true,
+              });
+            });
           }
           if (detected === "propertyValues") {
-            const valueDiff = diffPropertyValueChanges(previous.content, updated.content);
-            const payload: Partial<PropertyRefactorPayload> = {
-              valueRenames: valueDiff.valueRenames,
-              deletedValues: valueDiff.deletedValues,
-              valueMoves: valueDiff.valueMoves,
-            };
-            const resolvedPayload = createPropertyRefactorPayload(payload);
-            if (resolvedPayload) {
-              const preview = summarizePropertyRefactorImpact(
-                applyPropertyRefactorToModelEntities(modelEntities, resolvedPayload),
-              );
-              nextActions.push({
-                kind: "propertyRefactor",
-                payload,
-                sourceRelPath: updated.relPath,
-                preview: `Property value refactor preview: ${preview.entityCount} entities, ${preview.changeCount} changes.`,
-              });
-            }
+            const valueDiff = diffPropertyValueChanges(refactorPreviousContent, updated.content);
+            valueDiff.valueRenames.forEach((rename) => {
+              pushScopedRefactorAction({ valueRenames: [rename] }, rename.property);
+            });
+            valueDiff.deletedValues.forEach((deletedValue) => {
+              pushScopedRefactorAction({ deletedValues: [deletedValue] }, deletedValue.property);
+            });
+            valueDiff.valueMoves.forEach((move) => {
+              pushScopedRefactorAction({ valueMoves: [move] }, move.oldProperty);
+            });
           }
           if (nextActions.length > 0) {
             const uniqueActions: PendingBaseAction[] = [];
@@ -1404,16 +1435,45 @@ export function AppShell() {
               seen.add(key);
               uniqueActions.push(action);
             });
-            setBaseActionPrompt({
-              sourceRelPath: updated.relPath,
-              actions: uniqueActions,
-              rollbackBaseEntity: {
-                ...previous,
-                content: JSON.parse(JSON.stringify(previous.content || {})),
-              },
-            });
+            const refactorActions = uniqueActions.filter((action) => action.kind === "propertyRefactor");
+            const structuralActions = uniqueActions.filter((action) => action.kind !== "propertyRefactor");
+
+            if (refactorActions.length > 0) {
+              let summary = { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+              for (const action of refactorActions) {
+                const result = await runPropertyRefactor(action.payload, action.targets);
+                summary = {
+                  modelEntities: summary.modelEntities + result.modelEntities,
+                  folderEntities: summary.folderEntities + result.folderEntities,
+                  baseEntities: summary.baseEntities + result.baseEntities,
+                  changeCount: summary.changeCount + result.changeCount,
+                };
+              }
+              showInfo("app", {
+                title: "Property refactor applied",
+                description:
+                  summary.changeCount > 0
+                    ? `Updated ${summary.changeCount} property assignment(s) across ${summary.modelEntities} model, ${summary.folderEntities} folder and ${summary.baseEntities} base entries.`
+                    : "No assignment updates were required for the selected scope targets.",
+              });
+            }
+
+            if (structuralActions.length > 0) {
+              setBaseActionPrompt({
+                sourceRelPath: updated.relPath,
+                actions: structuralActions,
+                rollbackBaseEntity: previous
+                  ? {
+                      ...previous,
+                      content: JSON.parse(JSON.stringify(previous.content || {})),
+                    }
+                  : null,
+              });
+            }
           }
         }
+        patchedBasePayloadRef.current.delete(updated.relPath);
+        clearPatchedBaseTimer(updated.relPath);
         if (hadMutation) {
           await saveModel();
         }
@@ -1424,14 +1484,18 @@ export function AppShell() {
     },
     [
       baseEntities,
-      modelEntities,
       baseActionKey,
+      folderEntities,
       formatBaseTitle,
-      propertyValuesEntry,
+      modelEntities,
+      propertyScopeTargetsByName,
+      runPropertyRefactor,
+      clearPatchedBaseTimer,
       setBaseEntities,
       setBaseActionPrompt,
       setBaseTabs,
       setTabDirty,
+      showInfo,
     ],
   );
 
@@ -2426,6 +2490,9 @@ export function AppShell() {
                 onRun={runValidator}
               />
             </div>
+          </div>
+          <div className="error-surface-slot">
+            <InfoSurfaceHost scope="app" />
           </div>
           <div className="error-surface-slot">
             <ErrorSurfaceHost scope="app" />

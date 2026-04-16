@@ -36,6 +36,14 @@ export type PropertyAssignment = {
   [key: string]: JsonValue | undefined;
 };
 
+export type PropertyScope = {
+  type: string;
+  singleUsage?: boolean;
+  mandatory?: boolean;
+};
+
+export type PropertyRefactorScopeTarget = "entity" | "folder" | string;
+
 export type PropertyRename = {
   oldName: string;
   newName: string;

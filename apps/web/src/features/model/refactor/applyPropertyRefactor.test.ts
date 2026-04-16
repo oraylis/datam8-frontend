@@ -1,12 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { applyPropertyRefactorToModelEntities } from "./applyPropertyRefactor";
-import type { ModelEntity } from "../model-types";
+import {
+  applyPropertyRefactorToBaseEntities,
+  applyPropertyRefactorToFolderEntities,
+  applyPropertyRefactorToModelEntities,
+} from "./applyPropertyRefactor";
+import type { BaseEntity, FolderEntity, ModelEntity } from "../model-types";
 
 const modelEntity = (overrides: Partial<ModelEntity>): ModelEntity => ({
   locator: "/model/a",
   name: "a",
   relPath: "Model/Raw/A/B/a.json",
   content: {},
+  ...overrides,
+});
+
+const folderEntity = (overrides: Partial<FolderEntity>): FolderEntity => ({
+  locator: "/folders/Raw/Sales",
+  name: "Sales",
+  relPath: "Model/Raw/Sales/.properties.json",
+  folderPath: "Raw/Sales",
+  content: { id: 1, name: "Sales", properties: [] },
+  ...overrides,
+});
+
+const baseEntity = (overrides: Partial<BaseEntity>): BaseEntity => ({
+  name: "Zones",
+  relPath: "Base/Zones.json",
+  content: { zones: [] },
   ...overrides,
 });
 
@@ -88,6 +108,177 @@ describe("applyPropertyRefactorToModelEntities", () => {
     expect(result.updatedEntities).toHaveLength(1);
     expect((result.updatedEntities[0].content as any).properties).toEqual([
       { property: "businessDomain", value: "sales" },
+    ]);
+  });
+
+  it("does not mutate unrelated objects that only have a property key", () => {
+    const entities = [
+      modelEntity({
+        content: {
+          parameters: [{ property: "domain", value: "sales" }],
+          properties: [{ property: "domain", value: "sales" }],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToModelEntities(entities, {
+      propertyRenames: [{ oldName: "domain", newName: "businessDomain" }],
+      valueRenames: [],
+      deletedProperties: [],
+      deletedValues: [],
+      valueMoves: [],
+    });
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).properties).toEqual([
+      { property: "businessDomain", value: "sales" },
+    ]);
+    expect((result.updatedEntities[0].content as any).parameters).toEqual([
+      { property: "domain", value: "sales" },
+    ]);
+  });
+});
+
+describe("applyPropertyRefactorToFolderEntities", () => {
+  it("updates folder property assignments", () => {
+    const folders = [
+      folderEntity({
+        content: { id: 1, name: "Sales", properties: [{ property: "domain", value: "sales" }] },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToFolderEntities(folders, {
+      propertyRenames: [{ oldName: "domain", newName: "businessDomain" }],
+      valueRenames: [],
+      deletedProperties: [],
+      deletedValues: [],
+      valueMoves: [],
+    });
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).properties).toEqual([
+      { property: "businessDomain", value: "sales" },
+    ]);
+  });
+});
+
+describe("applyPropertyRefactorToBaseEntities", () => {
+  it("updates only selected base scope targets", () => {
+    const bases = [
+      baseEntity({
+        name: "Zones",
+        relPath: "Base/Zones.json",
+        content: {
+          zones: [{ name: "Raw", targetName: "raw", displayName: "Raw", properties: [{ property: "target", value: "legacy" }] }],
+        },
+      }),
+      baseEntity({
+        name: "DataSources",
+        relPath: "Base/DataSources.json",
+        content: {
+          dataSources: [{ name: "CRM", type: "Sql", properties: [{ property: "target", value: "legacy" }], extendedProperties: {} }],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToBaseEntities(
+      bases,
+      {
+        propertyRenames: [{ oldName: "target", newName: "destination" }],
+        valueRenames: [],
+        deletedProperties: [],
+        deletedValues: [],
+        valueMoves: [],
+      },
+      ["zone"],
+    );
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).zones[0].properties).toEqual([
+      { property: "destination", value: "legacy" },
+    ]);
+  });
+
+  it("updates propertyValues rows when propertyValues scope target is selected", () => {
+    const bases = [
+      baseEntity({
+        name: "PropertyValues",
+        relPath: "Base/PropertyValues.json",
+        content: {
+          propertyValues: [
+            { property: "jobs", name: "sales_daily" },
+            { property: "jobs", name: "daily" },
+            { property: "schedules", name: "daily" },
+            {
+              property: "jobs",
+              name: "weekly",
+              properties: [{ property: "schedules", value: "daily" }],
+            },
+          ],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToBaseEntities(
+      bases,
+      {
+        propertyRenames: [],
+        valueRenames: [{ property: "jobs", oldValue: "sales_daily", newValue: "daily" }],
+        deletedProperties: [],
+        deletedValues: [],
+        valueMoves: [],
+      },
+      ["propertyValues"],
+    );
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).propertyValues).toEqual([
+      { property: "jobs", name: "daily" },
+      { property: "schedules", name: "daily" },
+      {
+        property: "jobs",
+        name: "weekly",
+        properties: [{ property: "schedules", value: "daily" }],
+      },
+    ]);
+  });
+
+  it("renames properties used inside propertyValues.properties assignments", () => {
+    const bases = [
+      baseEntity({
+        name: "PropertyValues",
+        relPath: "Base/PropertyValues.json",
+        content: {
+          propertyValues: [
+            {
+              property: "jobs",
+              name: "daily",
+              properties: [{ property: "schedules", value: "daily" }],
+            },
+          ],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToBaseEntities(
+      bases,
+      {
+        propertyRenames: [{ oldName: "schedules", newName: "schedules1" }],
+        valueRenames: [],
+        deletedProperties: [],
+        deletedValues: [],
+        valueMoves: [],
+      },
+      ["propertyValues"],
+    );
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).propertyValues).toEqual([
+      {
+        property: "jobs",
+        name: "daily",
+        properties: [{ property: "schedules1", value: "daily" }],
+      },
     ]);
   });
 });

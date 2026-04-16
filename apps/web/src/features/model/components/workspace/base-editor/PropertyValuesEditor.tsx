@@ -18,10 +18,10 @@ type PropertyValuesEditorProps = {
   markBaseDirty: () => void;
   isMissingField: (key: string, field: string) => boolean;
   propertyOptions: PropertyOption[];
+  propertyScopeTypeOptions: Array<{ value: string; label: string }>;
 };
 
 const RESERVED_VALUE_FIELDS = new Set(["name", "displayName", "default", "property", "properties"]);
-const PROPERTY_SCOPE_OPTIONS = ["folder", "model", "base"] as const;
 
 export const PropertyValuesEditor = ({
   baseData,
@@ -33,6 +33,7 @@ export const PropertyValuesEditor = ({
   markBaseDirty,
   isMissingField,
   propertyOptions,
+  propertyScopeTypeOptions,
 }: PropertyValuesEditorProps) => {
   const currentList = Array.isArray(baseData.items) ? baseData.items : [];
   const currentIndex = findBaseItemIndex(currentList, selectedBaseItem);
@@ -125,10 +126,10 @@ export const PropertyValuesEditor = ({
                         {(() => {
                           const scopeType = typeof scope?.type === "string" ? scope.type : "";
                           const hasCustomType =
-                            scopeType.trim().length > 0 && !PROPERTY_SCOPE_OPTIONS.includes(scopeType as (typeof PROPERTY_SCOPE_OPTIONS)[number]);
+                            scopeType.trim().length > 0 && !propertyScopeTypeOptions.some((entry) => entry.value === scopeType);
                           const options = [
                             { value: "", label: "Select type" },
-                            ...PROPERTY_SCOPE_OPTIONS.map((value) => ({ value, label: value })),
+                            ...propertyScopeTypeOptions,
                             ...(hasCustomType ? [{ value: scopeType, label: scopeType }] : []),
                           ];
                           return (

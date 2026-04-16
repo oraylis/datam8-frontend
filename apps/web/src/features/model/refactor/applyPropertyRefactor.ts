@@ -154,12 +154,12 @@ function applyNode(node: unknown, rules: RefactorRules): [unknown, number] {
   return [next, changes];
 }
 
-export function applyPropertyRefactorToModelEntities(
-  modelEntities: ModelEntity[],
+export function applyPropertyRefactorToModelEntities<T extends { content: Record<string, unknown> }>(
+  modelEntities: T[],
   payload: PropertyRefactorPayload,
-): PropertyRefactorApplyResult {
+): { updatedEntities: T[]; changeCount: number } {
   const rules = buildRules(payload);
-  const updatedEntities: ModelEntity[] = [];
+  const updatedEntities: T[] = [];
   let changeCount = 0;
 
   for (const entity of modelEntities) {

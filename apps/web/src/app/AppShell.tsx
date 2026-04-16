@@ -893,10 +893,12 @@ export function AppShell() {
     async (changes: Partial<PropertyRefactorPayload>) => {
       const payload = createPropertyRefactorPayload(changes);
       if (!payload) return;
-      const result = applyPropertyRefactorToModelEntities(modelEntities, payload);
-      if (result.updatedEntities.length === 0) return;
+      const modelResult = applyPropertyRefactorToModelEntities(modelEntities, payload);
+      const folderResult = applyPropertyRefactorToModelEntities(folderEntities, payload);
+      if (modelResult.updatedEntities.length === 0 && folderResult.updatedEntities.length === 0) return;
+
       const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
-      for (const entity of result.updatedEntities) {
+      for (const entity of modelResult.updatedEntities) {
         const previous = currentByRelPath.get(entity.relPath);
         const patch = buildTopLevelEntityPatch(
           (previous?.content || {}) as Record<string, unknown>,
@@ -905,11 +907,34 @@ export function AppShell() {
         if (Object.keys(patch).length === 0) continue;
         await patchEntity(modelLocatorFromRelPath(entity.relPath), patch);
       }
-      const updatedByRelPath = new Map(result.updatedEntities.map((entity) => [entity.relPath, entity]));
-      setModelEntities((prev) => prev.map((entity) => updatedByRelPath.get(entity.relPath) || entity));
-      void summarizePropertyRefactorImpact(result);
+
+      const currentFoldersByPath = new Map(
+        folderEntities.map((entry) => [normalizeFolderPath(entry.folderPath || ""), entry]),
+      );
+      for (const entry of folderResult.updatedEntities) {
+        const folderPath = normalizeFolderPath(entry.folderPath || "");
+        const previous = currentFoldersByPath.get(folderPath);
+        const patch = buildTopLevelEntityPatch(
+          (previous?.content || {}) as Record<string, unknown>,
+          (entry.content || {}) as Record<string, unknown>,
+        );
+        if (Object.keys(patch).length === 0) continue;
+        await patchEntity(folderLocatorFromFolderPath(folderPath), patch);
+      }
+
+      const updatedModelByRelPath = new Map(modelResult.updatedEntities.map((entity) => [entity.relPath, entity]));
+      setModelEntities((prev) => prev.map((entity) => updatedModelByRelPath.get(entity.relPath) || entity));
+
+      const updatedFolderByPath = new Map(
+        folderResult.updatedEntities.map((entry) => [normalizeFolderPath(entry.folderPath || ""), entry]),
+      );
+      setFolderEntities((prev) =>
+        prev.map((entry) => updatedFolderByPath.get(normalizeFolderPath(entry.folderPath || "")) || entry),
+      );
+
+      void summarizePropertyRefactorImpact(modelResult);
     },
-    [modelEntities, setModelEntities],
+    [folderEntities, modelEntities, setFolderEntities, setModelEntities],
   );
 
   const deleteFolderTree = useCallback(

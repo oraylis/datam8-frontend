@@ -94,8 +94,8 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
       return;
     }
 
-    removed.forEach((name) => removedCandidates.push({ property, value: name }));
-    added.forEach((name) => addedCandidates.push({ property, value: name }));
+    const renamedOldValues = new Set<string>();
+    const renamedNewValues = new Set<string>();
 
     const pairCount = Math.min(prevList.length, nextList.length);
     for (let i = 0; i < pairCount; i += 1) {
@@ -103,8 +103,17 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
       const nextName = asNonEmptyString(nextList[i]?.name);
       if (prevName && nextName && prevName !== nextName) {
         valueRenames.push({ property, oldValue: prevName, newValue: nextName });
+        renamedOldValues.add(prevName);
+        renamedNewValues.add(nextName);
       }
     }
+
+    removed
+      .filter((name) => !renamedOldValues.has(name))
+      .forEach((name) => removedCandidates.push({ property, value: name }));
+    added
+      .filter((name) => !renamedNewValues.has(name))
+      .forEach((name) => addedCandidates.push({ property, value: name }));
   });
 
   nextByProperty.forEach((nextList, property) => {

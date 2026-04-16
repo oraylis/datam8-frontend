@@ -72,6 +72,35 @@ describe("propertyRefactor", () => {
     });
   });
 
+  it("does not mark renamed values as deleted when multiple renames happen", () => {
+    const prevContent = {
+      propertyValues: [
+        { property: "domain", name: "sales" },
+        { property: "domain", name: "finance" },
+        { property: "category", name: "legacy" },
+        { property: "category", name: "core" },
+      ],
+    };
+    const nextContent = {
+      propertyValues: [
+        { property: "domain", name: "sales_new" },
+        { property: "domain", name: "finance_new" },
+        { property: "category", name: "sales" },
+        { property: "category", name: "core" },
+      ],
+    };
+
+    expect(diffPropertyValueChanges(prevContent, nextContent)).toEqual({
+      valueRenames: [
+        { property: "domain", oldValue: "sales", newValue: "sales_new" },
+        { property: "domain", oldValue: "finance", newValue: "finance_new" },
+        { property: "category", oldValue: "legacy", newValue: "sales" },
+      ],
+      deletedValues: [],
+      valueMoves: [],
+    });
+  });
+
   it("builds payload only when changes are present", () => {
     expect(
       createPropertyRefactorPayload({

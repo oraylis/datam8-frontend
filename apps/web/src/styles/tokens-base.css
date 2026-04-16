@@ -234,7 +234,7 @@ body {
 
 .error-surface {
   width: 100%;
-  border: 1px solid color-mix(in srgb, hsl(var(--ui-destructive)) 52%, hsl(var(--ui-border)));
+  border: none;
   background: color-mix(in srgb, hsl(var(--ui-destructive)) 14%, hsl(var(--ui-surface-panel)));
   color: hsl(var(--ui-foreground));
   border-radius: 0;
@@ -245,7 +245,7 @@ body {
 
 .info-surface {
   width: 100%;
-  border: 1px solid color-mix(in srgb, hsl(var(--ui-accent)) 45%, hsl(var(--ui-border)));
+  border: none;
   background: color-mix(in srgb, hsl(var(--ui-accent)) 12%, hsl(var(--ui-surface-panel)));
   color: hsl(var(--ui-foreground));
   border-radius: 0;
@@ -265,7 +265,20 @@ body {
   font-weight: 600;
 }
 
-.error-surface__close,
+.error-surface__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--ui-radius-lg);
+  padding: 4px 8px;
+  transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast);
+}
+
+.error-surface__close:hover {
+  background: color-mix(in srgb, hsl(var(--ui-foreground)) 6%, transparent);
+}
+
 .error-surface__retry {
   border: 1px solid color-mix(in srgb, hsl(var(--ui-destructive)) 45%, hsl(var(--ui-border)));
   background: transparent;

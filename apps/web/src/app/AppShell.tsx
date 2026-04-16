@@ -503,15 +503,23 @@ export function AppShell() {
       if (!baseEntry) return;
       const nextContent = updater(baseEntry.content);
       if (deepEqual(nextContent, baseEntry.content)) return;
-      const pendingEntry: BaseEntity = { ...baseEntry, content: nextContent };
       const detectedType = detectBaseType(nextContent, relPath).type;
+      const pendingEntry: BaseEntity = { ...baseEntry, content: nextContent };
 
-      setBaseEntities((prev) =>
-        prev.map((b) => (b.relPath === relPath ? pendingEntry : b)),
-      );
+      // Keep "previous" base content intact for explicit save diff/refactor handling.
+      // For Properties and PropertyValues we only mark dirty and let the editor draft hold edits.
+      if (detectedType !== "properties" && detectedType !== "propertyValues") {
+        setBaseEntities((prev) =>
+          prev.map((b) => (b.relPath === relPath ? pendingEntry : b)),
+        );
+      }
 
       const title = formatBaseTitle(baseEntry?.name || relPath.split("/").pop() || relPath);
-      setBaseTabs((tabs) => (tabs.some((t) => t.relPath === relPath) ? tabs : [...tabs, { relPath, title, dirty: false }]));
+      setBaseTabs((tabs) =>
+        tabs.some((t) => t.relPath === relPath)
+          ? tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t))
+          : [...tabs, { relPath, title, dirty: true }],
+      );
       if (detectedType === "properties" || detectedType === "propertyValues") {
         setTabDirty(relPath, "base", true);
         return;
@@ -1365,9 +1373,10 @@ export function AppShell() {
             payload: Partial<PropertyRefactorPayload>,
             propertyName: string,
             options?: { includePropertyValuesTarget?: boolean },
+            scopeTargetsByName: Map<string, PropertyRefactorScopeTarget[]> = propertyScopeTargetsByName,
           ) => {
             const targets = uniqueScopeTargets([
-              ...(propertyScopeTargetsByName.get(propertyName) || []),
+              ...(scopeTargetsByName.get(propertyName) || []),
               ...(options?.includePropertyValuesTarget ? (["propertyValues"] as PropertyRefactorScopeTarget[]) : []),
             ]);
             if (targets.length === 0) return;
@@ -1402,16 +1411,17 @@ export function AppShell() {
             }
           }
           if (detected === "properties") {
+            const previousPropertyScopeTargetsByName = buildPropertyScopeTargetIndex(refactorPreviousContent);
             const propDiff = diffPropertyChanges(refactorPreviousContent, updated.content);
             propDiff.propertyRenames.forEach((rename) => {
               pushScopedRefactorAction({ propertyRenames: [rename] }, rename.oldName, {
                 includePropertyValuesTarget: true,
-              });
+              }, previousPropertyScopeTargetsByName);
             });
             propDiff.deletedProperties.forEach((name) => {
               pushScopedRefactorAction({ deletedProperties: [name] }, name, {
                 includePropertyValuesTarget: true,
-              });
+              }, previousPropertyScopeTargetsByName);
             });
           }
           if (detected === "propertyValues") {

@@ -55,6 +55,49 @@ describe("propertyRefactor", () => {
     });
   });
 
+  it("does not infer a cross-property move from unrelated delete/rename combinations", () => {
+    const prevContent = {
+      propertyValues: [
+        { property: "jobs", name: "daily" },
+        { property: "jobs", name: "weekly" },
+        { property: "schedules", name: "legacy" },
+      ],
+    };
+    const nextContent = {
+      propertyValues: [
+        { property: "jobs", name: "daily" },
+        { property: "schedules", name: "daily" },
+        { property: "schedules", name: "legacy" },
+      ],
+    };
+
+    expect(diffPropertyValueChanges(prevContent, nextContent)).toEqual({
+      valueRenames: [],
+      deletedValues: [{ property: "jobs", value: "weekly" }],
+      valueMoves: [],
+    });
+  });
+
+  it("treats deleting one of two values as delete, not rename by index shift", () => {
+    const prevContent = {
+      propertyValues: [
+        { property: "jobs", name: "daily" },
+        { property: "jobs", name: "weekly" },
+      ],
+    };
+    const nextContent = {
+      propertyValues: [
+        { property: "jobs", name: "weekly" },
+      ],
+    };
+
+    expect(diffPropertyValueChanges(prevContent, nextContent)).toEqual({
+      valueRenames: [],
+      deletedValues: [{ property: "jobs", value: "daily" }],
+      valueMoves: [],
+    });
+  });
+
   it("does not emit refactor changes when previous values were empty placeholders", () => {
     const prevProps = { properties: [{ name: "" }] };
     const nextProps = { properties: [{ name: "businessDomain" }] };

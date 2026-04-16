@@ -74,9 +74,24 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
   const valueRenames: PropertyValueRename[] = [];
   const deletedValues: PropertyValueDelete[] = [];
   const valueMoves: PropertyValueMove[] = [];
+  const movedOldKeys = new Set<string>();
 
-  const removedCandidates: Array<{ property: string; value: string }> = [];
-  const addedCandidates: Array<{ property: string; value: string }> = [];
+  const pairCountGlobal = Math.min(prevValues.length, nextValues.length);
+  for (let i = 0; i < pairCountGlobal; i += 1) {
+    const oldProperty = asNonEmptyString(prevValues[i]?.property);
+    const oldValue = asNonEmptyString(prevValues[i]?.name);
+    const newProperty = asNonEmptyString(nextValues[i]?.property);
+    const newValue = asNonEmptyString(nextValues[i]?.name);
+    if (!oldProperty || !oldValue || !newProperty || !newValue) continue;
+    if (oldProperty === newProperty || oldValue !== newValue) continue;
+    valueMoves.push({
+      oldProperty,
+      oldValue,
+      newProperty,
+      newValue,
+    });
+    movedOldKeys.add(`${oldProperty}\u0000${oldValue}`);
+  }
 
   prevByProperty.forEach((prevList, property) => {
     const nextList = nextByProperty.get(property) || [];
@@ -97,58 +112,33 @@ export function diffPropertyValueChanges(prevContent: unknown, nextContent: unkn
     const renamedOldValues = new Set<string>();
     const renamedNewValues = new Set<string>();
 
-    const pairCount = Math.min(prevList.length, nextList.length);
-    for (let i = 0; i < pairCount; i += 1) {
-      const prevName = asNonEmptyString(prevList[i]?.name);
-      const nextName = asNonEmptyString(nextList[i]?.name);
-      if (prevName && nextName && prevName !== nextName) {
-        valueRenames.push({ property, oldValue: prevName, newValue: nextName });
-        renamedOldValues.add(prevName);
-        renamedNewValues.add(nextName);
+    if (removed.length > 0 && removed.length === added.length) {
+      const removedSet = new Set(removed);
+      const addedSet = new Set(added);
+      const removedOrdered = prevList
+        .map((item, idx) => ({ idx, name: asNonEmptyString(item?.name) }))
+        .filter((item): item is { idx: number; name: string } => !!item.name && removedSet.has(item.name));
+      const addedOrdered = nextList
+        .map((item, idx) => ({ idx, name: asNonEmptyString(item?.name) }))
+        .filter((item): item is { idx: number; name: string } => !!item.name && addedSet.has(item.name));
+
+      for (let i = 0; i < Math.min(removedOrdered.length, addedOrdered.length); i += 1) {
+        const oldValue = removedOrdered[i].name;
+        const newValue = addedOrdered[i].name;
+        if (oldValue === newValue) continue;
+        valueRenames.push({ property, oldValue, newValue });
+        renamedOldValues.add(oldValue);
+        renamedNewValues.add(newValue);
       }
     }
 
     removed
       .filter((name) => !renamedOldValues.has(name))
-      .forEach((name) => removedCandidates.push({ property, value: name }));
-    added
-      .filter((name) => !renamedNewValues.has(name))
-      .forEach((name) => addedCandidates.push({ property, value: name }));
-  });
-
-  nextByProperty.forEach((nextList, property) => {
-    if (prevByProperty.has(property)) return;
-    nextList
-      .map((item) => asNonEmptyString(item.name))
-      .filter((n): n is string => !!n)
-      .forEach((name) => addedCandidates.push({ property, value: name }));
-  });
-
-  for (const removed of removedCandidates) {
-    const matchingAdded = addedCandidates.filter((added) => added.value === removed.value);
-    if (matchingAdded.length !== 1) continue;
-    const target = matchingAdded[0];
-    if (target.property === removed.property) continue;
-
-    valueMoves.push({
-      oldProperty: removed.property,
-      oldValue: removed.value,
-      newProperty: target.property,
-      newValue: target.value,
-    });
-
-    const idx = addedCandidates.findIndex(
-      (added) => added.property === target.property && added.value === target.value,
-    );
-    if (idx >= 0) addedCandidates.splice(idx, 1);
-  }
-
-  const movedKeys = new Set(valueMoves.map((move) => `${move.oldProperty}\u0000${move.oldValue}`));
-  removedCandidates.forEach((removed) => {
-    const key = `${removed.property}\u0000${removed.value}`;
-    if (!movedKeys.has(key)) {
-      deletedValues.push({ property: removed.property, value: removed.value });
-    }
+      .forEach((name) => {
+        const key = `${property}\u0000${name}`;
+        if (movedOldKeys.has(key)) return;
+        deletedValues.push({ property, value: name });
+      });
   });
 
   return { valueRenames, deletedValues, valueMoves };

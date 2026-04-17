@@ -162,22 +162,22 @@ test("shows sticky save-failed toast with details and no inline retry alert", as
   await displayNameInput.press("Tab");
 
   const saveFailed = page.getByText("Save failed").first();
-  const saveFailedToasts = page.locator('[data-variant="destructive"]').filter({ hasText: "Save failed" });
+  const saveFailedSurfaces = page.locator(".error-surface").filter({ hasText: "Save failed" });
   await expect(saveFailed).toBeVisible();
-  await expect(saveFailedToasts).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
-  await page.getByRole("button", { name: "Retry" }).click();
+  await expect(saveFailedSurfaces).toHaveCount(1);
+  await expect(saveFailedSurfaces.getByRole("button", { name: "Retry" })).toBeVisible();
+  await saveFailedSurfaces.getByRole("button", { name: "Retry" }).click();
   await page.waitForTimeout(350);
   await expect(saveFailed).toBeVisible();
-  await expect(saveFailedToasts).toHaveCount(1);
-  await page.locator('[data-variant="destructive"] [toast-close]').first().click();
-  await expect(saveFailedToasts).toHaveCount(0);
+  await expect(saveFailedSurfaces).toHaveCount(1);
+  await saveFailedSurfaces.getByRole("button", { name: "Close error" }).click();
+  await expect(saveFailedSurfaces).toHaveCount(1);
 
   await page.waitForTimeout(4500);
-  await expect(saveFailedToasts).toHaveCount(0);
+  await expect(saveFailedSurfaces).toHaveCount(1);
 });
 
-test("auto-dismisses info toasts while keeping actions in the same toast area", async ({ page }) => {
+test("deleting a base item updates the list without error/info surfaces", async ({ page }) => {
   await mockApi(page);
   await loadSolutionFromDialog(page);
 
@@ -192,13 +192,10 @@ test("auto-dismisses info toasts while keeping actions in the same toast area", 
     .hover();
   await page.getByLabel("Delete string").click();
 
-  const deletedToast = page.getByText("Deleted").first();
-  await expect(deletedToast).toBeVisible();
-  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show details" })).toHaveCount(0);
-
-  await page.waitForTimeout(4500);
-  await expect(deletedToast).toHaveCount(0);
+  await expect(page.getByRole("table", { name: "Base items" }).getByRole("button").filter({ hasText: /^string\b/i })).toHaveCount(0);
+  await expect(page.getByRole("table", { name: "Base items" }).getByRole("button").filter({ hasText: /^int\b/i })).toBeVisible();
+  await expect(page.locator(".info-surface")).toHaveCount(0);
+  await expect(page.locator(".error-surface")).toHaveCount(0);
 });
 
 test("renaming an entity name renames the JSON file via /model/entities/move", async ({ page }) => {

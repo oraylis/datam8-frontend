@@ -11,7 +11,7 @@ Top-level UI composition for the web client.
 
 ## Notes
 - Entity/Base/Folder editors persist via autosave.
-- Base saves can produce follow-up model actions handled in the `Apply actions` dialog (`Apply` or `Cancel` with undo of the triggering base change).
+- Base saves can produce follow-up model actions that are executed immediately with success/error notifications.
 - Sidebar resizing uses `useResizablePane`.
 - AppShell stays in sync with SolutionContext (picker state, errors) and GeneratorContext (targets/log level/logs).
 

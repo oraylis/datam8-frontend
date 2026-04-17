@@ -8,7 +8,7 @@ Covered:
 - Model entity editor autosave.
 - Base editor autosave (form and JSON modes).
 - Folder editor autosave.
-- Base side effects that are executed via the `Apply actions` dialog.
+- Base side effects that are executed immediately after save.
 - Save error handling and retry flow.
 
 Not covered:
@@ -23,7 +23,7 @@ Autosave is coordinated by editor-local state hooks plus `AppShell` integration:
 - `useBaseEditorState` handles base draft state, validation gates, selection state, and persistence scheduling.
 - `FolderEditor` has equivalent local autosave orchestration for folder metadata.
 - `Workspace` registers `tab-switch` persistence callbacks to `AppShell`.
-- `AppShell` calls registered persist callbacks before context switches and handles base save side effects (`Apply actions`).
+- `AppShell` calls registered persist callbacks before context switches and handles base save side effects.
 
 ## Trigger matrix
 
@@ -95,7 +95,7 @@ Behavior:
 - Error details are collapsible (`Show details` / `Hide details`).
 - Default is collapsed.
 
-## Base side effects: Apply actions
+## Base side effects: follow-up actions
 
 Some base saves create follow-up actions to keep model structure consistent.
 
@@ -109,18 +109,14 @@ Detection sources:
 - Data product/module rename diff.
 - Property/property-value rename/delete diff.
 
-## Apply actions dialog behavior
+## Follow-up action execution behavior
 
-When a base save produces follow-up actions, `AppShell` opens a modal dialog:
-
-- Dialog is decision-driven and blocked from accidental close (`ESC`/outside interaction are prevented while active).
-- Buttons:
-  - `Apply`: execute follow-up actions sequentially.
-  - `Cancel`: undo the triggering base change by restoring the previous base content.
+When a base save produces follow-up actions, `AppShell` executes them immediately and sequentially.
 
 Failure handling:
-- Each failed action is retained in the prompt state.
-- Success/failure toasts summarize outcomes.
+- Each failed action shows `Apply action failed`.
+- A summary error shows when one or more actions fail.
+- A summary info notification confirms applied actions.
 
 ## Zone delete semantics
 
@@ -132,9 +128,9 @@ Zone delete follow-up actions remove local model tree content for the zone:
   - all folder metadata entries under the subtree.
 - UI state is updated consistently (tabs, selection, expanded paths, dirty folder paths).
 
-## Delete toast suppression when apply dialog exists
+## Delete toast suppression when follow-up actions exist
 
-For base types that immediately enter the apply-actions flow (`zones`, `dataProducts`, `properties`), local "Deleted + Undo" toast notifications are suppressed to avoid double decision paths.
+For base types with follow-up actions (`zones`, `dataProducts`, `properties`), local "Deleted + Undo" toast notifications are suppressed to avoid overlapping notifications.
 
 ## Context-switch and close behavior
 
@@ -164,7 +160,7 @@ When adding a new editable control:
 2. Emit or wire one of the known trigger reasons.
 3. Verify the change participates in `persistAfterStateFlush`.
 4. Confirm behavior in both normal save and save-error/retry scenarios.
-5. If base side effects are introduced, extend apply-actions detection and dialog messaging.
+5. If base side effects are introduced, extend follow-up action detection and notification messaging.
 6. Update this document and summary READMEs.
 
 ## Related files

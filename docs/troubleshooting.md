@@ -62,17 +62,16 @@ Checks:
   - Entity: relationship zone/target, source linkage.
   - Base: required fields in current base type.
 
-### Symptom: Base change opens `Apply actions` dialog
+### Symptom: Base save triggers follow-up actions automatically
 
 Why:
 - Some base saves require follow-up model operations (`zones`, `dataProducts`, `properties`).
 
 What to do:
-- `Apply` executes follow-up actions.
-- `Cancel` undoes the triggering base change.
+- Wait for the automatic follow-up run to finish.
+- Check for `Apply action failed` notifications if one or more actions fail.
 
 Notes:
-- The dialog is decision-driven and blocks accidental close via escape/outside click while active.
 - Zone delete follow-up actions remove the full local zone subtree.
 
 ### Symptom: Dirty tab warning (`Pending Sync`) on close

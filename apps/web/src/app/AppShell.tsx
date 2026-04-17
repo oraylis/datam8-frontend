@@ -79,12 +79,6 @@ type PendingBaseAction =
       sourceRelPath: string;
       preview?: string;
     };
-type BaseActionPrompt = {
-  sourceRelPath: string;
-  actions: PendingBaseAction[];
-  rollbackBaseEntity: BaseEntity | null;
-  rollbackFolderEntity?: FolderEntity | null;
-};
 
 const buildBaseEntityLocator = (entityType: string, item: Record<string, unknown>): string | null => {
   if (entityType === "propertyValues") {
@@ -177,8 +171,6 @@ export function AppShell() {
   const [newFolderParentPath, setNewFolderParentPath] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
   const [dirtyFolderPaths, setDirtyFolderPaths] = useState<Set<string>>(new Set());
-  const [baseActionPrompt, setBaseActionPrompt] = useState<BaseActionPrompt | null>(null);
-  const [applyingBaseActions, setApplyingBaseActions] = useState(false);
   const [baseItemSelectionRequest, setBaseItemSelectionRequest] = useState<{
     relPath: string;
     itemName: string;
@@ -345,7 +337,6 @@ export function AppShell() {
       setBaseEntities(result.baseEntities);
       setFolderEntities(result.folderEntities || []);
       setDirtyFolderPaths(new Set());
-      setBaseActionPrompt(null);
       patchedBaseTimerRef.current.forEach((timer) => clearTimeout(timer));
       patchedBaseTimerRef.current.clear();
       patchedBasePayloadRef.current.clear();
@@ -1162,44 +1153,51 @@ export function AppShell() {
     return `${action.kind}:${JSON.stringify(createPropertyRefactorPayload(action.payload) || {})}:${action.targets.join(",")}`;
   }, []);
 
-  const applyPendingBaseActions = useCallback(async () => {
-    const prompt = baseActionPrompt;
-    if (applyingBaseActions || !prompt || prompt.actions.length === 0) return;
-    setApplyingBaseActions(true);
+  const executePendingBaseActions = useCallback(async (actions: PendingBaseAction[]) => {
+    if (actions.length === 0) return;
     const failed: PendingBaseAction[] = [];
     let applied = 0;
-    try {
-      for (const action of prompt.actions) {
-        try {
-          if (action.kind === "renameFolder") {
-            await renameModelFolder(action.fromFolder, action.toFolder);
-          } else if (action.kind === "deleteFolderTree") {
-            await deleteFolderTree(action.folderPath, {
-              confirm: false,
-              allowZoneRoot: true,
-              notifySuccess: false,
-              notifyFailure: false,
-            });
-          } else {
-            await runPropertyRefactor(action.payload, action.targets);
-          }
-          applied += 1;
-        } catch (err) {
-          failed.push(action);
-          showAppError("Apply action failed", (err as Error).message);
+    let renamedFolders = 0;
+    let deletedFolderTrees = 0;
+
+    for (const action of actions) {
+      try {
+        if (action.kind === "renameFolder") {
+          await renameModelFolder(action.fromFolder, action.toFolder);
+          renamedFolders += 1;
+        } else if (action.kind === "deleteFolderTree") {
+          await deleteFolderTree(action.folderPath, {
+            confirm: false,
+            allowZoneRoot: true,
+            notifySuccess: false,
+            notifyFailure: false,
+          });
+          deletedFolderTrees += 1;
+        } else {
+          await runPropertyRefactor(action.payload, action.targets);
         }
+        applied += 1;
+      } catch (err) {
+        failed.push(action);
+        showAppError("Apply action failed", (err as Error).message);
       }
-    } finally {
-      setApplyingBaseActions(false);
     }
 
     if (failed.length > 0) {
       showAppError("Some actions were not applied", `${failed.length} action(s) failed.`);
-      setBaseActionPrompt({ ...prompt, actions: failed });
-      return;
     }
 
-    const hasStructuralActions = prompt.actions.some((action) => action.kind !== "propertyRefactor");
+    if (applied > 0) {
+      showInfo("app", {
+        title: "Apply actions executed",
+        description:
+          renamedFolders > 0 || deletedFolderTrees > 0
+            ? `Applied ${applied} action(s): renamed ${renamedFolders} folder(s), deleted ${deletedFolderTrees} folder tree(s).`
+            : `Applied ${applied} action(s).`,
+      });
+    }
+
+    const hasStructuralActions = actions.some((action) => action.kind !== "propertyRefactor");
     if (applied > 0 && hasStructuralActions) {
       try {
         const fallbackSource: SolutionSource | null = solutionSource
@@ -1215,11 +1213,8 @@ export function AppShell() {
         showAppError("Reload after actions failed", (err as Error).message || "Unknown error");
       }
     }
-    setBaseActionPrompt(null);
   }, [
     applyLoadedSolution,
-    applyingBaseActions,
-    baseActionPrompt,
     deleteFolderTree,
     electronLike,
     loadSolution,
@@ -1228,64 +1223,8 @@ export function AppShell() {
     solutionPath,
     solutionSource,
     showAppError,
+    showInfo,
   ]);
-
-  const undoBaseActionPrompt = useCallback(async () => {
-    const prompt = baseActionPrompt;
-    if (applyingBaseActions || !prompt) return;
-
-    if (!prompt.rollbackBaseEntity && !prompt.rollbackFolderEntity) {
-      setBaseActionPrompt(null);
-      return;
-    }
-
-    setApplyingBaseActions(true);
-    try {
-      if (prompt.rollbackBaseEntity) {
-        const rollback = prompt.rollbackBaseEntity;
-        const locator = rollback.locator || modelLocatorFromRelPath(rollback.relPath);
-        try {
-          await patchEntity(locator, rollback.content as Record<string, unknown>);
-        } catch {
-          await createEntity(locator, rollback.content as Record<string, unknown>);
-        }
-
-        setBaseEntities((list) => list.map((b) => (b.relPath === rollback.relPath ? rollback : b)));
-        setBaseTabs((tabs) =>
-          tabs.map((t) =>
-            t.relPath === rollback.relPath
-              ? { ...t, dirty: false, title: formatBaseTitle(rollback.name || rollback.relPath.split("/").pop() || rollback.relPath) }
-              : t,
-          ),
-        );
-        setTabDirty(rollback.relPath, "base", false);
-      }
-
-      if (prompt.rollbackFolderEntity) {
-        const rollbackFolder = prompt.rollbackFolderEntity;
-        await patchEntity(
-          folderLocatorFromFolderPath(rollbackFolder.folderPath || ""),
-          rollbackFolder.content as Record<string, unknown>,
-        );
-
-        setFolderEntities((list) => {
-          const idx = list.findIndex((entry) => normalizeFolderPath(entry.folderPath || "") === normalizeFolderPath(rollbackFolder.folderPath || ""));
-          if (idx < 0) return [...list, rollbackFolder];
-          const clone = [...list];
-          clone[idx] = rollbackFolder;
-          return clone;
-        });
-        setSelectedFolderPath(normalizeFolderPath(rollbackFolder.folderPath || ""));
-        setActiveWorkTab(`folder:${normalizeFolderPath(rollbackFolder.folderPath || "")}`);
-      }
-
-      setBaseActionPrompt(null);
-    } catch (err) {
-      showAppError("Undo failed", (err as Error).message);
-    } finally {
-      setApplyingBaseActions(false);
-    }
-  }, [applyingBaseActions, baseActionPrompt, formatBaseTitle, setActiveWorkTab, setBaseEntities, setBaseTabs, setFolderEntities, setSelectedFolderPath, setTabDirty, showAppError]);
 
   const handleSaveBase = useCallback(
     async (updated: BaseEntity) => {
@@ -1469,16 +1408,7 @@ export function AppShell() {
             }
 
             if (structuralActions.length > 0) {
-              setBaseActionPrompt({
-                sourceRelPath: updated.relPath,
-                actions: structuralActions,
-                rollbackBaseEntity: previous
-                  ? {
-                      ...previous,
-                      content: JSON.parse(JSON.stringify(previous.content || {})),
-                    }
-                  : null,
-              });
+              await executePendingBaseActions(structuralActions);
             }
           }
         }
@@ -1500,9 +1430,9 @@ export function AppShell() {
       modelEntities,
       propertyScopeTargetsByName,
       runPropertyRefactor,
+      executePendingBaseActions,
       clearPatchedBaseTimer,
       setBaseEntities,
-      setBaseActionPrompt,
       setBaseTabs,
       setTabDirty,
       showInfo,
@@ -1790,30 +1720,18 @@ export function AppShell() {
       setActiveWorkTab(`folder:${normalizeFolderPath(effectiveFolderPath)}`);
 
       if (renameRequested) {
-        const currentFolderEntity = folderEntityByPath.get(currentFolderPath) || null;
-        const rollbackFolderEntity = currentFolderEntity
-          ? {
-              ...currentFolderEntity,
-              content: JSON.parse(JSON.stringify(currentFolderEntity.content || {})),
-            }
-          : null;
-        setBaseActionPrompt({
-          sourceRelPath: effectiveRelPath,
-          actions: [
-            {
-              kind: "renameFolder",
-              fromFolder: `Model/${currentFolderPath}`,
-              toFolder: `Model/${targetFolderPath}`,
-              sourceRelPath: effectiveRelPath,
-              reason: "folderProperties",
-            },
-          ],
-          rollbackBaseEntity: null,
-          rollbackFolderEntity,
-        });
+        await executePendingBaseActions([
+          {
+            kind: "renameFolder",
+            fromFolder: `Model/${currentFolderPath}`,
+            toFolder: `Model/${targetFolderPath}`,
+            sourceRelPath: effectiveRelPath,
+            reason: "folderProperties",
+          },
+        ]);
       }
     },
-    [folderEntityByPath, setActiveWorkTab, setBaseActionPrompt, setFolderEntities, setSelectedFolderPath],
+    [executePendingBaseActions, folderEntityByPath, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
   );
 
   const setFolderDirty = useCallback((folderPath: string, dirty: boolean) => {
@@ -2134,72 +2052,6 @@ export function AppShell() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={!!baseActionPrompt}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen && baseActionPrompt) return;
-        }}
-      >
-        <DialogContent
-          className="max-w-xl"
-          onEscapeKeyDown={(event) => {
-            if (baseActionPrompt) event.preventDefault();
-          }}
-          onInteractOutside={(event) => {
-            if (baseActionPrompt) event.preventDefault();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Apply actions</DialogTitle>
-            <DialogDescription>
-              Base changes created follow-up actions. Apply them now to keep the model consistent.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            {baseActionPrompt?.actions?.length ? (
-              baseActionPrompt.actions.slice(0, 8).map((action, idx) => (
-                <div key={`${action.kind}-${idx}`} className="codex-popup-section px-3 py-2">
-                  {action.kind === "renameFolder"
-                    ? `Rename folder: ${action.fromFolder} -> ${action.toFolder}`
-                    : action.kind === "deleteFolderTree"
-                      ? `Delete folder tree: ${action.folderPath}`
-                      : action.preview || "Run property refactor across entities"}
-                </div>
-              ))
-            ) : (
-              <div>No pending actions.</div>
-            )}
-            {(baseActionPrompt?.actions?.length || 0) > 8 ? (
-              <div>{`...and ${(baseActionPrompt?.actions?.length || 0) - 8} more.`}</div>
-            ) : null}
-          </div>
-          <DialogFooter className="border-t border-border/70 pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={applyingBaseActions}
-              onClick={() => {
-                void undoBaseActionPrompt();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              disabled={!baseActionPrompt || baseActionPrompt.actions.length === 0 || applyingBaseActions}
-              onClick={() => {
-                void (async () => {
-                  await applyPendingBaseActions();
-                })();
-              }}
-            >
-              {applyingBaseActions ? "Applying..." : `Apply ${baseActionPrompt?.actions?.length || 0} Action(s)`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {isWindowsElectron ? (
         <WindowsTitleBar
           title={windowTitle}

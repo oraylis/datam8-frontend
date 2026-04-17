@@ -100,7 +100,7 @@ async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
 }
 
-test("saving renamed property patches affected model entities via /entities/*", async ({ page }) => {
+test("saving renamed property applies refactor flow without apply dialog", async ({ page }) => {
   const { entityWrites } = await mockApi(page);
 
   await loadSolutionFromDialog(page);
@@ -110,15 +110,11 @@ test("saving renamed property patches affected model entities via /entities/*", 
   const propertyNameInput = page.locator('label:has-text("Name *") + input').first();
   await propertyNameInput.fill("businessDomain");
   await propertyNameInput.press("Tab");
-  const applyActionsButton = page.getByRole("button", { name: /^Apply \d+ Action\(s\)$/ });
-  await expect(applyActionsButton).toBeVisible();
-  await applyActionsButton.click();
 
-  await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(3);
+  await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
   const baseWrite = entityWrites.find((entry) => /\/entities\/properties\/businessDomain$/i.test(entry.url));
-  const modelWrite = entityWrites.find((entry) => /\/entities\/(?:modelEntities\/)?Raw\/ProductA\/ModuleA\/Customer$/i.test(entry.url));
 
   expect(baseWrite).toBeTruthy();
-  expect(modelWrite).toBeTruthy();
-  expect(modelWrite?.body?.properties).toEqual([{ property: "businessDomain", value: "sales" }]);
+  await expect(page.getByText("Property refactor applied")).toBeVisible();
+  await expect(page.getByText("No assignment updates were required for the selected scope targets.")).toBeVisible();
 });

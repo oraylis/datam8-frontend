@@ -21,7 +21,7 @@ async function openSolution(page: import("@playwright/test").Page, dm8sPath: str
 test.describe.serial("release folder rename (real sample)", () => {
   test.skip(!solutionPath, "Set DATAM8_RELEASE_SOLUTION_PATH to run release tests.");
 
-  test("folder rename apply action uses /entities/move and succeeds", async ({ page }) => {
+  test("folder rename follow-up runs immediately and uses /entities/move", async ({ page }) => {
     const moveBodies: Array<{ from?: string; to?: string }> = [];
     const moveStatuses: number[] = [];
 
@@ -48,16 +48,12 @@ test.describe.serial("release folder rename (real sample)", () => {
     await folderNameInput.fill(renamed);
     await folderNameInput.press("Tab");
 
-    await expect(page.getByRole("heading", { name: "Apply actions" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: /Apply 1 Action\(s\)/ }).click();
-
     await expect.poll(() => moveBodies.length, { timeout: 20_000 }).toBeGreaterThan(0);
     expect(moveBodies[0]?.from?.startsWith("/folders/")).toBeTruthy();
     expect(moveBodies[0]?.to?.startsWith("/folders/")).toBeTruthy();
     expect(moveBodies[0]?.to?.endsWith(`/${renamed}`)).toBeTruthy();
     expect(moveStatuses[0]).toBeLessThan(400);
 
-    await expect(page.getByRole("heading", { name: "Apply actions" })).toHaveCount(0);
     await expect(page.getByText("Apply action failed")).toHaveCount(0);
     await expect(page.getByRole("button", { name: renamed }).first()).toBeVisible();
   });

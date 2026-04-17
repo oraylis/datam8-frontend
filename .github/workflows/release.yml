@@ -126,7 +126,7 @@ jobs:
         run: |
           dotnet tool install --global AzureSignTool --version $env:AZURE_SIGN_TOOL_VERSION
 
-      - name: Sign Windows executables
+      - name: Sign Windows binaries
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
@@ -135,13 +135,19 @@ jobs:
             throw "Release directory not found: $releaseDir"
           }
 
-          $exeFiles = Get-ChildItem -Path $releaseDir -Recurse -File -Filter *.exe
-          if (!$exeFiles -or $exeFiles.Count -eq 0) {
-            throw "No .exe files found to sign under $releaseDir"
+          $patterns = @("*.exe", "*.dll", "*.node")
+          $signableFiles = @()
+          foreach ($pattern in $patterns) {
+            $signableFiles += Get-ChildItem -Path $releaseDir -Recurse -File -Filter $pattern
+          }
+          $signableFiles = @($signableFiles | Sort-Object -Property FullName -Unique)
+
+          if (!$signableFiles -or $signableFiles.Count -eq 0) {
+            throw "No signable files (*.exe, *.dll, *.node) found under $releaseDir"
           }
 
-          $exePaths = @($exeFiles | ForEach-Object { $_.FullName })
-          Write-Host "Signing $($exePaths.Count) executable(s)..."
+          $signablePaths = @($signableFiles | ForEach-Object { $_.FullName })
+          Write-Host "Signing $($signablePaths.Count) binary file(s)..."
 
           AzureSignTool sign `
             -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
@@ -151,20 +157,26 @@ jobs:
             -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
             -tr http://timestamp.digicert.com `
             -v `
-            @exePaths
+            @signablePaths
 
-      - name: Verify Windows executable signatures
+      - name: Verify Windows binary signatures
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $releaseDir = Join-Path $env:GITHUB_WORKSPACE "apps/desktop/release"
-          $exeFiles = Get-ChildItem -Path $releaseDir -Recurse -File -Filter *.exe
-          if (!$exeFiles -or $exeFiles.Count -eq 0) {
-            throw "No .exe files found for signature verification under $releaseDir"
+          $patterns = @("*.exe", "*.dll", "*.node")
+          $signableFiles = @()
+          foreach ($pattern in $patterns) {
+            $signableFiles += Get-ChildItem -Path $releaseDir -Recurse -File -Filter $pattern
+          }
+          $signableFiles = @($signableFiles | Sort-Object -Property FullName -Unique)
+
+          if (!$signableFiles -or $signableFiles.Count -eq 0) {
+            throw "No signable files (*.exe, *.dll, *.node) found for signature verification under $releaseDir"
           }
 
           $invalid = @()
-          foreach ($file in $exeFiles) {
+          foreach ($file in $signableFiles) {
             $signature = Get-AuthenticodeSignature -FilePath $file.FullName
             if ($signature.Status -ne "Valid") {
               $invalid += "$($file.FullName) => $($signature.Status)"
@@ -176,7 +188,7 @@ jobs:
             throw "Authenticode verification failed for one or more files."
           }
 
-          Write-Host "All Windows executables are signed and valid."
+          Write-Host "All Windows binaries are signed and valid."
 
       - name: Package desktop (macOS)
         if: matrix.os == 'macos-latest'

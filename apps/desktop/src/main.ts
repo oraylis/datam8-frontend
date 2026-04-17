@@ -444,7 +444,8 @@ async function backendRequestJson<T>(relativePath: string, init?: RequestInit): 
   const response = await fetch(`${backendBaseUrl}${relativePath}`, { ...(init || {}), headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const msg = typeof (data as any)?.message === "string" ? (data as any).message : `HTTP ${response.status}`;
+    const message = (data as { message?: unknown } | null | undefined)?.message;
+    const msg = typeof message === "string" ? message : `HTTP ${response.status}`;
     throw new Error(msg);
   }
   return data as T;
@@ -658,28 +659,40 @@ function importPluginArtifacts(params: { solutionPath: string; artifactPaths: st
   return imported;
 }
 
+type ZipEntry = {
+  entryName: string;
+  isDirectory: boolean;
+};
+
+type ZipArchive = {
+  getEntries: () => ZipEntry[];
+  readAsText: (entry: ZipEntry) => string;
+  extractAllTo: (targetPath: string, overwrite?: boolean) => void;
+};
+
+type ZipArchiveCtor = new (zipPath: string) => ZipArchive;
+
 function importPluginZipArtifact(zipPath: string, pluginsTargetDir: string): void {
   const AdmZipModule = (() => {
     try {
       // Lazy-load ZIP support so a missing optional module cannot crash app startup.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require("adm-zip");
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       throw new Error(`Cannot import ZIP plugin artifacts because 'adm-zip' is unavailable. ${detail}`);
     }
   })();
-  const AdmZipCtor = AdmZipModule?.default || AdmZipModule;
+  const AdmZipCtor = (AdmZipModule?.default || AdmZipModule) as ZipArchiveCtor | undefined;
   if (typeof AdmZipCtor !== "function") {
     throw new Error("Cannot import ZIP plugin artifacts because 'adm-zip' did not export a constructor.");
   }
-  const zip = new AdmZipCtor(zipPath) as any;
-  const entries = zip.getEntries() as any[];
+  const zip = new AdmZipCtor(zipPath);
+  const entries = zip.getEntries();
   if (!entries.length) {
     throw new Error(`Plugin ZIP is empty: ${zipPath}`);
   }
 
-  const pluginJsonEntry = entries.find((entry: any) => {
+  const pluginJsonEntry = entries.find((entry) => {
     const normalized = entry.entryName.replace(/\\/g, "/").toLowerCase();
     return !entry.isDirectory && normalized.endsWith("plugin.json");
   });

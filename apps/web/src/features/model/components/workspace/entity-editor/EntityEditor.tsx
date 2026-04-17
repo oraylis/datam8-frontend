@@ -475,7 +475,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
     if (attributes.some((a) => !a?.__uiId)) {
       setAttributes((list) => withOrdinals(list));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attributes]);
 
   useEffect(() => {

@@ -1,6 +1,23 @@
 import { expect, test } from "@playwright/test";
 
-type SaveBodies = Record<string, any>;
+type JsonObject = Record<string, unknown>;
+
+type SaveBodies = Record<string, JsonObject>;
+
+type ConnectionProperty = {
+  name: string;
+  required?: boolean;
+  description?: string;
+};
+
+type DataSource = {
+  name: string;
+  type: string;
+  extendedProperties?: JsonObject;
+};
+
+type ValidateError = { key: string; message: string; level?: string };
+type ValidateResult = { ok: boolean; errors: ValidateError[] };
 
 type Counters = {
   connectors: number;
@@ -40,7 +57,7 @@ type UiSchema = {
 };
 
 function bindingConnectionProperties(connectorId: string, connectorVersion?: string | null) {
-  const out: any[] = [
+  const out: ConnectionProperty[] = [
     { name: `__connector.id=${connectorId}`, required: true, description: "Reserved: connector binding (do not render)." },
   ];
   const v = (connectorVersion || "").trim();
@@ -50,7 +67,7 @@ function bindingConnectionProperties(connectorId: string, connectorVersion?: str
   return out;
 }
 
-function pluginIdFromConnectionProperties(connectionProperties?: any[] | null): string | null {
+function pluginIdFromConnectionProperties(connectionProperties?: ConnectionProperty[] | null): string | null {
   if (!Array.isArray(connectionProperties)) return null;
   for (const entry of connectionProperties) {
     const name = `${entry?.name || ""}`;
@@ -61,11 +78,11 @@ function pluginIdFromConnectionProperties(connectionProperties?: any[] | null): 
 }
 
 function createMockSolutionPayload(args: {
-  typeConnectionProperties?: any[];
+  typeConnectionProperties?: ConnectionProperty[];
   typePluginId?: string | null;
   typeName?: string;
   typeDataTypeMapping?: Array<{ sourceType: string; targetType: string }>;
-  dataSources?: Array<{ name: string; type: string; extendedProperties?: Record<string, any> }>;
+  dataSources?: DataSource[];
 }) {
   const typeName = args.typeName || "MyDbType";
   const pluginId = args.typePluginId ?? pluginIdFromConnectionProperties(args.typeConnectionProperties);
@@ -124,15 +141,15 @@ async function mockApi(
   page: import("@playwright/test").Page,
   counters: Counters,
   args: {
-    solutionPayload: any;
+    solutionPayload: unknown;
     connectors: MockConnector[];
     uiSchemasById?: Record<string, UiSchema>;
-    validateHandler?: (connectorId: string, body: any) => { ok: boolean; errors: Array<{ key: string; message: string; level?: string }> };
+    validateHandler?: (connectorId: string, body: JsonObject) => ValidateResult;
   },
 ) {
   const saveBodies: SaveBodies = {};
-  const entityWrites: Array<{ method: string; url: string; body: any }> = [];
-  const secretPuts: any[] = [];
+  const entityWrites: Array<{ method: string; url: string; body: JsonObject }> = [];
+  const secretPuts: JsonObject[] = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -194,7 +211,7 @@ async function mockApi(
     const url = new URL(route.request().url());
     const parts = url.pathname.split("/");
     const connectorId = parts[parts.length - 2] || "";
-    const body = JSON.parse(route.request().postData() || "{}");
+    const body = JSON.parse(route.request().postData() || "{}") as JsonObject;
     const out =
       args.validateHandler?.(connectorId, body) || { ok: true, errors: [] };
     if (out.ok) {
@@ -229,7 +246,7 @@ async function mockApi(
       return;
     }
     const raw = req.postData() || "{}";
-    const body = req.method() === "DELETE" ? {} : JSON.parse(raw);
+    const body = (req.method() === "DELETE" ? {} : JSON.parse(raw)) as JsonObject;
     const reqUrl = new URL(req.url());
     const relPath = decodeURIComponent(reqUrl.pathname.replace(/^.*\/entities\//, "")) + ".json";
     saveBodies[relPath] = body;

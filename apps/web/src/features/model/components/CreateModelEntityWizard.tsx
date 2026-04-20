@@ -46,6 +46,8 @@ import { useWizardBaseData } from "./wizard/useWizardBaseData";
 import { apiBase } from "../../../config";
 import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
 import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
+import { SourceTablePreviewDialog } from "./wizard/SourceTablePreviewDialog";
+import type { SourcePreviewTableRef } from "./wizard/sourcePreview";
 
 // --- Main Component ---
 
@@ -82,6 +84,8 @@ export function CreateModelEntityWizard({
   const [availableTables, setAvailableTables] = useState<{ name: string; schema?: string }[]>([]);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
 
   const { zones, dataSources, dataTypes, attributeTypes, propertyOptions, dataSourcesResolved } =
     useWizardBaseData(baseEntities);
@@ -206,6 +210,8 @@ export function CreateModelEntityWizard({
   useEffect(() => {
     if (creationMode === "from-source") {
         setAvailableTables([]);
+        setPreviewOpen(false);
+        setPreviewTable(null);
     }
   }, [creationMode, selectedSource]);
 
@@ -499,6 +505,16 @@ export function CreateModelEntityWizard({
                                                         <Label className="text-sm font-normal cursor-pointer flex-1">
                                                             {table.schema ? `${table.schema}.${table.name}` : table.name}
                                                         </Label>
+                                                        <Button
+                                                          variant="ghost"
+                                                          size="sm"
+                                                          onClick={() => {
+                                                            setPreviewTable({ schema: table.schema, name: table.name });
+                                                            setPreviewOpen(true);
+                                                          }}
+                                                        >
+                                                          Preview
+                                                        </Button>
                                                     </div>
                                                 )})
                                             )}
@@ -871,6 +887,13 @@ export function CreateModelEntityWizard({
             <ErrorSurfaceHost scope="dialog:create-entity-wizard" />
           </div>
         </div>
+        <SourceTablePreviewDialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          dataSource={selectedSource || ""}
+          table={previewTable}
+          limit={10}
+        />
       </DialogContent>
     </Dialog>
   );

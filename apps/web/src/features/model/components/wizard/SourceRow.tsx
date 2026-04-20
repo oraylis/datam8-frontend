@@ -6,6 +6,8 @@ import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import type { ModelEntity, TableMetadata } from "../../model-types";
 import type { WizardFormValues } from "./schema";
+import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
+import type { SourcePreviewTableRef } from "./sourcePreview";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -43,6 +45,8 @@ export const ExternalSourceConfigurator = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<TableMetadata | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
 
   const connectorId =
     dataSourceObject?.connectorId ||
@@ -62,6 +66,8 @@ export const ExternalSourceConfigurator = ({
     setTables([]);
     setMetadata(null);
     setError(null);
+    setPreviewOpen(false);
+    setPreviewTable(null);
     if (isHttpApi) {
       setHttpSourceLocation(selectedTable || "");
     }
@@ -228,6 +234,16 @@ export const ExternalSourceConfigurator = ({
                           size="sm"
                           variant="ghost"
                           onClick={() => {
+                            setPreviewTable({ schema: t.schema, name: t.name });
+                            setPreviewOpen(true);
+                          }}
+                        >
+                          Preview
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
                             fetchMetadata({ schema: t.schema, name: t.name });
                           }}
                         >
@@ -274,6 +290,13 @@ export const ExternalSourceConfigurator = ({
           </div>
         </div>
       ) : null}
+      <SourceTablePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        dataSource={dataSource}
+        table={previewTable}
+        limit={10}
+      />
     </div>
   );
 };

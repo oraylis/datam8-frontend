@@ -1171,6 +1171,50 @@ body {
   border-color: #d6d4d6;
 }
 
+.light .source-preview-dialog,
+.light .source-preview-dialog__table,
+.light .source-preview-dialog__thead,
+.light .source-preview-dialog__head-row,
+.light .source-preview-dialog__row,
+.light .source-preview-dialog__td {
+  background: #fbfafb;
+}
+
+.light .source-preview-dialog__table-wrap {
+  border: 1px solid #d6d4d6;
+  background: #fbfafb;
+}
+
+.light .source-preview-dialog__th {
+  border-bottom: 1px solid #d6d4d6;
+}
+
+.light .source-preview-dialog__row:hover {
+  background: #fbfafb;
+}
+
+.dark .source-preview-dialog,
+.dark .source-preview-dialog__table,
+.dark .source-preview-dialog__thead,
+.dark .source-preview-dialog__head-row,
+.dark .source-preview-dialog__row,
+.dark .source-preview-dialog__td {
+  background: #272727;
+}
+
+.dark .source-preview-dialog__table-wrap {
+  border: 1px solid #3c3b3c;
+  background: #272727;
+}
+
+.dark .source-preview-dialog__th {
+  border-bottom: 1px solid #3c3b3c;
+}
+
+.dark .source-preview-dialog__row:hover {
+  background: #272727;
+}
+
 .light .move-entities-dialog .move-entities-dialog__target-folder-surface,
 .light .move-entities-dialog .move-entities-dialog__target-folder-scroll {
   background: #fffdff;

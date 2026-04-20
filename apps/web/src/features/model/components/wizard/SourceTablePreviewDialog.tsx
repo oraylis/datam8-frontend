@@ -65,7 +65,7 @@ export function SourceTablePreviewDialog({ open, onOpenChange, dataSource, table
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-5xl overflow-hidden bg-[#fbfafb]">
+      <DialogContent className="source-preview-dialog max-h-[80vh] max-w-5xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>{`Preview: ${tableName}`}</DialogTitle>
         </DialogHeader>
@@ -78,12 +78,12 @@ export function SourceTablePreviewDialog({ open, onOpenChange, dataSource, table
         {!loading && error ? <div className="text-sm text-destructive">{error}</div> : null}
         {!loading && !error && rows.length === 0 ? <div className="text-sm text-muted-foreground">No preview rows returned.</div> : null}
         {!loading && !error && rows.length > 0 ? (
-          <div className="max-h-[60vh] overflow-auto border border-border/70 rounded-md bg-[#fbfafb]">
-            <Table className="bg-[#fbfafb]">
-              <TableHeader className="sticky top-0 z-10 bg-[#fbfafb]">
-                <TableRow className="bg-[#fbfafb] hover:bg-[#fbfafb]">
+          <div className="source-preview-dialog__table-wrap max-h-[60vh] overflow-auto rounded-md">
+            <Table className="source-preview-dialog__table">
+              <TableHeader className="source-preview-dialog__thead sticky top-0 z-10">
+                <TableRow className="source-preview-dialog__head-row">
                   {columns.map((column) => (
-                    <TableHead key={column} className="h-10 border-b border-border/70 font-semibold text-foreground">
+                    <TableHead key={column} className="source-preview-dialog__th h-10 font-semibold text-foreground">
                       {column}
                     </TableHead>
                   ))}
@@ -91,9 +91,9 @@ export function SourceTablePreviewDialog({ open, onOpenChange, dataSource, table
               </TableHeader>
               <TableBody>
                 {rows.map((row, idx) => (
-                  <TableRow key={`preview-row-${idx}`} className="bg-[#fbfafb] hover:bg-[#fbfafb]">
+                  <TableRow key={`preview-row-${idx}`} className="source-preview-dialog__row">
                     {columns.map((column) => (
-                      <TableCell key={`${idx}-${column}`} className="bg-[#fbfafb]">
+                      <TableCell key={`${idx}-${column}`} className="source-preview-dialog__td">
                         {formatCellValue(row[column])}
                       </TableCell>
                     ))}

@@ -2,6 +2,10 @@ import type React from "react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   FormSelect,
 } from "@datam8/ui";
 import { ArrowRight, Check, ChevronDown, ExternalLink, Pencil, Trash2 } from "lucide-react";
@@ -674,11 +678,11 @@ const ExternalSourceCard = ({
               <label className="label-token mb-0">Source location *</label>
               <ActionButton
                 variant="ghost"
-                onClick={() => setShowBrowser((open) => !open)}
+                onClick={() => setShowBrowser(true)}
                 disabled={!source.dataSource}
                 className="h-auto px-0 py-0 action-link hover:bg-transparent"
               >
-                {showBrowser ? "Hide tables" : "List tables"}
+                List tables
               </ActionButton>
             </div>
             <input
@@ -698,37 +702,45 @@ const ExternalSourceCard = ({
           </div>
         </div>
       ) : null}
-      {isEditing && showBrowser ? (
-        <ExternalSourceConfigurator
-          dataSource={source.dataSource || ""}
-          dataSourceObject={dataSourceObject}
-          solutionPath={solutionPath}
-          selectedTable={source.sourceLocation}
-          onTableSelected={(table, meta) => {
-            updateSource(index, (s) => {
-              const mapping =
-                meta?.columns?.map((col: any) => {
-                  const sourceDataType = normalizeDataTypeForSave({
-                    type: col.dataType,
-                    nullable: col.isNullable,
-                    charLen: col.maxLength,
-                    precision: col.numericPrecision,
-                    scale: col.numericScale,
-                  });
-                  return sourceDataType
-                    ? { targetName: col.name, sourceName: col.name, sourceDataType }
-                    : { targetName: col.name, sourceName: col.name };
-                }) || s.mapping;
-              return {
-                ...s,
-                sourceLocation: table,
-                mapping,
-                __uiExternalMeta: meta || s.__uiExternalMeta,
-              };
-            });
-          }}
-        />
-      ) : null}
+      <Dialog open={isEditing && showBrowser} onOpenChange={setShowBrowser}>
+        <DialogContent className="entity-wizard max-h-[84vh] max-w-4xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Change entity</DialogTitle>
+          </DialogHeader>
+          <ExternalSourceConfigurator
+            dataSource={source.dataSource || ""}
+            dataSourceObject={dataSourceObject}
+            solutionPath={solutionPath}
+            selectedTable={source.sourceLocation}
+            mode="wizard-single"
+            onCancel={() => setShowBrowser(false)}
+            onTableSelected={(table, meta) => {
+              updateSource(index, (s) => {
+                const mapping =
+                  meta?.columns?.map((col: any) => {
+                    const sourceDataType = normalizeDataTypeForSave({
+                      type: col.dataType,
+                      nullable: col.isNullable,
+                      charLen: col.maxLength,
+                      precision: col.numericPrecision,
+                      scale: col.numericScale,
+                    });
+                    return sourceDataType
+                      ? { targetName: col.name, sourceName: col.name, sourceDataType }
+                      : { targetName: col.name, sourceName: col.name };
+                  }) || s.mapping;
+                return {
+                  ...s,
+                  sourceLocation: table,
+                  mapping,
+                  __uiExternalMeta: meta || s.__uiExternalMeta,
+                };
+              });
+              setShowBrowser(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
       <SourceMappings
         source={source}
         sourceIdx={index}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue, type UseFormWatch } from "react-hook-form";
-import { Badge, Button, Card, CardContent, FormSelect, Input, Label } from "@datam8/ui";
+import { Badge, Button, Card, CardContent, Checkbox, FormSelect, Input, Label } from "@datam8/ui";
 import { Trash2, Loader2 } from "lucide-react";
 import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
@@ -32,12 +32,16 @@ export const ExternalSourceConfigurator = ({
   solutionPath: _solutionPath,
   onTableSelected,
   selectedTable,
+  mode = "inline-select",
+  onCancel,
 }: {
   dataSource: string;
   dataSourceObject?: WizardDataSource;
   solutionPath: string;
   onTableSelected: (table: string, metadata: TableMetadata) => void;
   selectedTable?: string;
+  mode?: "inline-select" | "wizard-single";
+  onCancel?: () => void;
 }) => {
   const [httpSourceLocation, setHttpSourceLocation] = useState(selectedTable || "");
 
@@ -45,6 +49,8 @@ export const ExternalSourceConfigurator = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<TableMetadata | null>(null);
+  const [tableSearch, setTableSearch] = useState("");
+  const [selectedTableRef, setSelectedTableRef] = useState<SourcePreviewTableRef | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
 
@@ -66,6 +72,7 @@ export const ExternalSourceConfigurator = ({
     setTables([]);
     setMetadata(null);
     setError(null);
+    setSelectedTableRef(null);
     setPreviewOpen(false);
     setPreviewTable(null);
     if (isHttpApi) {
@@ -200,10 +207,29 @@ export const ExternalSourceConfigurator = ({
   };
 
   const showTableList = !!dataSource && supportsMetadata;
+  const isWizardSingleMode = mode === "wizard-single";
+  const filteredTables = useMemo(() => {
+    const needle = tableSearch.trim().toLowerCase();
+    if (!needle) return tables;
+    return tables.filter((t) => {
+      const full = t.schema ? `${t.schema}.${t.name}` : t.name;
+      return full.toLowerCase().includes(needle);
+    });
+  }, [tableSearch, tables]);
+
+  useEffect(() => {
+    if (!isWizardSingleMode || !showTableList || tables.length > 0 || loading) return;
+    void fetchTables();
+  }, [fetchTables, isWizardSingleMode, loading, showTableList, tables.length]);
+
+  const handleConfirmSelection = async () => {
+    if (!selectedTableRef) return;
+    await fetchMetadata(selectedTableRef);
+  };
   const errorMessage = error;
 
   return (
-    <div className="codex-popup-section entity-wizard__source-config space-y-3 p-3">
+    <div className="entity-wizard__source-config space-y-4">
       {isUnsupportedType ? (
         <div className="text-sm text-muted-foreground">
           This data source type is not supported for metadata inspection here. You can still type the table name/path manually.
@@ -211,49 +237,96 @@ export const ExternalSourceConfigurator = ({
       ) : null}
 
       {showTableList ? (
-        <div className="space-y-2">
-          <Button size="sm" variant="secondary" onClick={fetchTables} disabled={loading || !dataSource}>
-            {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-            Load Tables
-          </Button>
+        <div className="codex-popup-section entity-wizard__panel space-y-4 p-4">
+          <div className="flex items-center justify-between pt-1">
+            <Label>Available Tables</Label>
+            <div className="flex items-center gap-2">
+              <div className="relative w-56">
+                <Input
+                  placeholder="Search tables..."
+                  className="h-9"
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                />
+              </div>
+              {!isWizardSingleMode ? (
+                <Button size="sm" variant="secondary" onClick={fetchTables} disabled={loading || !dataSource}>
+                  {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                  Load Tables
+                </Button>
+              ) : null}
+            </div>
+          </div>
           {tables.length > 0 ? (
-            <div className="space-y-1">
-              <Label className="text-xs uppercase text-muted-foreground">Tables</Label>
-              <div className="codex-popup-scroll max-h-40 overflow-auto">
-                {tables.map((t) => {
+            <div className="space-y-2">
+              <div className="codex-popup-scroll h-[260px] overflow-auto rounded-md border border-border/70">
+                <div className="p-2 space-y-1">
+                  {filteredTables.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">No tables found.</div>
+                  ) : (
+                    filteredTables.map((t) => {
                   const full = t.schema ? `${t.schema}.${t.name}` : t.name;
+                  const key = `${t.schema || ""}::${t.name}`;
+                  const selectedKey = selectedTableRef ? `${selectedTableRef.schema || ""}::${selectedTableRef.name}` : "";
+                  const isSelected = key === selectedKey;
                   return (
                     <div
-                      key={`${t.schema}::${t.name}`}
-                      className="flex items-center justify-between px-2 py-1 text-sm transition-colors hover:bg-foreground/6"
+                      key={key}
+                      className="flex items-center justify-between px-2 py-1.5 text-sm transition-colors hover:bg-foreground/6 rounded-md"
                     >
-                      <span>{full}</span>
                       <div className="flex items-center gap-2">
-                        {t.type ? <Badge variant="outline">{t.type}</Badge> : null}
+                        {isWizardSingleMode ? (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              if (checked) setSelectedTableRef({ schema: t.schema, name: t.name });
+                              else setSelectedTableRef(null);
+                            }}
+                          />
+                        ) : null}
+                        <span>{full}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => {
                             setPreviewTable({ schema: t.schema, name: t.name });
-                            setPreviewOpen(true);
+                          setPreviewOpen(true);
                           }}
                         >
                           Preview
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            fetchMetadata({ schema: t.schema, name: t.name });
-                          }}
-                        >
-                          Select
-                        </Button>
+                        {!isWizardSingleMode ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              fetchMetadata({ schema: t.schema, name: t.name });
+                            }}
+                          >
+                            Select
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   );
-                })}
+                })
+                  )}
+                </div>
               </div>
+              <div className="text-xs text-muted-foreground">{tables.length} tables loaded.</div>
+            </div>
+          ) : null}
+          {isWizardSingleMode ? (
+            <div className="flex items-center gap-2 border-t border-border/60 pt-3">
+              <Button variant="ghost" onClick={onCancel}>
+                Cancel
+              </Button>
+              <div className="flex-1" />
+              <Button onClick={() => void handleConfirmSelection()} disabled={!selectedTableRef || loading}>
+                Select
+              </Button>
             </div>
           ) : null}
         </div>

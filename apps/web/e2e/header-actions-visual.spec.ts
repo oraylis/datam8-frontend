@@ -82,25 +82,38 @@ async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
 }
 
 test("workspace header run buttons stay vertically centered", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 768 });
   await mockApi(page);
   await loadSolutionFromDialog(page);
 
   const header = page.locator(".workspace-header");
+  const tabs = page.locator(".workspace-header__tabs");
+  const editorCol = page.locator(".editor-col");
+  const editorPanel = page.locator(".editor-panel");
   const runActions = page.locator(".workspace-header__run-actions");
   const generatorButton = page.locator('button[aria-label="Toggle generator"]');
   const validatorButton = page.locator('button[aria-label="Toggle validator"]');
 
   await expect(header).toBeVisible();
+  await expect(tabs).toBeVisible();
+  await expect(editorCol).toBeVisible();
+  await expect(editorPanel).toBeVisible();
   await expect(runActions).toBeVisible();
   await expect(generatorButton).toBeVisible();
   await expect(validatorButton).toBeVisible();
 
   const headerBox = await header.boundingBox();
+  const tabsBox = await tabs.boundingBox();
+  const editorColBox = await editorCol.boundingBox();
+  const editorPanelBox = await editorPanel.boundingBox();
   const runActionsBox = await runActions.boundingBox();
   const generatorBox = await generatorButton.boundingBox();
   const validatorBox = await validatorButton.boundingBox();
 
   expect(headerBox).toBeTruthy();
+  expect(tabsBox).toBeTruthy();
+  expect(editorColBox).toBeTruthy();
+  expect(editorPanelBox).toBeTruthy();
   expect(runActionsBox).toBeTruthy();
   expect(generatorBox).toBeTruthy();
   expect(validatorBox).toBeTruthy();
@@ -109,10 +122,15 @@ test("workspace header run buttons stay vertically centered", async ({ page }) =
   const runActionsCenterY = runActionsBox!.y + runActionsBox!.height / 2;
   const generatorCenterY = generatorBox!.y + generatorBox!.height / 2;
   const validatorCenterY = validatorBox!.y + validatorBox!.height / 2;
+  const tabsBottomY = tabsBox!.y + tabsBox!.height;
+  const editorPanelBottomY = editorPanelBox!.y + editorPanelBox!.height;
+  const editorColBottomY = editorColBox!.y + editorColBox!.height;
 
   expect(Math.abs(runActionsCenterY - headerCenterY)).toBeLessThanOrEqual(4);
   expect(Math.abs(generatorCenterY - headerCenterY)).toBeLessThanOrEqual(4);
   expect(Math.abs(validatorCenterY - headerCenterY)).toBeLessThanOrEqual(4);
+  expect(editorPanelBox!.y).toBeGreaterThanOrEqual(tabsBottomY - 1);
+  expect(Math.abs(editorPanelBottomY - editorColBottomY)).toBeLessThanOrEqual(2);
 
   await page.screenshot({ path: "output/playwright/header-actions-visual.png" });
 });

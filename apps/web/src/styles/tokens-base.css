@@ -226,6 +226,11 @@ body {
   margin-top: 10px;
 }
 
+.error-surface-slot:empty {
+  display: none;
+  margin-top: 0;
+}
+
 .error-surface-slot--flush {
   margin-left: 0;
   margin-right: 0;

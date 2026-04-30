@@ -67,7 +67,7 @@
   top: 0;
   z-index: 40;
   margin-top: 0;
-  margin-bottom: 0;
+  margin-bottom: 10px;
   min-height: var(--entity-nav-sticky-height);
   padding-top: 0;
   padding-bottom: 0;

@@ -141,12 +141,15 @@ export type ColumnMetadata = {
   numericScale: number | null;
   isNullable: boolean;
   isPrimaryKey: boolean;
+  description?: string;
+  properties?: PropertyAssignment[];
 };
 
 export type TableMetadata = {
   schema: string;
   name: string;
   type: "BASE TABLE" | "VIEW";
+  description?: string;
   columns: ColumnMetadata[];
 };
 

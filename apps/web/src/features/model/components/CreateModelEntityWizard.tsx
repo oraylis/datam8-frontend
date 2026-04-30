@@ -60,6 +60,21 @@ interface CreateModelEntityWizardProps {
 const normalizeFolderPath = (path: string) =>
   (path || "").split(/[\\/]/).join("/").replace(/^\/+|\/+$/g, "");
 
+type TablePropertyAssignment = { property: string; value: string };
+
+function toPropertyAssignments(input: unknown): TablePropertyAssignment[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((entry): TablePropertyAssignment | null => {
+      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
+      const property = typeof rec?.property === "string" ? rec.property.trim() : "";
+      if (!property) return null;
+      const value = typeof rec?.value === "string" ? rec.value : "";
+      return { property, value };
+    })
+    .filter((entry): entry is TablePropertyAssignment => entry !== null);
+}
+
 export function CreateModelEntityWizard({
   open,
   onOpenChange,
@@ -81,7 +96,9 @@ export function CreateModelEntityWizard({
   const [step, setStep] = useState(1);
   
   // Bulk Mode States
-  const [availableTables, setAvailableTables] = useState<{ name: string; schema?: string }[]>([]);
+  const [availableTables, setAvailableTables] = useState<
+    Array<{ name: string; schema?: string; description?: string; properties?: TablePropertyAssignment[] }>
+  >([]);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -135,6 +152,8 @@ export function CreateModelEntityWizard({
       relationships: [],
       selectedTables: [],
       tableRenames: {},
+      tableDescriptions: {},
+      tableProperties: {},
     }),
     [],
   );
@@ -188,6 +207,10 @@ export function CreateModelEntityWizard({
   const selectedTables = useMemo(() => watchedSelectedTables || [], [watchedSelectedTables]);
   const watchedTableRenames = watch("tableRenames");
   const tableRenames = useMemo(() => watchedTableRenames || {}, [watchedTableRenames]);
+  const watchedTableDescriptions = watch("tableDescriptions");
+  const tableDescriptions = useMemo(() => watchedTableDescriptions || {}, [watchedTableDescriptions]);
+  const watchedTableProperties = watch("tableProperties");
+  const tableProperties = useMemo(() => watchedTableProperties || {}, [watchedTableProperties]);
   const duplicates = useMemo(() => {
     if (creationMode !== "from-source" || !watchedFolderPath) return new Set<string>();
 
@@ -228,7 +251,15 @@ export function CreateModelEntityWizard({
             }
             
             const data = await res.json();
-            setAvailableTables(Array.isArray(data?.items) ? data.items : []);
+            const items = Array.isArray(data?.items) ? data.items : [];
+            setAvailableTables(
+              items.map((item: any) => ({
+                name: `${item?.name || ""}`,
+                schema: typeof item?.schema === "string" ? item.schema : undefined,
+                description: typeof item?.description === "string" ? item.description : undefined,
+                properties: toPropertyAssignments(item?.properties),
+              })),
+            );
         } catch (err) {
             showError("dialog:create-entity-wizard", { title: "Error loading tables", description: (err as Error).message });
         } finally {
@@ -498,8 +529,29 @@ export function CreateModelEntityWizard({
                                                             checked={selectedTables.includes(uniqueName)}
                                                             onCheckedChange={(checked) => {
                                                                 const current = selectedTables;
-                                                                if (checked) setValue("selectedTables", [...current, uniqueName]);
-                                                                else setValue("selectedTables", current.filter(t => t !== uniqueName));
+                                                                if (checked) {
+                                                                  setValue("selectedTables", [...current, uniqueName]);
+                                                                  setValue("tableDescriptions", {
+                                                                    ...tableDescriptions,
+                                                                    [uniqueName]: table.description || "",
+                                                                  });
+                                                                  setValue("tableProperties", {
+                                                                    ...tableProperties,
+                                                                    [uniqueName]: table.properties || [],
+                                                                  });
+                                                                } else {
+                                                                  setValue("selectedTables", current.filter(t => t !== uniqueName));
+                                                                  if (Object.prototype.hasOwnProperty.call(tableDescriptions, uniqueName)) {
+                                                                    const next = { ...tableDescriptions };
+                                                                    delete next[uniqueName];
+                                                                    setValue("tableDescriptions", next);
+                                                                  }
+                                                                  if (Object.prototype.hasOwnProperty.call(tableProperties, uniqueName)) {
+                                                                    const next = { ...tableProperties };
+                                                                    delete next[uniqueName];
+                                                                    setValue("tableProperties", next);
+                                                                  }
+                                                                }
                                                             }}
                                                         />
                                                         <Label className="text-sm font-normal cursor-pointer flex-1">
@@ -799,7 +851,19 @@ export function CreateModelEntityWizard({
                                               <Button 
                                                   variant="ghost" 
                                                   size="icon"
-                                                  onClick={() => setValue("selectedTables", selectedTables.filter(t => t !== table))}
+                                                  onClick={() => {
+                                                    setValue("selectedTables", selectedTables.filter(t => t !== table));
+                                                    if (Object.prototype.hasOwnProperty.call(tableDescriptions, table)) {
+                                                      const next = { ...tableDescriptions };
+                                                      delete next[table];
+                                                      setValue("tableDescriptions", next);
+                                                    }
+                                                    if (Object.prototype.hasOwnProperty.call(tableProperties, table)) {
+                                                      const next = { ...tableProperties };
+                                                      delete next[table];
+                                                      setValue("tableProperties", next);
+                                                    }
+                                                  }}
                                               >
                                                   <Trash2 className="h-4 w-4 text-muted-foreground" />
                                               </Button>

@@ -26,6 +26,8 @@ export const step1Schema = z.object({
   selectedSource: z.string().optional(),
   selectedTables: z.array(z.string()).optional(),
   tableRenames: z.record(z.string()).optional(),
+  tableDescriptions: z.record(z.string()).optional(),
+  tableProperties: z.record(z.array(propertySchema)).optional(),
 });
 
 export const sourceSchema = z

@@ -63,8 +63,32 @@ type MappedRelationship = {
   attributes: Array<{ sourceName?: string; targetName?: string }>;
 };
 
+type MappedCreatedAttribute = {
+  ordinalNumber: number;
+  name: string;
+  description?: string;
+  attributeType: string;
+  dataType: ReturnType<typeof sanitizeDataType>;
+  isBusinessKey: boolean;
+  dateAdded: string;
+  properties: PropertyAssignment[];
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object";
+}
+
+function toPropertyAssignments(input: unknown): PropertyAssignment[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((entry): PropertyAssignment | null => {
+      if (!isRecord(entry)) return null;
+      const property = typeof entry.property === "string" ? entry.property.trim() : "";
+      if (!property) return null;
+      const value = typeof entry.value === "string" ? entry.value : "";
+      return { property, value };
+    })
+    .filter((entry): entry is PropertyAssignment => entry !== null);
 }
 
 function toDataTypeMappings(input: unknown): DataTypeMapping[] {
@@ -78,6 +102,39 @@ function toDataTypeMappings(input: unknown): DataTypeMapping[] {
       return { sourceType, targetType };
     })
     .filter((entry): entry is DataTypeMapping => entry !== null);
+}
+
+export function mapMetadataColumnToCreatedAttribute(params: {
+  column: TableMetadata["columns"][number];
+  index: number;
+  nowIso: string;
+  effectiveMappings: DataTypeMapping[];
+  canonicalDataTypes: string[];
+}): MappedCreatedAttribute {
+  const { column, index, nowIso, effectiveMappings, canonicalDataTypes } = params;
+  const sourceDataType = sanitizeDataType({
+    type: column.dataType,
+    nullable: column.isNullable,
+    charLen: column.maxLength,
+    precision: column.numericPrecision,
+    scale: column.numericScale,
+  });
+  const dataType = mapSourceDataTypeToCanonical({
+    sourceDataType,
+    mappings: effectiveMappings,
+    canonicalTypes: canonicalDataTypes,
+  });
+
+  return {
+    ordinalNumber: index + 1,
+    name: column.name,
+    description: column.description || undefined,
+    attributeType: "Regular",
+    dataType,
+    isBusinessKey: column.isPrimaryKey,
+    dateAdded: nowIso,
+    properties: column.properties || [],
+  };
 }
 
 function toMappedSourceColumns(metadata: TableMetadata): MappedSourceMapping[] {
@@ -168,6 +225,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
         schema,
         name: tableName,
         type: "BASE TABLE",
+        description: typeof (payload as any)?.description === "string" ? (payload as any).description : undefined,
         columns: items.map((col) => ({
           name: `${col?.name || ""}`,
           ordinal: Number(col?.ordinal || 0),
@@ -177,6 +235,8 @@ export function useWizardSubmit(deps: SubmitDeps) {
           numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
           isNullable: Boolean(col?.isNullable),
           isPrimaryKey: Boolean(col?.isPrimaryKey),
+          description: typeof col?.description === "string" ? col.description : undefined,
+          properties: toPropertyAssignments(col?.properties),
         })),
       };
     },
@@ -287,29 +347,15 @@ export function useWizardSubmit(deps: SubmitDeps) {
             if (!firstRelPath) firstRelPath = relPath;
 
             const nowIso = new Date().toISOString();
-            const attributes = metadata.columns.map((col, idx) => {
-              const sourceDataType = sanitizeDataType({
-                type: col.dataType,
-                nullable: col.isNullable,
-                charLen: col.maxLength,
-                precision: col.numericPrecision,
-                scale: col.numericScale,
-              });
-              const dataType = mapSourceDataTypeToCanonical({
-                sourceDataType,
-                mappings: effectiveMappings,
-                canonicalTypes: canonicalDataTypes,
-              });
-              return {
-                ordinalNumber: idx + 1,
-                name: col.name,
-                attributeType: "Regular",
-                dataType,
-                isBusinessKey: col.isPrimaryKey,
-                dateAdded: nowIso,
-                properties: [],
-              };
-            });
+            const attributes = metadata.columns.map((col, idx) =>
+              mapMetadataColumnToCreatedAttribute({
+                column: col,
+                index: idx,
+                nowIso,
+                effectiveMappings,
+                canonicalDataTypes,
+              }),
+            );
 
             const typeName = (dsObj?.type || "").toLowerCase();
             const isHttp = dsObj?.connectorId === "http-api" || typeName.includes("http") || typeName.includes("api");
@@ -330,8 +376,11 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 id: currentMaxId,
                 name: entityName,
                 displayName: entityName,
-                description: "",
-                properties: [],
+                description:
+                  (values.tableDescriptions && values.tableDescriptions[tableName]) ||
+                  metadata.description ||
+                  "",
+                properties: (values.tableProperties && values.tableProperties[tableName]) || [],
                 attributes,
                 sources: [source],
                 relationships: [],

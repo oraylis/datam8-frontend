@@ -58,6 +58,12 @@ Connector/plugin payloads use normalized capability objects (no `string[]`):
 }
 ```
 
+### Source metadata additions
+
+Frontend may receive optional metadata fields from source/plugin endpoints:
+- Table list (`GET /sources/.../tables`): `description?: string`, `properties?: Array<{ property: string; value: string }>`
+- Table columns (`GET /sources/.../tables/{table}`): `description?: string`, `properties?: Array<{ property: string; value: string }>`
+
 ### Typing policy
 
 - Stable and workflow-critical fields are strongly typed on backend responses.

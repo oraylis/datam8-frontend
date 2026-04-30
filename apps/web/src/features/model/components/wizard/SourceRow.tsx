@@ -4,6 +4,7 @@ import { Badge, Button, Card, CardContent, Checkbox, FormSelect, Input, Label } 
 import { Trash2, Loader2 } from "lucide-react";
 import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
+import type { PropertyAssignment } from "@datam8/types";
 import type { ModelEntity, TableMetadata } from "../../model-types";
 import type { WizardFormValues } from "./schema";
 import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
@@ -25,6 +26,20 @@ type WizardDataSource = {
 type WizardZone = { name: string; displayName: string; localFolderName: string; targetName: string };
 
 type HttpError = Error & { status?: number };
+
+function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const mapped = input
+    .map((entry): PropertyAssignment | null => {
+      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
+      const property = typeof rec?.property === "string" ? rec.property.trim() : "";
+      if (!property) return null;
+      const value = typeof rec?.value === "string" ? rec.value : undefined;
+      return value === undefined ? { property } : { property, value };
+    })
+    .filter((entry): entry is PropertyAssignment => entry !== null);
+  return mapped.length > 0 ? mapped : undefined;
+}
 
 export const ExternalSourceConfigurator = ({
   dataSource,
@@ -133,6 +148,7 @@ export const ExternalSourceConfigurator = ({
         schema: tableRef.schema || "",
         name: tableRef.name,
         type: "BASE TABLE",
+        description: typeof (data as any)?.description === "string" ? (data as any).description : undefined,
         columns: columns.map((col: any) => ({
           name: `${col?.name || ""}`,
           ordinal: Number(col?.ordinal || 0),
@@ -142,6 +158,8 @@ export const ExternalSourceConfigurator = ({
           numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
           isNullable: Boolean(col?.isNullable),
           isPrimaryKey: Boolean(col?.isPrimaryKey),
+          description: typeof col?.description === "string" ? col.description : undefined,
+          properties: toPropertyAssignments(col?.properties),
         })),
       };
       if (metadataValue.columns.length > 0) {
@@ -179,6 +197,7 @@ export const ExternalSourceConfigurator = ({
         schema: "",
         name: httpSourceLocation,
         type: "BASE TABLE",
+        description: typeof (data as any)?.description === "string" ? (data as any).description : undefined,
         columns: columns.map((col: any) => ({
           name: `${col?.name || ""}`,
           ordinal: Number(col?.ordinal || 0),
@@ -188,6 +207,8 @@ export const ExternalSourceConfigurator = ({
           numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
           isNullable: Boolean(col?.isNullable),
           isPrimaryKey: Boolean(col?.isPrimaryKey),
+          description: typeof col?.description === "string" ? col.description : undefined,
+          properties: toPropertyAssignments(col?.properties),
         })),
       };
       if (metadataValue) {

@@ -1,6 +1,7 @@
 /* Codex-inspired shell + system overrides */
 :root {
   --shell-gap: 12px;
+  --app-min-width: 900px;
   --shell-workspace-radius: var(--ui-radius-2xl);
   --sidebar-surface-bg:
     linear-gradient(180deg, color-mix(in srgb, hsl(var(--ui-foreground)) 3%, transparent), transparent 30%),
@@ -23,6 +24,7 @@ body {
 .app {
   display: block;
   height: 100vh;
+  min-width: var(--app-min-width);
   position: relative;
   padding: 0;
   gap: 0;
@@ -1286,22 +1288,6 @@ body {
   border-color: transparent;
   background: color-mix(in srgb, hsl(var(--ui-foreground)) 8%, transparent);
   box-shadow: none;
-}
-
-@media (max-width: 1080px) {
-  .workspace-header {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .workspace-header__tabs,
-  .workspace-header__actions {
-    grid-column: 1;
-  }
-
-  .workspace-header__actions {
-    justify-self: end;
-  }
 }
 
 /* Final shell surface unification (kept at end to override legacy light rules) */

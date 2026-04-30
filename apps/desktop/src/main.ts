@@ -1244,6 +1244,8 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 900,
+    minHeight: 760,
     title: computeWindowTitle(currentSolutionPath),
     titleBarStyle: process.platform === "win32" ? "hidden" : "default",
     ...(process.platform === "win32"

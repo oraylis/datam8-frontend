@@ -23,8 +23,10 @@ export const step1Schema = z.object({
   properties: z.array(propertySchema).optional(),
   
   // New fields for bulk mode
+  selectedSourceKind: z.enum(["external", "internal"]).optional(),
   selectedSource: z.string().optional(),
   selectedTables: z.array(z.string()).optional(),
+  selectedInternalEntities: z.array(z.string()).optional(),
   tableRenames: z.record(z.string()).optional(),
   tableDescriptions: z.record(z.string()).optional(),
   tableProperties: z.record(z.array(propertySchema)).optional(),
@@ -89,9 +91,13 @@ export const wizardSchema = step1Schema.extend({
     } else {
         // from-source mode
         if (!data.folderPath) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Folder is required", path: ["folderPath"] });
-        
-        if (!data.selectedSource) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Source is required", path: ["selectedSource"] });
-        if (!data.selectedTables || data.selectedTables.length === 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select at least one table", path: ["selectedTables"] });
+        const sourceKind = data.selectedSourceKind || "external";
+        if (sourceKind === "external") {
+          if (!data.selectedSource) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Source is required", path: ["selectedSource"] });
+          if (!data.selectedTables || data.selectedTables.length === 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select at least one table", path: ["selectedTables"] });
+        } else if (!data.selectedInternalEntities || data.selectedInternalEntities.length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select at least one entity", path: ["selectedInternalEntities"] });
+        }
     }
 });
 

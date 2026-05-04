@@ -74,6 +74,24 @@ type MappedCreatedAttribute = {
   properties: PropertyAssignment[];
 };
 
+export function mapInternalAttributesFromEntity(params: {
+  attributes: unknown;
+  nowIso: string;
+}): MappedCreatedAttribute[] {
+  const { attributes, nowIso } = params;
+  const sourceAttributes = Array.isArray(attributes) ? attributes : [];
+  return sourceAttributes.map((attr: any, idx: number) => ({
+    ordinalNumber: idx + 1,
+    name: typeof attr?.name === "string" ? attr.name : `Attribute${idx + 1}`,
+    description: typeof attr?.description === "string" ? attr.description : undefined,
+    attributeType: typeof attr?.attributeType === "string" ? attr.attributeType : "Regular",
+    dataType: sanitizeDataType(attr?.dataType),
+    isBusinessKey: Boolean(attr?.isBusinessKey),
+    dateAdded: typeof attr?.dateAdded === "string" ? attr.dateAdded : nowIso,
+    properties: Array.isArray(attr?.properties) ? attr.properties : [],
+  }));
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object";
 }
@@ -322,9 +340,15 @@ export function useWizardSubmit(deps: SubmitDeps) {
             },
           });
         } else {
-          if (!values.selectedTables || values.selectedTables.length === 0) throw new Error("No tables selected");
-          const selectedSource = values.selectedSource;
-          if (!selectedSource) throw new Error("Source is required");
+          const selectedSourceKind = values.selectedSourceKind || "external";
+          if (selectedSourceKind === "internal") {
+            if (!values.selectedInternalEntities || values.selectedInternalEntities.length === 0) {
+              throw new Error("No source entities selected");
+            }
+          } else {
+            if (!values.selectedTables || values.selectedTables.length === 0) throw new Error("No tables selected");
+            if (!values.selectedSource) throw new Error("Source is required");
+          }
 
           const folderPath = normalizeFolderPath(values.folderPath || "");
           if (!folderPath) throw new Error("Folder path is required");
@@ -332,61 +356,106 @@ export function useWizardSubmit(deps: SubmitDeps) {
           let currentMaxId =
             modelEntities.length === 0 ? 0 : Math.max(...modelEntities.map((entity) => Number(entity.content.id) || 0));
 
-          const dsObj = dataSources.find((entry) => entry.name === selectedSource) || null;
-          const typeMappings = toDataTypeMappings(dsObj?.dataSourceType?.dataTypeMapping);
-          const sourceMappings = toDataTypeMappings(dsObj?.dataTypeMapping);
-          const inheritedMappings = mergeInheritedDataTypeMappings(typeMappings, sourceMappings);
-          const effectiveMappings = [...inheritedMappings, ...sourceMappings];
+          if (selectedSourceKind === "internal") {
+            for (const relPathRef of values.selectedInternalEntities || []) {
+              const sourceEntity = modelEntities.find((entity) => entity.relPath === relPathRef);
+              if (!sourceEntity) continue;
 
-          for (const tableName of values.selectedTables) {
-            currentMaxId += 1;
-            const metadata = await fetchTableMetadata(selectedSource, tableName);
-            const entityName = values.tableRenames?.[tableName] || metadata.name;
-            const relPath = `Model/${folderPath}/${entityName}.json`;
-            const locator = modelLocatorFromRelPath(relPath);
-            if (!firstRelPath) firstRelPath = relPath;
+              currentMaxId += 1;
+              const sourceId = Number(sourceEntity.content.id);
+              const entityName = values.tableRenames?.[relPathRef] || sourceEntity.name;
+              const relPath = `Model/${folderPath}/${entityName}.json`;
+              const locator = modelLocatorFromRelPath(relPath);
+              if (!firstRelPath) firstRelPath = relPath;
 
-            const nowIso = new Date().toISOString();
-            const attributes = metadata.columns.map((col, idx) =>
-              mapMetadataColumnToCreatedAttribute({
-                column: col,
-                index: idx,
+              const nowIso = new Date().toISOString();
+              const attributes = mapInternalAttributesFromEntity({
+                attributes: sourceEntity.content.attributes,
                 nowIso,
-                effectiveMappings,
-                canonicalDataTypes,
-              }),
-            );
+              });
 
-            const typeName = (dsObj?.type || "").toLowerCase();
-            const isHttp = dsObj?.connectorId === "http-api" || typeName.includes("http") || typeName.includes("api");
-            const formattedLocation = isHttp ? tableName : `[${metadata.schema}].[${metadata.name}]`;
-            const mapping = toMappedSourceColumns(metadata);
+              const internalSource: MappedSource = {
+                sourceLocation: Number.isFinite(sourceId) ? sourceId : sourceEntity.content.id,
+              };
 
-            const source: MappedSource = {
-              dataSource: selectedSource,
-              sourceLocation: formattedLocation,
-              mapping,
-            };
-
-            createdEntities.push({
-              locator,
-              relPath,
-              name: entityName,
-              content: {
-                id: currentMaxId,
+              createdEntities.push({
+                locator,
+                relPath,
                 name: entityName,
-                displayName: entityName,
-                description:
-                  (values.tableDescriptions && values.tableDescriptions[tableName]) ||
-                  metadata.description ||
-                  "",
-                properties: (values.tableProperties && values.tableProperties[tableName]) || [],
-                attributes,
-                sources: [source],
-                relationships: [],
-                transformations: [],
-              },
-            });
+                content: {
+                  id: currentMaxId,
+                  name: entityName,
+                  displayName: entityName,
+                  description:
+                    (values.tableDescriptions && values.tableDescriptions[relPathRef]) ||
+                    sourceEntity.content.description ||
+                    "",
+                  properties: (values.tableProperties && values.tableProperties[relPathRef]) || [],
+                  attributes,
+                  sources: [internalSource],
+                  relationships: [],
+                  transformations: [],
+                },
+              });
+            }
+          } else {
+            const selectedSource = values.selectedSource as string;
+            const dsObj = dataSources.find((entry) => entry.name === selectedSource) || null;
+            const typeMappings = toDataTypeMappings(dsObj?.dataSourceType?.dataTypeMapping);
+            const sourceMappings = toDataTypeMappings(dsObj?.dataTypeMapping);
+            const inheritedMappings = mergeInheritedDataTypeMappings(typeMappings, sourceMappings);
+            const effectiveMappings = [...inheritedMappings, ...sourceMappings];
+
+            for (const tableName of values.selectedTables || []) {
+              currentMaxId += 1;
+              const metadata = await fetchTableMetadata(selectedSource, tableName);
+              const entityName = values.tableRenames?.[tableName] || metadata.name;
+              const relPath = `Model/${folderPath}/${entityName}.json`;
+              const locator = modelLocatorFromRelPath(relPath);
+              if (!firstRelPath) firstRelPath = relPath;
+
+              const nowIso = new Date().toISOString();
+              const attributes = metadata.columns.map((col, idx) =>
+                mapMetadataColumnToCreatedAttribute({
+                  column: col,
+                  index: idx,
+                  nowIso,
+                  effectiveMappings,
+                  canonicalDataTypes,
+                }),
+              );
+
+              const typeName = (dsObj?.type || "").toLowerCase();
+              const isHttp = dsObj?.connectorId === "http-api" || typeName.includes("http") || typeName.includes("api");
+              const formattedLocation = isHttp ? tableName : `[${metadata.schema}].[${metadata.name}]`;
+              const mapping = toMappedSourceColumns(metadata);
+
+              const source: MappedSource = {
+                dataSource: selectedSource,
+                sourceLocation: formattedLocation,
+                mapping,
+              };
+
+              createdEntities.push({
+                locator,
+                relPath,
+                name: entityName,
+                content: {
+                  id: currentMaxId,
+                  name: entityName,
+                  displayName: entityName,
+                  description:
+                    (values.tableDescriptions && values.tableDescriptions[tableName]) ||
+                    metadata.description ||
+                    "",
+                  properties: (values.tableProperties && values.tableProperties[tableName]) || [],
+                  attributes,
+                  sources: [source],
+                  relationships: [],
+                  transformations: [],
+                },
+              });
+            }
           }
         }
 

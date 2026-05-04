@@ -43,6 +43,7 @@ type EntitySourcesEditorProps = {
   dataSourcesRelPath: string | null;
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
   onDeleteSource?: () => void;
+  onSourcePropertyChange?: () => void;
 };
 
 type SourceMappingsProps = {
@@ -65,6 +66,7 @@ type SourcePropertiesProps = {
   sourceIdx: number;
   propertyOptions: PropertyOption[];
   updateSource: (idx: number, updater: (src: any) => any) => void;
+  onSourcePropertyChange?: () => void;
   className?: string;
 };
 
@@ -81,6 +83,7 @@ type InternalSourceCardProps = {
   modelEntities: ModelEntity[];
   onJumpToEntity: (relPath: string) => void;
   updateSource: (idx: number, updater: (src: any) => any) => void;
+  onSourcePropertyChange?: () => void;
   removeSource: (idx: number) => void;
   cardRef?: (el: HTMLDivElement | null) => void;
   currentEntityAttributeNames: string[];
@@ -98,6 +101,7 @@ type ExternalSourceCardProps = {
   onJumpToEntity: (relPath: string) => void;
   onJumpToDataSource: (name: string) => void;
   updateSource: (idx: number, updater: (src: any) => any) => void;
+  onSourcePropertyChange?: () => void;
   removeSource: (idx: number) => void;
   dataSourceDetails: Record<string, any>;
   solutionPath: string;
@@ -389,7 +393,7 @@ const SourceMappings = ({
   );
 };
 
-const SourcePropertiesChips = ({ source, sourceIdx, propertyOptions, updateSource, className }: SourcePropertiesProps) => {
+const SourcePropertiesChips = ({ source, sourceIdx, propertyOptions, updateSource, onSourcePropertyChange, className }: SourcePropertiesProps) => {
   const rawProps = Array.isArray(source?.properties) ? source.properties : [];
   const propertyItems = useMemo(
     () => toPropertyChipItems(rawProps, `${sourceIdx}-prop-chip`, "Source property"),
@@ -403,18 +407,20 @@ const SourcePropertiesChips = ({ source, sourceIdx, propertyOptions, updateSourc
       items={propertyItems}
       propertyOptions={propertyOptions}
       usedPropertyNames={usedPropertyNames}
-      onAdd={(property, value) =>
+      onAdd={(property, value) => {
         updateSource(sourceIdx, (s) => ({
           ...s,
           properties: [...(s.properties || []), { property, value }],
-        }))
-      }
-      onRemove={(idx) =>
+        }));
+        onSourcePropertyChange?.();
+      }}
+      onRemove={(idx) => {
         updateSource(sourceIdx, (s) => ({
           ...s,
           properties: (s.properties || []).filter((_p: any, ii: number) => ii !== Number(idx)),
-        }))
-      }
+        }));
+        onSourcePropertyChange?.();
+      }}
       addLabel="Add source property"
     />
   );
@@ -433,6 +439,7 @@ const InternalSourceCard = ({
   modelEntities,
   onJumpToEntity,
   updateSource,
+  onSourcePropertyChange,
   removeSource,
   cardRef,
   currentEntityAttributeNames,
@@ -501,6 +508,7 @@ const InternalSourceCard = ({
             sourceIdx={index}
             propertyOptions={propertyOptions}
             updateSource={updateSource}
+            onSourcePropertyChange={onSourcePropertyChange}
           />
         </div>
         <div className="actions actions--tight">
@@ -588,6 +596,7 @@ const ExternalSourceCard = ({
   onJumpToEntity,
   onJumpToDataSource,
   updateSource,
+  onSourcePropertyChange,
   removeSource,
   dataSourceDetails,
   solutionPath,
@@ -624,6 +633,7 @@ const ExternalSourceCard = ({
             sourceIdx={index}
             propertyOptions={propertyOptions}
             updateSource={updateSource}
+            onSourcePropertyChange={onSourcePropertyChange}
           />
         </div>
         <div className="actions actions--tight">
@@ -786,6 +796,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     dataSourcesRelPath,
     onAdoptExternalSourceSchema,
     onDeleteSource,
+    onSourcePropertyChange,
   },
   ref,
 ) {
@@ -888,6 +899,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             onJumpToEntity={onJumpToEntity}
             onJumpToDataSource={onJumpToDataSource}
             updateSource={updateSource}
+            onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
             dataSourceDetails={dataSourceDetails}
             solutionPath={solutionPath}
@@ -917,6 +929,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             modelEntities={modelEntities}
             onJumpToEntity={onJumpToEntity}
             updateSource={updateSource}
+            onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
             currentEntityAttributeNames={currentEntityAttributeNames}
             cardRef={(el) => {

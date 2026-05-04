@@ -977,6 +977,15 @@ body {
   color: inherit;
 }
 
+.entity-wizard__submode-switch {
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.entity-wizard__submode-trigger {
+  color: inherit;
+}
+
 .entity-wizard__tabs-content {
   margin-top: 0;
   border: none;
@@ -1072,6 +1081,21 @@ body {
   color: #ffffff;
 }
 
+.dark .entity-wizard__submode-switch {
+  background: #2f2e2f;
+  border-color: #2f2e2f;
+}
+
+.dark .entity-wizard__submode-trigger {
+  color: #ffffff;
+}
+
+.dark .entity-wizard__submode-trigger[data-state="active"] {
+  background: #5a595a;
+  border-color: #5a595a;
+  color: #ffffff;
+}
+
 .dark .entity-wizard input:not([type="checkbox"]):not([type="radio"]),
 .dark .entity-wizard textarea,
 .dark .entity-wizard [role="combobox"] {
@@ -1140,6 +1164,21 @@ body {
 .light .entity-wizard__mode-trigger[data-state="active"] {
   background: #efeeef;
   border-color: #d9d8d9;
+  color: #000000;
+}
+
+.light .entity-wizard__submode-switch {
+  background: #d8d7d8;
+  border-color: #d8d7d8;
+}
+
+.light .entity-wizard__submode-trigger {
+  color: #000000;
+}
+
+.light .entity-wizard__submode-trigger[data-state="active"] {
+  background: #f4f3f4;
+  border-color: #cbcacb;
   color: #000000;
 }
 
@@ -1358,4 +1397,3 @@ body {
   border-right: none;
   box-shadow: none;
 }
-

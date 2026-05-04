@@ -150,7 +150,9 @@ export function CreateModelEntityWizard({
       sources: [],
       attributes: [],
       relationships: [],
+      selectedSourceKind: "external",
       selectedTables: [],
+      selectedInternalEntities: [],
       tableRenames: {},
       tableDescriptions: {},
       tableProperties: {},
@@ -199,12 +201,18 @@ export function CreateModelEntityWizard({
   });
 
   const creationMode = watch("creationMode");
+  const selectedSourceKind = watch("selectedSourceKind") || "external";
   const watchedFolderPath = watch("folderPath");
   const watchedName = watch("name");
   const watchedAttributes = watch("attributes");
   const selectedSource = watch("selectedSource");
   const watchedSelectedTables = watch("selectedTables");
   const selectedTables = useMemo(() => watchedSelectedTables || [], [watchedSelectedTables]);
+  const watchedSelectedInternalEntities = watch("selectedInternalEntities");
+  const selectedInternalEntities = useMemo(
+    () => watchedSelectedInternalEntities || [],
+    [watchedSelectedInternalEntities],
+  );
   const watchedTableRenames = watch("tableRenames");
   const tableRenames = useMemo(() => watchedTableRenames || {}, [watchedTableRenames]);
   const watchedTableDescriptions = watch("tableDescriptions");
@@ -215,28 +223,42 @@ export function CreateModelEntityWizard({
     if (creationMode !== "from-source" || !watchedFolderPath) return new Set<string>();
 
     const duplicateNames = new Set<string>();
-    
-    selectedTables.forEach(table => {
-        const entityName = tableRenames[table] || table.replace(/^\[.*\]\.\[(.*)\]$/, "$1").replace(/^\[|\]$/g, "");
+
+    const selectedItems = selectedSourceKind === "internal" ? selectedInternalEntities : selectedTables;
+    selectedItems.forEach((item) => {
+        const fallbackName = selectedSourceKind === "internal"
+          ? modelEntities.find((e) => e.relPath === item)?.name || item
+          : item.replace(/^\[.*\]\.\[(.*)\]$/, "$1").replace(/^\[|\]$/g, "");
+        const entityName = tableRenames[item] || fallbackName;
         const relPath = `Model/${watchedFolderPath}/${entityName}.json`;
-        
+
         // Case-insensitive check for path uniqueness
         if (modelEntities.some(e => e.relPath.toLowerCase() === relPath.toLowerCase())) {
-            duplicateNames.add(table);
+            duplicateNames.add(item);
         }
     });
-    
+
     return duplicateNames;
-  }, [creationMode, modelEntities, selectedTables, tableRenames, watchedFolderPath]);
+  }, [creationMode, modelEntities, selectedInternalEntities, selectedSourceKind, selectedTables, tableRenames, watchedFolderPath]);
 
   // Reset tables when source changes
   useEffect(() => {
-    if (creationMode === "from-source") {
+    if (creationMode === "from-source" && selectedSourceKind === "external") {
         setAvailableTables([]);
         setPreviewOpen(false);
         setPreviewTable(null);
     }
-  }, [creationMode, selectedSource]);
+  }, [creationMode, selectedSource, selectedSourceKind]);
+
+  useEffect(() => {
+    if (creationMode !== "from-source") return;
+    if (selectedSourceKind === "internal") {
+      setValue("selectedSource", "");
+      setValue("selectedTables", []);
+    } else {
+      setValue("selectedInternalEntities", []);
+    }
+  }, [creationMode, selectedSourceKind, setValue]);
 
   const handleFetchTables = async () => {
         if (!selectedSource) return;
@@ -290,7 +312,10 @@ export function CreateModelEntityWizard({
           }
       } else {
           // Bulk Mode Step 1 Validation
-          valid = await trigger(["selectedSource", "selectedTables"]);
+          valid =
+            selectedSourceKind === "internal"
+              ? await trigger(["selectedInternalEntities"])
+              : await trigger(["selectedSource", "selectedTables"]);
       }
     } else if (step === 2) {
        if (creationMode === "manual") {
@@ -388,7 +413,40 @@ export function CreateModelEntityWizard({
      if (!tableSearch) return availableTables;
      return availableTables.filter(t => t.name.toLowerCase().includes(tableSearch.toLowerCase()));
   }, [availableTables, tableSearch]);
+  const internalEntityRows = useMemo(() => {
+    const zoneByRoot = new Map<string, string>();
+    zones.forEach((zone) => {
+      const root = normalizeFolderPath(zone.localFolderName || "");
+      if (!root) return;
+      zoneByRoot.set(root.toLowerCase(), zone.displayName || zone.name || root);
+    });
 
+    return modelEntities
+      .map((entity) => {
+        const relParts = (entity.relPath || "").split("/").filter(Boolean);
+        const folderParts = relParts.slice(1, -1);
+        const folderPath = folderParts.join("/");
+        const zoneRoot = folderParts[0] || "";
+        const zoneLabel = zoneByRoot.get(zoneRoot.toLowerCase()) || zoneRoot || "Unassigned";
+        return {
+          entity,
+          zoneLabel,
+          folderPath,
+        };
+      })
+      .sort((a, b) => {
+        const zoneCmp = a.zoneLabel.localeCompare(b.zoneLabel);
+        if (zoneCmp !== 0) return zoneCmp;
+        const folderCmp = a.folderPath.localeCompare(b.folderPath);
+        if (folderCmp !== 0) return folderCmp;
+        return a.entity.name.localeCompare(b.entity.name);
+      });
+  }, [modelEntities, zones]);
+  const selectedImportItems = selectedSourceKind === "internal" ? selectedInternalEntities : selectedTables;
+  const getImportItemLabel = (item: string) =>
+    selectedSourceKind === "internal"
+      ? modelEntities.find((entity) => entity.relPath === item)?.name || item
+      : item.replace(/^\[.*\]\.\[(.*)\]$/, "$1").replace(/^\[|\]$/g, "");
   return (
     <Dialog open={open} onOpenChange={(val) => !isSubmitting && onOpenChange(val)}>
       <DialogContent className="entity-wizard flex h-[84vh] max-w-5xl flex-col gap-0 p-0">
@@ -407,10 +465,25 @@ export function CreateModelEntityWizard({
               
               {step === 1 && (
                 <Tabs value={creationMode} onValueChange={(v) => setValue("creationMode", v === "from-source" ? "from-source" : "manual")}>
-                    <TabsList className="entity-wizard__mode-switch mb-4">
-                        <TabsTrigger className="entity-wizard__mode-trigger" value="manual">Manual Creation</TabsTrigger>
-                        <TabsTrigger className="entity-wizard__mode-trigger" value="from-source">Import from Source</TabsTrigger>
-                    </TabsList>
+                    <div className="mb-4 flex items-center gap-3">
+                      <TabsList className="entity-wizard__mode-switch">
+                          <TabsTrigger className="entity-wizard__mode-trigger" value="manual">Manual Creation</TabsTrigger>
+                          <TabsTrigger className="entity-wizard__mode-trigger" value="from-source">Import from Source</TabsTrigger>
+                      </TabsList>
+                      {creationMode === "from-source" ? (
+                        <Tabs
+                          value={selectedSourceKind}
+                          onValueChange={(val) =>
+                            setValue("selectedSourceKind", val === "internal" ? "internal" : "external")
+                          }
+                        >
+                          <TabsList className="entity-wizard__submode-switch">
+                            <TabsTrigger className="entity-wizard__submode-trigger" value="external">External</TabsTrigger>
+                            <TabsTrigger className="entity-wizard__submode-trigger" value="internal">Internal</TabsTrigger>
+                          </TabsList>
+                        </Tabs>
+                      ) : null}
+                    </div>
                     
                     <TabsContent value="manual" className="entity-wizard__tabs-content space-y-4">
                          <div className="grid grid-cols-2 gap-6">
@@ -470,6 +543,8 @@ export function CreateModelEntityWizard({
                     </TabsContent>
 
                     <TabsContent value="from-source" className="entity-wizard__tabs-content space-y-4">
+                        {selectedSourceKind === "external" ? (
+                          <>
                         <div className="space-y-2">
                             <Label>Source System *</Label>
                             <Controller
@@ -581,6 +656,89 @@ export function CreateModelEntityWizard({
                                 )}
                             </div>
                         ) : null}
+                          </>
+                        ) : (
+                          <div className="codex-popup-section entity-wizard__panel space-y-4 p-4">
+                            <div className="flex items-center justify-between pt-2">
+                              <Label>Available Internal Entities</Label>
+                              <div className="relative w-48">
+                                <Input
+                                  placeholder="Search entities..."
+                                  className="h-9"
+                                  value={tableSearch}
+                                  onChange={(e) => setTableSearch(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <ScrollArea className="codex-popup-scroll h-[220px]">
+                              <div className="p-2 space-y-1">
+                                {internalEntityRows
+                                  .filter(({ entity, zoneLabel, folderPath }) =>
+                                    entity.name.toLowerCase().includes(tableSearch.toLowerCase()) ||
+                                    entity.relPath.toLowerCase().includes(tableSearch.toLowerCase()) ||
+                                    zoneLabel.toLowerCase().includes(tableSearch.toLowerCase()) ||
+                                    folderPath.toLowerCase().includes(tableSearch.toLowerCase()),
+                                  )
+                                  .map(({ entity, zoneLabel, folderPath }) => (
+                                    <div
+                                      key={entity.relPath}
+                                      className="flex items-center space-x-2 rounded-md p-2 transition-colors hover:bg-foreground/6"
+                                    >
+                                      <Checkbox
+                                        checked={selectedInternalEntities.includes(entity.relPath)}
+                                        onCheckedChange={(checked) => {
+                                          const current = selectedInternalEntities;
+                                          if (checked) {
+                                            setValue("selectedInternalEntities", [...current, entity.relPath]);
+                                            setValue("tableDescriptions", {
+                                              ...tableDescriptions,
+                                              [entity.relPath]: entity.content?.description || "",
+                                            });
+                                            setValue("tableProperties", {
+                                              ...tableProperties,
+                                              [entity.relPath]: Array.isArray(entity.content?.properties)
+                                                ? entity.content.properties.map((prop: any) => ({
+                                                    property: typeof prop?.property === "string" ? prop.property : "",
+                                                    value: typeof prop?.value === "string" ? prop.value : "",
+                                                  }))
+                                                : [],
+                                            });
+                                          } else {
+                                            setValue(
+                                              "selectedInternalEntities",
+                                              current.filter((item) => item !== entity.relPath),
+                                            );
+                                            if (Object.prototype.hasOwnProperty.call(tableDescriptions, entity.relPath)) {
+                                              const next = { ...tableDescriptions };
+                                              delete next[entity.relPath];
+                                              setValue("tableDescriptions", next);
+                                            }
+                                            if (Object.prototype.hasOwnProperty.call(tableProperties, entity.relPath)) {
+                                              const next = { ...tableProperties };
+                                              delete next[entity.relPath];
+                                              setValue("tableProperties", next);
+                                            }
+                                          }
+                                        }}
+                                      />
+                                      <Label className="text-sm font-normal cursor-pointer flex-1">
+                                        <div>{entity.name}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          Zone: {zoneLabel} | Folder: {folderPath || "-"}
+                                        </div>
+                                      </Label>
+                                    </div>
+                                  ))}
+                              </div>
+                            </ScrollArea>
+                            <div className="text-xs text-muted-foreground">
+                              {selectedInternalEntities.length} entities selected.
+                            </div>
+                            {errors.selectedInternalEntities ? (
+                              <p className="text-destructive text-xs">{errors.selectedInternalEntities.message}</p>
+                            ) : null}
+                          </div>
+                        )}
 
                     </TabsContent>
                 </Tabs>
@@ -811,32 +969,33 @@ export function CreateModelEntityWizard({
                   <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <Label className="text-base">Review Entities</Label>
-                        <span className="text-sm text-muted-foreground">{selectedTables.length} tables selected</span>
+                        <span className="text-sm text-muted-foreground">{selectedImportItems.length} selected</span>
                       </div>
                       
                       <div className="codex-popup-section entity-wizard__panel overflow-hidden">
                           <Table>
                               <TableHeader>
                                   <TableRow>
-                                      <TableHead>Source Table</TableHead>
+                                      <TableHead>{selectedSourceKind === "internal" ? "Source Entity" : "Source Table"}</TableHead>
                                       <TableHead>Entity Name</TableHead>
                                       <TableHead className="w-[50px]"></TableHead>
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
-                                  {selectedTables.map((table) => {
-                                      const isDup = duplicates.has(table);
+                                  {selectedImportItems.map((item) => {
+                                      const isDup = duplicates.has(item);
+                                      const itemLabel = getImportItemLabel(item);
                                       return (
-                                      <TableRow key={table}>
-                                          <TableCell className="align-top py-3">{table}</TableCell>
+                                      <TableRow key={item}>
+                                          <TableCell className="align-top py-3">{itemLabel}</TableCell>
                                           <TableCell className="align-top py-3">
                                               <div className="space-y-1">
                                                 <Input 
-                                                    defaultValue={tableRenames[table] || table.replace(/^\[.*\]\.\[(.*)\]$/, "$1").replace(/^\[|\]$/g, "")}
+                                                    defaultValue={tableRenames[item] || itemLabel}
                                                     className={isDup ? "border-destructive" : ""}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
-                                                        setValue("tableRenames", { ...tableRenames, [table]: val });
+                                                        setValue("tableRenames", { ...tableRenames, [item]: val });
                                                     }}
                                                 />
                                                 {isDup && (
@@ -852,15 +1011,22 @@ export function CreateModelEntityWizard({
                                                   variant="ghost" 
                                                   size="icon"
                                                   onClick={() => {
-                                                    setValue("selectedTables", selectedTables.filter(t => t !== table));
-                                                    if (Object.prototype.hasOwnProperty.call(tableDescriptions, table)) {
+                                                    if (selectedSourceKind === "internal") {
+                                                      setValue(
+                                                        "selectedInternalEntities",
+                                                        selectedInternalEntities.filter((entry) => entry !== item),
+                                                      );
+                                                    } else {
+                                                      setValue("selectedTables", selectedTables.filter((entry) => entry !== item));
+                                                    }
+                                                    if (Object.prototype.hasOwnProperty.call(tableDescriptions, item)) {
                                                       const next = { ...tableDescriptions };
-                                                      delete next[table];
+                                                      delete next[item];
                                                       setValue("tableDescriptions", next);
                                                     }
-                                                    if (Object.prototype.hasOwnProperty.call(tableProperties, table)) {
+                                                    if (Object.prototype.hasOwnProperty.call(tableProperties, item)) {
                                                       const next = { ...tableProperties };
-                                                      delete next[table];
+                                                      delete next[item];
                                                       setValue("tableProperties", next);
                                                     }
                                                   }}

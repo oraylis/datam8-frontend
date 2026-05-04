@@ -19,9 +19,10 @@ describe("wizard schema folder selection rules", () => {
     }
   });
 
-  it("requires folderPath, selectedSource and selectedTables for from-source mode", () => {
+  it("requires folderPath, selectedSource and selectedTables for external from-source mode", () => {
     const result = wizardSchema.safeParse({
       creationMode: "from-source",
+      selectedSourceKind: "external",
       folderPath: "",
       selectedSource: "",
       selectedTables: [],
@@ -36,6 +37,24 @@ describe("wizard schema folder selection rules", () => {
       expect(messages).toContain("folderPath:Folder is required");
       expect(messages).toContain("selectedSource:Source is required");
       expect(messages).toContain("selectedTables:Select at least one table");
+    }
+  });
+
+  it("requires selectedInternalEntities for internal from-source mode", () => {
+    const result = wizardSchema.safeParse({
+      creationMode: "from-source",
+      selectedSourceKind: "internal",
+      folderPath: "ZoneA/ProductA",
+      selectedInternalEntities: [],
+      sources: [],
+      attributes: [],
+      relationships: [],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((issue) => `${issue.path.join(".")}:${issue.message}`);
+      expect(messages).toContain("selectedInternalEntities:Select at least one entity");
     }
   });
 });

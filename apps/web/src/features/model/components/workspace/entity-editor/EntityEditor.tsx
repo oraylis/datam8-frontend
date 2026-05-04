@@ -892,6 +892,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   currentEntityAttributeNames={currentEntityAttributeNames}
                   onAdoptExternalSourceSchema={adoptExternalSourceSchema}
                   onDeleteSource={() => persistAfterStateFlush("delete-item")}
+                  onSourcePropertyChange={() => persistAfterStateFlush("delete-item")}
                 />
               )}
               {entitySection === "relationships" && (

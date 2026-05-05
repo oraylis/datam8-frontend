@@ -14,6 +14,7 @@ import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
 import { ExternalSourceConfigurator } from "../../wizard/SourceRow";
+import { resolveSourceOverride } from "../../wizard/sourceOverride";
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
 
 export type EntitySourcesEditorHandle = {
@@ -726,6 +727,12 @@ const ExternalSourceCard = ({
             onCancel={() => setShowBrowser(false)}
             onTableSelected={(table, meta) => {
               updateSource(index, (s) => {
+                const resolved = resolveSourceOverride({
+                  sourceOverride: meta?.sourceOverride,
+                  fallbackDataSource: s.dataSource,
+                  fallbackLocation: table,
+                  dataSources: dataSourceOptions,
+                });
                 const mapping =
                   meta?.columns?.map((col: any) => {
                     const sourceDataType = normalizeDataTypeForSave({
@@ -741,7 +748,8 @@ const ExternalSourceCard = ({
                   }) || s.mapping;
                 return {
                   ...s,
-                  sourceLocation: table,
+                  dataSource: resolved.dataSource,
+                  sourceLocation: resolved.sourceLocation,
                   mapping,
                   __uiExternalMeta: meta || s.__uiExternalMeta,
                 };

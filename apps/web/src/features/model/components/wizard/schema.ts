@@ -5,6 +5,11 @@ export const propertySchema = z.object({
   value: z.string(),
 });
 
+const sourceOverrideSchema = z.object({
+  dataSource: z.string().optional(),
+  sourceLocation: z.string().optional(),
+});
+
 // We make the base fields looser to support different modes validation
 export const step1Schema = z.object({
   creationMode: z.enum(["manual", "from-source"]).default("manual"),
@@ -30,6 +35,7 @@ export const step1Schema = z.object({
   tableRenames: z.record(z.string()).optional(),
   tableDescriptions: z.record(z.string()).optional(),
   tableProperties: z.record(z.array(propertySchema)).optional(),
+  tableSourceOverrides: z.record(sourceOverrideSchema).optional(),
 });
 
 export const sourceSchema = z

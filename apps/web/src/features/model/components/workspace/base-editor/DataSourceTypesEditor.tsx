@@ -11,6 +11,7 @@ import { refresh, useConnectorCatalog, type ConnectorSummary } from "../../../..
 import { apiBase } from "../../../../../config";
 import { readBackendErrorMessage } from "../../../../../shared/api/errorMessage";
 import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
+import { pruneConnectionPropertiesForConnector } from "./dataSourceConnectionProperties";
 
 const DEFAULT_CONNECTOR_TYPE_MAPPING = [{ sourceType: "string", targetType: "string" }];
 
@@ -182,7 +183,10 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
           const nextDataSources = dataSources.map((ds: any) => {
             const sourceTypeName = `${ds?.type || ds?.dataSourceType || ""}`.trim();
             if (!sourceTypeName || sourceTypeName !== current.name) return ds;
-            return { ...ds, extendedProperties: {} };
+            return {
+              ...ds,
+              extendedProperties: pruneConnectionPropertiesForConnector(ds?.extendedProperties, connectionProperties),
+            };
           });
           return { ...(content || {}), dataSources: nextDataSources };
         });

@@ -145,11 +145,17 @@ export type ColumnMetadata = {
   properties?: PropertyAssignment[];
 };
 
+export type SourceOverride = {
+  dataSource?: string;
+  sourceLocation?: string;
+};
+
 export type TableMetadata = {
   schema: string;
   name: string;
   type: "BASE TABLE" | "VIEW";
   description?: string;
+  sourceOverride?: SourceOverride;
   columns: ColumnMetadata[];
 };
 

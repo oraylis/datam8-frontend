@@ -48,6 +48,8 @@ import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
 import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 import { SourceTablePreviewDialog } from "./wizard/SourceTablePreviewDialog";
 import type { SourcePreviewTableRef } from "./wizard/sourcePreview";
+import { toSourceOverride } from "./wizard/sourceOverride";
+import type { SourceOverride } from "../model-types";
 
 // --- Main Component ---
 
@@ -61,6 +63,13 @@ const normalizeFolderPath = (path: string) =>
   (path || "").split(/[\\/]/).join("/").replace(/^\/+|\/+$/g, "");
 
 type TablePropertyAssignment = { property: string; value: string };
+type AvailableSourceTable = {
+  name: string;
+  schema?: string;
+  description?: string;
+  properties?: TablePropertyAssignment[];
+  sourceOverride?: SourceOverride;
+};
 
 function toPropertyAssignments(input: unknown): TablePropertyAssignment[] {
   if (!Array.isArray(input)) return [];
@@ -73,6 +82,18 @@ function toPropertyAssignments(input: unknown): TablePropertyAssignment[] {
       return { property, value };
     })
     .filter((entry): entry is TablePropertyAssignment => entry !== null);
+}
+
+function toImportableEntityProperties(
+  properties: TablePropertyAssignment[] | undefined,
+  knownPropertyNames: Set<string>,
+) {
+  return (properties || []).filter((entry) => {
+    const propertyName = `${entry?.property || ""}`.trim();
+    if (!propertyName) return false;
+    if (propertyName.startsWith("odcs.")) return false;
+    return knownPropertyNames.has(propertyName);
+  });
 }
 
 export function CreateModelEntityWizard({
@@ -96,9 +117,7 @@ export function CreateModelEntityWizard({
   const [step, setStep] = useState(1);
   
   // Bulk Mode States
-  const [availableTables, setAvailableTables] = useState<
-    Array<{ name: string; schema?: string; description?: string; properties?: TablePropertyAssignment[] }>
-  >([]);
+  const [availableTables, setAvailableTables] = useState<AvailableSourceTable[]>([]);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -156,6 +175,7 @@ export function CreateModelEntityWizard({
       tableRenames: {},
       tableDescriptions: {},
       tableProperties: {},
+      tableSourceOverrides: {},
     }),
     [],
   );
@@ -219,6 +239,12 @@ export function CreateModelEntityWizard({
   const tableDescriptions = useMemo(() => watchedTableDescriptions || {}, [watchedTableDescriptions]);
   const watchedTableProperties = watch("tableProperties");
   const tableProperties = useMemo(() => watchedTableProperties || {}, [watchedTableProperties]);
+  const watchedTableSourceOverrides = watch("tableSourceOverrides");
+  const tableSourceOverrides = useMemo(() => watchedTableSourceOverrides || {}, [watchedTableSourceOverrides]);
+  const knownPropertyNames = useMemo(
+    () => new Set((propertyOptions || []).map((entry) => `${entry?.name || ""}`.trim()).filter(Boolean)),
+    [propertyOptions],
+  );
   const duplicates = useMemo(() => {
     if (creationMode !== "from-source" || !watchedFolderPath) return new Set<string>();
 
@@ -280,6 +306,7 @@ export function CreateModelEntityWizard({
                 schema: typeof item?.schema === "string" ? item.schema : undefined,
                 description: typeof item?.description === "string" ? item.description : undefined,
                 properties: toPropertyAssignments(item?.properties),
+                sourceOverride: toSourceOverride(item?.sourceOverride),
               })),
             );
         } catch (err) {
@@ -612,8 +639,14 @@ export function CreateModelEntityWizard({
                                                                   });
                                                                   setValue("tableProperties", {
                                                                     ...tableProperties,
-                                                                    [uniqueName]: table.properties || [],
+                                                                    [uniqueName]: toImportableEntityProperties(table.properties, knownPropertyNames),
                                                                   });
+                                                                  if (table.sourceOverride) {
+                                                                    setValue("tableSourceOverrides", {
+                                                                      ...tableSourceOverrides,
+                                                                      [uniqueName]: table.sourceOverride,
+                                                                    });
+                                                                  }
                                                                 } else {
                                                                   setValue("selectedTables", current.filter(t => t !== uniqueName));
                                                                   if (Object.prototype.hasOwnProperty.call(tableDescriptions, uniqueName)) {
@@ -625,6 +658,11 @@ export function CreateModelEntityWizard({
                                                                     const next = { ...tableProperties };
                                                                     delete next[uniqueName];
                                                                     setValue("tableProperties", next);
+                                                                  }
+                                                                  if (Object.prototype.hasOwnProperty.call(tableSourceOverrides, uniqueName)) {
+                                                                    const next = { ...tableSourceOverrides };
+                                                                    delete next[uniqueName];
+                                                                    setValue("tableSourceOverrides", next);
                                                                   }
                                                                 }
                                                             }}
@@ -1028,6 +1066,11 @@ export function CreateModelEntityWizard({
                                                       const next = { ...tableProperties };
                                                       delete next[item];
                                                       setValue("tableProperties", next);
+                                                    }
+                                                    if (Object.prototype.hasOwnProperty.call(tableSourceOverrides, item)) {
+                                                      const next = { ...tableSourceOverrides };
+                                                      delete next[item];
+                                                      setValue("tableSourceOverrides", next);
                                                     }
                                                   }}
                                               >

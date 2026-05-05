@@ -5,10 +5,11 @@ import { Trash2, Loader2 } from "lucide-react";
 import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import type { PropertyAssignment } from "@datam8/types";
-import type { ModelEntity, TableMetadata } from "../../model-types";
+import type { ModelEntity, SourceOverride, TableMetadata } from "../../model-types";
 import type { WizardFormValues } from "./schema";
 import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
 import type { SourcePreviewTableRef } from "./sourcePreview";
+import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -26,6 +27,9 @@ type WizardDataSource = {
 type WizardZone = { name: string; displayName: string; localFolderName: string; targetName: string };
 
 type HttpError = Error & { status?: number };
+type SourceTableListItem = SourcePreviewTableRef & {
+  sourceOverride?: SourceOverride;
+};
 
 function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined {
   if (!Array.isArray(input)) return undefined;
@@ -60,12 +64,12 @@ export const ExternalSourceConfigurator = ({
 }) => {
   const [httpSourceLocation, setHttpSourceLocation] = useState(selectedTable || "");
 
-  const [tables, setTables] = useState<Array<{ schema?: string; name: string; type?: string }>>([]);
+  const [tables, setTables] = useState<SourceTableListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<TableMetadata | null>(null);
   const [tableSearch, setTableSearch] = useState("");
-  const [selectedTableRef, setSelectedTableRef] = useState<SourcePreviewTableRef | null>(null);
+  const [selectedTableRef, setSelectedTableRef] = useState<SourceTableListItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
 
@@ -115,7 +119,14 @@ export const ExternalSourceConfigurator = ({
         err.status = res.status;
         throw err;
       }
-      setTables(Array.isArray((data as { items?: unknown[] }).items) ? ((data as { items: Array<{ schema?: string; name: string; type?: string }> }).items) : []);
+      const items = Array.isArray((data as { items?: unknown[] }).items) ? (data as { items: Array<any> }).items : [];
+      setTables(
+        items.map((item) => ({
+          schema: typeof item?.schema === "string" ? item.schema : undefined,
+          name: `${item?.name || ""}`,
+          sourceOverride: toSourceOverride(item?.sourceOverride),
+        })),
+      );
     } catch (err) {
       const typedError = err as HttpError;
       const status = typedError?.status;
@@ -128,7 +139,7 @@ export const ExternalSourceConfigurator = ({
     }
   };
 
-  const fetchMetadata = async (tableRef: { schema?: string; name: string }) => {
+  const fetchMetadata = async (tableRef: SourceTableListItem) => {
     if (!dataSource) return;
     setLoading(true);
     setError(null);
@@ -149,6 +160,7 @@ export const ExternalSourceConfigurator = ({
         name: tableRef.name,
         type: "BASE TABLE",
         description: typeof (data as any)?.description === "string" ? (data as any).description : undefined,
+        sourceOverride: tableRef.sourceOverride,
         columns: columns.map((col: any) => ({
           name: `${col?.name || ""}`,
           ordinal: Number(col?.ordinal || 0),
@@ -509,7 +521,14 @@ export const SourceRow = ({
               solutionPath={solutionPath}
               selectedTable={currentTable}
               onTableSelected={(table, meta) => {
-                setValue(`sources.${index}.sourceLocation`, table);
+                const resolved = resolveSourceOverride({
+                  sourceOverride: meta.sourceOverride,
+                  fallbackDataSource: currentDataSourceName,
+                  fallbackLocation: table,
+                  dataSources,
+                });
+                setValue(`sources.${index}.dataSource`, resolved.dataSource);
+                setValue(`sources.${index}.sourceLocation`, `${resolved.sourceLocation || ""}`);
                 setValue(`sources.${index}.metadata`, meta);
                 onSetMetadata(index, meta);
               }}

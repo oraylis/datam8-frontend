@@ -16,6 +16,7 @@ import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
 import { createModelEntityByRelPath } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
+import { resolveSourceOverride } from "./sourceOverride";
 
 type SubmitDeps = {
   modelEntities: ModelEntity[];
@@ -300,16 +301,25 @@ export function useWizardSubmit(deps: SubmitDeps) {
               const metadata = (isRecord(src) ? (src.metadata as TableMetadata | undefined) : undefined) || undefined;
               const dsObj = dataSources.find((entry) => entry.name === src.dataSource) || null;
               const isHttp = dsObj?.connectorId === "http-api";
-              let formattedLocation = src.sourceLocation;
+              let formattedLocation: string | number | undefined = src.sourceLocation;
               let mapping: MappedSourceMapping[] = [];
+              let sourceDataSource = src.dataSource;
 
               if (metadata) {
                 formattedLocation = isHttp ? src.sourceLocation : `[${metadata.schema}].[${metadata.name}]`;
                 mapping = toMappedSourceColumns(metadata);
+                const override = resolveSourceOverride({
+                  sourceOverride: metadata.sourceOverride,
+                  fallbackDataSource: src.dataSource,
+                  fallbackLocation: formattedLocation,
+                  dataSources,
+                });
+                sourceDataSource = override.dataSource;
+                formattedLocation = override.sourceLocation;
               }
 
               const externalSource: MappedSource = {
-                dataSource: src.dataSource,
+                dataSource: sourceDataSource,
                 sourceLocation: formattedLocation,
               };
               if (src.sourceAlias) externalSource.sourceAlias = src.sourceAlias;
@@ -427,11 +437,20 @@ export function useWizardSubmit(deps: SubmitDeps) {
 
               const typeName = (dsObj?.type || "").toLowerCase();
               const isHttp = dsObj?.connectorId === "http-api" || typeName.includes("http") || typeName.includes("api");
-              const formattedLocation = isHttp ? tableName : `[${metadata.schema}].[${metadata.name}]`;
+              const defaultLocation = isHttp ? tableName : `[${metadata.schema}].[${metadata.name}]`;
+              const sourceOverride = values.tableSourceOverrides?.[tableName] || metadata.sourceOverride;
+              const resolvedOverride = resolveSourceOverride({
+                sourceOverride,
+                fallbackDataSource: selectedSource,
+                fallbackLocation: defaultLocation,
+                dataSources,
+              });
+              const sourceDataSource = resolvedOverride.dataSource || selectedSource;
+              const formattedLocation = resolvedOverride.sourceLocation || defaultLocation;
               const mapping = toMappedSourceColumns(metadata);
 
               const source: MappedSource = {
-                dataSource: selectedSource,
+                dataSource: sourceDataSource,
                 sourceLocation: formattedLocation,
                 mapping,
               };

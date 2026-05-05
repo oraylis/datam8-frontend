@@ -6,11 +6,11 @@ describe("pruneConnectionPropertiesForConnector", () => {
     expect(
       pruneConnectionPropertiesForConnector(
         {
-          authMode: "bitbucket_server_bearer_token",
-          bitbucket_base_url: "https://bitbucket.united-internet.org/rest/api/1.0",
-          project_key: "DATAB",
-          repo_slug: "data-platform-shared",
-          bearer_token: "ref://datasources/telecom/bearer_token",
+          authMode: "vcs_server_bearer_token",
+          bitbucket_base_url: "https://example.org/rest/api/1.0",
+          project_key: "PROJECT_X",
+          repo_slug: "shared-repository",
+          bearer_token: "ref://datasources/example-source/bearer_token",
           port: 1433,
           encrypt: true,
         },
@@ -23,11 +23,11 @@ describe("pruneConnectionPropertiesForConnector", () => {
         ],
       ),
     ).toEqual({
-      authMode: "bitbucket_server_bearer_token",
-      bitbucket_base_url: "https://bitbucket.united-internet.org/rest/api/1.0",
-      project_key: "DATAB",
-      repo_slug: "data-platform-shared",
-      bearer_token: "ref://datasources/telecom/bearer_token",
+      authMode: "vcs_server_bearer_token",
+      bitbucket_base_url: "https://example.org/rest/api/1.0",
+      project_key: "PROJECT_X",
+      repo_slug: "shared-repository",
+      bearer_token: "ref://datasources/example-source/bearer_token",
     });
   });
 });

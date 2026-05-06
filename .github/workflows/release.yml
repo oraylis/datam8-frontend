@@ -135,7 +135,7 @@ jobs:
             throw "Release directory not found: $releaseDir"
           }
 
-          $patterns = @("*.exe", "*.dll", "*.node")
+          $patterns = @("*.exe")
           $signableFiles = @()
           foreach ($pattern in $patterns) {
             $signableFiles += Get-ChildItem -Path $releaseDir -Recurse -File -Filter $pattern
@@ -143,30 +143,55 @@ jobs:
           $signableFiles = @($signableFiles | Sort-Object -Property FullName -Unique)
 
           if (!$signableFiles -or $signableFiles.Count -eq 0) {
-            throw "No signable files (*.exe, *.dll, *.node) found under $releaseDir"
+            throw "No signable files (*.exe) found under $releaseDir"
           }
 
           $signablePaths = @($signableFiles | ForEach-Object { $_.FullName })
           Write-Host "Signing $($signablePaths.Count) binary file(s)..."
+          $timestampUrls = @(
+            "https://timestamp.digicert.com",
+            "http://timestamp.digicert.com"
+          )
+          $maxAttemptsPerUrl = 3
+          $signed = $false
 
-          AzureSignTool sign `
-            -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
-            -kvu ${{ secrets.AZURE_KEY_VAULT_URL }} `
-            -kvi ${{ secrets.AZURE_KEY_VAULT_ID }} `
-            -kvs ${{ secrets.AZURE_KEY_VAULT_SECRET }} `
-            -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
-            -fd sha256 `
-            -td sha256 `
-            -tr https://timestamp.digicert.com `
-            -v `
-            @signablePaths
+          foreach ($timestampUrl in $timestampUrls) {
+            for ($attempt = 1; $attempt -le $maxAttemptsPerUrl; $attempt++) {
+              Write-Host "Signing attempt $attempt/$maxAttemptsPerUrl with timestamp URL: $timestampUrl"
+              try {
+                AzureSignTool sign `
+                  -kvt ${{ secrets.AZURE_KEY_VAULT_TENANT }} `
+                  -kvu ${{ secrets.AZURE_KEY_VAULT_URL }} `
+                  -kvi ${{ secrets.AZURE_KEY_VAULT_ID }} `
+                  -kvs ${{ secrets.AZURE_KEY_VAULT_SECRET }} `
+                  -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
+                  -fd sha256 `
+                  -td sha256 `
+                  -tr $timestampUrl `
+                  -v `
+                  @signablePaths
+                $signed = $true
+                break
+              } catch {
+                Write-Warning "Signing attempt failed: $($_.Exception.Message)"
+                if ($attempt -lt $maxAttemptsPerUrl) {
+                  Start-Sleep -Seconds (5 * $attempt)
+                }
+              }
+            }
+            if ($signed) { break }
+          }
+
+          if (-not $signed) {
+            throw "AzureSignTool failed after retries across all timestamp URLs."
+          }
 
       - name: Verify Windows binary signatures
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $releaseDir = Join-Path $env:GITHUB_WORKSPACE "apps/desktop/release"
-          $patterns = @("*.exe", "*.dll", "*.node")
+          $patterns = @("*.exe")
           $signableFiles = @()
           foreach ($pattern in $patterns) {
             $signableFiles += Get-ChildItem -Path $releaseDir -Recurse -File -Filter $pattern
@@ -174,7 +199,7 @@ jobs:
           $signableFiles = @($signableFiles | Sort-Object -Property FullName -Unique)
 
           if (!$signableFiles -or $signableFiles.Count -eq 0) {
-            throw "No signable files (*.exe, *.dll, *.node) found for signature verification under $releaseDir"
+            throw "No signable files (*.exe) found for signature verification under $releaseDir"
           }
 
           $invalid = @()

@@ -282,7 +282,7 @@ test("stores connector binding in DataSourceType.connectionProperties (Variant A
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
   });
 
-  const { entityWrites } = await mockApi(page, counters, {
+  await mockApi(page, counters, {
     solutionPayload,
     connectors: [
       {
@@ -443,7 +443,7 @@ test("switching auth modes updates auth.mode and clears fields not in the select
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
   });
 
-  await mockApi(page, counters, {
+  const { entityWrites } = await mockApi(page, counters, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } } }],
     uiSchemasById: {
@@ -481,14 +481,17 @@ test("switching auth modes updates auth.mode and clears fields not in the select
 
   await expect(page.getByText("Username *")).toBeVisible();
   await expect(page.getByText("Tenant ID")).toBeHidden();
+  await page.locator('label:has-text("Username")').locator("..").locator("input").fill("legacy-user");
 
   await page.locator('label:has-text("Authentication")').locator("..").locator('button[role=\"combobox\"]').click();
   await page.getByRole("option", { name: "Azure AD (Client Credentials)" }).click();
 
   await expect(page.getByText("Tenant ID")).toBeVisible();
   await expect(page.getByText("Username")).toBeHidden();
-
-  await expect(page.getByText("Tenant ID")).toBeVisible();
+  await page.locator('label:has-text("Authentication")').locator("..").locator('button[role=\"combobox\"]').click();
+  await page.getByRole("option", { name: "Username/Password" }).click();
+  await expect(page.getByText("Username *")).toBeVisible();
+  await expect(page.locator('label:has-text("Username")').locator("..").locator("input")).toHaveValue("");
 });
 
 test("missing connector shows warning + read-only values", async ({ page }) => {

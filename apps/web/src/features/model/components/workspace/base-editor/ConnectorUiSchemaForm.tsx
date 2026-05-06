@@ -21,6 +21,16 @@ function asString(v: unknown): string {
   return typeof v === "string" ? v : String(v);
 }
 
+function shallowEqualObject(a: Record<string, any>, b: Record<string, any>): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
 function readAuthMode(value: Record<string, any> | undefined): string {
   const direct = asString(value?.authMode);
   if (direct) return direct;
@@ -136,28 +146,53 @@ export function ConnectorUiSchemaForm(props: {
   const selectedMode = useMemo(() => {
     if (!schema?.authModes?.length) return "";
     const raw = readAuthMode(value);
-    if (raw && schema.authModes.some((m) => m.id === raw)) return raw;
+    if (raw) return raw;
     return schema.authModes[0]?.id || "";
   }, [schema?.authModes, value]);
+  const isSelectedModeValid = useMemo(
+    () => !!selectedMode && !!schema?.authModes?.some((m) => m.id === selectedMode),
+    [schema?.authModes, selectedMode],
+  );
+
+  const normalizeValueForMode = useCallback(
+    (modeId: string, sourceValue: Record<string, any> | undefined): Record<string, any> => {
+      if (!schema?.authModes?.length) return { ...(sourceValue || {}) };
+      const mode = schema.authModes.find((m) => m.id === modeId) || schema.authModes[0];
+      if (!mode || mode.id !== modeId) return { ...(sourceValue || {}) };
+
+      const allowedKeys = new Set((mode.fields || []).map((field) => field.key));
+      const next: Record<string, any> = {};
+      for (const [key, fieldValue] of Object.entries(sourceValue || {})) {
+        if (key === "authMode" || allowedKeys.has(key)) {
+          next[key] = fieldValue;
+        }
+      }
+      next.authMode = mode.id;
+      delete next["auth.mode"];
+      for (const field of mode.fields || []) {
+        if (field.type === "hidden") continue;
+        if (field.default && !asString(next[field.key]).trim()) {
+          next[field.key] = field.default;
+        }
+      }
+      return next;
+    },
+    [schema],
+  );
 
   useEffect(() => {
     if (!schema?.authModes?.length) return;
-    const mode = schema.authModes.find((m) => m.id === selectedMode) || schema.authModes[0];
-    if (!mode) return;
-    const next: Record<string, any> = { ...(value || {}), authMode: mode.id };
-    delete next["auth.mode"];
-    for (const field of mode.fields || []) {
-      if (field.type === "hidden") continue;
-      if (field.default && !asString(next[field.key]).trim()) {
-        next[field.key] = field.default;
-      }
-    }
-    onChange(next);
-  }, [schema, selectedMode]);
+    if (!isSelectedModeValid) return;
+    const current = value || {};
+    const normalized = normalizeValueForMode(selectedMode, current);
+    if (shallowEqualObject(normalized, current)) return;
+    onChange(normalized);
+  }, [schema, selectedMode, isSelectedModeValid, value, onChange, normalizeValueForMode]);
 
   const modeFields = useMemo(() => {
     if (!schema?.authModes?.length) return [];
     const mode = schema.authModes.find((m) => m.id === selectedMode) || schema.authModes[0];
+    if (!mode || mode.id !== selectedMode) return [];
     return (mode?.fields || []).filter(
       (f) => f.type !== "hidden" && f.key !== "authMode" && f.key !== "auth.mode",
     );
@@ -283,10 +318,18 @@ export function ConnectorUiSchemaForm(props: {
         <label>Authentication</label>
         <FormSelect
           value={selectedMode}
-          onChange={(modeId) => setValueKey("authMode", modeId)}
+          onChange={(modeId) => {
+            setValidationSummary(null);
+            onChange(normalizeValueForMode(modeId, value));
+          }}
           options={(schema.authModes || []).map((m) => ({ value: m.id, label: m.label || m.id }))}
-          allowUnknownValue={false}
+          allowUnknownValue
         />
+        {!isSelectedModeValid && selectedMode ? (
+          <div className="mt-1 text-xs text-destructive">
+            Authentication mode "{selectedMode}" is invalid for this connector schema.
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-3 form-grid">

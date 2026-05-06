@@ -155,7 +155,9 @@ jobs:
             -kvi ${{ secrets.AZURE_KEY_VAULT_ID }} `
             -kvs ${{ secrets.AZURE_KEY_VAULT_SECRET }} `
             -kvc ${{ secrets.AZURE_KEY_VAULT_NAME }} `
-            -tr http://timestamp.digicert.com `
+            -fd sha256 `
+            -td sha256 `
+            -tr https://timestamp.digicert.com `
             -v `
             @signablePaths
 
@@ -179,7 +181,12 @@ jobs:
           foreach ($file in $signableFiles) {
             $signature = Get-AuthenticodeSignature -FilePath $file.FullName
             if ($signature.Status -ne "Valid") {
-              $invalid += "$($file.FullName) => $($signature.Status)"
+              $statusMessage = $signature.StatusMessage
+              $signer = $signature.SignerCertificate
+              $signerSubject = if ($signer) { $signer.Subject } else { "<none>" }
+              $thumbprint = if ($signer) { $signer.Thumbprint } else { "<none>" }
+              $timestamp = if ($signature.TimeStamperCertificate) { $signature.TimeStamperCertificate.Subject } else { "<none>" }
+              $invalid += "$($file.FullName) => $($signature.Status) | $statusMessage | signer=$signerSubject | thumbprint=$thumbprint | timestamp=$timestamp"
             }
           }
 

@@ -16,7 +16,7 @@ import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
 import { createModelEntityByRelPath } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
-import { resolveSourceOverride } from "./sourceOverride";
+import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
 
 type SubmitDeps = {
   modelEntities: ModelEntity[];
@@ -196,6 +196,36 @@ function mapRelationship(rel: WizardRelationship, modelEntities: ModelEntity[]):
   };
 }
 
+function parseTableRef(table: string): { schema: string; name: string } {
+  let schema = "";
+  let tableName = table;
+  const bracketMatch = table.match(/^\[(.*?)\]\.\[(.*?)\]$/);
+  if (bracketMatch) {
+    schema = bracketMatch[1];
+    tableName = bracketMatch[2];
+  } else if (table.includes(".")) {
+    const parts = table.split(".");
+    if (parts.length === 2) {
+      schema = parts[0].replace(/^\[|\]$/g, "");
+      tableName = parts[1].replace(/^\[|\]$/g, "");
+    }
+  }
+  return { schema, name: tableName };
+}
+
+function sourceOverrideLookupKeys(tableRef: { schema: string; name: string }): string[] {
+  const keys = new Set<string>();
+  const schema = `${tableRef.schema || ""}`.trim();
+  const name = `${tableRef.name || ""}`.trim();
+  if (!name) return [];
+  if (schema) {
+    keys.add(`[${schema}].[${name}]`);
+    keys.add(`${schema}.${name}`);
+  }
+  keys.add(name);
+  return Array.from(keys);
+}
+
 export function useWizardSubmit(deps: SubmitDeps) {
   const {
     modelEntities,
@@ -215,20 +245,9 @@ export function useWizardSubmit(deps: SubmitDeps) {
 
   const fetchTableMetadata = useCallback(
     async (dataSource: string, table: string): Promise<TableMetadata> => {
-      let schema = "";
-      let tableName = table;
-
-      const bracketMatch = table.match(/^\[(.*?)\]\.\[(.*?)\]$/);
-      if (bracketMatch) {
-        schema = bracketMatch[1];
-        tableName = bracketMatch[2];
-      } else if (table.includes(".")) {
-        const parts = table.split(".");
-        if (parts.length === 2) {
-          schema = parts[0].replace(/^\[|\]$/g, "");
-          tableName = parts[1].replace(/^\[|\]$/g, "");
-        }
-      }
+      const parsedRef = parseTableRef(table);
+      const schema = parsedRef.schema;
+      const tableName = parsedRef.name;
 
       const endpoint = schema
         ? `${apiBase}/sources/${dataSource}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(tableName)}`
@@ -245,6 +264,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
         name: tableName,
         type: "BASE TABLE",
         description: typeof (payload as any)?.description === "string" ? (payload as any).description : undefined,
+        sourceOverride: toSourceOverride((payload as any)?.sourceOverride),
         columns: items.map((col) => ({
           name: `${col?.name || ""}`,
           ordinal: Number(col?.ordinal || 0),
@@ -415,6 +435,30 @@ export function useWizardSubmit(deps: SubmitDeps) {
             const sourceMappings = toDataTypeMappings(dsObj?.dataTypeMapping);
             const inheritedMappings = mergeInheritedDataTypeMappings(typeMappings, sourceMappings);
             const effectiveMappings = [...inheritedMappings, ...sourceMappings];
+            let listedOverridesByKey: Record<string, { dataSource?: string; sourceLocation?: string }> | null = null;
+
+            const ensureListedOverrides = async (): Promise<Record<string, { dataSource?: string; sourceLocation?: string }>> => {
+              if (listedOverridesByKey) return listedOverridesByKey;
+              const res = await fetch(`${apiBase}/sources/${selectedSource}/tables`, { method: "GET" });
+              if (!res.ok) {
+                const payload = await res.json().catch(() => ({}));
+                throw new Error(readBackendErrorMessage(payload, "Failed to load tables"));
+              }
+              const payload = (await res.json()) as { items?: Array<any> };
+              const items = Array.isArray(payload?.items) ? payload.items : [];
+              const byKey: Record<string, { dataSource?: string; sourceLocation?: string }> = {};
+              items.forEach((item) => {
+                const override = toSourceOverride(item?.sourceOverride);
+                const schema = typeof item?.schema === "string" ? item.schema : "";
+                const name = typeof item?.name === "string" ? item.name : "";
+                if (!override || !name) return;
+                sourceOverrideLookupKeys({ schema, name }).forEach((key) => {
+                  byKey[key] = override;
+                });
+              });
+              listedOverridesByKey = byKey;
+              return byKey;
+            };
 
             for (const tableName of values.selectedTables || []) {
               currentMaxId += 1;
@@ -438,7 +482,21 @@ export function useWizardSubmit(deps: SubmitDeps) {
               const typeName = (dsObj?.type || "").toLowerCase();
               const isHttp = dsObj?.connectorId === "http-api" || typeName.includes("http") || typeName.includes("api");
               const defaultLocation = isHttp ? tableName : `[${metadata.schema}].[${metadata.name}]`;
-              const sourceOverride = values.tableSourceOverrides?.[tableName] || metadata.sourceOverride;
+              let sourceOverride = values.tableSourceOverrides?.[tableName] || metadata.sourceOverride;
+              if (!sourceOverride) {
+                const listedOverrides = await ensureListedOverrides();
+                const parsedRef = parseTableRef(tableName);
+                const lookupKeys = sourceOverrideLookupKeys({
+                  schema: parsedRef.schema || metadata.schema,
+                  name: parsedRef.name || metadata.name,
+                });
+                for (const key of lookupKeys) {
+                  if (listedOverrides[key]) {
+                    sourceOverride = listedOverrides[key];
+                    break;
+                  }
+                }
+              }
               const resolvedOverride = resolveSourceOverride({
                 sourceOverride,
                 fallbackDataSource: selectedSource,

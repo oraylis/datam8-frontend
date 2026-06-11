@@ -218,6 +218,7 @@ export function ConnectorUiSchemaForm(props: {
           const available = await checkSecret(refPath);
           return { key: field.key, state: available ? ("available" as const) : ("missing" as const), error: null as string | null };
         } catch (err: any) {
+          console.error("[DataM8] Secret availability check failed:", err);
           return { key: field.key, state: "error" as const, error: err?.message || "Failed to check secret." };
         }
       });
@@ -268,6 +269,7 @@ export function ConnectorUiSchemaForm(props: {
       await validateDataSource(dataSourceName);
       setValidationSummary("Connection settings are valid.");
     } catch (err: any) {
+      console.error("[DataM8] Data source validation failed:", err);
       setValidationSummary(err?.message || "Validation failed.");
     }
   }, [dataSourceName]);
@@ -288,6 +290,7 @@ export function ConnectorUiSchemaForm(props: {
         setSecretDrafts((prev) => ({ ...prev, [key]: "" }));
         setSecretState((prev) => ({ ...prev, [key]: "available" }));
       } catch (err: any) {
+        console.error("[DataM8] Secret save failed:", err);
         setSecretError((prev) => ({ ...prev, [key]: err?.message || "Failed to save secret." }));
         setSecretState((prev) => ({ ...prev, [key]: "error" }));
       } finally {

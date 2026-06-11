@@ -128,6 +128,7 @@ export const ExternalSourceConfigurator = ({
         })),
       );
     } catch (err) {
+      console.error("[DataM8] Failed to list tables:", err);
       const typedError = err as HttpError;
       const status = typedError?.status;
       const message = typedError?.message || "Failed to list tables";
@@ -180,6 +181,7 @@ export const ExternalSourceConfigurator = ({
         onTableSelected(full, metadataValue);
       }
     } catch (err) {
+      console.error("[DataM8] Failed to fetch table metadata:", err);
       const typedError = err as HttpError;
       const status = typedError?.status;
       const message = typedError?.message || "Failed to fetch metadata";
@@ -228,6 +230,7 @@ export const ExternalSourceConfigurator = ({
         onTableSelected(httpSourceLocation, metadataValue);
       }
     } catch (err) {
+      console.error("[DataM8] Failed to fetch HTTP metadata:", err);
       const typedError = err as HttpError;
       const status = typedError?.status;
       const message = typedError?.message || "Failed to fetch HTTP metadata";

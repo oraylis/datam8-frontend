@@ -438,7 +438,12 @@ export function CreateModelEntityWizard({
 
   const filteredTables = useMemo(() => {
      if (!tableSearch) return availableTables;
-     return availableTables.filter(t => t.name.toLowerCase().includes(tableSearch.toLowerCase()));
+     const term = tableSearch.toLowerCase();
+     return availableTables.filter(t =>
+       t.name.toLowerCase().includes(term) ||
+       (t.schema ? t.schema.toLowerCase().includes(term) : false) ||
+       (t.schema ? `${t.schema}.${t.name}`.toLowerCase().includes(term) : false)
+     );
   }, [availableTables, tableSearch]);
   const internalEntityRows = useMemo(() => {
     const zoneByRoot = new Map<string, string>();

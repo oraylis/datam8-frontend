@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FormSelect, Input, Textarea } from "@datam8/ui";
+import { FormSelect, Input, Textarea, toast } from "@datam8/ui";
 import type { PropertyAssignment } from "@datam8/types";
 import { EditorPanelHeader } from "../common/EditorPanelHeader";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
@@ -215,8 +215,11 @@ export function FolderEditor({
       onDirtyChange?.(selectedFolderPath, false);
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 1200);
+      console.log(`[DataM8] Folder saved: ${selectedFolderPath}`);
+      toast({ variant: "success", title: "Saved", description: folderName, duration: 3500 });
       return true;
     } catch (err) {
+      console.error("[DataM8] Folder save failed:", err);
       setSaveStatus("error");
       setSaveError((err as Error).message || "Save failed.");
       onDirtyChange?.(selectedFolderPath, true);

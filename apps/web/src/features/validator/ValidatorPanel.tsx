@@ -59,7 +59,18 @@ export function ValidatorPanel({
 
       <CardContent className="min-h-0 flex flex-1 flex-col gap-3 pb-4">
         <div className="validator-panel__output min-h-0 flex-1 overflow-auto rounded-md border border-border/70 bg-background/60 p-3 font-mono text-[11px] text-foreground">
-          {messages.length ? (
+          {error ? (
+            <div className="space-y-1">
+              {messages.map((line, idx) => (
+                <div key={`${idx}-${line.slice(0, 32)}`} className="min-h-[1.2em] break-words">
+                  {line}
+                </div>
+              ))}
+              <div className="mt-2 break-words text-destructive">
+                <span className="font-semibold">Error: </span>{error}
+              </div>
+            </div>
+          ) : messages.length ? (
             <div className="space-y-1">
               {messages.map((line, idx) => (
                 <div key={`${idx}-${line.slice(0, 32)}`} className="min-h-[1.2em] break-words">
@@ -71,7 +82,7 @@ export function ValidatorPanel({
             <span className="text-muted-foreground">
               {running
                 ? "Validation running..."
-                : !error && resolvedSolutionPath
+                : resolvedSolutionPath
                   ? "Validation completed. No backend messages."
                   : "Run validation to check whether the loaded solution model is valid."}
             </span>

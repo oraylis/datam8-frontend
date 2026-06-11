@@ -441,12 +441,13 @@ export function AppShell() {
           ),
         );
         setTabDirty(nextEntity.relPath, "base", false);
+        console.log(`[DataM8] Base entity autosaved: ${nextEntity.relPath}`);
       } catch (err) {
         setTabDirty(relPath, "base", true);
         setBaseTabs((tabs) =>
           tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)),
         );
-        showAppError("Save failed", (err as Error).message);
+        showAppError("Save failed", (err as Error).message || "An unexpected error prevented the save. Please try again.");
       } finally {
         patchedBaseInFlightRef.current.delete(relPath);
         if (patchedBaseQueuedRef.current.has(relPath)) {
@@ -1538,13 +1539,13 @@ export function AppShell() {
       });
       if (!reloadResponse.ok) {
         const payload = await reloadResponse.json().catch(() => ({}));
-        const message =
-          typeof (payload as any)?.message === "string"
+        const serverMessage =
+          typeof (payload as any)?.message === "string" && (payload as any).message.trim()
             ? (payload as any).message
-            : typeof (payload as any)?.detail === "string"
+            : typeof (payload as any)?.detail === "string" && (payload as any).detail.trim()
               ? (payload as any).detail
-              : `Reload failed (${reloadResponse.status})`;
-        throw new Error(message);
+              : null;
+        throw new Error(serverMessage ?? "Failed to reload the model. The backend may have encountered an issue — try again or restart the app.");
       }
     } catch (err) {
       showAppError("Reload failed", (err as Error).message);
@@ -1901,7 +1902,17 @@ export function AppShell() {
 
       if (!response.ok) {
         setValidatorMessages(messages);
-        throw new Error(readValidateErrorMessage(payload, `Validation failed (${response.status}).`));
+        const validatorErrorMsg = (() => {
+          // Check status first — FastAPI's own 404 for a missing route always
+          // returns generic {"detail":"Not Found"} with no useful context.
+          if (response.status === 404) return "The Validate endpoint was not found. This feature may not be available in the current backend version. Check that the backend is up to date.";
+          if (response.status === 401 || response.status === 403) return "Access denied. Check your authentication settings.";
+          if (response.status >= 500) return "The backend encountered an internal error during validation. Please try again.";
+          const fromPayload = readValidateErrorMessage(payload, "");
+          if (fromPayload) return fromPayload;
+          return "Validation failed unexpectedly. Please try again.";
+        })();
+        throw new Error(validatorErrorMsg);
       }
 
       const resolvedPath = (payload as { solutionPath?: unknown }).solutionPath;
@@ -1911,13 +1922,13 @@ export function AppShell() {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred";
+      console.error("[DataM8] Validator run failed:", err);
       setValidatorError(message);
-      showAppError("Validator execution failed", message);
     } finally {
       validatorRunInFlightRef.current = false;
       setValidatorRunning(false);
     }
-  }, [generatorLogLevel, showAppError, solutionPath]);
+  }, [generatorLogLevel, solutionPath]);
 
   const handleToggleTheme = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -1935,7 +1946,7 @@ export function AppShell() {
       if (typeof title === "string" && title.trim()) {
         setWindowTitle(title);
       }
-    });
+    }).catch(() => {});
     const unsubscribe = desktopWindow?.onTitleChanged?.((title) => {
       setWindowTitle(title || "DataM8");
     });
@@ -1948,7 +1959,7 @@ export function AppShell() {
     if (!isWindowsElectron || !window.desktop?.menu?.getTopLevelLabels) return;
     void Promise.resolve(window.desktop.menu.getTopLevelLabels()).then((labels) => {
       setWindowMenuLabels(Array.isArray(labels) ? labels : []);
-    });
+    }).catch(() => {});
   }, [isWindowsElectron]);
 
   useEffect(() => {

@@ -140,7 +140,7 @@ export function GeneratorPanel({
           {log ? (
             <div className="space-y-1">
               {stripAnsi(log).split("\n").map((line, idx) => (
-                <div key={idx} className="text-foreground min-h-[1.2em]">
+                <div key={idx} className={cn("min-h-[1.2em]", line.startsWith("Error:") ? "text-destructive font-medium" : "text-foreground")}>
                   {line || " "}
                 </div>
               ))}

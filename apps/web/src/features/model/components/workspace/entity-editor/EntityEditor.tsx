@@ -15,6 +15,8 @@ import { derivePySourcePath, EntityTransformationsEditor } from "./EntityTransfo
 import { EntitySourcesEditor, type EntitySourcesEditorHandle } from "./EntitySourcesEditor";
 import { applyBulkAttributeEditRules, getAttributeIdsInRange, type BulkAttributeEditRule } from "./bulkAttributeEdit";
 import { buildAttributesFromExternalSourceSchema } from "./externalSchemaAdoption";
+import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
+import { apiBase } from "../../../../../config";
 import type {
   EntityAttribute,
   EntityPropertyRow,
@@ -352,36 +354,136 @@ export const EntityEditor = (props: EntityEditorProps) => {
       if (!source) return;
 
       const dataSourceName = typeof source?.dataSource === "string" ? source.dataSource : "";
-      const dataSourceDetail = dataSourceName ? dataSourceDetails[dataSourceName] : undefined;
-      const defaultAttributeType = attributeTypeOptions[0]?.value || "";
-      const adoptedAttributes = buildAttributesFromExternalSourceSchema({
-        source,
-        dataSourceDetail,
-        canonicalDataTypes: dataTypes,
-        defaultAttributeType,
-      });
+      if (!dataSourceName) {
+        window.alert("No data source configured on this source.");
+        return;
+      }
 
-      if (!adoptedAttributes.length) return;
+      const parseSourceLocation = (raw: string): { schema?: string; table: string } => {
+        const value = `${raw || ""}`.trim();
+        const bracket = value.match(/^\[(.+?)\]\.\[(.+?)\]$/);
+        if (bracket) return { schema: bracket[1], table: bracket[2] };
+        const dotParts = value.split(".");
+        if (dotParts.length === 2) return { schema: dotParts[0].replace(/^\[|\]$/g, ""), table: dotParts[1].replace(/^\[|\]$/g, "") };
+        return { table: value };
+      };
 
-      const confirmationMessage =
-        attributes.length > 0
-          ? `Adopt schema from external source and replace all ${attributes.length} current attribute(s)?`
-          : "Adopt schema from external source?";
-      if (!window.confirm(confirmationMessage)) return;
+      const applyColumns = (metaColumns: any[]) => {
+        if (!metaColumns.length) {
+          window.alert("No columns returned from the data source.");
+          return;
+        }
 
-      setOpenAttributeDetails({});
-      setSelectedAttributeIds(new Set());
-      setSelectionAnchorId(null);
-      updateAttributesStructural(() => adoptedAttributes);
-      persistAfterStateFlush("add-item");
+        const currentSourceNames = new Set(
+          (Array.isArray(source.mapping) ? source.mapping : [])
+            .map((m: any) => (typeof m?.sourceName === "string" ? m.sourceName.toLowerCase() : ""))
+            .filter(Boolean),
+        );
+        const missingColumns = metaColumns.filter(
+          (col: any) => typeof col?.name === "string" && !currentSourceNames.has(col.name.toLowerCase()),
+        );
+
+        if (!missingColumns.length) {
+          window.alert("All source columns already have a mapping \u2014 nothing to restore.");
+          return;
+        }
+
+        if (!window.confirm(`Restore ${missingColumns.length} missing mapping(s) from the source schema?`)) return;
+
+        setSources((prev) =>
+          prev.map((s, i) => {
+            if (i !== sourceIndex) return s;
+            const newMappings = missingColumns.map((col: any) => {
+              const sourceDataType = normalizeDataTypeForSave({
+                type: col.dataType,
+                nullable: col.isNullable,
+                charLen: col.maxLength,
+                precision: col.numericPrecision,
+                scale: col.numericScale,
+              });
+              return sourceDataType
+                ? { targetName: col.name, sourceName: col.name, sourceDataType }
+                : { targetName: col.name, sourceName: col.name };
+            });
+            return { ...s, mapping: [...(s.mapping || []), ...newMappings] };
+          }),
+        );
+
+        const dataSourceDetail = dataSourceName ? dataSourceDetails[dataSourceName] : undefined;
+        const defaultAttributeType = attributeTypeOptions[0]?.value || "";
+        const adoptedAttributes = buildAttributesFromExternalSourceSchema({
+          source: { ...source, __uiExternalMeta: { columns: metaColumns } } as any,
+          dataSourceDetail,
+          canonicalDataTypes: dataTypes,
+          defaultAttributeType,
+        });
+        const existingAttrNames = new Set(attributes.map((a) => (a.name || "").toLowerCase()));
+        const missingColNames = new Set(missingColumns.map((c: any) => (c.name || "").toLowerCase()));
+        const newAttributes = adoptedAttributes.filter(
+          (a) => missingColNames.has((a.name || "").toLowerCase()) && !existingAttrNames.has((a.name || "").toLowerCase()),
+        );
+        if (newAttributes.length) {
+          updateAttributesStructural((list) => [...list, ...newAttributes]);
+        }
+
+        persistAfterStateFlush("add-item");
+      };
+
+      // Use cached meta from the current session first.
+      const uiMeta = source.__uiExternalMeta;
+      const cachedColumns: any[] = Array.isArray(uiMeta?.columns) ? uiMeta.columns : [];
+      if (cachedColumns.length) {
+        applyColumns(cachedColumns);
+        return;
+      }
+
+      // Fall back: fetch live from the backend.
+      const rawLocation = typeof source.sourceLocation === "string" ? source.sourceLocation : "";
+      if (!rawLocation) {
+        window.alert("No source location configured. Set the data source and table location first.");
+        return;
+      }
+      const { schema, table } = parseSourceLocation(rawLocation);
+      if (!table) {
+        window.alert("Could not parse source location. Set the data source and table location first.");
+        return;
+      }
+      const endpoint = schema
+        ? `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}`
+        : `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/tables/${encodeURIComponent(table)}`;
+
+      fetch(endpoint)
+        .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            const msg = typeof data?.message === "string" ? data.message : "Failed to fetch schema from data source.";
+            window.alert(msg);
+            return;
+          }
+          const rawColumns = Array.isArray(data?.items) ? data.items : [];
+          const metaColumns = rawColumns.map((col: any) => ({
+            name: `${col?.name || ""}`,
+            ordinal: Number(col?.ordinal || 0),
+            dataType: `${col?.dataType || ""}`,
+            maxLength: typeof col?.maxLength === "number" ? col.maxLength : null,
+            numericPrecision: typeof col?.numericPrecision === "number" ? col.numericPrecision : null,
+            numericScale: typeof col?.numericScale === "number" ? col.numericScale : null,
+            isNullable: Boolean(col?.isNullable),
+            isPrimaryKey: Boolean(col?.isPrimaryKey),
+          }));
+          applyColumns(metaColumns);
+        })
+        .catch((err) => {
+          window.alert(`Failed to fetch schema: ${err?.message || err}`);
+        });
     },
     [
       sources,
+      setSources,
       dataSourceDetails,
       attributeTypeOptions,
       dataTypes,
-      attributes.length,
-      setOpenAttributeDetails,
+      attributes,
       updateAttributesStructural,
       persistAfterStateFlush,
     ],
@@ -892,6 +994,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   currentEntityAttributeNames={currentEntityAttributeNames}
                   onAdoptExternalSourceSchema={adoptExternalSourceSchema}
                   onDeleteSource={() => persistAfterStateFlush("delete-item")}
+                  onMappingChange={() => persistAfterStateFlush("delete-item")}
                   onSourcePropertyChange={() => persistAfterStateFlush("delete-item")}
                 />
               )}

@@ -3,7 +3,7 @@ import { ToastActionElement, type ToastProps } from "./toast";
 
 const TOAST_LIMIT = 5;
 const TOAST_REMOVE_DELAY = 250;
-const INFO_TOAST_DURATION_MS = 4000;
+const INFO_TOAST_DURATION_MS = 7000;
 const STICKY_ERROR_DURATION_MS = 2147483647;
 
 type ToasterToast = ToastProps & {

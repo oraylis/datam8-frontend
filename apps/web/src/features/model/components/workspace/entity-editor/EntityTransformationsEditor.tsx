@@ -102,6 +102,7 @@ export const EntityTransformationsEditor = ({
       updateTransformation(index, (t: any) => ({ ...t, __uiPrevFunctionSource: currentSource }));
     } catch (err) {
       const message = (err as Error).message || "Failed to rename function source.";
+      console.error("[DataM8] Function source rename failed:", err);
       setSaveError(message);
       setTransformations((list) =>
         normalizeTransformations(
@@ -242,8 +243,9 @@ export const EntityTransformationsEditor = ({
                               solutionPath: solutionPath || undefined,
                             });
                             setTransformSourceCache((prev) => ({ ...prev, [idx]: content || "" }));
-                          } catch {
-                            // ignore fetch errors, leave cache empty
+                          } catch (err) {
+                            console.error("[DataM8] Failed to load function source:", err);
+                            setSaveError((err as Error).message || "Failed to load function source.");
                           }
                         }
                         setOpenTransformSources((prev) => ({ ...prev, [idx]: !prev[idx] }));
@@ -282,6 +284,7 @@ export const EntityTransformationsEditor = ({
                             solutionPath: solutionPath || undefined,
                           });
                         } catch (err) {
+                          console.error("[DataM8] Function source delete failed:", err);
                           setSaveError((err as Error).message || "Failed to delete function source.");
                         }
                       }

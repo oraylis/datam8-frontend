@@ -32,9 +32,6 @@ export function buildAttributesFromExternalSourceSchema(params: {
 }): EntityAttribute[] {
   const { source, dataSourceDetail, canonicalDataTypes, defaultAttributeType, nowIso } = params;
 
-  const mappings = Array.isArray(source?.mapping) ? source.mapping : [];
-  if (!mappings.length) return [];
-
   const detail = isRecord(dataSourceDetail) ? dataSourceDetail : {};
   const dataSourceType = isRecord(detail.dataSourceType) ? detail.dataSourceType : {};
   const typeMappings = toDataTypeMappings(dataSourceType.dataTypeMapping);
@@ -42,6 +39,44 @@ export function buildAttributesFromExternalSourceSchema(params: {
   const inheritedMappings = mergeInheritedDataTypeMappings(typeMappings, sourceMappings);
   const effectiveMappings = [...inheritedMappings, ...sourceMappings];
   const timestamp = nowIso || new Date().toISOString();
+
+  // Prefer __uiExternalMeta.columns (the original fetched schema) so that columns
+  // deleted from source.mapping can still be re-adopted.
+  const uiMeta = isRecord((source as Record<string, unknown>).__uiExternalMeta)
+    ? (source as Record<string, unknown>).__uiExternalMeta as LooseRecord
+    : null;
+  const metaColumns = Array.isArray(uiMeta?.columns) ? (uiMeta!.columns as unknown[]) : null;
+
+  if (metaColumns) {
+    return metaColumns
+      .map((col): EntityAttribute | null => {
+        if (!isRecord(col)) return null;
+        const name = typeof col.name === "string" ? col.name.trim() : "";
+        if (!name) return null;
+        const rawType = typeof col.dataType === "string" ? col.dataType.trim() : "";
+        if (!rawType) return null;
+        const sourceDataType = sanitizeDataType({ type: rawType, nullable: col.isNullable ?? true });
+        const canonicalDataType = mapSourceDataTypeToCanonical({
+          sourceDataType,
+          mappings: effectiveMappings,
+          canonicalTypes: canonicalDataTypes,
+        });
+        return {
+          name,
+          attributeType: defaultAttributeType,
+          dataType: canonicalDataType,
+          dateAdded: timestamp,
+          properties: [],
+          __isNew: true,
+          __modified: true,
+        };
+      })
+      .filter((a): a is EntityAttribute => a !== null);
+  }
+
+  // Fall back to source.mapping when no cached meta is available.
+  const mappings = Array.isArray(source?.mapping) ? source.mapping : [];
+  if (!mappings.length) return [];
 
   return mappings
     .map((mapping): EntityAttribute | null => {

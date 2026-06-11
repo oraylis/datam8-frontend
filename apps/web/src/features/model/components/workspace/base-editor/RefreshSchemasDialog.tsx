@@ -168,8 +168,16 @@ export const RefreshSchemasDialog = ({
   const loadSchemas = async () => {
     const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas`;
     const response = await fetch(endpoint);
-    if (!response.ok) return [];
-    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
+        ? (payload as any).message
+        : `Failed to load schema list from the data source (${response.status}). Check the connection settings.`;
+      throw toHttpError(msg, response.status);
+    }
+    const payload = await response.json().catch((e: Error) => {
+      throw toHttpError(`Schema list response was not valid JSON: ${e.message}`, response.status);
+    });
     const items = Array.isArray((payload as any)?.items) ? (payload as any).items : [];
     return items.map((item: unknown) => `${item || ""}`.trim()).filter(Boolean);
   };
@@ -177,8 +185,16 @@ export const RefreshSchemasDialog = ({
   const listTablesForSchema = async (schemaName: string) => {
     const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schemaName)}/tables`;
     const response = await fetch(endpoint);
-    if (!response.ok) return [];
-    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
+        ? (payload as any).message
+        : `Failed to list tables for schema "${schemaName}" (${response.status}). Check the connection settings.`;
+      throw toHttpError(msg, response.status);
+    }
+    const payload = await response.json().catch((e: Error) => {
+      throw toHttpError(`Table list response was not valid JSON: ${e.message}`, response.status);
+    });
     const items = Array.isArray((payload as any)?.items) ? (payload as any).items : [];
     return items
       .map((item: any) => `${item?.name || ""}`.trim())
@@ -190,26 +206,32 @@ export const RefreshSchemasDialog = ({
     const loadViaSchema = async (schemaName: string) => {
       const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schemaName)}/tables/${encodeURIComponent(parsed.table)}`;
       const response = await fetch(endpoint);
-      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const errPayload = await response.json().catch(() => ({}));
         throw toHttpError(
-          readBackendErrorMessage(payload, `Failed to load source metadata (${response.status})`),
+          readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
           response.status,
         );
       }
+      const payload = await response.json().catch((e: Error) => {
+        throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
+      });
       return Array.isArray((payload as any)?.items) ? (payload as any).items : [];
     };
 
     const loadWithoutSchema = async () => {
       const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/tables/${encodeURIComponent(parsed.table)}`;
       const response = await fetch(endpoint);
-      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const errPayload = await response.json().catch(() => ({}));
         throw toHttpError(
-          readBackendErrorMessage(payload, `Failed to load source metadata (${response.status})`),
+          readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
           response.status,
         );
       }
+      const payload = await response.json().catch((e: Error) => {
+        throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
+      });
       return Array.isArray((payload as any)?.items) ? (payload as any).items : [];
     };
 
@@ -394,6 +416,7 @@ export const RefreshSchemasDialog = ({
         setUsages(nextUsages);
         setSelectedUsages(new Set(nextUsages.map((u) => `${u.entityRelPath}:${u.sourceIndex}`)));
       } catch (err: any) {
+        console.error("[DataM8] Failed to inspect source usages:", err);
         setError(err?.message || "Failed to inspect source usages");
       } finally {
         setIsLoading(false);
@@ -471,6 +494,7 @@ export const RefreshSchemasDialog = ({
 
       setStep(STEPS.PREVIEW);
     } catch (err: any) {
+      console.error("[DataM8] Schema scan failed:", err);
       const status = err?.status;
       const message = err?.message || "Failed to scan schemas";
       if (!handleAuthFailure(status, message)) {
@@ -808,6 +832,7 @@ export const RefreshSchemasDialog = ({
         setApplyResult(updatedEntities);
         onClose();
     } catch (err: any) {
+        console.error("[DataM8] Failed to apply schema changes:", err);
         const status = err?.status;
         const message = err?.message || "Failed to apply changes";
         if (!handleAuthFailure(status, message)) {

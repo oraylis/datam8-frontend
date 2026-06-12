@@ -1158,7 +1158,6 @@ async function startBackend(solutionPath?: string) {
 
 function setupMenu() {
   const isMac = process.platform === "darwin";
-  const allowDevTools = isDevToolsAllowed();
   const menuItem = <T extends MenuItemConstructorOptions>(item: T): MenuItemConstructorOptions => item;
   const editSubmenu: MenuItemConstructorOptions[] = [
     menuItem({ role: "undo" }),
@@ -1175,7 +1174,7 @@ function setupMenu() {
   const viewSubmenu: MenuItemConstructorOptions[] = [
     menuItem({ role: "reload" }),
     menuItem({ role: "forceReload" }),
-    ...(allowDevTools ? [menuItem({ role: "toggleDevTools" })] : []),
+    menuItem({ role: "toggleDevTools" }),
     menuItem({ type: "separator" }),
     menuItem({ role: "resetZoom" }),
     menuItem({ role: "zoomIn" }),
@@ -1222,6 +1221,19 @@ function setupMenu() {
           label: "Learn More",
           click: async () => {
             await shell.openExternal("https://github.com/oraylis/datam8");
+          },
+        },
+        { type: "separator" },
+        {
+          label: `About ${APP_DISPLAY_NAME}`,
+          click: () => {
+            void dialog.showMessageBox({
+              type: "info",
+              title: `About ${APP_DISPLAY_NAME}`,
+              message: `${APP_DISPLAY_NAME}`,
+              detail: `Version ${app.getVersion()}`,
+              buttons: ["OK"],
+            });
           },
         },
       ],
@@ -1282,7 +1294,7 @@ async function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: isDevToolsAllowed(),
+      devTools: true,
       additionalArguments: [
         `--datam8-api-base=${backendBaseUrl}`,
         `--datam8-token=${backendToken || ""}`,
@@ -1290,28 +1302,6 @@ async function createWindow() {
       ],
     },
   });
-
-  if (!isDevToolsAllowed()) {
-    mainWindow.webContents.on("before-input-event", (event, input) => {
-      if (input.type !== "keyDown") return;
-
-      const key = (input.key || "").toLowerCase();
-      const isF12 = key === "f12";
-      const isCtrlShift = input.control && input.shift;
-      const isCmdAlt = input.meta && input.alt;
-      const isDevToolsChord = (isCtrlShift || isCmdAlt) && (key === "i" || key === "j" || key === "c");
-
-      if (isF12 || isDevToolsChord) event.preventDefault();
-    });
-
-    mainWindow.webContents.on("devtools-opened", () => {
-      try {
-        mainWindow?.webContents.closeDevTools();
-      } catch {
-        // ignore
-      }
-    });
-  }
 
   if (process.platform === "win32") {
     mainWindow.setAutoHideMenuBar(true);
@@ -1551,18 +1541,6 @@ nativeTheme.on("updated", () => {
 
 if (gotLock) {
   app.whenReady().then(async () => {
-    if (!isDevToolsAllowed()) {
-      app.on("web-contents-created", (_event, contents) => {
-        contents.on("devtools-opened", () => {
-          try {
-            contents.closeDevTools();
-          } catch {
-            // ignore
-          }
-        });
-      });
-    }
-
     setupMenu();
     await createWindow();
     wireAutoUpdates();

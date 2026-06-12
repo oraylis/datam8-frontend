@@ -8,7 +8,7 @@ import {
   DialogTitle,
   FormSelect,
 } from "@datam8/ui";
-import { ArrowRight, Check, ChevronDown, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
@@ -43,6 +43,7 @@ type EntitySourcesEditorProps = {
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   dataSourcesRelPath: string | null;
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
+  adoptingExternalSchemaIndex?: number | null;
   onDeleteSource?: () => void;
   onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
@@ -62,6 +63,7 @@ type SourceMappingsProps = {
   sourceAttributeNames: string[];
   currentEntityAttributeNames: string[];
   onAdoptExternalSchema?: () => void;
+  isAdoptingExternalSchema?: boolean;
 };
 
 type SourcePropertiesProps = {
@@ -116,6 +118,7 @@ type ExternalSourceCardProps = {
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   dataSourcesRelPath: string | null;
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
+  isAdoptingExternalSchema?: boolean;
 };
 
 export const toPropertyChipItems = (
@@ -190,6 +193,7 @@ const SourceMappings = ({
   sourceAttributeNames,
   currentEntityAttributeNames,
   onAdoptExternalSchema,
+  isAdoptingExternalSchema,
 }: SourceMappingsProps) => {
   const mappings = source.mapping || [];
   const isCollapsed = collapsedMappings[sourceIdx] ?? true;
@@ -225,8 +229,15 @@ const SourceMappings = ({
             {isCollapsed ? `Show mappings (${mappings.length})` : "Hide mappings"}
           </ActionButton>
           {isExternal && onAdoptExternalSchema ? (
-            <ActionButton variant="ghost" onClick={onAdoptExternalSchema} disabled={!mappings.length}>
-              Adopt Schema
+            <ActionButton variant="ghost" onClick={onAdoptExternalSchema} disabled={!mappings.length || isAdoptingExternalSchema}>
+              {isAdoptingExternalSchema ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Adopting…
+                </>
+              ) : (
+                "Adopt Schema"
+              )}
             </ActionButton>
           ) : null}
           <ActionButton
@@ -619,6 +630,7 @@ const ExternalSourceCard = ({
   onPatchBaseEntity,
   dataSourcesRelPath,
   onAdoptExternalSourceSchema,
+  isAdoptingExternalSchema,
 }: ExternalSourceCardProps) => {
   const [showBrowser, setShowBrowser] = useState(false);
   const dataSourceObject = dataSourceDetails[source.dataSource] || {};
@@ -789,6 +801,7 @@ const ExternalSourceCard = ({
             ? () => onAdoptExternalSourceSchema(index)
             : undefined
         }
+        isAdoptingExternalSchema={isAdoptingExternalSchema}
       />
     </div>
   );
@@ -816,6 +829,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     onPatchBaseEntity,
     dataSourcesRelPath,
     onAdoptExternalSourceSchema,
+    adoptingExternalSchemaIndex,
     onDeleteSource,
     onMappingChange,
     onSourcePropertyChange,
@@ -930,6 +944,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             onPatchBaseEntity={onPatchBaseEntity}
             dataSourcesRelPath={dataSourcesRelPath}
             onAdoptExternalSourceSchema={onAdoptExternalSourceSchema}
+            isAdoptingExternalSchema={adoptingExternalSchemaIndex === idx}
             cardRef={(el) => {
               sourceCardRefs.current[idx] = el;
             }}

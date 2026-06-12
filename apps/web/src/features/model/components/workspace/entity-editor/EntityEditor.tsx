@@ -347,6 +347,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const clearPendingFocus = useCallback(() => setPendingFocusName(null), []);
   const sourcesEditorRef = useRef<EntitySourcesEditorHandle | null>(null);
+  const [adoptingSchemaIndex, setAdoptingSchemaIndex] = useState<number | null>(null);
 
   const adoptExternalSourceSchema = useCallback(
     (sourceIndex: number) => {
@@ -452,6 +453,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
         ? `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}`
         : `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/tables/${encodeURIComponent(table)}`;
 
+      setAdoptingSchemaIndex(sourceIndex);
       fetch(endpoint)
         .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
         .then(({ ok, data }) => {
@@ -475,6 +477,9 @@ export const EntityEditor = (props: EntityEditorProps) => {
         })
         .catch((err) => {
           window.alert(`Failed to fetch schema: ${err?.message || err}`);
+        })
+        .finally(() => {
+          setAdoptingSchemaIndex(null);
         });
     },
     [
@@ -988,6 +993,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   markEntityDirty={markEntityDirty}
                   dataSourceOptions={dataSourceOptions}
                   dataSourceDetails={dataSourceDetails}
+                  adoptingExternalSchemaIndex={adoptingSchemaIndex}
                   solutionPath={solutionPath}
                   onPatchBaseEntity={onPatchBaseEntity}
                   dataSourcesRelPath={dataSourcesRelPath}

@@ -34,12 +34,16 @@
   "devDependencies": {
     "adm-zip": "^0.5.16",
     "concurrently": "^10.0.3",
-    "cross-env": "^7.0.3",
+    "cross-env": "^10.1.0",
     "esbuild": "^0.25.10",
     "eslint": "^9.20.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
     "typescript-eslint": "^8.24.1"
+  },
+  "overrides": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3"
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.53.3"

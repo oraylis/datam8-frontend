@@ -101,7 +101,7 @@
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
     "concurrently": "^10.0.3",
-    "cross-env": "^7.0.3",
+    "cross-env": "^10.1.0",
     "electron": "^42.4.0",
     "electron-builder": "^26.15.3",
     "electronmon": "^2.0.4",
@@ -110,6 +110,6 @@
   "dependencies": {
     "adm-zip": "^0.5.17",
     "electron-updater": "^6.8.9",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   }
 }

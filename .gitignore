@@ -16,6 +16,7 @@ pnpm-debug.log*
 
 # Release files
 apps/desktop/release
+artifacts/
 
 # Python
 __pycache__/

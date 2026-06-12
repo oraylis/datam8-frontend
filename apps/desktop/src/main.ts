@@ -37,6 +37,7 @@ let currentAppTheme: "light" | "dark" = nativeTheme.shouldUseDarkColors ? "dark"
 let applicationMenu: Menu | null = null;
 const BACKEND_HOST = "127.0.0.1";
 const BACKEND_PORT = 4318;
+const BACKEND_OUTPUT_PREVIEW_LIMIT = 8192;
 
 function cleanupStaleBackendOnPort(port: number): void {
   if (process.platform !== "win32") return;
@@ -197,6 +198,46 @@ function resolvePackagedPythonCandidates(): string[] {
     path.join(process.resourcesPath, "python", "bin", "python"),
     path.join(process.resourcesPath, "python", "python3"),
   ];
+}
+
+function resolveBundledPythonRuntimeRoot(pythonPath: string): string | null {
+  const runtimeRoot = path.join(process.resourcesPath, "python-runtime");
+  const resolvedRuntimeRoot = path.resolve(runtimeRoot);
+  const resolvedPythonPath = path.resolve(pythonPath);
+  if (resolvedPythonPath === resolvedRuntimeRoot || resolvedPythonPath.startsWith(`${resolvedRuntimeRoot}${path.sep}`)) {
+    return runtimeRoot;
+  }
+  return null;
+}
+
+function buildBackendEnv(pythonPath: string, generatorSrcPath: string | null): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron" };
+
+  if (app.isPackaged) {
+    if (!generatorSrcPath) {
+      delete env.PYTHONPATH;
+    }
+    const runtimeRoot = resolveBundledPythonRuntimeRoot(pythonPath);
+    if (runtimeRoot && process.platform !== "win32") {
+      env.PYTHONHOME = runtimeRoot;
+      env.PYTHONNOUSERSITE = "1";
+    }
+  }
+
+  if (generatorSrcPath) {
+    env.PYTHONPATH = env.PYTHONPATH
+      ? `${generatorSrcPath}${path.delimiter}${env.PYTHONPATH}`
+      : generatorSrcPath;
+  }
+
+  return env;
+}
+
+function appendOutputPreview(preview: { value: string }, label: "stdout" | "stderr", chunk: unknown): void {
+  if (preview.value.length >= BACKEND_OUTPUT_PREVIEW_LIMIT) return;
+  const text = String(chunk);
+  const remaining = BACKEND_OUTPUT_PREVIEW_LIMIT - preview.value.length;
+  preview.value += `[${label}] ${text.slice(0, remaining)}`;
 }
 
 function resolvePythonRuntimePath(): string | null {
@@ -1035,12 +1076,8 @@ async function startBackend(solutionPath?: string) {
     backendToken = token;
     cleanupStaleBackendOnPort(BACKEND_PORT);
     const generatorSrcPath = resolveGeneratorSrcPath();
-    const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron" };
-    if (generatorSrcPath) {
-      env.PYTHONPATH = env.PYTHONPATH
-        ? `${generatorSrcPath}${path.delimiter}${env.PYTHONPATH}`
-        : generatorSrcPath;
-    }
+    const env = buildBackendEnv(pythonPath, generatorSrcPath);
+    const backendOutputPreview = { value: "" };
 
     const proc = spawn(
       pythonPath,
@@ -1068,6 +1105,8 @@ async function startBackend(solutionPath?: string) {
     backendProcess = proc;
     proc.stderr.setEncoding("utf8");
     proc.stdout.setEncoding("utf8");
+    proc.stdout.on("data", (chunk) => appendOutputPreview(backendOutputPreview, "stdout", chunk));
+    proc.stderr.on("data", (chunk) => appendOutputPreview(backendOutputPreview, "stderr", chunk));
     proc.stderr.pipe(process.stderr);
 
     proc.once("exit", (code, signal) => {
@@ -1081,7 +1120,15 @@ async function startBackend(solutionPath?: string) {
       }
       if (isQuitting || !wasActiveProcess) return;
 
-      const message = `The backend process exited unexpectedly.\n\nExit: code=${code ?? "null"}, signal=${signal ?? "null"}\n\nDo you want to relaunch the app?`;
+      const output = backendOutputPreview.value.trim();
+      const message = [
+        "The backend process exited unexpectedly.",
+        "",
+        `Exit: code=${code ?? "null"}, signal=${signal ?? "null"}`,
+        ...(output ? ["", "Backend output (preview):", output] : []),
+        "",
+        "Do you want to relaunch the app?",
+      ].join("\n");
       const result = dialog.showMessageBoxSync({
         type: "error",
         title: "Backend crashed",
@@ -1128,7 +1175,8 @@ async function startBackend(solutionPath?: string) {
       backendVersion = null;
       backendSolutionPath = null;
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to start backend: ${msg}`);
+      const output = backendOutputPreview.value.trim();
+      throw new Error(`Failed to start backend: ${msg}${output ? `\n\nBackend output (preview):\n${output}` : ""}`);
     }
   })();
 

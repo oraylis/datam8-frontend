@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const generatorRoot = path.join(repoRoot, "submodules", "datam8-generator");
 const runtimeRoot = path.join(repoRoot, "artifacts", "python-runtime");
+const smokeScript = path.join(repoRoot, "scripts", "smoke-python-runtime.mjs");
 
 function fail(message) {
   console.error(`[build:python-runtime] ${message}`);
@@ -105,7 +106,203 @@ function runtimePythonCandidates() {
   if (process.platform === "win32") {
     return [path.join(runtimeRoot, "python.exe"), path.join(runtimeRoot, "Scripts", "python.exe")];
   }
-  return [path.join(runtimeRoot, "bin", "python3"), path.join(runtimeRoot, "bin", "python"), path.join(runtimeRoot, "python3")];
+  return [
+    path.join(runtimeRoot, "bin", "python3"),
+    path.join(runtimeRoot, "bin", "python"),
+    path.join(runtimeRoot, "bin", `python${buildPython.info.major}.${buildPython.info.minor}`),
+    path.join(runtimeRoot, "python3"),
+  ];
+}
+
+function ensureRuntimePythonAliases() {
+  if (process.platform === "win32") return;
+
+  const versioned = path.join(runtimeRoot, "bin", `python${buildPython.info.major}.${buildPython.info.minor}`);
+  if (!fs.existsSync(versioned)) return;
+
+  for (const name of ["python3", "python"]) {
+    const target = path.join(runtimeRoot, "bin", name);
+    if (fs.existsSync(target)) continue;
+    fs.copyFileSync(versioned, target);
+    fs.chmodSync(target, 0o755);
+  }
+}
+
+function patchMacRuntimeInstallNames() {
+  if (process.platform !== "darwin") return;
+  const frameworkBinary = path.join(runtimeRoot, "Python");
+  if (!fs.existsSync(frameworkBinary)) return;
+
+  const binDir = path.join(runtimeRoot, "bin");
+  if (!fs.existsSync(binDir)) return;
+
+  for (const entry of fs.readdirSync(binDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.startsWith("python")) continue;
+    const binary = path.join(binDir, entry.name);
+    const deps = spawnSync("otool", ["-L", binary], { shell: false, encoding: "utf8", stdio: "pipe" });
+    if ((deps.status ?? 1) !== 0) continue;
+    const pythonFrameworkDeps = `${deps.stdout || ""}`
+      .split(/\r?\n/)
+      .map((line) => line.trim().split(/\s+/)[0])
+      .filter((dep) => /Python\.framework\/Versions\/[^/]+\/Python$/.test(dep));
+
+    for (const dep of pythonFrameworkDeps) {
+      runChecked("install_name_tool", ["-change", dep, "@executable_path/../Python", binary]);
+    }
+  }
+}
+
+function signMacRuntimeBinaries() {
+  if (process.platform !== "darwin") return;
+  const candidates = [path.join(runtimeRoot, "Python")];
+  const binDir = path.join(runtimeRoot, "bin");
+  if (fs.existsSync(binDir)) {
+    for (const entry of fs.readdirSync(binDir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.startsWith("python")) {
+        candidates.push(path.join(binDir, entry.name));
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    runChecked("codesign", ["--force", "--sign", "-", candidate]);
+  }
+}
+
+function normalizeRuntimeSymlinks() {
+  const stack = [runtimeRoot];
+  while (stack.length) {
+    const dir = stack.pop();
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
+      if (!entry.isSymbolicLink()) continue;
+
+      const rawTarget = fs.readlinkSync(fullPath);
+      const resolvedTarget = path.resolve(path.dirname(fullPath), rawTarget);
+      if (resolvedTarget === runtimeRoot || resolvedTarget.startsWith(`${runtimeRoot}${path.sep}`)) continue;
+
+      fs.rmSync(fullPath, { recursive: true, force: true });
+      if (!fs.existsSync(resolvedTarget)) continue;
+
+      const targetStat = fs.statSync(resolvedTarget);
+      if (targetStat.isDirectory()) {
+        if (/^(site|dist)-packages$/i.test(entry.name)) {
+          fs.mkdirSync(fullPath, { recursive: true });
+        } else {
+          fs.cpSync(resolvedTarget, fullPath, { recursive: true, dereference: true });
+        }
+        continue;
+      }
+      if (targetStat.isFile()) {
+        fs.copyFileSync(resolvedTarget, fullPath);
+        fs.chmodSync(fullPath, targetStat.mode);
+      }
+    }
+  }
+}
+
+function runtimeSitePackagesPath() {
+  if (process.platform === "win32") {
+    return path.join(runtimeRoot, "Lib", "site-packages");
+  }
+  return path.join(runtimeRoot, "lib", `python${buildPython.info.major}.${buildPython.info.minor}`, "site-packages");
+}
+
+function runtimeStdlibPath() {
+  if (process.platform === "win32") {
+    return path.join(runtimeRoot, "Lib");
+  }
+  return path.join(runtimeRoot, "lib", `python${buildPython.info.major}.${buildPython.info.minor}`);
+}
+
+function writeRuntimeSiteCustomize() {
+  const stdlib = runtimeStdlibPath();
+  fs.mkdirSync(stdlib, { recursive: true });
+  fs.writeFileSync(
+    path.join(stdlib, "sitecustomize.py"),
+    [
+      "import os",
+      "import sys",
+      "",
+      "_prefix = os.path.realpath(sys.prefix)",
+      "",
+      "def _keep(path):",
+      "    if not path:",
+      "        return True",
+      "    real = os.path.realpath(path)",
+      "    if real == _prefix or real.startswith(_prefix + os.sep):",
+      "        return True",
+      "    normalized = real.replace('\\\\', '/')",
+      "    return 'site-packages' not in normalized and 'dist-packages' not in normalized",
+      "",
+      "sys.path[:] = [path for path in sys.path if _keep(path)]",
+      "",
+    ].join("\n"),
+  );
+}
+
+function pruneBuildOnlyPythonPackages() {
+  const sitePackages = runtimeSitePackagesPath();
+  if (fs.existsSync(sitePackages)) {
+    for (const entry of fs.readdirSync(sitePackages, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (/^(pip|setuptools|wheel)(-|$)/i.test(entry.name)) {
+        fs.rmSync(path.join(sitePackages, entry.name), { recursive: true, force: true });
+      }
+    }
+  }
+
+  const binDir = path.join(runtimeRoot, "bin");
+  if (fs.existsSync(binDir)) {
+    for (const entry of fs.readdirSync(binDir, { withFileTypes: true })) {
+      if (entry.isFile() && /^(pip|wheel)/i.test(entry.name)) {
+        fs.rmSync(path.join(binDir, entry.name), { force: true });
+      }
+    }
+  }
+}
+
+function runBuildPythonPip(args) {
+  runChecked(buildPython.command, [...buildPython.preArgs, "-m", "pip", ...args]);
+}
+
+function canRunTool(command) {
+  const result = spawnSync(command, ["--version"], { shell: false, stdio: "ignore" });
+  return !result.error && (result.status ?? 1) === 0;
+}
+
+function installRuntimePackages(target, installSpec) {
+  const uv = process.platform === "win32" ? "uv.exe" : "uv";
+  if (canRunTool(uv)) {
+    runChecked(uv, [
+      "pip",
+      "install",
+      "--python",
+      buildPython.info.executable,
+      "--target",
+      target,
+      "--upgrade",
+      "--reinstall",
+      installSpec,
+    ]);
+    return;
+  }
+
+  runBuildPythonPip([
+    "install",
+    "--disable-pip-version-check",
+    "--ignore-installed",
+    "--upgrade",
+    "--target",
+    target,
+    installSpec,
+  ]);
 }
 
 if (!fs.existsSync(generatorRoot)) {
@@ -129,6 +326,11 @@ fs.mkdirSync(path.dirname(runtimeRoot), { recursive: true });
 
 console.log(`[build:python-runtime] Copying Python runtime from ${sourcePrefix}`);
 fs.cpSync(sourcePrefix, runtimeRoot, { recursive: true, dereference: true });
+normalizeRuntimeSymlinks();
+ensureRuntimePythonAliases();
+patchMacRuntimeInstallNames();
+signMacRuntimeBinaries();
+writeRuntimeSiteCustomize();
 
 if (process.platform === "win32") {
   for (const candidate of ["python3.exe", "python3.12.exe"]) {
@@ -149,15 +351,21 @@ const runtimePython = runtimePythonCandidates().find((candidate) => fs.existsSyn
 if (!runtimePython) {
   fail(`Python executable not found in copied runtime: ${runtimeRoot}`);
 }
+const runtimeSitePackages = runtimeSitePackagesPath();
+fs.mkdirSync(runtimeSitePackages, { recursive: true });
 
-runChecked(runtimePython, ["-m", "pip", "install", "--disable-pip-version-check", "--upgrade", "pip", "setuptools", "wheel"]);
 const generatorInstallSpec = `${generatorRoot}[api,sql]`;
-runChecked(runtimePython, ["-m", "pip", "install", "--disable-pip-version-check", "--upgrade", generatorInstallSpec]);
+installRuntimePackages(runtimeSitePackages, generatorInstallSpec);
+pruneBuildOnlyPythonPackages();
 
-const probe = spawnSync(runtimePython, ["-m", "datam8", "--help"], { shell: false, stdio: "pipe", encoding: "utf8" });
-if ((probe.status ?? 1) !== 0) {
-  const stderr = `${probe.stderr || ""}`.trim();
-  fail(`Runtime probe failed for 'python -m datam8 --help'. ${stderr}`);
+const smokeRoot = fs.mkdtempSync(path.join(path.dirname(runtimeRoot), "python-runtime-smoke-"));
+try {
+  const relocatedRuntimeRoot = path.join(smokeRoot, "DataM8.app", "Contents", "Resources", "python-runtime");
+  fs.mkdirSync(path.dirname(relocatedRuntimeRoot), { recursive: true });
+  fs.cpSync(runtimeRoot, relocatedRuntimeRoot, { recursive: true, dereference: true });
+  runChecked(process.execPath, [smokeScript, "--runtime-root", relocatedRuntimeRoot]);
+} finally {
+  fs.rmSync(smokeRoot, { recursive: true, force: true });
 }
 
 console.log(`[build:python-runtime] OK at ${path.relative(repoRoot, runtimeRoot)}`);

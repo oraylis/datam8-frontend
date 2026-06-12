@@ -21,6 +21,7 @@
     "ci:gates": "node scripts/ci-gates.mjs",
     "lint": "npm --workspaces run lint",
     "typecheck": "npm --workspaces run typecheck",
+    "test:runtime:packaged": "node scripts/smoke-python-runtime.mjs",
     "test:e2e": "npm --workspace apps/web run e2e",
     "test:e2e:release": "node scripts/e2e-release.mjs",
     "build:web:electron": "cross-env VITE_APP_MODE=electron npm --workspace apps/web run build -- --mode electron",

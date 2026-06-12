@@ -10,3 +10,11 @@ Minimum runtime checks:
 - `GET /health`
 - authenticated `GET /config`
 - synchronous `POST /generate`
+
+Packaged desktop artifacts must also pass the bundled runtime smoke check:
+
+```sh
+npm run test:runtime:packaged -- --release-dir apps/desktop/release
+```
+
+This validates the exact `resources/python-runtime` copy that Electron starts in production.

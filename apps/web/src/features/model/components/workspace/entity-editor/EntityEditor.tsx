@@ -406,7 +406,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                 ? { targetName: col.name, sourceName: col.name, sourceDataType }
                 : { targetName: col.name, sourceName: col.name };
             });
-            return { ...s, mapping: [...(s.mapping || []), ...newMappings] };
+            return { ...s, mapping: [...(Array.isArray(s.mapping) ? (s.mapping as unknown[]) : []), ...newMappings] };
           }),
         );
 
@@ -431,7 +431,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
       };
 
       // Use cached meta from the current session first.
-      const uiMeta = source.__uiExternalMeta;
+      const uiMeta = source.__uiExternalMeta as { columns?: unknown[] } | undefined;
       const cachedColumns: any[] = Array.isArray(uiMeta?.columns) ? uiMeta.columns : [];
       if (cachedColumns.length) {
         applyColumns(cachedColumns);

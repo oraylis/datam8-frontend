@@ -4,6 +4,7 @@ node_modules
 .npm
 .cache
 dist
+artifacts
 
 # OS
 .DS_Store

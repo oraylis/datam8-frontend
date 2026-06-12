@@ -1,7 +1,7 @@
 {
   "name": "datam8",
   "private": true,
-  "version": "2.0.0-beta.4",
+  "version": "2.0.0-beta.5",
   "description": "DataM8 2.0 UI + API + Desktop shell",
   "engines": {
     "node": ">=20 <23"

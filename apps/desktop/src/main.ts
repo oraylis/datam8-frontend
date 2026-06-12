@@ -6,6 +6,7 @@ import path from "path";
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "child_process";
 
 import { APP_DISPLAY_NAME } from "./appConfig";
+import { UserSettings } from "./userSettings";
 
 const isDevToolsAllowed = () => !app.isPackaged || process.env.DATAM8_ALLOW_DEVTOOLS === "1";
 
@@ -990,6 +991,20 @@ function renameFolderOnDisk(payload: { fromFolderPath: string; toFolderPath: str
   return { fromPath: fromResolved, toPath: toResolved };
 }
 
+function loadUserSettingsFromSolution(solutionDir: string): void {
+  const userSettings = UserSettings.parseFromSolution(solutionDir);
+
+  if (userSettings.pythonPath) {
+    process.env.DATAM8_PYTHON_PATH = userSettings.pythonPath;
+    console.log(`[datam8] User settings: pythonPath set to ${process.env.DATAM8_PYTHON_PATH}`);
+  }
+
+  if (userSettings.backendModule) {
+    process.env.DATAM8_BACKEND_MODULE = userSettings.backendModule;
+    console.log(`[datam8] User settings: backendModule set to ${process.env.DATAM8_BACKEND_MODULE}`);
+  }
+}
+
 async function startBackend(solutionPath?: string) {
   if (backendBaseUrl && backendToken && backendProcess) {
     try {
@@ -1014,6 +1029,11 @@ async function startBackend(solutionPath?: string) {
       }
     }
 
+    const targetSolutionPath = solutionPath || currentSolutionPath || "";
+    if (!targetSolutionPath) return;
+    const targetSolutionDir = path.dirname(path.resolve(targetSolutionPath));
+    loadUserSettingsFromSolution(targetSolutionDir);
+
     const pythonPath = resolvePythonRuntimePath();
     if (!pythonPath) {
       const lines = [
@@ -1028,9 +1048,6 @@ async function startBackend(solutionPath?: string) {
       throw new Error(lines.join("\n"));
     }
     const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
-
-    const targetSolutionPath = solutionPath || currentSolutionPath || "";
-    if (!targetSolutionPath) return;
     const token = (backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
     cleanupStaleBackendOnPort(BACKEND_PORT);

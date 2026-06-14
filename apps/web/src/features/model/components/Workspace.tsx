@@ -182,15 +182,18 @@ export function Workspace({
     setBaseEditorDraft: setBaseDraft,
   });
 
-  useEffect(() => {
-    registerEntityPersist?.(() => entityState.persistNow("tab-switch"));
-    return () => registerEntityPersist?.(null);
-  }, [entityState.persistNow, registerEntityPersist]);
+  const persistEntityNow = entityState.persistNow;
+  const persistBaseNow = baseState.persistNow;
 
   useEffect(() => {
-    registerBasePersist?.(() => baseState.persistNow("tab-switch"));
+    registerEntityPersist?.(() => persistEntityNow("tab-switch"));
+    return () => registerEntityPersist?.(null);
+  }, [persistEntityNow, registerEntityPersist]);
+
+  useEffect(() => {
+    registerBasePersist?.(() => persistBaseNow("tab-switch"));
     return () => registerBasePersist?.(null);
-  }, [baseState.persistNow, registerBasePersist]);
+  }, [persistBaseNow, registerBasePersist]);
 
   const content = (() => {
     switch (activeTab.kind) {

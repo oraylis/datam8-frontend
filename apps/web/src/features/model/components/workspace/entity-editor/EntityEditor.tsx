@@ -475,7 +475,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
     if (attributes.some((a) => !a?.__uiId)) {
       setAttributes((list) => withOrdinals(list));
     }
-  }, [attributes]);
+  }, [attributes, setAttributes, withOrdinals]);
 
   useEffect(() => {
     attributesRef.current = attributes;

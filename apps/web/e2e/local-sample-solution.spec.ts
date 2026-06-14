@@ -2,11 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 
-function decodeBoundConnectorId(connectionProperties: any): string | null {
-  const list: any[] = Array.isArray(connectionProperties) ? connectionProperties : [];
+type JsonRecord = Record<string, unknown>;
+
+function decodeBoundConnectorId(connectionProperties: unknown): string | null {
+  const list = Array.isArray(connectionProperties) ? connectionProperties : [];
   const prefix = "__connector.id=";
   for (const p of list) {
-    const name = typeof p?.name === "string" ? p.name.trim() : "";
+    const item = p && typeof p === "object" ? (p as JsonRecord) : null;
+    const name = typeof item?.name === "string" ? item.name.trim() : "";
     if (name.startsWith(prefix)) {
       const id = name.slice(prefix.length).trim();
       return id || null;
@@ -68,11 +71,12 @@ test.describe("local sample solution", () => {
     });
 
     const payload = loadSampleSolutionPayload(samplePath!);
-    const typesEntry = payload.baseEntities.find((b: any) => b.relPath === "Base/DataSourceTypes.json");
-    const firstType = typesEntry?.content?.dataSourceTypes?.[0] || null;
-    const currentConnectorId = decodeBoundConnectorId(firstType?.connectionProperties) || null;
+    const typesEntry = payload.baseEntities.find((b) => b.relPath === "Base/DataSourceTypes.json");
+    const firstType = Array.isArray(typesEntry?.content?.dataSourceTypes) ? typesEntry.content.dataSourceTypes[0] : null;
+    const firstTypeRecord = firstType && typeof firstType === "object" ? (firstType as JsonRecord) : null;
+    const currentConnectorId = decodeBoundConnectorId(firstTypeRecord?.connectionProperties) || null;
     const targetConnectorId = currentConnectorId === "sqlserver" ? "http-api" : "sqlserver";
-    const entityMutations: Array<{ method: string; url: string; body: any }> = [];
+    const entityMutations: Array<{ method: string; url: string; body: JsonRecord }> = [];
     let saveModelCalls = 0;
 
     await page.route("**/config", async (route) => {
@@ -185,4 +189,3 @@ test.describe("local sample solution", () => {
     expect.soft(serverErrors, `5xx backend responses found:\n${serverErrors.join("\n")}`).toEqual([]);
   });
 });
-

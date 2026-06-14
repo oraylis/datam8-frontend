@@ -37,8 +37,8 @@ const firstNonEmpty = (...values: Array<unknown>) => {
   return "";
 };
 
-type BaseEditorDraft = {
-  baseDraft: any;
+export type BaseEditorDraft = {
+  baseDraft: BaseEntity["content"];
   baseMode: "form" | "json";
   baseJsonText: string;
   selectedBaseItem: string | null;
@@ -285,6 +285,7 @@ export const useBaseEditorState = ({
     selectedDataModule,
     scheduleHydrationRelease,
     setBaseEditorDraft,
+    setSelectedBaseItem,
   ]);
 
   useEffect(() => {
@@ -400,7 +401,7 @@ export const useBaseEditorState = ({
     if (!selectedBaseItem || selectedIndex < 0) {
       setSelectedBaseItem(getBaseItemSelectionKey(items[0], 0));
     }
-  }, [baseData, selectedBase, selectedBaseItem]);
+  }, [baseData, selectedBase, selectedBaseItem, setSelectedBaseItem]);
 
   useEffect(() => {
     const request = baseItemSelectionRequest;
@@ -420,7 +421,7 @@ export const useBaseEditorState = ({
     setSelectedBaseItem(getBaseItemSelectionKey(items[targetIndex], targetIndex));
     setBaseMode("form");
     lastHandledBaseItemRequestRef.current = request.token;
-  }, [baseData.items, baseItemSelectionRequest, selectedBase]);
+  }, [baseData.items, baseItemSelectionRequest, selectedBase, setSelectedBaseItem]);
 
   const setDraftListForType = (draft: any, type: string, nextList: any[]) => {
     switch (type) {
@@ -552,6 +553,9 @@ export const useBaseEditorState = ({
     markBaseDirty,
     propertyOptions,
     selectedBase,
+    setBaseDraft,
+    setBaseMode,
+    setSelectedBaseItem,
   ]);
 
   const removeBaseItem = useCallback(
@@ -592,7 +596,7 @@ export const useBaseEditorState = ({
         },
       };
     },
-    [baseData.items, baseData.type, baseDraft, markBaseDirty, selectedBase, showError],
+    [baseData.items, baseData.type, baseDraft, markBaseDirty, selectedBase, setBaseDraft, setBaseMode, setSelectedBaseItem, showError],
   );
 
   const onSubmitBase = useCallback(async (): Promise<boolean> => {

@@ -2,26 +2,37 @@ import { apiBase } from "../../config";
 import { folderPathFromRelPath, modelLocatorFromRelPath } from "../../features/model/locator-utils";
 
 type JsonRecord = Record<string, unknown>;
+type EntityResponseItem = JsonRecord;
+type EntityResponsePayload = {
+  item?: EntityResponseItem;
+  items?: EntityResponseItem[];
+  message?: string;
+  detail?: string;
+};
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
 
 function normalizeErrorMessage(payload: unknown, fallback: string): string {
-  if (payload && typeof payload === "object") {
-    const message = (payload as any).message;
+  if (isJsonRecord(payload)) {
+    const message = payload.message;
     if (typeof message === "string" && message.trim()) return message;
-    const detail = (payload as any).detail;
+    const detail = payload.detail;
     if (typeof detail === "string" && detail.trim()) return detail;
   }
   return fallback;
 }
 
-async function parseResponse(response: Response): Promise<any> {
+async function parseResponse(response: Response): Promise<EntityResponsePayload> {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(normalizeErrorMessage(payload, `HTTP ${response.status}`));
   }
-  return payload;
+  return isJsonRecord(payload) ? payload : {};
 }
 
-async function createEntityInternal(locator: string, body: JsonRecord, opts?: { save?: boolean }): Promise<any> {
+async function createEntityInternal(locator: string, body: JsonRecord, opts?: { save?: boolean }): Promise<EntityResponseItem | undefined> {
   const normalized = locator.startsWith("/") ? locator : `/${locator}`;
   const response = await fetch(`${apiBase}/entities${normalized}`, {
     method: "PUT",
@@ -44,18 +55,18 @@ async function deleteEntityInternal(locator: string, opts?: { save?: boolean }):
   }
 }
 
-export async function getEntities(locator = "/"): Promise<any[]> {
+export async function getEntities(locator = "/"): Promise<EntityResponseItem[]> {
   const normalized = locator.startsWith("/") ? locator : `/${locator}`;
   const response = await fetch(`${apiBase}/entities${normalized}`);
   const payload = await parseResponse(response);
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
-export async function patchEntity(locator: string, patch: JsonRecord, opts?: { save?: boolean }): Promise<any> {
+export async function patchEntity(locator: string, patch: JsonRecord, opts?: { save?: boolean }): Promise<EntityResponseItem | undefined> {
   return patchEntityInternal(locator, patch, opts ?? { save: true });
 }
 
-async function patchEntityInternal(locator: string, patch: JsonRecord, opts?: { save?: boolean }): Promise<any> {
+async function patchEntityInternal(locator: string, patch: JsonRecord, opts?: { save?: boolean }): Promise<EntityResponseItem | undefined> {
   const normalized = locator.startsWith("/") ? locator : `/${locator}`;
   const response = await fetch(`${apiBase}/entities${normalized}`, {
     method: "PATCH",
@@ -69,7 +80,7 @@ async function patchEntityInternal(locator: string, patch: JsonRecord, opts?: { 
   return payload?.item;
 }
 
-export async function createEntity(locator: string, body: JsonRecord, opts?: { save?: boolean }): Promise<any> {
+export async function createEntity(locator: string, body: JsonRecord, opts?: { save?: boolean }): Promise<EntityResponseItem | undefined> {
   return createEntityInternal(locator, body, opts ?? { save: true });
 }
 
@@ -77,7 +88,7 @@ export async function deleteEntity(locator: string, opts?: { save?: boolean }): 
   await deleteEntityInternal(locator, opts ?? { save: true });
 }
 
-export async function moveEntities(fromLocator: string, toLocator: string): Promise<any[]> {
+export async function moveEntities(fromLocator: string, toLocator: string): Promise<EntityResponseItem[]> {
   const response = await fetch(`${apiBase}/entities/move`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

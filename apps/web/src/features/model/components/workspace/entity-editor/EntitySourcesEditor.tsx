@@ -1,5 +1,5 @@
 import type React from "react";
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   Checkbox,
   Dialog,
@@ -395,7 +395,7 @@ const SourceMappings = ({
 };
 
 const SourcePropertiesChips = ({ source, sourceIdx, propertyOptions, updateSource, onSourcePropertyChange, className }: SourcePropertiesProps) => {
-  const rawProps = Array.isArray(source?.properties) ? source.properties : [];
+  const rawProps = useMemo(() => (Array.isArray(source?.properties) ? source.properties : []), [source?.properties]);
   const propertyItems = useMemo(
     () => toPropertyChipItems(rawProps, `${sourceIdx}-prop-chip`, "Source property"),
     [rawProps, sourceIdx],
@@ -846,7 +846,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     onDeleteSource?.();
   };
 
-  const addInternalSource = () => {
+  const addInternalSource = useCallback(() => {
     markEntityDirty();
     pendingSourceIndexRef.current = sources.length;
     pendingSourceTypeRef.current = "internal";
@@ -860,9 +860,9 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
         },
       ];
     });
-  };
+  }, [markEntityDirty, setCollapsedMappings, setSources, sources.length]);
 
-  const addExternalSource = () => {
+  const addExternalSource = useCallback(() => {
     markEntityDirty();
     pendingSourceIndexRef.current = sources.length;
     pendingSourceTypeRef.current = "external";
@@ -878,7 +878,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
         },
       ];
     });
-  };
+  }, [markEntityDirty, setCollapsedMappings, setSources, sources.length]);
 
   useImperativeHandle(
     ref,
@@ -949,4 +949,3 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     </div>
   );
 });
-

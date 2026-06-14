@@ -21,6 +21,20 @@ export type ConnectorCatalogState = {
   error?: string;
 };
 
+type JsonRecord = Record<string, unknown>;
+type RawConnector = JsonRecord & {
+  id?: unknown;
+  name?: unknown;
+  displayName?: unknown;
+  version?: unknown;
+  capabilities?: unknown;
+  dataTypeMapping?: unknown;
+};
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
 let state: ConnectorCatalogState = {
   status: "idle",
   connectors: [],
@@ -43,9 +57,9 @@ function parseDataTypeMapping(raw: unknown): Array<{ sourceType: string; targetT
   const out: Array<{ sourceType: string; targetType: string }> = [];
   const seen = new Set<string>();
   for (const item of raw) {
-    if (!item || typeof item !== "object") continue;
-    const sourceType = `${(item as any).sourceType || ""}`.trim();
-    const targetType = `${(item as any).targetType || ""}`.trim();
+    if (!isJsonRecord(item)) continue;
+    const sourceType = `${item.sourceType || ""}`.trim();
+    const targetType = `${item.targetType || ""}`.trim();
     if (!sourceType || !targetType) continue;
     const key = sourceType.toLowerCase();
     if (seen.has(key)) continue;
@@ -85,12 +99,12 @@ async function fetchConnectors(): Promise<void> {
       const payload = await res.json().catch(() => ({}));
       throw new Error(readBackendErrorMessage(payload, `Failed to load connectors (${res.status})`));
     }
-    const data = (await res.json()) as any;
+    const data = await res.json().catch(() => ({}));
     const rawItems = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
     const connectors: ConnectorSummary[] = Array.isArray(rawItems)
       ? rawItems
-          .filter((c: any) => c && typeof c === "object")
-          .map((c: any) => ({
+          .filter((c): c is RawConnector => isJsonRecord(c))
+          .map((c) => ({
             id: String(c.id || ""),
             displayName: String(c.displayName || c.name || c.id || ""),
             version: String(c.version || ""),
@@ -100,8 +114,8 @@ async function fetchConnectors(): Promise<void> {
           .filter((c: ConnectorSummary) => !!c.id)
       : [];
     setState({ status: "ready", connectors });
-  } catch (err: any) {
-    setState({ status: "error", connectors: [], error: err?.message || "Failed to load connectors" });
+  } catch (err) {
+    setState({ status: "error", connectors: [], error: err instanceof Error ? err.message : "Failed to load connectors" });
   }
 }
 
@@ -142,4 +156,3 @@ export function useConnectorCatalog<T>(selector: (s: ConnectorCatalogState) => T
     () => selector(state),
   );
 }
-

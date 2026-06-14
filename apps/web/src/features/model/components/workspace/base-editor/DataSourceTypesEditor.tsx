@@ -14,6 +14,7 @@ import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
 import { pruneConnectionPropertiesForConnector } from "./dataSourceConnectionProperties";
 
 const DEFAULT_CONNECTOR_TYPE_MAPPING = [{ sourceType: "string", targetType: "string" }];
+const EMPTY_ARRAY: any[] = [];
 
 type DataSourceTypesEditorProps = {
   selectedBase: BaseEntity;
@@ -46,7 +47,7 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
     onPatchBaseEntity,
   } = props;
 
-  const currentList = baseData.items;
+  const currentList = useMemo(() => baseData.items || EMPTY_ARRAY, [baseData.items]);
   const currentIndex = useMemo(() => findBaseItemIndex(currentList, selectedBaseItem), [currentList, selectedBaseItem]);
   const current = useMemo(() => (currentIndex >= 0 ? currentList[currentIndex] : null), [currentIndex, currentList]);
   const itemKey = current?.name || `dataSourceType_${currentIndex + 1}`;

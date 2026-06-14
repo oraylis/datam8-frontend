@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Play } from "lucide-react";
 import {
   ContextMenu,
@@ -67,14 +67,14 @@ export function ModelTree({
 
   const canDropOnNode = (node: ModelTreeNode) => !!node.path && node.type === "folder";
 
-  const matchesFilter = (node: ModelTreeNode): boolean => {
+  const matchesFilter = useCallback((node: ModelTreeNode): boolean => {
     if (!filterLower) return true;
     if (node.label.toLowerCase().includes(filterLower)) return true;
     if (node.children) {
       return node.children.some(matchesFilter);
     }
     return false;
-  };
+  }, [filterLower]);
 
   const clearDropState = (path?: string) => {
     setDropTargetPath((current) => (path && current !== path ? current : null));
@@ -250,7 +250,7 @@ export function ModelTree({
     });
   };
 
-  const filteredTree = useMemo(() => tree.filter(matchesFilter), [tree, filterLower]);
+  const filteredTree = useMemo(() => tree.filter(matchesFilter), [tree, matchesFilter]);
 
   return (
     <div className="tree tree--model">

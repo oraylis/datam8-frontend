@@ -57,8 +57,8 @@ export function ConnectorPickerDialog(props: {
     try {
       await window.desktop.solution.importPlugins({ solutionPath, artifactPaths });
       await refresh();
-    } catch (err: any) {
-      setPluginsError(err?.message || "Failed to import plugin artifacts");
+    } catch (err) {
+      setPluginsError(err instanceof Error ? err.message : "Failed to import plugin artifacts");
     } finally {
       setBusy(false);
     }

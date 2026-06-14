@@ -182,7 +182,7 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
     setValidateConnectionAction(() => fn);
   }, []);
 
-  const currentList = baseData.items || [];
+  const currentList = useMemo(() => baseData.items || EMPTY_ARRAY, [baseData.items]);
   const currentIndex = useMemo(() => findBaseItemIndex(currentList, selectedBaseItem), [currentList, selectedBaseItem]);
   const current = useMemo(() => (currentIndex >= 0 ? currentList[currentIndex] : null), [currentIndex, currentList]);
 
@@ -253,12 +253,11 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
       });
     },
     [
-      current?.extendedProperties,
       currentTypeName,
       currentIndex,
-      dataSourceTypes,
       markBaseDirty,
       selectedBase.content,
+      setBaseDraft,
     ],
   );
 

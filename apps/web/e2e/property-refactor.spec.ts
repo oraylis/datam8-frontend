@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+type JsonRecord = Record<string, unknown>;
+
 function createMockSolutionPayload() {
   return {
     solution: {
@@ -45,7 +47,7 @@ function createMockSolutionPayload() {
 
 async function mockApi(page: import("@playwright/test").Page) {
   const payload = createMockSolutionPayload();
-  const entityWrites: Array<{ method: string; url: string; body: any }> = [];
+  const entityWrites: Array<{ method: string; url: string; body: JsonRecord }> = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });

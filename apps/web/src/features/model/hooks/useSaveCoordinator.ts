@@ -133,7 +133,7 @@ export function useSaveCoordinator({
       }
       await folderSaveRef.current.save();
     }
-  }, [activeWorkTab, baseSaveRef, computeBaseSaveCount, entitySaveRef, finalizeBulkSave, folderSaveRef, startBulkSave, waitForFolderSaver]);
+  }, [activeWorkTab, baseSaveRef, computeBaseSaveCount, entitySaveRef, finalizeBulkSave, folderSaveRef, startBulkSave, waitForBaseSaver, waitForFolderSaver]);
 
   const saveAll = useCallback(async () => {
     const dirtyModels = modelTabs.filter((t) => t.dirty);

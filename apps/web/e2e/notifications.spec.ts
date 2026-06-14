@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+type JsonRecord = Record<string, unknown>;
+
 function createMockSolutionPayload() {
   return {
     solution: {
@@ -69,8 +71,8 @@ async function mockApi(page: import("@playwright/test").Page, options?: { failMo
   const payload = createMockSolutionPayload();
   const failModelSave = !!options?.failModelSave;
   const longError = "Backend validation failed: ".concat("x".repeat(240));
-  const modelSaveBodies: any[] = [];
-  const modelMoveBodies: any[] = [];
+  const modelSaveBodies: JsonRecord[] = [];
+  const modelMoveBodies: JsonRecord[] = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });

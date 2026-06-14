@@ -150,16 +150,16 @@ export const normalizeRelationshipsForSave = (relationships: any[] | undefined) 
     })
     .filter((rel: any) => rel !== null);
 
-type EntityEditorDraft = {
+export type EntityEditorDraft = {
   mode: "form" | "json";
   entitySection: EntitySection;
   formState: { name?: string; displayName?: string; description?: string };
   jsonText: string;
-  attributes: any[];
-  sources: any[];
-  relationships: any[];
-  transformations: any[];
-  properties: any[];
+  attributes: Record<string, unknown>[];
+  sources: Record<string, unknown>[];
+  relationships: Record<string, unknown>[];
+  transformations: Record<string, unknown>[];
+  properties: Record<string, unknown>[];
   openAttributeDetails: Record<string, boolean>;
   openMappingDetails: Record<string, boolean>;
   collapsedMappings: Record<number, boolean>;
@@ -682,6 +682,10 @@ export const useEntityState = ({
     setTransformations(normalizedTransformations);
     setProperties(normalizePropertyAssignments(content?.properties || []));
     scheduleHydrationRelease();
+  // This hydration effect intentionally runs when the selected entity changes. It snapshots
+  // the previous editor state before replacing local state; adding every editor field would
+  // rehydrate while the user edits and break draft retention.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getEntityDraft, normalizeAttributes, scheduleHydrationRelease, selectedEntity, setEntityDraft]);
 
   useEffect(() => {
@@ -883,17 +887,11 @@ export const useEntityState = ({
     buildDraftContent,
     onDirtyEntity,
     onSave,
-    relationships,
     selectedEntity,
     solutionPath,
     transformSourceCache,
     transformSourceDirty,
     transformations,
-    inferSourceType,
-    mode,
-    modelEntities,
-    relationshipZones,
-    zoneFromRelPath,
   ]);
 
   const hasIncompleteLinkageDraft = useCallback(() => {
@@ -1033,4 +1031,3 @@ export const useEntityState = ({
     dataSourcesRelPath,
   };
 };
-

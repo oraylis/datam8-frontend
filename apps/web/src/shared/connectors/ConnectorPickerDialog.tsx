@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Dialog, DialogContent, DialogFooter, DialogTitle, cn } from "@datam8/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle, cn } from "@datam8/ui";
 import { refresh, useConnectorCatalog, type ConnectorSummary } from "./connectorCatalog";
 import { useSolution } from "../../features/solution/SolutionContext";
 import { ErrorSurfaceHost, useErrorSurface } from "../ui/ErrorSurface";
@@ -69,6 +69,9 @@ export function ConnectorPickerDialog(props: {
       <DialogContent className="connector-picker-dialog max-w-3xl">
         <div className="connector-picker-dialog__header">
           <DialogTitle>Link Connector</DialogTitle>
+          <DialogDescription className="sr-only">
+            Select a connector plugin to link to this data source type.
+          </DialogDescription>
           <Button size="sm" disabled={busy} onClick={() => void importArtifacts()}>
             Import Artifacts
           </Button>

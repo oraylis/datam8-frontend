@@ -46,7 +46,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   );
 
   return (
-    <Select value={stringValue || undefined} onValueChange={handleValueChange} disabled={disabled}>
+    <Select value={stringValue} onValueChange={handleValueChange} disabled={disabled}>
       <SelectTrigger className={className}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

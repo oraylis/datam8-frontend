@@ -1,8 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config "../tailwind.config.ts";
+@source "./**/*.{ts,tsx}";
+@source "../../../apps/web/src/**/*.{ts,tsx}";
+@source inline("inline-flex items-center justify-center justify-start gap-2 whitespace-nowrap rounded-lg text-left text-xs text-sm text-[13px] font-medium font-normal leading-5 transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 h-8 h-9 h-10 w-9 w-full px-3 px-3.5 px-3.5 px-4 border border-primary/40 border-primary/60 border-border border-border/60 border-border/70 border-border/90 border-transparent border-destructive/55 bg-primary bg-primary/95 bg-card/55 bg-card/75 bg-card/82 bg-elevated bg-elevated/70 bg-elevated/75 bg-transparent bg-foreground/5 bg-foreground/6 bg-destructive bg-destructive/90 text-primary text-primary/90 text-primary-foreground text-foreground text-foreground/88 text-foreground/90 text-destructive-foreground shadow-none shadow-sm hover:border-primary/60 hover:bg-primary/95 hover:border-border hover:bg-elevated/70 hover:border-ring/40 hover:bg-elevated hover:border-border/60 hover:bg-foreground/5 hover:border-border/90 hover:bg-card/55 hover:bg-destructive hover:bg-card/75 hover:text-primary/90 hover:underline");
 
 @layer base {
   :root {
@@ -180,7 +182,7 @@
   }
 
   body {
-    @apply text-[hsl(var(--ui-foreground))];
+    color: hsl(var(--ui-foreground));
     font-family: var(--font-sans);
     font-feature-settings: "liga" 1, "calt" 1;
     background-color: hsl(var(--ui-background));
@@ -189,13 +191,18 @@
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    @apply w-full text-[13px] leading-5 text-foreground transition disabled:cursor-not-allowed disabled:opacity-60;
+    width: 100%;
+    color: hsl(var(--ui-foreground));
+    font-size: 13px;
+    line-height: 1.25rem;
     min-height: 2.25rem;
     border: 1px solid hsl(var(--ui-border-subtle));
     border-radius: var(--ui-radius-md);
     background: color-mix(in srgb, hsl(var(--ui-input)) 92%, transparent);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     padding: 0.44rem 0.72rem;
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-duration: 150ms;
   }
 
   input:not([type="checkbox"]):not([type="radio"]):focus-visible,
@@ -211,6 +218,8 @@
   input:not([type="checkbox"]):not([type="radio"]):disabled,
   select:disabled,
   textarea:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
     background: color-mix(in srgb, hsl(var(--ui-input-disabled)) 90%, transparent);
     border-color: color-mix(in srgb, hsl(var(--ui-border-subtle)) 86%, transparent);
   }
@@ -225,6 +234,9 @@
   }
 
   .codex-dialog {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     transform-origin: center center;
     will-change: transform, opacity;
     border-radius: var(--ui-radius-2xl);
@@ -327,7 +339,13 @@
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 text-sm font-medium;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
     border-radius: var(--ui-radius-lg);
     border: 1px solid hsl(var(--ui-border-subtle));
     background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 84%, transparent);
@@ -348,7 +366,8 @@
   }
 
   .btn:disabled {
-    @apply pointer-events-none opacity-50;
+    pointer-events: none;
+    opacity: 0.5;
   }
 
   .btn--primary {
@@ -375,7 +394,9 @@
   }
 
   .icon-btn {
-    @apply inline-flex items-center justify-center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
     border-radius: var(--ui-radius-lg);
@@ -398,7 +419,12 @@
   }
 
   .chip {
-    @apply inline-flex items-center gap-2 text-xs font-medium;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
     border-radius: var(--ui-radius-pill);
     border: 1px solid color-mix(in srgb, hsl(var(--ui-border)) 80%, transparent);
     background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 80%, transparent);
@@ -407,7 +433,8 @@
   }
 
   .chip__remove {
-    @apply border-none bg-transparent;
+    border: none;
+    background: transparent;
     color: hsl(var(--ui-muted));
   }
 
@@ -416,7 +443,11 @@
   }
 
   .pill {
-    @apply inline-flex items-center text-xs font-semibold;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
     border-radius: var(--ui-radius-pill);
     background: color-mix(in srgb, hsl(var(--ui-border)) 40%, transparent);
     color: hsl(var(--ui-muted-foreground));
@@ -446,6 +477,6 @@
 
   .helper-text {
     font: var(--font-helper);
-    @apply text-muted-foreground;
+    color: hsl(var(--ui-muted-foreground));
   }
 }

@@ -105,7 +105,7 @@
     "electron": "^42.4.0",
     "electron-builder": "^26.15.3",
     "electronmon": "^2.0.4",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "adm-zip": "^0.5.17",

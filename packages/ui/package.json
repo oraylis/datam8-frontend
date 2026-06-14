@@ -6,8 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"stories/**/*.{ts,tsx}\" \"tailwind.config.ts\"",
-    "typecheck": "tsc --noEmit --project tsconfig.json",
-    "dev:docs": "ladle"
+    "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.4",
@@ -34,12 +33,10 @@
     "react-dom": "^18.3.1 || ^19.0.0"
   },
   "devDependencies": {
-    "@ladle/react": "^5.1.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "tailwindcss": "^3.4.19",
-    "typescript": "^5.9.3"
+    "@tailwindcss/postcss": "^4.3.1",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^6.0.3"
   }
 }

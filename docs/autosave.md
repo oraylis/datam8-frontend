@@ -140,7 +140,7 @@ If tabs remain dirty due to save errors:
 - closing a tab asks for confirmation (`Pending Sync`),
 - closing all tabs asks for confirmation with count.
 
-Reload checks combined dirty state (editor tabs + folder dirty paths) and asks for confirmation before reloading.
+Reload is disabled until a solution is loaded. When available, it checks combined dirty state (editor tabs + folder dirty paths) and asks for confirmation before reloading.
 
 ## Patch-based base autosave path
 
@@ -177,5 +177,4 @@ When adding a new editable control:
 - `apps/web/src/features/model/components/workspace/hooks/useEntityState.test.ts`
 - `apps/web/src/features/model/components/workspace/common/SaveErrorAlert.test.ts`
 - `apps/web/src/features/model/refactor/baseSaveEffects.test.ts`
-
 

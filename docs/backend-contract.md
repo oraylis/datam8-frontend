@@ -1,6 +1,6 @@
 # Backend Contract (Frontend Consumer View)
 
-Canonical source of truth is maintained in `datam8-generator/docs/backend-contract.md`.
+Canonical source of truth is maintained in `submodules/datam8-generator/docs/backend-contract.md`.
 
 ## Startup
 
@@ -74,5 +74,4 @@ Frontend may receive optional metadata fields from source/plugin endpoints:
 
 - `/jobs` and `/jobs/*`
 - `/api/*`
-
 

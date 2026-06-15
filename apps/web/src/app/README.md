@@ -3,7 +3,7 @@
 Top-level UI composition for the web client.
 
 ## Files
-- `AppShell.tsx` - ribbon (New/Open/Reload/Add Entity), theme toggle, sidebar + workspace wiring, tab bar, generator panel.
+- `AppShell.tsx` - shell-level actions (New/Open/Reload/Add Entity), theme toggle, sidebar + workspace wiring, tab bar, generator panel.
 - `SolutionDialog.tsx` - server-side picker dialog for `.dm8s`.
 - `NewProjectDialog.tsx` - two-step wizard for creating solutions (`Solution` then `Targets`) via `/solution/new-project`, with required save directory (`<savePath>/<solutionName>/<solutionName>.dm8s`) and per-target ZIP template upload (multipart in web mode, base64 JSON archive transport in desktop mode).
 - `App.tsx` / `main.tsx` - entry wiring with providers (theme, solution/model/generator/file system contexts).
@@ -12,6 +12,7 @@ Top-level UI composition for the web client.
 ## Notes
 - Entity/Base/Folder editors persist via autosave.
 - Base saves can produce follow-up model actions that are executed immediately with success/error notifications.
+- Reload and Add Entity are disabled until a solution is loaded; handlers also guard against running during solution loading.
 - Sidebar resizing uses `useResizablePane`.
 - AppShell stays in sync with SolutionContext (picker state, errors) and GeneratorContext (targets/log level/logs).
 

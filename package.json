@@ -19,6 +19,7 @@
     "build:datam8-binaries": "node scripts/build-datam8-binaries.mjs",
     "build:python-runtime": "node scripts/build-python-runtime.mjs",
     "ci:gates": "node scripts/ci-gates.mjs",
+    "test": "npm --workspaces run test --if-present",
     "lint": "npm --workspaces run lint",
     "typecheck": "npm --workspaces run typecheck",
     "test:runtime:packaged": "node scripts/smoke-python-runtime.mjs",

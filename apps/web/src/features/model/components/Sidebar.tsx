@@ -32,7 +32,9 @@ type SidebarProps = {
   onNew: () => void;
   onOpen: () => void;
   onReload: () => void;
+  canReload?: boolean;
   onAddEntity: () => void;
+  canAddEntity?: boolean;
   onToggleTheme: () => void;
   resolvedTheme: "light" | "dark";
   modelTreeLoading?: boolean;
@@ -68,7 +70,9 @@ export function Sidebar({
   onNew,
   onOpen,
   onReload,
+  canReload = true,
   onAddEntity,
+  canAddEntity = true,
   onToggleTheme,
   resolvedTheme,
   modelTreeLoading = false,
@@ -111,11 +115,11 @@ export function Sidebar({
             <FolderOpen className="h-4 w-4" />
             {sidebarOpen ? <span>Open</span> : null}
           </Button>
-          <Button variant="sidebar" onClick={onReload} title="Reload">
+          <Button variant="sidebar" onClick={onReload} title="Reload" disabled={!canReload}>
             <RefreshCw className="h-4 w-4" />
             {sidebarOpen ? <span>Reload</span> : null}
           </Button>
-          <Button variant="sidebar" onClick={onAddEntity} title="Add Entity">
+          <Button variant="sidebar" onClick={onAddEntity} title="Add Entity" disabled={!canAddEntity}>
             <Plus className="h-4 w-4" />
             {sidebarOpen ? <span>Add Entity</span> : null}
           </Button>

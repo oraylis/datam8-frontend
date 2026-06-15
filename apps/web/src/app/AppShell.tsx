@@ -1522,6 +1522,7 @@ export function AppShell() {
   }, [activeWorkTab]);
 
   const handleReload = useCallback(async () => {
+    if (!solution) return;
     if (hasAnyDirty) {
       const proceed = await confirm({
         title: "Reload solution?",
@@ -1560,7 +1561,7 @@ export function AppShell() {
     if (result) {
       applyLoadedSolution(result);
     }
-  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solutionPath, solutionSource]);
+  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solution, solutionPath, solutionSource]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")
@@ -2130,7 +2131,12 @@ export function AppShell() {
             onReload={() => {
               void handleReload();
             }}
-            onAddEntity={() => setWizardOpen(true)}
+            canReload={!!solution && !solutionLoading}
+            onAddEntity={() => {
+              if (!solution || solutionLoading) return;
+              setWizardOpen(true);
+            }}
+            canAddEntity={!!solution && !solutionLoading}
             onToggleTheme={handleToggleTheme}
             resolvedTheme={resolvedTheme}
             modelTreeLoading={solutionLoading}
@@ -2364,6 +2370,4 @@ export function AppShell() {
     </div>
   );
 }
-
-
 

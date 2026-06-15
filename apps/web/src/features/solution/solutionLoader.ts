@@ -4,7 +4,7 @@ import {
   locatorToClientString,
 } from "../model/locator-utils";
 import type { Solution } from "./solution-types";
-import { apiBase } from "../../config";
+import { apiBase, setRuntimeApiBase } from "../../config";
 import { V1SolutionDetectedError } from "./errors";
 import { readBackendErrorMessage } from "../../shared/api/errorMessage";
 
@@ -45,9 +45,9 @@ declare global {
         pickDirectory?: () => Promise<string | null>;
         pickPluginArtifacts?: () => Promise<string[] | null>;
         detectVersion?: (solutionPath: string) => Promise<{ version?: "v1" | "v2"; path?: string } | null>;
-        load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown } | null>;
-        createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
-        migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
+        load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown; apiBase?: string | null; token?: string | null } | null>;
+        createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown; apiBase?: string | null; token?: string | null } | null>;
+        migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown; apiBase?: string | null; token?: string | null } | null>;
         importPlugins?: (payload: { solutionPath: string; artifactPaths: string[] }) => Promise<{ imported?: number; plugins?: unknown } | null>;
         readFunctionSource?: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => Promise<{ content?: string } | null>;
         saveFunctionSource?: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string }) => Promise<{ path?: string } | null>;
@@ -317,6 +317,7 @@ async function loadFromElectron(path: string): Promise<LoadedSolution> {
 
   if (desktopBridge?.load) {
     const loaded = await desktopBridge.load(path);
+    setRuntimeApiBase(loaded?.apiBase);
     return normalizePayload((loaded as any)?.payload ?? loaded);
   }
 
@@ -359,4 +360,3 @@ export async function loadSolution(source: SolutionSource): Promise<LoadedSoluti
     }
   }
 }
-

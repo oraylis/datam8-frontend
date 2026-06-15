@@ -36,44 +36,8 @@ let backendSolutionPath: string | null = null;
 let currentAppTheme: "light" | "dark" = nativeTheme.shouldUseDarkColors ? "dark" : "light";
 let applicationMenu: Menu | null = null;
 const BACKEND_HOST = "127.0.0.1";
-const BACKEND_PORT = 4318;
+const BACKEND_PORT = 0;
 const BACKEND_OUTPUT_PREVIEW_LIMIT = 8192;
-
-function cleanupStaleBackendOnPort(port: number): void {
-  if (process.platform !== "win32") return;
-  try {
-    const netstat = spawnSync("netstat", ["-ano", "-p", "tcp"], {
-      shell: false,
-      stdio: "pipe",
-      encoding: "utf8",
-    });
-    const output = `${netstat.stdout || ""}`;
-    if (!output) return;
-
-    const pids = new Set<number>();
-    for (const line of output.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (!/\sLISTENING\s/i.test(trimmed)) continue;
-      if (!trimmed.includes(`:${port}`)) continue;
-      const parts = trimmed.split(/\s+/);
-      const pidRaw = parts.at(-1) || "";
-      const pid = Number.parseInt(pidRaw, 10);
-      if (!Number.isFinite(pid) || pid <= 0 || pid === process.pid) continue;
-      pids.add(pid);
-    }
-
-    for (const pid of pids) {
-      // Best effort cleanup: stale python/datam8 listeners can survive electron restarts.
-      spawnSync("taskkill", ["/PID", `${pid}`, "/T", "/F"], {
-        shell: false,
-        stdio: "ignore",
-      });
-    }
-  } catch {
-    // Ignore cleanup failures; startup will still attempt to spawn and report errors.
-  }
-}
 
 function getWindowsChromeColors(theme: "light" | "dark") {
   if (theme === "light") {
@@ -211,7 +175,7 @@ function resolveBundledPythonRuntimeRoot(pythonPath: string): string | null {
 }
 
 function buildBackendEnv(pythonPath: string, generatorSrcPath: string | null): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron" };
+  const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron", PYTHONUNBUFFERED: "1" };
 
   if (app.isPackaged) {
     if (!generatorSrcPath) {
@@ -318,6 +282,7 @@ async function waitForBackendReady(
       didResolve = true;
       // Not every backend build emits a machine-readable ready line.
       // Caller must fallback to /health probing.
+      cleanup();
       resolve(null);
     }, timeoutMs);
 
@@ -459,6 +424,37 @@ function normalizeDirectoryPath(value: string): string {
   return absolute;
 }
 
+function normalizeSafeLeafName(value: string, label: string): string {
+  const candidate = `${value || ""}`.trim();
+  if (!candidate) throw new Error(`${label} is required.`);
+  if (candidate === "." || candidate === "..") {
+    throw new Error(`${label} must be a folder name, not a relative path.`);
+  }
+  if (candidate.includes("/") || candidate.includes("\\") || path.basename(candidate) !== candidate || path.isAbsolute(candidate)) {
+    throw new Error(`${label} must not contain path separators.`);
+  }
+  return candidate;
+}
+
+function normalizeConfinedRelativePath(value: string, rootDir: string, label: string): string {
+  const candidate = `${value || ""}`.trim();
+  if (!candidate) return "";
+  if (path.isAbsolute(candidate) || /^[a-zA-Z]:[\\/]/.test(candidate)) {
+    throw new Error(`${label} must be relative to the solution folder.`);
+  }
+  const normalized = path.normalize(candidate);
+  if (normalized === "." || normalized.startsWith("..") || path.isAbsolute(normalized)) {
+    throw new Error(`${label} must stay inside the solution folder.`);
+  }
+  const resolvedRoot = path.resolve(rootDir);
+  const resolved = path.resolve(resolvedRoot, normalized);
+  const relative = path.relative(resolvedRoot, resolved);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`${label} must stay inside the solution folder.`);
+  }
+  return normalized.split(path.sep).join(path.posix.sep);
+}
+
 function isDangerousMigrationTarget(targetDir: string): boolean {
   const root = path.parse(targetDir).root;
   return targetDir === root;
@@ -539,8 +535,7 @@ async function createSolutionViaCli(params: {
   modelPath?: string;
 }): Promise<string> {
   const saveDir = normalizeDirectoryPath(params.saveDir);
-  const solutionName = `${params.solutionName || ""}`.trim();
-  if (!solutionName) throw new Error("Solution name is required.");
+  const solutionName = normalizeSafeLeafName(params.solutionName, "Solution name");
 
   const solutionDir = path.join(saveDir, solutionName);
   const solutionFile = path.join(solutionDir, `${solutionName}.dm8s`);
@@ -552,8 +547,8 @@ async function createSolutionViaCli(params: {
   runPythonCli(pythonPath, backendModule, ["init", solutionName, "--solution", solutionFile]);
 
   // Optional path overrides (still v2 compliant) if user customized defaults.
-  const basePath = `${params.basePath || ""}`.trim();
-  const modelPath = `${params.modelPath || ""}`.trim();
+  const basePath = normalizeConfinedRelativePath(params.basePath || "", solutionDir, "Base path");
+  const modelPath = normalizeConfinedRelativePath(params.modelPath || "", solutionDir, "Model path");
   if (basePath || modelPath) {
     const raw = fs.readFileSync(solutionFile, "utf8");
     const parsed = JSON.parse(raw);
@@ -1074,7 +1069,6 @@ async function startBackend(solutionPath?: string) {
     if (!targetSolutionPath) return;
     const token = (backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
-    cleanupStaleBackendOnPort(BACKEND_PORT);
     const generatorSrcPath = resolveGeneratorSrcPath();
     const env = buildBackendEnv(pythonPath, generatorSrcPath);
     const backendOutputPreview = { value: "" };
@@ -1082,6 +1076,7 @@ async function startBackend(solutionPath?: string) {
     const proc = spawn(
       pythonPath,
       [
+        "-u",
         "-m",
         backendModule,
         "serve",
@@ -1146,19 +1141,26 @@ async function startBackend(solutionPath?: string) {
     });
 
     try {
-      const fallbackBaseUrl = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
-      const readyOrHealth = await Promise.race<
-        { baseUrl: string; version: string | null } | null
-      >([
-        waitForBackendReady(proc, 5_000).then((ready) =>
-          ready ? { baseUrl: ready.baseUrl, version: ready.version } : null,
-        ),
-        waitForBackendHealth(fallbackBaseUrl, token, 20_000).then(() => ({
-          baseUrl: fallbackBaseUrl,
-          version: null,
-        })),
-      ]);
-      backendBaseUrl = readyOrHealth?.baseUrl || fallbackBaseUrl;
+      const fallbackBaseUrl = BACKEND_PORT > 0 ? `http://${BACKEND_HOST}:${BACKEND_PORT}` : null;
+      const readyOrHealth = fallbackBaseUrl
+        ? await Promise.race<
+            { baseUrl: string; version: string | null } | null
+          >([
+            waitForBackendReady(proc, 5_000).then((ready) =>
+              ready ? { baseUrl: ready.baseUrl, version: ready.version } : null,
+            ),
+            waitForBackendHealth(fallbackBaseUrl, token, 20_000).then(() => ({
+              baseUrl: fallbackBaseUrl,
+              version: null,
+            })),
+          ])
+        : await waitForBackendReady(proc, 20_000).then((ready) =>
+            ready ? { baseUrl: ready.baseUrl, version: ready.version } : null,
+          );
+      if (!readyOrHealth?.baseUrl) {
+        throw new Error("Backend did not report a ready URL.");
+      }
+      backendBaseUrl = readyOrHealth.baseUrl;
       backendVersion = readyOrHealth?.version || null;
       backendSolutionPath = targetSolutionPath;
       await waitForBackendHealth(backendBaseUrl, token);
@@ -1271,7 +1273,7 @@ async function createWindow() {
   }
 
   if (!backendBaseUrl || !backendToken) {
-    backendBaseUrl = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
+    backendBaseUrl = BACKEND_PORT > 0 ? `http://${BACKEND_HOST}:${BACKEND_PORT}` : "";
   }
 
   const existingWindow = BrowserWindow.getAllWindows().at(0) ?? null;
@@ -1458,21 +1460,21 @@ ipcMain.handle("solution:load", async (_event, solutionPath: string | null | und
   const normalized = normalizeExistingFilePath(`${solutionPath || ""}`);
   await ensureBackendForSolution(normalized);
   const payload = await loadCurrentSolutionPayload();
-  return { path: normalized, payload };
+  return { path: normalized, payload, apiBase: backendBaseUrl, token: backendToken };
 });
 
 ipcMain.handle("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => {
   const solutionPath = await createSolutionViaCli(payload);
   await ensureBackendForSolution(solutionPath);
   const loaded = await loadCurrentSolutionPayload();
-  return { solutionPath, payload: loaded };
+  return { solutionPath, payload: loaded, apiBase: backendBaseUrl, token: backendToken };
 });
 
 ipcMain.handle("solution:migrate-v1-to-v2", async (_event, payload: { sourceSolutionPath: string; targetDir: string }) => {
   const migratedSolutionPath = await migrateSolutionViaCli(payload);
   await ensureBackendForSolution(migratedSolutionPath);
   const loaded = await loadCurrentSolutionPayload();
-  return { solutionPath: migratedSolutionPath, payload: loaded };
+  return { solutionPath: migratedSolutionPath, payload: loaded, apiBase: backendBaseUrl, token: backendToken };
 });
 
 ipcMain.handle("solution:import-plugins", async (_event, payload: { solutionPath: string; artifactPaths: string[] }) => {

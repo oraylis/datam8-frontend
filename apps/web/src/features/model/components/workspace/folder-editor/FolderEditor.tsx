@@ -305,6 +305,7 @@ export function FolderEditor({
       const current = buildUiContent();
       dirty = !deepEqual(current, baselineRef.current);
     }
+    const wasDirty = dirtyRef.current;
     dirtyRef.current = dirty;
     if (!dirty) {
       persistQueuedRef.current = false;
@@ -314,8 +315,11 @@ export function FolderEditor({
       setSaveError(null);
       return;
     }
+    if (!wasDirty) {
+      onDirtyChange?.(selectedFolderPath, true);
+    }
     bumpChangeRevision();
-  }, [buildUiContent, bumpChangeRevision, jsonText, mode]);
+  }, [buildUiContent, bumpChangeRevision, jsonText, mode, onDirtyChange, selectedFolderPath]);
 
   const persistNow = useCallback(
     async (reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item"): Promise<boolean> => {
@@ -425,7 +429,10 @@ export function FolderEditor({
               addProperty(property, value);
               persistAfterStateFlush("add-item");
             }}
-            onRemove={removeProperty}
+            onRemove={(removeKey) => {
+              removeProperty(removeKey);
+              persistAfterStateFlush("add-item");
+            }}
             addLabel="Add folder property"
           />
         }

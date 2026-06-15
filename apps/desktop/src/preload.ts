@@ -17,11 +17,30 @@ function getTokenFromArgs(): string | null {
   return typeof token === "string" && token.trim() ? token.trim() : null;
 }
 
-contextBridge.exposeInMainWorld("desktop", {
+type BackendRuntimeResult = {
+  apiBase?: string | null;
+  token?: string | null;
+};
+
+function updateBackendRuntime(result: unknown): void {
+  const payload = result as BackendRuntimeResult | null | undefined;
+  if (typeof payload?.apiBase === "string" && payload.apiBase.trim()) {
+    desktopApi.apiBase = payload.apiBase.trim();
+  }
+  if (typeof payload?.token === "string" && payload.token.trim()) {
+    desktopApi.token = payload.token.trim();
+  }
+}
+
+const desktopApi = {
   isElectron: true,
   platform: process.platform,
   apiBase: getApiBaseFromArgs(),
   token: getTokenFromArgs(),
+  getBackendRuntime: () => ({
+    apiBase: desktopApi.apiBase,
+    token: desktopApi.token,
+  }),
   window: {
     setSolutionPath: (solutionPath: string | null) => ipcRenderer.invoke("window:set-solution-path", solutionPath),
     getTitle: () => ipcRenderer.invoke("window:get-title"),
@@ -37,11 +56,21 @@ contextBridge.exposeInMainWorld("desktop", {
     pickDirectory: () => ipcRenderer.invoke("solution:pick-directory"),
     pickPluginArtifacts: () => ipcRenderer.invoke("solution:pick-plugin-artifacts"),
     detectVersion: (solutionPath: string) => ipcRenderer.invoke("solution:detect-version", solutionPath),
-    load: (solutionPath: string) => ipcRenderer.invoke("solution:load", solutionPath),
+    load: async (solutionPath: string) => {
+      const result = await ipcRenderer.invoke("solution:load", solutionPath);
+      updateBackendRuntime(result);
+      return result;
+    },
     createNew: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) =>
-      ipcRenderer.invoke("solution:create-new", payload),
+      ipcRenderer.invoke("solution:create-new", payload).then((result) => {
+        updateBackendRuntime(result);
+        return result;
+      }),
     migrateV1ToV2: (payload: { sourceSolutionPath: string; targetDir: string }) =>
-      ipcRenderer.invoke("solution:migrate-v1-to-v2", payload),
+      ipcRenderer.invoke("solution:migrate-v1-to-v2", payload).then((result) => {
+        updateBackendRuntime(result);
+        return result;
+      }),
     importPlugins: (payload: { solutionPath: string; artifactPaths: string[] }) =>
       ipcRenderer.invoke("solution:import-plugins", payload),
     readFunctionSource: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) =>
@@ -77,5 +106,6 @@ contextBridge.exposeInMainWorld("desktop", {
       return () => ipcRenderer.off("theme:changed", handler);
     },
   },
-});
+};
 
+contextBridge.exposeInMainWorld("desktop", desktopApi);

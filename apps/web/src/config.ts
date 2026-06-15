@@ -4,6 +4,7 @@ export type RuntimeAppMode = AppMode | "server";
 type DesktopRuntime = {
   isElectron?: boolean;
   apiBase?: string;
+  getBackendRuntime?: () => { apiBase?: string | null } | null | undefined;
 };
 
 function getDesktopRuntime(): DesktopRuntime | undefined {
@@ -27,7 +28,7 @@ function resolveDesktopApiBase(): string | null {
   try {
     const desktop = getDesktopRuntime();
     if (desktop?.isElectron !== true) return null;
-    const base = desktop.apiBase;
+    const base = desktop.getBackendRuntime?.()?.apiBase ?? desktop.apiBase;
     return typeof base === "string" && base.trim() ? base : null;
   } catch {
     return null;
@@ -41,7 +42,13 @@ const defaultApiBase = isElectronRuntime()
   ? (desktopApiBase ?? "")
   : (import.meta.env.DEV ? "" : envApiBase);
 
-export const apiBase = defaultApiBase;
+export let apiBase = defaultApiBase;
+
+export function setRuntimeApiBase(nextApiBase: string | null | undefined): void {
+  const normalized = typeof nextApiBase === "string" ? nextApiBase.trim() : "";
+  if (!normalized) return;
+  apiBase = normalized.replace(/\/+$/, "");
+}
 
 const runtimeConfig: { mode: RuntimeAppMode } = {
   mode: isElectronRuntime() ? "electron" : envMode,

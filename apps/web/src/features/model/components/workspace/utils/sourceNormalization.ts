@@ -16,7 +16,8 @@ type SourceMapping = {
 };
 
 const normalizeNumeric = (value: NumericLike) => {
-  if (value === null || value === undefined || value === "") return undefined;
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
   const num = Number(value);
   return Number.isFinite(num) ? num : undefined;
 };
@@ -47,8 +48,8 @@ export const normalizeDataTypeForSave = (dataType: unknown) => {
 export const normalizePropertiesForSave = (props: PropertyAssignment[] | undefined) => {
   if (!Array.isArray(props)) return [];
   return props
-    .map((p) => ({ property: p?.property, value: p?.value }))
-    .filter((p) => (p.property ?? "") !== "" || (p.value ?? "") !== "");
+    .map((p) => ({ property: (p?.property ?? "").trim(), value: (p?.value ?? "").trim() }))
+    .filter((p) => p.property !== "" || p.value !== "");
 };
 
 export const normalizeMappingForSave = (mapping: SourceMapping[] | undefined) => {
@@ -56,8 +57,10 @@ export const normalizeMappingForSave = (mapping: SourceMapping[] | undefined) =>
   return mapping
     .map((m) => {
       const out: SourceMapping = {};
-      if (m?.sourceName !== undefined) out.sourceName = m.sourceName;
-      if (m?.targetName !== undefined) out.targetName = m.targetName;
+      const sourceName = (m?.sourceName ?? "").trim();
+      const targetName = (m?.targetName ?? "").trim();
+      if (sourceName) out.sourceName = sourceName;
+      if (targetName) out.targetName = targetName;
       const normalizedDataType = normalizeDataTypeForSave(m?.sourceDataType);
       if (normalizedDataType) out.sourceDataType = normalizedDataType;
       const properties = normalizePropertiesForSave(m?.properties);

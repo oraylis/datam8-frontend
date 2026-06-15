@@ -11,33 +11,34 @@ type DesktopRuntime = {
   isElectron?: boolean;
   token?: string;
   apiBase?: string;
+  getBackendRuntime?: () => { apiBase?: string | null; token?: string | null } | null | undefined;
 };
 
 function installAuthFetchShim() {
   const desktop = (window as Window & { desktop?: DesktopRuntime }).desktop;
   if (!desktop?.isElectron) return;
 
-  const token = typeof desktop?.token === "string" ? desktop.token.trim() : "";
-  const apiBase = typeof desktop?.apiBase === "string" ? desktop.apiBase.trim() : "";
-  if (!token || !apiBase) return;
-
-  const apiOrigin = new URL(apiBase).origin;
-
-  if (!didLogAuthShimInstalled) {
-    didLogAuthShimInstalled = true;
-    console.info(`[DataM8] Desktop mode. Injecting Authorization header for backend requests to ${apiBase}.`);
-  }
-
   const originalFetch = window.fetch.bind(window);
 
   window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const runtime = desktop.getBackendRuntime?.() ?? desktop;
+    const token = typeof runtime?.token === "string" ? runtime.token.trim() : "";
+    const apiBase = typeof runtime?.apiBase === "string" ? runtime.apiBase.trim().replace(/\/+$/, "") : "";
+    if (!token || !apiBase) return originalFetch(input, init);
+
     const req = input instanceof Request ? input : null;
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : req?.url;
     if (!urlStr) return originalFetch(input, init);
 
     const url = new URL(urlStr, window.location.origin);
+    const apiOrigin = new URL(apiBase).origin;
     const isBackend = urlStr.startsWith(apiBase) || url.origin === apiOrigin;
     if (!isBackend) return originalFetch(input, init);
+
+    if (!didLogAuthShimInstalled) {
+      didLogAuthShimInstalled = true;
+      console.info(`[DataM8] Desktop mode. Injecting Authorization header for backend requests to ${apiBase}.`);
+    }
 
     const headers = new Headers(init?.headers || req?.headers);
     if (!headers.has("authorization")) {

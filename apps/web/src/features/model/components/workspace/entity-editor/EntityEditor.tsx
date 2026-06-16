@@ -375,25 +375,65 @@ export const EntityEditor = (props: EntityEditorProps) => {
           return;
         }
 
+        const currentMapping: any[] = Array.isArray(source.mapping) ? source.mapping : [];
         const currentSourceNames = new Set(
-          (Array.isArray(source.mapping) ? source.mapping : [])
+          currentMapping
             .map((m: any) => (typeof m?.sourceName === "string" ? m.sourceName.toLowerCase() : ""))
             .filter(Boolean),
         );
+
+        // Columns that have no mapping entry yet — need to be added.
         const missingColumns = metaColumns.filter(
           (col: any) => typeof col?.name === "string" && !currentSourceNames.has(col.name.toLowerCase()),
         );
 
-        if (!missingColumns.length) {
+        // Existing mapping entries where the source now carries properties the mapping
+        // does not have yet — additive-only merge (never remove existing properties).
+        const sourceByName = new Map<string, any>(
+          metaColumns
+            .filter((col: any) => typeof col?.name === "string")
+            .map((col: any) => [col.name.toLowerCase(), col]),
+        );
+        const mappingsNeedingPropertyUpdate = currentMapping
+          .map((m: any, idx: number) => {
+            const sourceName = typeof m?.sourceName === "string" ? m.sourceName.toLowerCase() : "";
+            if (!sourceName) return null;
+            const sourceCol = sourceByName.get(sourceName);
+            if (!sourceCol) return null;
+            const incomingProps: any[] = Array.isArray(sourceCol.properties) ? sourceCol.properties : [];
+            if (!incomingProps.length) return null;
+            const existingProps: any[] = Array.isArray(m.properties) ? m.properties : [];
+            const existingKeys = new Set(existingProps.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
+            const newProps = incomingProps.filter((p: any) => {
+              const key = `${p?.property}`.trim();
+              return key && !existingKeys.has(key);
+            });
+            if (!newProps.length) return null;
+            return { idx, newProps };
+          })
+          .filter((entry): entry is { idx: number; newProps: any[] } => entry !== null);
+
+        if (!missingColumns.length && !mappingsNeedingPropertyUpdate.length) {
           window.alert("All source columns already have a mapping \u2014 nothing to restore.");
           return;
         }
 
-        if (!window.confirm(`Restore ${missingColumns.length} missing mapping(s) from the source schema?`)) return;
+        const parts: string[] = [];
+        if (missingColumns.length) parts.push(`${missingColumns.length} missing mapping(s)`);
+        if (mappingsNeedingPropertyUpdate.length) parts.push(`${mappingsNeedingPropertyUpdate.length} mapping(s) with new properties`);
+        if (!window.confirm(`Restore ${parts.join(" and ")} from the source schema?`)) return;
 
         setSources((prev) =>
           prev.map((s, i) => {
             if (i !== sourceIndex) return s;
+            // 1. Apply additive property updates to existing mappings.
+            const updatedMapping: any[] = (Array.isArray(s.mapping) ? (s.mapping as any[]) : []).map((m: any, idx: number) => {
+              const update = mappingsNeedingPropertyUpdate.find((u) => u.idx === idx);
+              if (!update) return m;
+              const existingProps: any[] = Array.isArray(m.properties) ? m.properties : [];
+              return { ...m, properties: [...existingProps, ...update.newProps] };
+            });
+            // 2. Append new mappings for missing columns.
             const newMappings = missingColumns.map((col: any) => {
               const sourceDataType = normalizeDataTypeForSave({
                 type: col.dataType,
@@ -402,13 +442,45 @@ export const EntityEditor = (props: EntityEditorProps) => {
                 precision: col.numericPrecision,
                 scale: col.numericScale,
               });
-              return sourceDataType
-                ? { targetName: col.name, sourceName: col.name, sourceDataType }
-                : { targetName: col.name, sourceName: col.name };
+              const mapping: Record<string, unknown> = { targetName: col.name, sourceName: col.name };
+              if (sourceDataType) mapping.sourceDataType = sourceDataType;
+              if (Array.isArray(col.properties) && col.properties.length > 0) mapping.properties = col.properties;
+              return mapping;
             });
-            return { ...s, mapping: [...(Array.isArray(s.mapping) ? (s.mapping as unknown[]) : []), ...newMappings] };
+            return { ...s, mapping: [...updatedMapping, ...newMappings] };
           }),
         );
+
+        // Apply additive property updates to existing attributes for mapping rows
+        // that received new properties above. Uses the same source-name-to-attribute
+        // name correspondence that the rest of the mapping logic relies on.
+        if (mappingsNeedingPropertyUpdate.length) {
+          const updatesByAttrName = new Map<string, any[]>();
+          for (const update of mappingsNeedingPropertyUpdate) {
+            const mappingRow = currentMapping[update.idx];
+            const attrName = typeof mappingRow?.targetName === "string"
+              ? mappingRow.targetName.toLowerCase()
+              : typeof mappingRow?.sourceName === "string"
+                ? mappingRow.sourceName.toLowerCase()
+                : null;
+            if (attrName) updatesByAttrName.set(attrName, update.newProps);
+          }
+          updateAttributesStructural((list) =>
+            list.map((attr) => {
+              const key = (attr.name || "").toLowerCase();
+              const newProps = updatesByAttrName.get(key);
+              if (!newProps || !newProps.length) return attr;
+              const existingProps: any[] = Array.isArray(attr.properties) ? attr.properties : [];
+              const existingKeys = new Set(existingProps.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
+              const propsToAdd = newProps.filter((p: any) => {
+                const k = `${p?.property}`.trim();
+                return k && !existingKeys.has(k);
+              });
+              if (!propsToAdd.length) return attr;
+              return { ...attr, properties: [...existingProps, ...propsToAdd] };
+            }),
+          );
+        }
 
         const dataSourceDetail = dataSourceName ? dataSourceDetails[dataSourceName] : undefined;
         const defaultAttributeType = attributeTypeOptions[0]?.value || "";
@@ -427,18 +499,13 @@ export const EntityEditor = (props: EntityEditorProps) => {
           updateAttributesStructural((list) => [...list, ...newAttributes]);
         }
 
+        markEntityDirty();
         persistAfterStateFlush("add-item");
       };
 
-      // Use cached meta from the current session first.
-      const uiMeta = source.__uiExternalMeta as { columns?: unknown[] } | undefined;
-      const cachedColumns: any[] = Array.isArray(uiMeta?.columns) ? uiMeta.columns : [];
-      if (cachedColumns.length) {
-        applyColumns(cachedColumns);
-        return;
-      }
-
-      // Fall back: fetch live from the backend.
+      // Always fetch live from the backend so the latest plugin-injected
+      // properties are included. The __uiExternalMeta cache is only used by
+      // the wizard creation flow and must not short-circuit adopt schema.
       const rawLocation = typeof source.sourceLocation === "string" ? source.sourceLocation : "";
       if (!rawLocation) {
         window.alert("No source location configured. Set the data source and table location first.");
@@ -469,9 +536,11 @@ export const EntityEditor = (props: EntityEditorProps) => {
             dataType: `${col?.dataType || ""}`,
             maxLength: typeof col?.maxLength === "number" ? col.maxLength : null,
             numericPrecision: typeof col?.numericPrecision === "number" ? col.numericPrecision : null,
-            numericScale: typeof col?.numericScale === "number" ? col.numericScale : null,
+            numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
             isNullable: Boolean(col?.isNullable),
             isPrimaryKey: Boolean(col?.isPrimaryKey),
+            description: typeof col?.description === "string" ? col.description : undefined,
+            properties: Array.isArray(col?.properties) ? col.properties : [],
           }));
           applyColumns(metaColumns);
         })
@@ -490,6 +559,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
       dataTypes,
       attributes,
       updateAttributesStructural,
+      markEntityDirty,
       persistAfterStateFlush,
     ],
   );

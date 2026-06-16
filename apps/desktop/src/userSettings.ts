@@ -12,7 +12,7 @@ const schema = z.object({
 export type UserSettings = z.infer<typeof schema>;
 
 export namespace UserSettings {
-  export function parseFromSolution(solutionDir: string): UserSettings  {
+  export function parseFromSolution(solutionDir: string): UserSettings {
     const filePath = path.join(solutionDir, settingsFileName);
     if (!fs.existsSync(filePath)) return {};
 
@@ -26,6 +26,14 @@ export namespace UserSettings {
       }
 
       console.log("[datam8] User settings parsed.");
+
+      if (settings.pythonPath) {
+        console.log(`[datam8] User settings - pythonPath: '${settings.pythonPath}'`);
+      }
+
+      if (settings.backendModule) {
+        console.log(`[datam8] User settings - backendModule: '${settings.backendModule}'`);
+      }
 
       return settings;
     } catch (err) {

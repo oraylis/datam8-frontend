@@ -65,7 +65,9 @@ type SchemaChangeType =
   | "REMOVED_COLUMN"
   | "TYPE_CHANGED"
   | "NULLABILITY_CHANGED"
-  | "PK_CHANGED";
+  | "PK_CHANGED"
+  | "DESCRIPTION_CHANGED"
+  | "PROPERTIES_CHANGED";
 
 type ColumnChange = {
   changeType: SchemaChangeType;
@@ -90,6 +92,8 @@ type ExternalSourceSchemaDiff = {
     pkChanges: number;
     typeChanges: number;
     nullableChanges: number;
+    descriptionChanges: number;
+    propertiesChanges: number;
   };
 };
 
@@ -347,6 +351,41 @@ export const RefreshSchemasDialog = ({
           applyToEntitySuggested: true,
         });
       }
+
+      // Description change detection
+      const descBefore = attr && typeof attr.description === "string" ? attr.description : undefined;
+      const descAfter = typeof src?.description === "string" ? src.description : undefined;
+      if (descAfter !== undefined && descBefore !== descAfter) {
+        changes.push({
+          changeType: "DESCRIPTION_CHANGED",
+          columnName: name,
+          sourceBefore: { description: descBefore },
+          sourceAfter: { ...src, description: descAfter },
+          entityAttributeName: mappingTargetName || undefined,
+          applyToEntitySuggested: true,
+        });
+      }
+
+      // Properties change detection — only flag additions from source; never signal removal
+      const propsBefore: any[] = attr && Array.isArray(attr.properties) ? attr.properties : [];
+      const propsAfter: any[] = Array.isArray(src?.properties) ? src.properties : [];
+      if (propsAfter.length > 0) {
+        const existingKeys = new Set(propsBefore.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
+        const newProps = propsAfter.filter((p: any) => {
+          const key = `${p?.property}`.trim();
+          return key && !existingKeys.has(key);
+        });
+        if (newProps.length > 0) {
+          changes.push({
+            changeType: "PROPERTIES_CHANGED",
+            columnName: name,
+            sourceBefore: { properties: propsBefore },
+            sourceAfter: { ...src, properties: propsAfter },
+            entityAttributeName: mappingTargetName || undefined,
+            applyToEntitySuggested: true,
+          });
+        }
+      }
     }
     for (const mapping of sourceMappings) {
       const sourceName = `${mapping?.sourceName || ""}`.trim();
@@ -383,6 +422,8 @@ export const RefreshSchemasDialog = ({
         pkChanges: changes.filter((c) => c.changeType === "PK_CHANGED").length,
         typeChanges: changes.filter((c) => c.changeType === "TYPE_CHANGED").length,
         nullableChanges: changes.filter((c) => c.changeType === "NULLABILITY_CHANGED").length,
+        descriptionChanges: changes.filter((c) => c.changeType === "DESCRIPTION_CHANGED").length,
+        propertiesChanges: changes.filter((c) => c.changeType === "PROPERTIES_CHANGED").length,
       },
     } as ExternalSourceSchemaDiff;
   };
@@ -803,6 +844,26 @@ export const RefreshSchemasDialog = ({
             }
             if (change.changeType === "PK_CHANGED") {
               targetAttr.isBusinessKey = Boolean(change.sourceAfter?.isPrimaryKey);
+            }
+            if (change.changeType === "DESCRIPTION_CHANGED") {
+              // Only set description if the attribute does not already have one
+              const existingDesc = typeof targetAttr.description === "string" ? targetAttr.description.trim() : "";
+              if (!existingDesc) {
+                targetAttr.description = change.sourceAfter?.description ?? undefined;
+              }
+            }
+            if (change.changeType === "PROPERTIES_CHANGED") {
+              // Additive only: add new properties from source, never remove or overwrite existing ones
+              const existing: any[] = Array.isArray(targetAttr.properties) ? targetAttr.properties : [];
+              const existingKeys = new Set(existing.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
+              const incoming: any[] = Array.isArray(change.sourceAfter?.properties) ? change.sourceAfter.properties : [];
+              const toAdd = incoming.filter((p: any) => {
+                const key = `${p?.property}`.trim();
+                return key && !existingKeys.has(key);
+              });
+              if (toAdd.length > 0) {
+                targetAttr.properties = [...existing, ...toAdd];
+              }
             }
           }
 

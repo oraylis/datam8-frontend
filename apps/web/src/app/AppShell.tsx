@@ -56,6 +56,7 @@ import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfi
 import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
 import { createEntity, deleteEntity, moveEntities, patchEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
+import { refresh as refreshConnectorCatalog } from "../shared/connectors/connectorCatalog";
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
 type PendingBaseAction =
@@ -1551,6 +1552,27 @@ export function AppShell() {
       showAppError("Reload failed", (err as Error).message);
       return;
     }
+
+    // Rescan plugins on the backend, then refresh the frontend catalog.
+    // Must be sequential: the GET /plugins/ fetch must not start until
+    // POST /plugins/reload has finished updating the backend registry.
+    try {
+      const pluginReloadResponse = await fetch(`${apiBase}/plugins/reload`, { method: "POST" });
+      if (!pluginReloadResponse.ok) {
+        const payload = await pluginReloadResponse.json().catch(() => ({}));
+        const serverMessage =
+          typeof (payload as any)?.message === "string" && (payload as any).message.trim()
+            ? (payload as any).message
+            : typeof (payload as any)?.detail === "string" && (payload as any).detail.trim()
+              ? (payload as any).detail
+              : null;
+        throw new Error(serverMessage ?? `Plugin reload failed (${pluginReloadResponse.status}).`);
+      }
+    } catch (err) {
+      showAppError("Plugin reload failed", (err as Error).message);
+      return;
+    }
+    void refreshConnectorCatalog();
 
     const fallbackSource: SolutionSource | null = solutionSource
       ? solutionSource

@@ -29,6 +29,8 @@ type WizardZone = { name: string; displayName: string; localFolderName: string; 
 type HttpError = Error & { status?: number };
 type SourceTableListItem = SourcePreviewTableRef & {
   sourceOverride?: SourceOverride;
+  description?: string;
+  properties?: PropertyAssignment[];
 };
 
 function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined {
@@ -124,6 +126,8 @@ export const ExternalSourceConfigurator = ({
         items.map((item) => ({
           schema: typeof item?.schema === "string" ? item.schema : undefined,
           name: `${item?.name || ""}`,
+          description: typeof item?.description === "string" ? item.description : undefined,
+          properties: toPropertyAssignments(item?.properties),
           sourceOverride: toSourceOverride(item?.sourceOverride),
         })),
       );
@@ -160,7 +164,8 @@ export const ExternalSourceConfigurator = ({
         schema: tableRef.schema || "",
         name: tableRef.name,
         type: "BASE TABLE",
-        description: typeof (data as any)?.description === "string" ? (data as any).description : undefined,
+        description: typeof (data as any)?.description === "string" ? (data as any).description : tableRef.description,
+        properties: toPropertyAssignments((data as any)?.properties) ?? tableRef.properties,
         sourceOverride: tableRef.sourceOverride,
         columns: columns.map((col: any) => ({
           name: `${col?.name || ""}`,
@@ -212,6 +217,7 @@ export const ExternalSourceConfigurator = ({
         name: httpSourceLocation,
         type: "BASE TABLE",
         description: typeof (data as any)?.description === "string" ? (data as any).description : undefined,
+        properties: toPropertyAssignments((data as any)?.properties),
         columns: columns.map((col: any) => ({
           name: `${col?.name || ""}`,
           ordinal: Number(col?.ordinal || 0),

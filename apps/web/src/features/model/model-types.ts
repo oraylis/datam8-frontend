@@ -155,6 +155,7 @@ export type TableMetadata = {
   name: string;
   type: "BASE TABLE" | "VIEW";
   description?: string;
+  properties?: PropertyAssignment[];
   sourceOverride?: SourceOverride;
   columns: ColumnMetadata[];
 };

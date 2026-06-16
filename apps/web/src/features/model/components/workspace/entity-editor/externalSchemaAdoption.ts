@@ -61,15 +61,19 @@ export function buildAttributesFromExternalSourceSchema(params: {
           mappings: effectiveMappings,
           canonicalTypes: canonicalDataTypes,
         });
-        return {
+        const attr: EntityAttribute = {
           name,
           attributeType: defaultAttributeType,
           dataType: canonicalDataType,
           dateAdded: timestamp,
-          properties: [],
+          properties: Array.isArray(col.properties) ? col.properties as EntityAttribute["properties"] : [],
           __isNew: true,
           __modified: true,
         };
+        if (typeof col.description === "string" && col.description.trim()) {
+          attr.description = col.description.trim();
+        }
+        return attr;
       })
       .filter((a): a is EntityAttribute => a !== null);
   }
@@ -96,15 +100,19 @@ export function buildAttributesFromExternalSourceSchema(params: {
         canonicalTypes: canonicalDataTypes,
       });
 
-      return {
+      const attr: EntityAttribute = {
         name,
         attributeType: defaultAttributeType,
         dataType: canonicalDataType,
         dateAdded: timestamp,
-        properties: [],
+        properties: Array.isArray(mapping.properties) ? mapping.properties as EntityAttribute["properties"] : [],
         __isNew: true,
         __modified: true,
       };
+      if (typeof mapping.description === "string" && mapping.description.trim()) {
+        attr.description = mapping.description.trim();
+      }
+      return attr;
     })
     .filter((attribute): attribute is EntityAttribute => attribute !== null);
 }

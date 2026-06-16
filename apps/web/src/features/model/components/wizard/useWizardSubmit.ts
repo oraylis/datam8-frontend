@@ -49,6 +49,7 @@ type MappedSourceMapping = {
   targetName: string;
   sourceName: string;
   sourceDataType: ReturnType<typeof sanitizeDataType>;
+  properties?: PropertyAssignment[];
 };
 
 type MappedSource = {
@@ -157,17 +158,23 @@ export function mapMetadataColumnToCreatedAttribute(params: {
 }
 
 function toMappedSourceColumns(metadata: TableMetadata): MappedSourceMapping[] {
-  return metadata.columns.map((col) => ({
-    targetName: col.name,
-    sourceName: col.name,
-    sourceDataType: sanitizeDataType({
-      type: col.dataType,
-      nullable: col.isNullable,
-      charLen: col.maxLength,
-      precision: col.numericPrecision,
-      scale: col.numericScale,
-    }),
-  }));
+  return metadata.columns.map((col) => {
+    const row: MappedSourceMapping = {
+      targetName: col.name,
+      sourceName: col.name,
+      sourceDataType: sanitizeDataType({
+        type: col.dataType,
+        nullable: col.isNullable,
+        charLen: col.maxLength,
+        precision: col.numericPrecision,
+        scale: col.numericScale,
+      }),
+    };
+    if (Array.isArray(col.properties) && col.properties.length > 0) {
+      row.properties = col.properties;
+    }
+    return row;
+  });
 }
 
 function mapAttribute(attr: WizardAttribute, idx: number, nowIso: string): MappedAttribute {
@@ -264,6 +271,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
         name: tableName,
         type: "BASE TABLE",
         description: typeof (payload as any)?.description === "string" ? (payload as any).description : undefined,
+        properties: toPropertyAssignments((payload as any)?.properties),
         sourceOverride: toSourceOverride((payload as any)?.sourceOverride),
         columns: items.map((col) => ({
           name: `${col?.name || ""}`,
@@ -525,7 +533,10 @@ export function useWizardSubmit(deps: SubmitDeps) {
                     (values.tableDescriptions && values.tableDescriptions[tableName]) ||
                     metadata.description ||
                     "",
-                  properties: (values.tableProperties && values.tableProperties[tableName]) || [],
+                  properties:
+                    (values.tableProperties && values.tableProperties[tableName]?.length)
+                      ? values.tableProperties[tableName]
+                      : (metadata.properties ?? []),
                   attributes,
                   sources: [source],
                   relationships: [],

@@ -6,6 +6,7 @@ import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import type { PropertyAssignment } from "@datam8/types";
 import type { ModelEntity, SourceOverride, TableMetadata } from "../../model-types";
+import type { PropertyReference } from "../../generated-schema-types.ts";
 import type { WizardFormValues } from "./schema";
 import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
 import type { SourcePreviewTableRef } from "./sourcePreview";

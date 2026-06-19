@@ -1,4 +1,5 @@
 import type { PropertyAssignment } from "@datam8/types";
+import { PropertyValue, Locator } from "./generated-schema-types.ts"
 
 type LooseObject = Record<string, unknown>;
 
@@ -180,3 +181,22 @@ export type TreeNode = {
   children?: TreeNode[];
   path?: string;
 };
+
+export interface MultiItemResponse<T> {
+  count: number;
+  items: T[];
+}
+
+export interface SingleItemResponse<T> {
+  item: T
+}
+
+export interface EntityWrapper<T> {
+  locator: Locator;
+  source_file: string;
+  entity: T;
+  properties: Record<string, PropertyValue>;
+  resolved: boolean;
+  has_changed: boolean;
+  is_deleted: boolean;
+}

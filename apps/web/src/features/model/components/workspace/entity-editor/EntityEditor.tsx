@@ -25,6 +25,7 @@ import type {
   EntitySource,
   EntityTransformation,
 } from "./types";
+import { HistoryType } from "../../../generated-schema-types.ts";
 
 type EntityEditorProps = {
   selectedEntity: ModelEntity | null;
@@ -160,7 +161,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const dataTypeOptions = useMemo(() => dataTypes.map((dt) => ({ value: dt, label: dt })), [dataTypes]);
   const attributeColumns = "0.4fr 1.4fr 0.95fr 0.46fr 0.7fr 0.78fr 1.56fr 0.6fr";
-  const historyOptions = ["SCD0", "SCD1", "SCD2", "SCD3", "SCD4"];
+  const historyOptions: HistoryType[] = ["SCD0", "SCD1", "SCD2", "SCD3", "SCD4"];
   const expressionLanguageOptions = ["sql", "dax", "python"];
   const currentEntityAttributeNames = useMemo(
     () =>
@@ -799,347 +800,346 @@ export const EntityEditor = (props: EntityEditorProps) => {
           ) : null
         }
       />
-        <div className="panel__body panel__body--entity-editor" onBlurCapture={handleTextFieldBlurCapture}>
-          {mode === "form" ? (
-            <>
-              <div className="section-nav-row entity-section-nav-row">
-                <div className="section-nav">
-                  {(["overview", "attributes", "sources", "relationships", "transformations"] as EntitySection[]).map((sec) => (
-                    <button
-                      key={sec}
-                      className={`section-nav__btn ${entitySection === sec ? "section-nav__btn--active" : ""}`}
+      <div className="panel__body panel__body--entity-editor" onBlurCapture={handleTextFieldBlurCapture}>
+        {mode === "form" ? (
+          <>
+            <div className="section-nav-row entity-section-nav-row">
+              <div className="section-nav">
+                {(["overview", "attributes", "sources", "relationships", "transformations"] as EntitySection[]).map((sec) => (
+                  <button
+                    key={sec}
+                    className={`section-nav__btn ${entitySection === sec ? "section-nav__btn--active" : ""}`}
+                    onClick={() => {
+                      if (sec === entitySection) return;
+                      void (async () => {
+                        const canSwitch = await persistNow("tab-switch");
+                        if (!canSwitch) return;
+                        setEntitySection(sec);
+                      })();
+                    }}
+                  >
+                    {sec.charAt(0).toUpperCase() + sec.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="section-nav-actions">
+                {entitySection === "attributes" ? (
+                  <>
+                    <ActionButton
+                      variant="default"
                       onClick={() => {
-                        if (sec === entitySection) return;
-                        void (async () => {
-                          const canSwitch = await persistNow("tab-switch");
-                          if (!canSwitch) return;
-                          setEntitySection(sec);
-                        })();
+                        if (isAttributeSelectionMode) {
+                          setBulkEditOpen(true);
+                          return;
+                        }
+                        const defaultType = dataTypeOptions[0]?.value || "string";
+                        const defaultAttrType = attributeTypeOptions[0]?.value || "";
+                        const nowIso = new Date().toISOString();
+                        const uniqueName = getUniqueAttributeName("new_column");
+                        pendingScrollIndexRef.current = attributes.length;
+                        updateAttributesStructural((list) => [
+                          ...list,
+                          {
+                            name: uniqueName,
+                            attributeType: defaultAttrType,
+                            dataType: { type: defaultType, nullable: true },
+                            __uiId: makeUiId(),
+                            __isNew: true,
+                            __modified: true,
+                            dateAdded: nowIso,
+                            properties: [],
+                          },
+                        ]);
+                        persistAfterStateFlush("add-item");
                       }}
                     >
-                      {sec.charAt(0).toUpperCase() + sec.slice(1)}
-                    </button>
-                  ))}
-                </div>
-                <div className="section-nav-actions">
-                  {entitySection === "attributes" ? (
-                    <>
-                      <ActionButton
-                        variant="default"
-                        onClick={() => {
-                          if (isAttributeSelectionMode) {
-                            setBulkEditOpen(true);
-                            return;
-                          }
-                          const defaultType = dataTypeOptions[0]?.value || "string";
-                          const defaultAttrType = attributeTypeOptions[0]?.value || "";
-                          const nowIso = new Date().toISOString();
-                          const uniqueName = getUniqueAttributeName("new_column");
-                          pendingScrollIndexRef.current = attributes.length;
-                          updateAttributesStructural((list) => [
-                            ...list,
-                            {
-                              name: uniqueName,
-                              attributeType: defaultAttrType,
-                              dataType: { type: defaultType, nullable: true },
-                              __uiId: makeUiId(),
-                              __isNew: true,
-                              __modified: true,
-                              dateAdded: nowIso,
-                              properties: [],
-                            },
-                          ]);
-                          persistAfterStateFlush("add-item");
-                        }}
+                      {isAttributeSelectionMode ? "Bulk Edit" : "Add Attribute"}
+                    </ActionButton>
+                    {isAttributeSelectionMode ? (
+                      <IconBtn
+                        title="Clear selection"
+                        aria-label="Clear selection"
+                        onClick={clearAttributeSelection}
+                        className="entity-attributes__clear-selection"
                       >
-                        {isAttributeSelectionMode ? "Bulk Edit" : "Add Attribute"}
+                        <X className="h-4 w-4" />
+                      </IconBtn>
+                    ) : null}
+                  </>
+                ) : null}
+                {entitySection === "sources" ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <ActionButton variant="default">
+                        Add source <ChevronDown className="h-4 w-4" />
                       </ActionButton>
-                      {isAttributeSelectionMode ? (
-                        <IconBtn
-                          title="Clear selection"
-                          aria-label="Clear selection"
-                          onClick={clearAttributeSelection}
-                          className="entity-attributes__clear-selection"
-                        >
-                          <X className="h-4 w-4" />
-                        </IconBtn>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {entitySection === "sources" ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <ActionButton variant="default">
-                          Add source <ChevronDown className="h-4 w-4" />
-                        </ActionButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => {
-                          sourcesEditorRef.current?.addInternalSource();
-                          persistAfterStateFlush("add-item");
-                        }}>
-                          Internal source
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          sourcesEditorRef.current?.addExternalSource();
-                          persistAfterStateFlush("add-item");
-                        }}>
-                          External source
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                  {entitySection === "relationships" ? (
-                    <ActionButton
-                      variant="default"
-                      onClick={() => {
-                        markEntityDirty();
-                        setRelationships((list) => [...list, { targetModelEntityId: null, name: `Rel${list.length + 1}` }]);
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        sourcesEditorRef.current?.addInternalSource();
                         persistAfterStateFlush("add-item");
-                      }}
-                    >
-                      Add Relationship
-                    </ActionButton>
-                  ) : null}
-                  {entitySection === "transformations" ? (
-                    <ActionButton
-                      variant="default"
-                      onClick={() => {
-                        markEntityDirty();
-                        setTransformations((list) => {
-                          const name = `Step${list.length + 1}`;
-                          const kind = transformKinds[0];
-                          const next: EntityTransformation = { name, kind };
-                          if (kind === "function") {
-                            const source = derivePySourcePath(name);
-                            next.function = { source };
-                            next.__uiPrevFunctionSource = source;
-                          }
-                          return normalizeTransformations([...list, next]);
-                        });
+                      }}>
+                        Internal source
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        sourcesEditorRef.current?.addExternalSource();
                         persistAfterStateFlush("add-item");
-                      }}
-                    >
-                      Add Step
-                    </ActionButton>
-                  ) : null}
+                      }}>
+                        External source
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+                {entitySection === "relationships" ? (
+                  <ActionButton
+                    variant="default"
+                    onClick={() => {
+                      markEntityDirty();
+                      setRelationships((list) => [...list, { targetModelEntityId: null, name: `Rel${list.length + 1}` }]);
+                      persistAfterStateFlush("add-item");
+                    }}
+                  >
+                    Add Relationship
+                  </ActionButton>
+                ) : null}
+                {entitySection === "transformations" ? (
+                  <ActionButton
+                    variant="default"
+                    onClick={() => {
+                      markEntityDirty();
+                      setTransformations((list) => {
+                        const name = `Step${list.length + 1}`;
+                        const kind = transformKinds[0];
+                        const next: EntityTransformation = { name, kind };
+                        if (kind === "function") {
+                          const source = derivePySourcePath(name);
+                          next.function = { source };
+                          next.__uiPrevFunctionSource = source;
+                        }
+                        return normalizeTransformations([...list, next]);
+                      });
+                      persistAfterStateFlush("add-item");
+                    }}
+                  >
+                    Add Step
+                  </ActionButton>
+                ) : null}
+              </div>
+            </div>
+            {entitySection === "overview" && (
+              <div className="stack">
+                <div className="form-shell form-shell--identity entity-overview-shell">
+                  <div className="form-grid">
+                    <div>
+                      <label>Name</label>
+                      <input
+                        placeholder="Entity name"
+                        value={formState.name || ""}
+                        onChange={(e) => {
+                          markEntityDirty();
+                          setFormState((s) => ({ ...s, name: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label>Display Name</label>
+                      <input
+                        placeholder="Display name"
+                        value={formState.displayName || ""}
+                        onChange={(e) => {
+                          markEntityDirty();
+                          setFormState((s) => ({ ...s, displayName: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div className="full">
+                      <label>Description</label>
+                      <Textarea
+                        rows={4}
+                        placeholder="Describe this entity"
+                        value={formState.description || ""}
+                        onChange={(e) => {
+                          markEntityDirty();
+                          setFormState((s) => ({ ...s, description: e.target.value }));
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-              {entitySection === "overview" && (
-                <div className="stack">
-                  <div className="form-shell form-shell--identity entity-overview-shell">
-                    <div className="form-grid">
+            )}
+            {entitySection === "attributes" && (
+              <div>
+                <div className="table entity-attributes-table">
+                  <div className="value-row">
+                    <div className="table-row table-head" style={{ gridTemplateColumns: attributeColumns }}>
                       <div>
-                        <label>Name</label>
-                        <input
-                          placeholder="Entity name"
-                          value={formState.name || ""}
-                          onChange={(e) => {
-                            markEntityDirty();
-                            setFormState((s) => ({ ...s, name: e.target.value }));
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label>Display Name</label>
-                        <input
-                          placeholder="Display name"
-                          value={formState.displayName || ""}
-                          onChange={(e) => {
-                            markEntityDirty();
-                            setFormState((s) => ({ ...s, displayName: e.target.value }));
-                          }}
-                        />
-                      </div>
-                      <div className="full">
-                        <label>Description</label>
-                        <Textarea
-                          rows={4}
-                          placeholder="Describe this entity"
-                          value={formState.description || ""}
-                          onChange={(e) => {
-                            markEntityDirty();
-                            setFormState((s) => ({ ...s, description: e.target.value }));
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {entitySection === "attributes" && (
-                <div>
-                  <div className="table entity-attributes-table">
-                    <div className="value-row">
-                      <div className="table-row table-head" style={{ gridTemplateColumns: attributeColumns }}>
-                        <div>
-                          <IconBtn
-                            type="button"
-                            title={areAllAttributesSelected ? "Clear all selected attributes" : "Select all attributes"}
-                            aria-label={areAllAttributesSelected ? "Clear all selected attributes" : "Select all attributes"}
-                            onClick={handleToggleSelectAllAttributes}
-                            className={`attribute-row__selector attribute-row__selector--header ${
-                              areAllAttributesSelected ? "attribute-row__selector--selected" : ""
+                        <IconBtn
+                          type="button"
+                          title={areAllAttributesSelected ? "Clear all selected attributes" : "Select all attributes"}
+                          aria-label={areAllAttributesSelected ? "Clear all selected attributes" : "Select all attributes"}
+                          onClick={handleToggleSelectAllAttributes}
+                          className={`attribute-row__selector attribute-row__selector--header ${areAllAttributesSelected ? "attribute-row__selector--selected" : ""
                             } ${isPartiallySelected ? "attribute-row__selector--partial" : ""}`}
-                          >
-                            {areAllAttributesSelected ? (
-                              <Check strokeWidth={3} className="h-3.5 w-3.5" />
-                            ) : isPartiallySelected ? (
-                              <Minus strokeWidth={3} className="h-3.5 w-3.5" />
-                            ) : (
-                              <Check strokeWidth={3} className="h-3.5 w-3.5 attribute-row__selector-icon--hidden" />
-                            )}
-                          </IconBtn>
-                        </div>
-                        <div>Name</div>
-                        <div>Data Type</div>
-                        <div className="boolean-cell">Nullable</div>
-                        <div className="boolean-cell">Business Key</div>
-                        <div>History</div>
-                        <div>Column Properties</div>
-                        <div>Actions</div>
+                        >
+                          {areAllAttributesSelected ? (
+                            <Check strokeWidth={3} className="h-3.5 w-3.5" />
+                          ) : isPartiallySelected ? (
+                            <Minus strokeWidth={3} className="h-3.5 w-3.5" />
+                          ) : (
+                            <Check strokeWidth={3} className="h-3.5 w-3.5 attribute-row__selector-icon--hidden" />
+                          )}
+                        </IconBtn>
                       </div>
+                      <div>Name</div>
+                      <div>Data Type</div>
+                      <div className="boolean-cell">Nullable</div>
+                      <div className="boolean-cell">Business Key</div>
+                      <div>History</div>
+                      <div>Column Properties</div>
+                      <div>Actions</div>
                     </div>
-                    {attributes.map((attr, idx) => {
-                      const rowKey = attr?.name || "";
-                      const detailsOpen = !!openAttributeDetails[rowKey];
-                      const dropClass =
-                        dragOverState?.index === idx && dragAttrIndexRef.current !== null
-                          ? dragOverState.position === "before"
-                            ? "row--drop-before"
-                            : "row--drop-after"
-                          : "";
-                      return (
-                        <EntityAttributeRow
-                          key={attr.__uiId || `${rowKey}-${idx}`}
-                          attr={attr}
-                          index={idx}
-                          detailsOpen={detailsOpen}
-                          dropClass={dropClass}
-                          isSelected={!!(attr.__uiId && selectedAttributeIds.has(attr.__uiId))}
-                          showSelectionUi={isAttributeSelectionMode}
-                          attributeColumns={attributeColumns}
-                          dataTypeOptions={dataTypeOptions}
-                          attributeTypeOptions={attributeTypeOptions}
-                          propertyOptions={propertyOptions}
-                          dataTypeDefinitions={dataTypeDefinitions}
-                          historyOptions={historyOptions}
-                          expressionLanguageOptions={expressionLanguageOptions}
-                          onPatch={updateAttributeAtNoOrdinals}
-                          onToggleDetails={toggleDetails}
-                          onRemove={handleRemoveAttribute}
-                          onCommitRename={commitRename}
-                          onDragStart={handleDragStart}
-                          onDragEnd={handleDragEnd}
-                          onDragOver={handleDragOverRow}
-                          onDrop={handleDropRow}
-                          onDragLeave={handleDragLeaveRow}
-                          onSelect={handleSelectAttribute}
-                          rowRef={setRowRef}
-                          nameRef={setNameRef}
-                          pendingFocus={pendingFocusName === rowKey}
-                          clearPendingFocus={clearPendingFocus}
-                        />
-                      );
-                    })}
                   </div>
+                  {attributes.map((attr, idx) => {
+                    const rowKey = attr?.name || "";
+                    const detailsOpen = !!openAttributeDetails[rowKey];
+                    const dropClass =
+                      dragOverState?.index === idx && dragAttrIndexRef.current !== null
+                        ? dragOverState.position === "before"
+                          ? "row--drop-before"
+                          : "row--drop-after"
+                        : "";
+                    return (
+                      <EntityAttributeRow
+                        key={attr.__uiId || `${rowKey}-${idx}`}
+                        attr={attr}
+                        index={idx}
+                        detailsOpen={detailsOpen}
+                        dropClass={dropClass}
+                        isSelected={!!(attr.__uiId && selectedAttributeIds.has(attr.__uiId))}
+                        showSelectionUi={isAttributeSelectionMode}
+                        attributeColumns={attributeColumns}
+                        dataTypeOptions={dataTypeOptions}
+                        attributeTypeOptions={attributeTypeOptions}
+                        propertyOptions={propertyOptions}
+                        dataTypeDefinitions={dataTypeDefinitions}
+                        historyOptions={historyOptions}
+                        expressionLanguageOptions={expressionLanguageOptions}
+                        onPatch={updateAttributeAtNoOrdinals}
+                        onToggleDetails={toggleDetails}
+                        onRemove={handleRemoveAttribute}
+                        onCommitRename={commitRename}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={handleDragOverRow}
+                        onDrop={handleDropRow}
+                        onDragLeave={handleDragLeaveRow}
+                        onSelect={handleSelectAttribute}
+                        rowRef={setRowRef}
+                        nameRef={setNameRef}
+                        pendingFocus={pendingFocusName === rowKey}
+                        clearPendingFocus={clearPendingFocus}
+                      />
+                    );
+                  })}
                 </div>
-              )}
-              {entitySection === "sources" && (
-                <EntitySourcesEditor
-                  ref={sourcesEditorRef}
-                  sources={sources}
-                  setSources={setSources}
-                  propertyOptions={propertyOptions}
-                  collapsedMappings={collapsedMappings}
-                  setCollapsedMappings={setCollapsedMappings}
-                  openMappingDetails={openMappingDetails}
-                  setOpenMappingDetails={setOpenMappingDetails}
-                  zones={zones}
-                  modelEntities={modelEntities}
-                  resolveEntityMetaById={resolveEntityMetaById}
-                  onJumpToEntity={onJumpToEntity}
-                  onJumpToDataSource={onJumpToDataSource}
-                  markEntityDirty={markEntityDirty}
-                  dataSourceOptions={dataSourceOptions}
-                  dataSourceDetails={dataSourceDetails}
-                  adoptingExternalSchemaIndex={adoptingSchemaIndex}
-                  solutionPath={solutionPath}
-                  onPatchBaseEntity={onPatchBaseEntity}
-                  dataSourcesRelPath={dataSourcesRelPath}
-                  currentEntityAttributeNames={currentEntityAttributeNames}
-                  onAdoptExternalSourceSchema={adoptExternalSourceSchema}
-                  onDeleteSource={() => persistAfterStateFlush("delete-item")}
-                  onMappingChange={() => persistAfterStateFlush("delete-item")}
-                  onSourcePropertyChange={() => persistAfterStateFlush("delete-item")}
-                />
-              )}
-              {entitySection === "relationships" && (
-                <EntityRelationshipsEditor
-                  relationships={relationships}
-                  setRelationships={setRelationships}
-                  relationshipZones={relationshipZones}
-                  setRelationshipZones={setRelationshipZones}
-                  modelEntities={modelEntities}
-                  zones={zones}
-                  attributes={attributes}
-                  resolveEntityNameById={resolveEntityNameById}
-                  zoneFromRelPath={zoneFromRelPath}
-                  onJumpToEntity={onJumpToEntity}
-                  markEntityDirty={markEntityDirty}
-                  onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
-                />
-              )}
-              {entitySection === "transformations" && (
-                <EntityTransformationsEditor
-                  transformations={transformations}
-                  transformKinds={transformKinds}
-                  openTransformSources={openTransformSources}
-                  transformSourceCache={transformSourceCache}
-                  transformSourceDirty={transformSourceDirty}
-                  dragTransformIndex={dragTransformIndex}
-                  normalizeTransformations={normalizeTransformations}
-                  updateTransformation={updateTransformation}
-                  reorderTransformations={reorderTransformations}
-                  setTransformations={setTransformations}
-                  setOpenTransformSources={setOpenTransformSources}
-                  setTransformSourceCache={setTransformSourceCache}
-                  setTransformSourceDirty={setTransformSourceDirty}
-                  setSaveError={setSaveError}
-                  markEntityDirty={markEntityDirty}
-                  selectedEntity={selectedEntity}
-                  entityName={String(formState?.name || selectedEntity?.content?.name || selectedEntity?.name || "")}
-                  solutionPath={solutionPath}
-                  onDeleteTransformation={() => persistAfterStateFlush("delete-item")}
-                />
-              )}
-            </>
-          ) : (
-            <div>
-              <label>JSON</label>
-              <Textarea
-                rows={20}
-                className="code"
-                value={jsonText}
-                onChange={(e) => {
-                  markEntityDirty();
-                  setJsonText(e.target.value);
-                }}
+              </div>
+            )}
+            {entitySection === "sources" && (
+              <EntitySourcesEditor
+                ref={sourcesEditorRef}
+                sources={sources}
+                setSources={setSources}
+                propertyOptions={propertyOptions}
+                collapsedMappings={collapsedMappings}
+                setCollapsedMappings={setCollapsedMappings}
+                openMappingDetails={openMappingDetails}
+                setOpenMappingDetails={setOpenMappingDetails}
+                zones={zones}
+                modelEntities={modelEntities}
+                resolveEntityMetaById={resolveEntityMetaById}
+                onJumpToEntity={onJumpToEntity}
+                onJumpToDataSource={onJumpToDataSource}
+                markEntityDirty={markEntityDirty}
+                dataSourceOptions={dataSourceOptions}
+                dataSourceDetails={dataSourceDetails}
+                adoptingExternalSchemaIndex={adoptingSchemaIndex}
+                solutionPath={solutionPath}
+                onPatchBaseEntity={onPatchBaseEntity}
+                dataSourcesRelPath={dataSourcesRelPath}
+                currentEntityAttributeNames={currentEntityAttributeNames}
+                onAdoptExternalSourceSchema={adoptExternalSourceSchema}
+                onDeleteSource={() => persistAfterStateFlush("delete-item")}
+                onMappingChange={() => persistAfterStateFlush("delete-item")}
+                onSourcePropertyChange={() => persistAfterStateFlush("delete-item")}
               />
-            </div>
-          )}
-        </div>
-        <BulkAttributeEditDialog
-          open={bulkEditOpen}
-          onOpenChange={setBulkEditOpen}
-          selectedAttributes={selectedAttributes}
-          dataTypeOptions={dataTypeOptions}
-          attributeTypeOptions={attributeTypeOptions}
-          historyOptions={historyOptions}
-          expressionLanguageOptions={expressionLanguageOptions}
-          propertyOptions={propertyOptions}
-          onApply={handleApplyBulkEdits}
-        />
+            )}
+            {entitySection === "relationships" && (
+              <EntityRelationshipsEditor
+                relationships={relationships}
+                setRelationships={setRelationships}
+                relationshipZones={relationshipZones}
+                setRelationshipZones={setRelationshipZones}
+                modelEntities={modelEntities}
+                zones={zones}
+                attributes={attributes}
+                resolveEntityNameById={resolveEntityNameById}
+                zoneFromRelPath={zoneFromRelPath}
+                onJumpToEntity={onJumpToEntity}
+                markEntityDirty={markEntityDirty}
+                onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
+              />
+            )}
+            {entitySection === "transformations" && (
+              <EntityTransformationsEditor
+                transformations={transformations}
+                transformKinds={transformKinds}
+                openTransformSources={openTransformSources}
+                transformSourceCache={transformSourceCache}
+                transformSourceDirty={transformSourceDirty}
+                dragTransformIndex={dragTransformIndex}
+                normalizeTransformations={normalizeTransformations}
+                updateTransformation={updateTransformation}
+                reorderTransformations={reorderTransformations}
+                setTransformations={setTransformations}
+                setOpenTransformSources={setOpenTransformSources}
+                setTransformSourceCache={setTransformSourceCache}
+                setTransformSourceDirty={setTransformSourceDirty}
+                setSaveError={setSaveError}
+                markEntityDirty={markEntityDirty}
+                selectedEntity={selectedEntity}
+                entityName={String(formState?.name || selectedEntity?.content?.name || selectedEntity?.name || "")}
+                solutionPath={solutionPath}
+                onDeleteTransformation={() => persistAfterStateFlush("delete-item")}
+              />
+            )}
+          </>
+        ) : (
+          <div>
+            <label>JSON</label>
+            <Textarea
+              rows={20}
+              className="code"
+              value={jsonText}
+              onChange={(e) => {
+                markEntityDirty();
+                setJsonText(e.target.value);
+              }}
+            />
+          </div>
+        )}
       </div>
-    );
+      <BulkAttributeEditDialog
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        selectedAttributes={selectedAttributes}
+        dataTypeOptions={dataTypeOptions}
+        attributeTypeOptions={attributeTypeOptions}
+        historyOptions={historyOptions}
+        expressionLanguageOptions={expressionLanguageOptions}
+        propertyOptions={propertyOptions}
+        onApply={handleApplyBulkEdits}
+      />
+    </div>
+  );
 };

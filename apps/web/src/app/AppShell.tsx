@@ -47,7 +47,8 @@ import {
   type PropertyRefactorScopeTarget,
   type SupportedBaseScopeTarget,
 } from "../features/model/refactor/propertyRefactorScopes";
-import type { BaseAttributeType, BaseDataProduct, BaseDataTypeDefinition, BaseEntity, BaseZone, FolderEntity, ModelEntity, Tab } from "../features/model/model-types";
+import type { PluginManifest } from "../features/model/generated-schema-types.ts";
+import type { BaseAttributeType, BaseDataProduct, BaseDataTypeDefinition, BaseEntity, BaseZone, EntityWrapper, FolderEntity, ModelEntity, Tab } from "../features/model/model-types";
 import { buildPropertyOptionsFromBaseEntities } from "../features/model/property-options";
 import { apiBase } from "../config";
 import { deepEqual } from "../shared/utils/deepEqual";
@@ -61,25 +62,25 @@ import { refresh as refreshConnectorCatalog } from "../shared/connectors/connect
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
 type PendingBaseAction =
   | {
-      kind: "renameFolder";
-      fromFolder: string;
-      toFolder: string;
-      sourceRelPath: string;
-      reason: "zones" | "folderProperties";
-    }
+    kind: "renameFolder";
+    fromFolder: string;
+    toFolder: string;
+    sourceRelPath: string;
+    reason: "zones" | "folderProperties";
+  }
   | {
-      kind: "deleteFolderTree";
-      folderPath: string;
-      sourceRelPath: string;
-      reason: "zones";
-    }
+    kind: "deleteFolderTree";
+    folderPath: string;
+    sourceRelPath: string;
+    reason: "zones";
+  }
   | {
-      kind: "propertyRefactor";
-      payload: Partial<PropertyRefactorPayload>;
-      targets: PropertyRefactorScopeTarget[];
-      sourceRelPath: string;
-      preview?: string;
-    };
+    kind: "propertyRefactor";
+    payload: Partial<PropertyRefactorPayload>;
+    targets: PropertyRefactorScopeTarget[];
+    sourceRelPath: string;
+    preview?: string;
+  };
 
 const buildBaseEntityLocator = (entityType: string, item: Record<string, unknown>): string | null => {
   if (entityType === "propertyValues") {
@@ -788,11 +789,11 @@ export function AppShell() {
           tabs.map((t) =>
             t.relPath === fromRelPath
               ? {
-                  ...t,
-                  relPath: toRelPath,
-                  dirty: false,
-                  title: persisted.name,
-                }
+                ...t,
+                relPath: toRelPath,
+                dirty: false,
+                title: persisted.name,
+              }
               : t,
           ),
         );
@@ -811,7 +812,7 @@ export function AppShell() {
         }
         setTabDirty(toRelPath, "entity", false);
       } catch (err) {
-      setTabDirty(fromRelPath, "entity", true);
+        setTabDirty(fromRelPath, "entity", true);
         throw err;
       }
     },
@@ -1560,13 +1561,9 @@ export function AppShell() {
       const pluginReloadResponse = await fetch(`${apiBase}/plugins/reload`, { method: "POST" });
       if (!pluginReloadResponse.ok) {
         const payload = await pluginReloadResponse.json().catch(() => ({}));
-        const serverMessage =
-          typeof (payload as any)?.message === "string" && (payload as any).message.trim()
-            ? (payload as any).message
-            : typeof (payload as any)?.detail === "string" && (payload as any).detail.trim()
-              ? (payload as any).detail
-              : null;
-        throw new Error(serverMessage ?? `Plugin reload failed (${pluginReloadResponse.status}).`);
+        const message = payload.message && typeof payload.message === "string" ? payload.message : null;
+        const detail = payload.detail && typeof payload.details === "string" ? payload.detail : null;
+        throw new Error(message ?? detail ?? `Plugin reload failed (${pluginReloadResponse.status}).`);
       }
     } catch (err) {
       showAppError("Plugin reload failed", (err as Error).message);
@@ -1726,12 +1723,12 @@ export function AppShell() {
 
       setFolderEntities((prev) => {
         const normalizedPath = normalizeFolderPath(effectiveFolderPath);
-          const nextEntity: FolderEntity = {
-            locator: folderLocatorFromFolderPath(normalizedPath),
-            name: targetFolderName,
-            relPath: effectiveRelPath,
-            folderPath: normalizedPath,
-            content: nextContent,
+        const nextEntity: FolderEntity = {
+          locator: folderLocatorFromFolderPath(normalizedPath),
+          name: targetFolderName,
+          relPath: effectiveRelPath,
+          folderPath: normalizedPath,
+          content: nextContent,
         };
         const idx = prev.findIndex((entry) => normalizeFolderPath(entry.folderPath) === normalizedPath);
         if (idx < 0) return [...prev, nextEntity];
@@ -1821,7 +1818,7 @@ export function AppShell() {
           notifySuccess: true,
           notifyFailure: true,
         });
-      } catch {}
+      } catch { }
     },
     [deleteFolderTree],
   );
@@ -1968,7 +1965,7 @@ export function AppShell() {
       if (typeof title === "string" && title.trim()) {
         setWindowTitle(title);
       }
-    }).catch(() => {});
+    }).catch(() => { });
     const unsubscribe = desktopWindow?.onTitleChanged?.((title) => {
       setWindowTitle(title || "DataM8");
     });
@@ -1981,7 +1978,7 @@ export function AppShell() {
     if (!isWindowsElectron || !window.desktop?.menu?.getTopLevelLabels) return;
     void Promise.resolve(window.desktop.menu.getTopLevelLabels()).then((labels) => {
       setWindowMenuLabels(Array.isArray(labels) ? labels : []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [isWindowsElectron]);
 
   useEffect(() => {
@@ -2177,10 +2174,10 @@ export function AppShell() {
                 baseGroup={
                   baseTabs.length
                     ? {
-                        label: "Base",
-                        tabs: baseTabs,
-                        accent: "var(--accent)",
-                      }
+                      label: "Base",
+                      tabs: baseTabs,
+                      accent: "var(--accent)",
+                    }
                     : undefined
                 }
                 modelGroups={groupedModelTabs.map((group) => ({

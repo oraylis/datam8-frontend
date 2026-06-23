@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ToastActionElement, type ToastProps } from "./toast";
+import { type ToastActionElement, type ToastProps } from "./toast";
 
 const TOAST_LIMIT = 5;
 const TOAST_REMOVE_DELAY = 250;

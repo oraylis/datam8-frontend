@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
+        "@radix-ui/react-compose-refs": resolve(__dirname, "src/shims/radix-compose-refs.ts"),
         "@datam8/ui": resolve(__dirname, "../../packages/ui/src"),
         "@datam8/types": resolve(__dirname, "../../packages/types/src"),
       },

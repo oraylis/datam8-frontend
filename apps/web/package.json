@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "e2e:release": "playwright test -c playwright.release.config.ts"
+    "e2e:release": "playwright test -c playwright.release.config.ts",
+    "e2e:release:full": "playwright test -c playwright.release.config.ts full-workflows.playwright.release.spec.ts"
   },
   "dependencies": {
     "@datam8/ui": "file:../../packages/ui",

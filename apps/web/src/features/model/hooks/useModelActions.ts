@@ -5,7 +5,7 @@ import { ModelEntity } from "../model-types";
 import { findModelEntityDependents, EntityDependency } from "../model-deps";
 import { generateModelEntityId } from "../model-utils";
 import { modelLocatorFromRelPath } from "../locator-utils";
-import { deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
+import { createModelEntityByRelPath, deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
 export function useModelActions() {
@@ -201,11 +201,16 @@ export function useModelActions() {
 
       // 3. Save all new and updated entities
       try {
-          const allToSave = [...newEntities, ...updates];
-          await Promise.all(allToSave.map(e => 
-             saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
-               .catch(() => { throw new Error("Failed to save " + e.name); })
-          ));
+          await Promise.all([
+            ...newEntities.map(e =>
+              createModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
+                .catch(() => { throw new Error("Failed to save " + e.name); })
+            ),
+            ...updates.map(e =>
+              saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
+                .catch(() => { throw new Error("Failed to save " + e.name); })
+            ),
+          ]);
 
           // 4. Update state
           setModelEntities((prev: ModelEntity[]) => {
@@ -416,4 +421,3 @@ export function useModelActions() {
 
   return { duplicateModelEntities, deleteModelEntities };
 }
-

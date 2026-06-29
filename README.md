@@ -19,7 +19,7 @@ Legacy cleanup:
 
 ## Prerequisites
 - Node.js 20.x or 22.x LTS (repo uses npm workspaces; Node 25+ is unsupported).
-- Python 3.12+ for local desktop dev/backend runs.
+- Python 3.12+ for local desktop dev/backend runs. (handled by `uv sync`)
 - `uv` for preparing `submodules/datam8-generator/.venv`.
 
 ## Development
@@ -36,7 +36,7 @@ npm run dev:web
 Start desktop:
 ```bash
 cd submodules/datam8-generator
-uv sync
+uv sync --all-extras
 cd ../..
 npm run dev:desktop
 ```

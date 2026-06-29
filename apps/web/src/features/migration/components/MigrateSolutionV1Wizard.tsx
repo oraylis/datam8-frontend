@@ -116,6 +116,7 @@ export function MigrateSolutionV1Wizard({ open, sourceSolutionPath, onLoaded }: 
       setResult(data);
       setStep(4);
     } catch (e) {
+      console.error("[DataM8] Solution migration failed:", e);
       setError((e as Error).message);
       setStep(2);
     } finally {

@@ -204,7 +204,7 @@ export function useModelActions() {
           const allToSave = [...newEntities, ...updates];
           await Promise.all(allToSave.map(e => 
              saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
-               .catch(() => { throw new Error("Failed to save " + e.name); })
+               .catch((err) => { throw new Error(`Failed to save "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
           ));
 
           // 4. Update state
@@ -383,13 +383,13 @@ export function useModelActions() {
            // Save updates
            await Promise.all(updates.map(e => 
                saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
-                 .catch(() => { throw new Error("Failed to update " + e.name); })
+                 .catch((err) => { throw new Error(`Failed to save "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
            ));
            
            // Delete files
            await Promise.all(deletable.map(e => 
                deleteModelEntityByRelPath(e.relPath)
-                 .catch(() => { throw new Error("Failed to delete " + e.name); })
+                 .catch((err) => { throw new Error(`Failed to delete "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
            ));
 
            // Update state

@@ -8,7 +8,7 @@ import {
   DialogTitle,
   FormSelect,
 } from "@datam8/ui";
-import { ArrowRight, Check, ChevronDown, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
@@ -43,7 +43,9 @@ type EntitySourcesEditorProps = {
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   dataSourcesRelPath: string | null;
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
+  adoptingExternalSchemaIndex?: number | null;
   onDeleteSource?: () => void;
+  onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
 };
 
@@ -56,10 +58,12 @@ type SourceMappingsProps = {
   collapsedMappings: Record<number, boolean>;
   setCollapsedMappings: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
   updateSource: (idx: number, updater: (src: any) => any) => void;
+  onMappingChange?: () => void;
   isExternal: boolean;
   sourceAttributeNames: string[];
   currentEntityAttributeNames: string[];
   onAdoptExternalSchema?: () => void;
+  isAdoptingExternalSchema?: boolean;
 };
 
 type SourcePropertiesProps = {
@@ -84,6 +88,7 @@ type InternalSourceCardProps = {
   modelEntities: ModelEntity[];
   onJumpToEntity: (relPath: string) => void;
   updateSource: (idx: number, updater: (src: any) => any) => void;
+  onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
   removeSource: (idx: number) => void;
   cardRef?: (el: HTMLDivElement | null) => void;
@@ -102,6 +107,7 @@ type ExternalSourceCardProps = {
   onJumpToEntity: (relPath: string) => void;
   onJumpToDataSource: (name: string) => void;
   updateSource: (idx: number, updater: (src: any) => any) => void;
+  onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
   removeSource: (idx: number) => void;
   dataSourceDetails: Record<string, any>;
@@ -112,6 +118,7 @@ type ExternalSourceCardProps = {
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   dataSourcesRelPath: string | null;
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
+  isAdoptingExternalSchema?: boolean;
 };
 
 export const toPropertyChipItems = (
@@ -181,10 +188,12 @@ const SourceMappings = ({
   collapsedMappings,
   setCollapsedMappings,
   updateSource,
+  onMappingChange,
   isExternal,
   sourceAttributeNames,
   currentEntityAttributeNames,
   onAdoptExternalSchema,
+  isAdoptingExternalSchema,
 }: SourceMappingsProps) => {
   const mappings = source.mapping || [];
   const isCollapsed = collapsedMappings[sourceIdx] ?? true;
@@ -195,6 +204,7 @@ const SourceMappings = ({
       mapping: [...(s.mapping || []), { targetName: "", sourceName: "" }],
     }));
     setCollapsedMappings((prev) => ({ ...prev, [sourceIdx]: false }));
+    onMappingChange?.();
   };
   const baseSourceOptions = useMemo(
     () => sourceAttributeNames.map((name) => ({ value: name, label: name })),
@@ -219,8 +229,15 @@ const SourceMappings = ({
             {isCollapsed ? `Show mappings (${mappings.length})` : "Hide mappings"}
           </ActionButton>
           {isExternal && onAdoptExternalSchema ? (
-            <ActionButton variant="ghost" onClick={onAdoptExternalSchema} disabled={!mappings.length}>
-              Adopt Schema
+            <ActionButton variant="ghost" onClick={onAdoptExternalSchema} disabled={!mappings.length || isAdoptingExternalSchema}>
+              {isAdoptingExternalSchema ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Adopting…
+                </>
+              ) : (
+                "Adopt Schema"
+              )}
             </ActionButton>
           ) : null}
           <ActionButton
@@ -318,7 +335,7 @@ const SourceMappings = ({
                         items={mappingPropertyItems}
                         propertyOptions={propertyOptions}
                         usedPropertyNames={mappingUsedPropertyNames}
-                        onAdd={(property, value) =>
+                        onAdd={(property, value) => {
                           updateSource(sourceIdx, (s) => ({
                             ...s,
                             mapping: (s.mapping || []).map((item: any, ii: number) =>
@@ -329,9 +346,10 @@ const SourceMappings = ({
                                   }
                                 : item,
                             ),
-                          }))
-                        }
-                        onRemove={(idx) =>
+                          }));
+                          onMappingChange?.();
+                        }}
+                        onRemove={(idx) => {
                           updateSource(sourceIdx, (s) => ({
                             ...s,
                             mapping: (s.mapping || []).map((item: any, ii: number) =>
@@ -342,20 +360,22 @@ const SourceMappings = ({
                                   }
                                 : item,
                             ),
-                          }))
-                        }
+                          }));
+                          onMappingChange?.();
+                        }}
                         addLabel="Add mapping property"
                       />
                     </div>
                     <div className="actions actions--tight">
                       <IconBtn
                         title="Remove mapping"
-                        onClick={() =>
+                        onClick={() => {
                           updateSource(sourceIdx, (s) => ({
                             ...s,
                             mapping: (s.mapping || []).filter((_item: any, ii: number) => ii !== mIdx),
-                          }))
-                        }
+                          }));
+                          onMappingChange?.();
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </IconBtn>
@@ -440,6 +460,7 @@ const InternalSourceCard = ({
   modelEntities,
   onJumpToEntity,
   updateSource,
+  onMappingChange,
   onSourcePropertyChange,
   removeSource,
   cardRef,
@@ -577,6 +598,7 @@ const InternalSourceCard = ({
         collapsedMappings={collapsedMappings}
         setCollapsedMappings={setCollapsedMappings}
         updateSource={updateSource}
+        onMappingChange={onMappingChange}
         isExternal={false}
         sourceAttributeNames={sourceAttributeNames}
         currentEntityAttributeNames={currentEntityAttributeNames}
@@ -597,6 +619,7 @@ const ExternalSourceCard = ({
   onJumpToEntity,
   onJumpToDataSource,
   updateSource,
+  onMappingChange,
   onSourcePropertyChange,
   removeSource,
   dataSourceDetails,
@@ -607,6 +630,7 @@ const ExternalSourceCard = ({
   onPatchBaseEntity,
   dataSourcesRelPath,
   onAdoptExternalSourceSchema,
+  isAdoptingExternalSchema,
 }: ExternalSourceCardProps) => {
   const [showBrowser, setShowBrowser] = useState(false);
   const dataSourceObject = dataSourceDetails[source.dataSource] || {};
@@ -768,6 +792,7 @@ const ExternalSourceCard = ({
         collapsedMappings={collapsedMappings}
         setCollapsedMappings={setCollapsedMappings}
         updateSource={updateSource}
+        onMappingChange={onMappingChange}
         isExternal={true}
         sourceAttributeNames={[]}
         currentEntityAttributeNames={currentEntityAttributeNames}
@@ -776,6 +801,7 @@ const ExternalSourceCard = ({
             ? () => onAdoptExternalSourceSchema(index)
             : undefined
         }
+        isAdoptingExternalSchema={isAdoptingExternalSchema}
       />
     </div>
   );
@@ -803,7 +829,9 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     onPatchBaseEntity,
     dataSourcesRelPath,
     onAdoptExternalSourceSchema,
+    adoptingExternalSchemaIndex,
     onDeleteSource,
+    onMappingChange,
     onSourcePropertyChange,
   },
   ref,
@@ -907,6 +935,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             onJumpToEntity={onJumpToEntity}
             onJumpToDataSource={onJumpToDataSource}
             updateSource={updateSource}
+            onMappingChange={onMappingChange}
             onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
             dataSourceDetails={dataSourceDetails}
@@ -915,6 +944,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             onPatchBaseEntity={onPatchBaseEntity}
             dataSourcesRelPath={dataSourcesRelPath}
             onAdoptExternalSourceSchema={onAdoptExternalSourceSchema}
+            isAdoptingExternalSchema={adoptingExternalSchemaIndex === idx}
             cardRef={(el) => {
               sourceCardRefs.current[idx] = el;
             }}
@@ -937,6 +967,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             modelEntities={modelEntities}
             onJumpToEntity={onJumpToEntity}
             updateSource={updateSource}
+            onMappingChange={onMappingChange}
             onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
             currentEntityAttributeNames={currentEntityAttributeNames}

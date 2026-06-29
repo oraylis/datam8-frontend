@@ -83,6 +83,7 @@ export function NewProjectDialog({
       if (!solutionPath) throw new Error("Solution path not returned");
       return solutionPath;
     } catch (err) {
+      console.error("[DataM8] Create new solution failed:", err);
       setError((err as Error).message);
       return null;
     } finally {

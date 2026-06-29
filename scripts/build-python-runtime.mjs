@@ -3,6 +3,30 @@ import path from "path";
 import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 
+function resolveGeneratorExtras(generatorRoot) {
+  const pyprojectPath = path.join(generatorRoot, "pyproject.toml");
+  if (!fs.existsSync(pyprojectPath)) return [];
+  const content = fs.readFileSync(pyprojectPath, "utf8");
+  // Parse [project.optional-dependencies] section keys — each key is an extra name.
+  // Simple line-based TOML parse: find the section header, then collect keys until next section.
+  const lines = content.split(/\r?\n/);
+  let inSection = false;
+  const extras = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === "[project.optional-dependencies]") {
+      inSection = true;
+      continue;
+    }
+    if (inSection) {
+      if (trimmed.startsWith("[")) break; // next section
+      const keyMatch = trimmed.match(/^([A-Za-z0-9_-]+)\s*=/);
+      if (keyMatch) extras.push(keyMatch[1]);
+    }
+  }
+  return extras;
+}
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const generatorRoot = path.join(repoRoot, "submodules", "datam8-generator");
 const runtimeRoot = path.join(repoRoot, "artifacts", "python-runtime");
@@ -354,7 +378,11 @@ if (!runtimePython) {
 const runtimeSitePackages = runtimeSitePackagesPath();
 fs.mkdirSync(runtimeSitePackages, { recursive: true });
 
-const generatorInstallSpec = `${generatorRoot}[api,sql]`;
+const generatorExtras = resolveGeneratorExtras(generatorRoot);
+const generatorInstallSpec = generatorExtras.length > 0
+  ? `${generatorRoot}[${generatorExtras.join(",")}]`
+  : generatorRoot;
+console.log(`[build:python-runtime] Installing datam8 with extras: [${generatorExtras.join(", ") || "none"}]`);
 installRuntimePackages(runtimeSitePackages, generatorInstallSpec);
 pruneBuildOnlyPythonPackages();
 

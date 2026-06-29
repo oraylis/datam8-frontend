@@ -3,6 +3,16 @@ import { folderPathFromRelPath, modelLocatorFromRelPath } from "../../features/m
 
 type JsonRecord = Record<string, unknown>;
 
+function friendlyHttpError(status: number): string {
+  if (status === 400) return "The request was invalid. Please check your input and try again.";
+  if (status === 401 || status === 403) return "Access denied. Check your authentication settings.";
+  if (status === 404) return "The requested resource was not found. Try reloading the solution.";
+  if (status === 409) return "A conflict occurred — the item may have been modified elsewhere.";
+  if (status === 422) return "The data could not be processed. Please check for validation errors.";
+  if (status >= 500) return "The backend encountered an internal error. Please try again.";
+  return "The request failed unexpectedly. Please try again.";
+}
+
 function normalizeErrorMessage(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object") {
     const message = (payload as any).message;
@@ -16,7 +26,7 @@ function normalizeErrorMessage(payload: unknown, fallback: string): string {
 async function parseResponse(response: Response): Promise<any> {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(normalizeErrorMessage(payload, `HTTP ${response.status}`));
+    throw new Error(normalizeErrorMessage(payload, friendlyHttpError(response.status)));
   }
   return payload;
 }

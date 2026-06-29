@@ -101,6 +101,7 @@ async function fetchConnectors(): Promise<void> {
       : [];
     setState({ status: "ready", connectors });
   } catch (err: any) {
+    console.error("[DataM8] Failed to load connector catalog:", err);
     setState({ status: "error", connectors: [], error: err?.message || "Failed to load connectors" });
   }
 }

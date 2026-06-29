@@ -112,8 +112,6 @@ console.log("[dev-desktop] Web UI URL is fixed to http://localhost:4320 (strict 
 
 const env = {
   ...process.env,
-  DATAM8_PYTHON_PATH: pythonPath,
-  DATAM8_GENERATOR_SRC_PATH: generatorSrcPath,
   VITE_APP_MODE: "electron",
 };
 

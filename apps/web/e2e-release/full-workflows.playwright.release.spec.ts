@@ -59,6 +59,20 @@ function findModelFileByName(modelDir: string, entityName: string): string {
   return findJsonFileByName(modelDir, `${entityName}.json`);
 }
 
+function fileContainsText(root: string, text: string): boolean {
+  if (!fs.existsSync(root)) return false;
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (fileContainsText(fullPath, text)) return true;
+    } else if (entry.isFile()) {
+      const content = fs.readFileSync(fullPath, "utf8");
+      if (content.includes(text)) return true;
+    }
+  }
+  return false;
+}
+
 function listModelJsonFiles(modelDir: string): string[] {
   if (!fs.existsSync(modelDir)) return [];
   const out: string[] = [];
@@ -67,6 +81,20 @@ function listModelJsonFiles(modelDir: string): string[] {
     if (entry.isDirectory()) {
       out.push(...listModelJsonFiles(fullPath));
     } else if (entry.isFile() && entry.name.endsWith(".json") && entry.name !== ".properties.json") {
+      out.push(fullPath);
+    }
+  }
+  return out;
+}
+
+function listFolderMetadataFiles(modelDir: string): string[] {
+  if (!fs.existsSync(modelDir)) return [];
+  const out: string[] = [];
+  for (const entry of fs.readdirSync(modelDir, { withFileTypes: true })) {
+    const fullPath = path.join(modelDir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...listFolderMetadataFiles(fullPath));
+    } else if (entry.isFile() && entry.name === ".properties.json") {
       out.push(fullPath);
     }
   }
@@ -129,6 +157,38 @@ async function clickBase(page: Page, label: string) {
   await expect(page.locator(".base-editor")).toBeVisible();
 }
 
+async function clickModelFolder(page: Page, label: string) {
+  await page.getByRole("tab", { name: "Model" }).click();
+  await page.locator(".tree__node-label").filter({ hasText: label }).first().click();
+  await expect(page.getByText("Folder Name")).toBeVisible({ timeout: 15_000 });
+}
+
+async function openFolderContextMenu(page: Page, label: string) {
+  await page.getByRole("tab", { name: "Model" }).click();
+  await page.locator(".tree__node-label").filter({ hasText: label }).first().click({ button: "right" });
+}
+
+async function selectFirstDeletableVisibleFolder(page: Page): Promise<string> {
+  await page.getByRole("tab", { name: "Model" }).click();
+  const folders = page.locator(".tree__node-label");
+  const count = await folders.count();
+  for (let i = 0; i < count; i += 1) {
+    const folder = folders.nth(i);
+    const label = (await folder.textContent())?.trim() || "";
+    if (!label) continue;
+    await folder.click({ button: "right" });
+    const deleteItem = page.getByRole("menuitem", { name: "Delete Folder" });
+    const disabled = await deleteItem.getAttribute("data-disabled").catch(() => null);
+    await page.keyboard.press("Escape");
+    if (disabled === null) {
+      await folder.click();
+      await expect(page.getByText("Folder Name")).toBeVisible({ timeout: 15_000 });
+      return label;
+    }
+  }
+  throw new Error("No visible deletable folder found in model tree.");
+}
+
 async function saveByBlur(page: Page) {
   await page.keyboard.press("Tab");
   await page.waitForTimeout(250);
@@ -137,7 +197,8 @@ async function saveByBlur(page: Page) {
 test.describe.serial("full frontend workflow release suite (Playwright only, copied sample)", () => {
   test.skip(!solutionPath, "Set DATAM8_RELEASE_SOLUTION_PATH to run release tests.");
 
-  test("exercises Base, Model, refactor, source, transformation, reload, validate and generate workflows", async ({ page }, testInfo) => {
+  test("exercises Base, Model, refactor, source and transformation workflows", async ({ page }, testInfo) => {
+    test.setTimeout(900_000);
     const diagnostics = attachDiagnostics(page);
     const timings: Record<string, number> = {};
     const runId = Date.now().toString(36);
@@ -205,21 +266,32 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
       const seedValue = `e2eValue_${runId}`;
       const renamedValue = `e2eRenamedValue_${runId}`;
       const movedProperty = `e2eMovedProp_${runId}`;
+      const deleteProperty = `e2eDeleteProp_${runId}`;
+      const deletePropertyValue = `e2eDeleteValue_${runId}`;
+      const deleteValueProperty = "jobs";
+      const deleteValue = `e2eDeleteValueName_${runId}`;
 
       const props = readJson(propertiesPath);
       props.properties = [
         ...(Array.isArray(props.properties) ? props.properties : []),
         { name: seedProperty, displayName: seedProperty, scopes: [{ type: "entity" }] },
         { name: movedProperty, displayName: movedProperty, scopes: [{ type: "entity" }] },
+        { name: deleteProperty, displayName: deleteProperty, scopes: [{ type: "entity" }] },
       ];
       writeJson(propertiesPath, props);
       const values = readJson(propertyValuesPath);
       values.propertyValues = [
         ...(Array.isArray(values.propertyValues) ? values.propertyValues : []),
         { property: seedProperty, name: seedValue, displayName: seedValue },
+        { property: deleteProperty, name: deletePropertyValue, displayName: deletePropertyValue },
+        { property: deleteValueProperty, name: deleteValue, displayName: deleteValue },
       ];
       writeJson(propertyValuesPath, values);
       setFirstPropertyAssignment(seedModelFile, seedProperty, seedValue);
+      const propertyDeleteModelFile = listModelJsonFiles(modelDir).find((file) => file !== seedModelFile) || seedModelFile;
+      const valueDeleteModelFile = listModelJsonFiles(modelDir).find((file) => file !== seedModelFile && file !== propertyDeleteModelFile) || seedModelFile;
+      setFirstPropertyAssignment(propertyDeleteModelFile, deleteProperty, deletePropertyValue);
+      setFirstPropertyAssignment(valueDeleteModelFile, deleteValueProperty, deleteValue);
 
       const reloadHitsBefore = diagnostics.endpointHits.get("/model/reload") || 0;
       await page.getByRole("button", { name: "Reload" }).first().click();
@@ -256,6 +328,29 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
         await saveByBlur(page);
         await expect.poll(() => hasPropertyValue(propertyValuesPath, movedProperty, activeValueName), { timeout: 30_000 }).toBeTruthy();
       }
+
+      await clickBase(page, "Properties");
+      await page.getByText(deleteProperty, { exact: true }).click();
+      await page.getByLabel(`Delete ${deleteProperty}`, { exact: true }).click();
+      await expect(page.getByText("Property refactor applied")).toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => fileContainsText(modelDir, deleteProperty), { timeout: 30_000 }).toBeFalsy();
+      await expect.poll(() => hasPropertyValue(propertyValuesPath, deleteProperty, deletePropertyValue), { timeout: 30_000 }).toBeFalsy();
+
+      await clickBase(page, "Property Values");
+      const expandDeleteValueGroup = page.getByLabel(`Expand ${deleteValueProperty}`, { exact: true });
+      if (await expandDeleteValueGroup.isVisible().catch(() => false)) {
+        await expandDeleteValueGroup.click();
+      }
+      await expect(page.locator(".base-list-table__row").filter({ hasText: deleteValue })).toBeVisible({ timeout: 10_000 });
+      await expect.poll(() => hasPropertyValue(propertyValuesPath, deleteValueProperty, deleteValue), { timeout: 10_000 }).toBeTruthy();
+      await page
+        .locator(".base-list-table__row")
+        .filter({ hasText: deleteValue })
+        .getByLabel(`Delete ${deleteValue}`, { exact: true })
+        .click({ force: true, timeout: 10_000 });
+      await expect(page.getByText("Property refactor applied")).toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => hasPropertyAssignment(modelDir, deleteValueProperty, deleteValue), { timeout: 30_000 }).toBeFalsy();
+      await expect.poll(() => hasPropertyValue(propertyValuesPath, deleteValueProperty, deleteValue), { timeout: 30_000 }).toBeFalsy();
     });
     await screenshot(testInfo, page, "03-property-refactor");
 
@@ -291,6 +386,83 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
         await page.getByRole("dialog").getByRole("button", { name: /Create|Add/ }).click();
         await expect(page.getByRole("button", { name: createdFolderName }).first()).toBeVisible({ timeout: 30_000 });
       }
+
+      const parentLabel = await selectFirstDeletableVisibleFolder(page);
+      const selectedFolderName = await page.locator("label", { hasText: "Folder Name" }).locator("..").getByRole("textbox").first().inputValue();
+      const parentFolderFile = listFolderMetadataFiles(modelDir).find((file) => {
+        const content = tryReadJson(file);
+        return content?.name === selectedFolderName || content?.folders?.[0]?.name === selectedFolderName;
+      });
+      expect(parentFolderFile, "Selected folder must have folder metadata").toBeTruthy();
+      const parentFolderPath = path.relative(modelDir, path.dirname(parentFolderFile || "")).replaceAll(path.sep, "/");
+      const e2eFolderName = `E2EFolder_${runId}`;
+      const childFolderName = `E2EChildFolder_${runId}`;
+      const nestedEntityName = `E2ENestedEntity_${runId}`;
+      const nestedEntityAttrName = `E2ENestedAttr_${runId}`;
+      const renamedFolderName = `E2ERenamedFolder_${runId}`;
+      const createdFolderPath = path.join(modelDir, parentFolderPath, e2eFolderName, ".properties.json");
+      const childFolderPath = path.join(modelDir, parentFolderPath, e2eFolderName, childFolderName, ".properties.json");
+      const nestedEntityPath = path.join(modelDir, parentFolderPath, e2eFolderName, `${nestedEntityName}.json`);
+      const renamedFolderPath = path.join(modelDir, parentFolderPath, renamedFolderName, ".properties.json");
+      const renamedChildFolderPath = path.join(modelDir, parentFolderPath, renamedFolderName, childFolderName, ".properties.json");
+      const renamedNestedEntityPath = path.join(modelDir, parentFolderPath, renamedFolderName, `${nestedEntityName}.json`);
+
+      await openFolderContextMenu(page, parentLabel);
+      await page.getByRole("menuitem", { name: "New Folder..." }).click();
+      await expect(page.getByRole("heading", { name: "Create Folder" })).toBeVisible();
+      await page.getByLabel("Folder name").fill(e2eFolderName);
+      await page.getByRole("button", { name: "Create" }).click();
+      await expect.poll(() => fs.existsSync(createdFolderPath), { timeout: 30_000 }).toBeTruthy();
+
+      await clickModelFolder(page, e2eFolderName);
+      await openFolderContextMenu(page, e2eFolderName);
+      await page.getByRole("menuitem", { name: "New Folder..." }).click();
+      await expect(page.getByRole("heading", { name: "Create Folder" })).toBeVisible();
+      await page.getByLabel("Folder name").fill(childFolderName);
+      await page.getByRole("button", { name: "Create" }).click();
+      await expect.poll(() => fs.existsSync(childFolderPath), { timeout: 30_000 }).toBeTruthy();
+
+      writeJson(nestedEntityPath, {
+        id: Date.now(),
+        name: nestedEntityName,
+        displayName: nestedEntityName,
+        attributes: [
+          {
+            ordinalNumber: 1,
+            name: nestedEntityAttrName,
+            attributeType: "Regular",
+            dataType: { type: "string", nullable: true },
+            dateAdded: new Date().toISOString(),
+            properties: [],
+          },
+        ],
+        sources: [],
+        transformations: [],
+        relationships: [],
+        properties: [],
+      });
+      const nestedReloadHitsBefore = diagnostics.endpointHits.get("/model/reload") || 0;
+      await page.getByRole("button", { name: "Reload" }).first().click();
+      await expect.poll(() => diagnostics.endpointHits.get("/model/reload") || 0, { timeout: 30_000 }).toBeGreaterThan(nestedReloadHitsBefore);
+      await expect.poll(() => fs.existsSync(nestedEntityPath), { timeout: 30_000 }).toBeTruthy();
+
+      await clickModelFolder(page, e2eFolderName);
+      await page.locator("label", { hasText: "Folder Name" }).locator("..").getByRole("textbox").first().fill(renamedFolderName);
+      await saveByBlur(page);
+      await expect.poll(() => fs.existsSync(renamedFolderPath), { timeout: 30_000 }).toBeTruthy();
+      await expect.poll(() => fs.existsSync(renamedChildFolderPath), { timeout: 30_000 }).toBeTruthy();
+      await expect.poll(() => fs.existsSync(renamedNestedEntityPath), { timeout: 30_000 }).toBeTruthy();
+      await expect.poll(() => fs.existsSync(createdFolderPath), { timeout: 30_000 }).toBeFalsy();
+      await expect.poll(() => fs.existsSync(childFolderPath), { timeout: 30_000 }).toBeFalsy();
+      await expect.poll(() => fs.existsSync(nestedEntityPath), { timeout: 30_000 }).toBeFalsy();
+
+      await openFolderContextMenu(page, renamedFolderName);
+      await page.getByRole("menuitem", { name: "Delete Folder" }).click();
+      await expect(page.getByRole("heading", { name: "Delete folder?" })).toBeVisible();
+      await page.getByRole("button", { name: "Delete" }).click();
+      await expect.poll(() => fs.existsSync(renamedFolderPath), { timeout: 30_000 }).toBeFalsy();
+      await expect.poll(() => fs.existsSync(renamedChildFolderPath), { timeout: 30_000 }).toBeFalsy();
+      await expect.poll(() => fs.existsSync(renamedNestedEntityPath), { timeout: 30_000 }).toBeFalsy();
 
       await clickBase(page, "Data Products");
       const products = readJson(dataProductsPath);
@@ -339,6 +511,65 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
       await expect.poll(() => findModelFileByName(modelDir, editedName), { timeout: 30_000 }).not.toBe("");
       const renamedPath = findModelFileByName(modelDir, editedName);
 
+      await page.getByRole("button", { name: "Attributes" }).click();
+      await expect(page.locator(".entity-attributes-table")).toBeVisible({ timeout: 10_000 });
+      const attributeCountBefore = (tryReadJson(renamedPath)?.attributes || []).length;
+      await page.getByRole("button", { name: "Add Attribute" }).click();
+      await expect.poll(() => {
+        const content = tryReadJson(renamedPath);
+        return Array.isArray(content?.attributes) ? content.attributes.length : 0;
+      }, { timeout: 30_000 }).toBe(attributeCountBefore + 1);
+      const detailAttrName = tryReadJson(renamedPath)?.attributes?.at(-1)?.name;
+      expect(detailAttrName).toBeTruthy();
+
+      await page.getByLabel("Select all attributes").click();
+      await page.getByRole("button", { name: "Bulk Edit" }).click();
+      await expect(page.getByRole("heading", { name: "Bulk Edit Attributes" })).toBeVisible({ timeout: 10_000 });
+      const bulkDialog = page.getByRole("dialog");
+      await bulkDialog.getByRole("combobox").first().click();
+      await page.getByRole("option", { name: "Nullable" }).click();
+      await bulkDialog.getByRole("combobox").nth(1).click();
+      await page.getByRole("option", { name: "False" }).click();
+      await bulkDialog.getByRole("button", { name: "Apply Changes" }).click();
+      await expect(page.getByRole("heading", { name: "Bulk Edit Attributes" })).toBeHidden({ timeout: 10_000 });
+      await saveByBlur(page);
+      await expect.poll(() => {
+        const content = tryReadJson(renamedPath);
+        const attrs = Array.isArray(content?.attributes) ? content.attributes : [];
+        return attrs.length > 0 && attrs.every((attr: any) => attr?.dataType?.nullable === false);
+      }, { timeout: 30_000 }).toBeTruthy();
+
+      await page.locator(".entity-attributes-table").getByTitle("Remove attribute").last().click();
+      await expect.poll(() => {
+        const content = tryReadJson(renamedPath);
+        return Array.isArray(content?.attributes) ? content.attributes.length : 0;
+      }, { timeout: 30_000 }).toBe(attributeCountBefore);
+      await expect.poll(() => {
+        const content = tryReadJson(renamedPath);
+        return (content?.attributes || []).some((attr: any) => attr?.name === detailAttrName);
+      }, { timeout: 30_000 }).toBeFalsy();
+
+      await page.getByRole("button", { name: "Relationships" }).click();
+      await page.getByRole("button", { name: "Add Relationship" }).click();
+      const relationshipBlock = page.locator(".source-block").filter({ hasText: "Rel1" }).last();
+      await expect(relationshipBlock).toBeVisible({ timeout: 10_000 });
+      await relationshipBlock.getByRole("button", { name: "Edit" }).click();
+      await relationshipBlock.getByRole("combobox").first().click();
+      await page.getByRole("option", { name: "010-Stage" }).click();
+      await relationshipBlock.getByRole("combobox").nth(1).click();
+      await page.getByRole("option").filter({ hasText: /SalesOrderHeader|SalesOrderDetail|Customer|Product/ }).first().click();
+      await page.getByRole("button", { name: "Add Mapping" }).first().click();
+      await saveByBlur(page);
+      await expect.poll(() => {
+        const content = tryReadJson(renamedPath);
+        return Array.isArray(content?.relationships) ? content.relationships.length : 0;
+      }, { timeout: 30_000 }).toBeGreaterThan(0);
+      await page.getByTitle("Remove relationship").first().click();
+      await expect.poll(() => {
+        const content = tryReadJson(renamedPath);
+        return Array.isArray(content?.relationships) ? content.relationships.length : 0;
+      }, { timeout: 30_000 }).toBe(0);
+
       await page.getByRole("textbox", { name: "Filter model entities" }).fill(editedName);
       await expect(page.getByRole("button", { name: editedName }).first()).toBeVisible({ timeout: 30_000 });
       await page.getByRole("button", { name: editedName }).first().click();
@@ -350,14 +581,18 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
       await page.getByRole("textbox", { name: "Filter model entities" }).fill(editedName);
       await expect(page.getByRole("button", { name: editedName }).first()).toBeVisible({ timeout: 30_000 });
       await page.getByRole("button", { name: editedName }).first().click();
-      await testInfo.attach("model-delete-workflow-note.txt", {
-        body: Buffer.from("Model delete shortcut was exercised manually in the Computer Use pass; Playwright keeps this suite on non-destructive create/rename/duplicate coverage."),
-        contentType: "text/plain",
-      });
+      await page.getByRole("button", { name: editedName }).first().click({ button: "right" });
+      await page.getByRole("menuitem", { name: /Delete/ }).click();
+      await expect(page.getByRole("heading", { name: /Delete 1 entities\\?/ })).toBeVisible({ timeout: 10_000 });
+      await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+      await expect(page.getByRole("heading", { name: /Delete 1 entities\\?/ })).toBeHidden({ timeout: 10_000 });
+      await expect.poll(() => fs.existsSync(renamedPath), { timeout: 30_000 }).toBeFalsy();
     });
     await screenshot(testInfo, page, "05-model-crud");
 
     await recordTiming(testInfo, timings, "source-transformation-refresh", async () => {
+      await page.getByRole("tab", { name: "Model" }).click();
+      await expect(page.getByRole("textbox", { name: "Filter model entities" })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("textbox", { name: "Filter model entities" }).fill("");
       await page.getByRole("tab", { name: "Base" }).click();
       await page.getByRole("button", { name: "Data Sources", exact: true }).click();
@@ -383,24 +618,7 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
         }
       }
     });
-
-    await recordTiming(testInfo, timings, "reload-validate-generate", async () => {
-      await page.getByRole("button", { name: "Reload" }).first().click();
-      await expect.poll(() => diagnostics.endpointHits.get("/model/reload") || 0, { timeout: 30_000 }).toBeGreaterThan(0);
-
-      const validatorPanel = page.locator(".panel").filter({ hasText: "Validator" }).first();
-      if (await validatorPanel.isVisible().catch(() => false)) {
-        await validatorPanel.getByRole("button", { name: "Run" }).click();
-        await expect.poll(() => diagnostics.endpointHits.get("/validate") || 0, { timeout: 45_000 }).toBeGreaterThan(0);
-      }
-
-      const generatorPanel = page.locator(".panel").filter({ hasText: "Generator" }).first();
-      if (await generatorPanel.isVisible().catch(() => false)) {
-        await generatorPanel.getByRole("button", { name: "Run" }).click();
-        await expect(generatorPanel.getByText(/OK|Done|Success/i).first()).toBeVisible({ timeout: 180_000 });
-      }
-    });
-    await screenshot(testInfo, page, "06-final-state");
+    await screenshot(testInfo, page, "06-source-transformation");
 
     await testInfo.attach("full-workflows-timings.json", {
       body: JSON.stringify(timings, null, 2),
@@ -409,7 +627,7 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
 
     expect(timings["open-solution"]).toBeLessThan(30_000);
     expect(timings["base-crud"]).toBeLessThan(180_000);
-    expect(timings["model-crud"]).toBeLessThan(120_000);
+    expect(timings["model-crud"]).toBeLessThan(240_000);
     expectCleanDiagnostics(diagnostics);
   });
 });

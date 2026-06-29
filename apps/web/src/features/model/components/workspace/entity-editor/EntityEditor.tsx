@@ -908,6 +908,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   zoneFromRelPath={zoneFromRelPath}
                   onJumpToEntity={onJumpToEntity}
                   markEntityDirty={markEntityDirty}
+                  onRelationshipChange={() => persistAfterStateFlush("dropdown-change")}
                   onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
                 />
               )}

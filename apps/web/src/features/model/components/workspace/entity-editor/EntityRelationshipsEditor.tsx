@@ -18,6 +18,7 @@ type EntityRelationshipsEditorProps = {
   zoneFromRelPath: (relPath: string | undefined) => string;
   onJumpToEntity: (relPath: string) => void;
   markEntityDirty: () => void;
+  onRelationshipChange?: () => void;
   onDeleteRelationship?: () => void;
 };
 
@@ -33,6 +34,7 @@ export const EntityRelationshipsEditor = ({
   zoneFromRelPath,
   onJumpToEntity,
   markEntityDirty,
+  onRelationshipChange,
   onDeleteRelationship,
 }: EntityRelationshipsEditorProps) => {
   const [editing, setEditing] = useState<Record<number, boolean>>({});
@@ -110,6 +112,7 @@ export const EntityRelationshipsEditor = ({
             list.map((r, i) => (i === idx ? { ...r, mappings: [...(r.mappings || []), { source: newSource, target: newTarget }] } : r)),
           );
           setMappingsCollapsed((prev) => ({ ...prev, [idx]: false }));
+          onRelationshipChange?.();
         };
 
         return (
@@ -165,6 +168,7 @@ export const EntityRelationshipsEditor = ({
                             : r,
                         ),
                       );
+                      onRelationshipChange?.();
                     }}
                     options={[{ value: "", label: "Select zone" }, ...zones.map((z) => ({ value: z, label: z }))]}
                     placeholder="Select zone"
@@ -180,6 +184,7 @@ export const EntityRelationshipsEditor = ({
                       setRelationships((list) =>
                         list.map((r, i) => (i === idx ? { ...r, targetModelEntityId: selectedId } : r)),
                       );
+                      onRelationshipChange?.();
                     }}
                     disabled={!selectedZone}
                     options={[
@@ -247,6 +252,7 @@ export const EntityRelationshipsEditor = ({
                                     : r,
                                 ),
                               );
+                              onRelationshipChange?.();
                             }}
                             options={[
                               { value: "", label: "Select source column" },
@@ -276,6 +282,7 @@ export const EntityRelationshipsEditor = ({
                                     : r,
                                 ),
                               );
+                              onRelationshipChange?.();
                             }}
                             disabled={!rel.targetModelEntityId}
                             options={[
@@ -296,6 +303,7 @@ export const EntityRelationshipsEditor = ({
                                   i === idx ? { ...r, mappings: (r.mappings || []).filter((_item: any, ii: number) => ii !== mIdx) } : r,
                                 ),
                               );
+                              onRelationshipChange?.();
                             }}
                           >
                             <Trash2 className="h-4 w-4" />

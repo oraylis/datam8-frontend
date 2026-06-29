@@ -99,6 +99,24 @@ export async function moveEntities(fromLocator: string, toLocator: string): Prom
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
+export async function renameEntity(
+  fromLocator: string,
+  toLocator: string,
+  content: JsonRecord,
+  opts?: { save?: boolean },
+): Promise<EntityResponseItem | undefined> {
+  const response = await fetch(`${apiBase}/entities/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from: fromLocator, to: toLocator, content }),
+  });
+  const payload = await parseResponse(response);
+  if (opts?.save !== false) {
+    await saveModel();
+  }
+  return payload?.item;
+}
+
 export async function saveModel(locator?: string): Promise<void> {
   const response = await fetch(`${apiBase}/model/save`, {
     method: "POST",

@@ -54,7 +54,7 @@ import { deepEqual } from "../shared/utils/deepEqual";
 import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
 import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
-import { createEntity, deleteEntity, moveEntities, patchEntity, saveModel } from "../shared/api/v2Client";
+import { createEntity, deleteEntity, moveEntities, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
@@ -120,6 +120,60 @@ const assertNoDuplicateBaseKeys = (entityType: string, items: unknown[]): void =
       `Cannot save ${entityType}: duplicate keys detected (${list}). The v2 /entities locator is not unique for these items.`,
     );
   }
+};
+
+const persistBaseListItems = async (
+  baseType: string,
+  prevItems: unknown[],
+  nextItems: unknown[],
+  opts?: { save?: boolean },
+): Promise<boolean> => {
+  let hadMutation = false;
+  const previousByKey = new Map<string, Record<string, unknown>>();
+  for (const item of prevItems) {
+    const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
+    if (!locator) continue;
+    previousByKey.set(locator, item as Record<string, unknown>);
+  }
+
+  for (const [index, item] of nextItems.entries()) {
+    const nextItem = item as Record<string, unknown>;
+    const locator = buildBaseEntityLocator(baseType, nextItem);
+    if (!locator) continue;
+    const prevItem = previousByKey.get(locator);
+    if (prevItem) {
+      if (!deepEqual(prevItem, nextItem)) {
+        await patchEntity(locator, nextItem, opts);
+        hadMutation = true;
+      }
+      previousByKey.delete(locator);
+      continue;
+    }
+
+    const indexedPrevious = prevItems.length === nextItems.length ? (prevItems[index] as Record<string, unknown> | undefined) : undefined;
+    const previousLocator = indexedPrevious ? buildBaseEntityLocator(baseType, indexedPrevious) : null;
+    if (previousLocator && previousLocator !== locator && previousByKey.has(previousLocator)) {
+      await renameEntity(previousLocator, locator, nextItem, opts);
+      previousByKey.delete(previousLocator);
+      hadMutation = true;
+      continue;
+    }
+
+    try {
+      await createEntity(locator, nextItem, opts);
+      hadMutation = true;
+    } catch {
+      await patchEntity(locator, nextItem, opts);
+      hadMutation = true;
+    }
+  }
+
+  for (const [locator] of previousByKey) {
+    await deleteEntity(locator, opts);
+    hadMutation = true;
+  }
+
+  return hadMutation;
 };
 
 const buildTopLevelEntityPatch = (
@@ -388,38 +442,7 @@ export function AppShell() {
 
         if (baseType && baseType !== "unknown") {
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          const previousByKey = new Map<string, Record<string, unknown>>();
-          for (const item of prevItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            previousByKey.set(locator, item as Record<string, unknown>);
-          }
-
-          for (const item of nextItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            const prevItem = previousByKey.get(locator);
-            if (prevItem) {
-              if (!deepEqual(prevItem, item)) {
-                await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              }
-              previousByKey.delete(locator);
-            } else {
-              try {
-                await createEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              } catch {
-                await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              }
-            }
-          }
-
-          for (const [locator] of previousByKey) {
-            await deleteEntity(locator, { save: false });
-            hadMutation = true;
-          }
+          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
         } else {
           const locator = nextEntity.locator || modelLocatorFromRelPath(nextEntity.relPath);
           try {
@@ -981,35 +1004,7 @@ export function AppShell() {
         const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
         const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
         assertNoDuplicateBaseKeys(baseType, nextItems);
-
-        const previousByKey = new Map<string, Record<string, unknown>>();
-        prevItems.forEach((item) => {
-          const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-          if (!locator) return;
-          previousByKey.set(locator, item as Record<string, unknown>);
-        });
-
-        for (const item of nextItems) {
-          const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-          if (!locator) continue;
-          const previousItem = previousByKey.get(locator);
-          if (previousItem) {
-            if (!deepEqual(previousItem, item)) {
-              await patchEntity(locator, item as Record<string, unknown>);
-            }
-            previousByKey.delete(locator);
-          } else {
-            try {
-              await createEntity(locator, item as Record<string, unknown>);
-            } catch {
-              await patchEntity(locator, item as Record<string, unknown>);
-            }
-          }
-        }
-
-        for (const [locator] of previousByKey) {
-          await deleteEntity(locator);
-        }
+        await persistBaseListItems(baseType, prevItems, nextItems);
       }
 
       const updatedModelByRelPath = new Map(modelResult.updatedEntities.map((entity) => [entity.relPath, entity]));
@@ -1239,33 +1234,7 @@ export function AppShell() {
 
         if (baseType && baseType !== "unknown") {
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          const previousByKey = new Map<string, Record<string, unknown>>();
-          for (const item of prevItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            previousByKey.set(locator, item as Record<string, unknown>);
-          }
-
-          for (const item of nextItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            const prevItem = previousByKey.get(locator);
-            if (prevItem) {
-              if (!deepEqual(prevItem, item)) {
-                await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              }
-              previousByKey.delete(locator);
-            } else {
-              await createEntity(locator, item as Record<string, unknown>, { save: false });
-              hadMutation = true;
-            }
-          }
-
-          for (const [locator] of previousByKey) {
-            await deleteEntity(locator, { save: false });
-            hadMutation = true;
-          }
+          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
         } else {
           const updatedLocator = updated.locator || modelLocatorFromRelPath(updated.relPath);
           try {
@@ -2370,4 +2339,3 @@ export function AppShell() {
     </div>
   );
 }
-

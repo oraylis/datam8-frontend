@@ -32,6 +32,7 @@ Frontend uses root endpoints (no `/api/*` namespace):
 - `POST /generate` (synchronous, returns `messages` log lines)
 - `POST /validate` (synchronous, returns `messages` log lines)
 - editor/model/base/index/refactor/connectors/plugins/secrets routes under root paths
+  - Base entity rename uses `POST /entities/rename` for single Base-list items in collection files; model entity and folder moves continue to use `POST /entities/move`.
   - Secrets API: `POST /secrets/check`, `PUT /secrets/set`
   - Secret references are stored as `ref://<path>`
   - Plugin install is wheel-only via `POST /plugins/install`
@@ -74,4 +75,3 @@ Frontend may receive optional metadata fields from source/plugin endpoints:
 
 - `/jobs` and `/jobs/*`
 - `/api/*`
-

@@ -6,7 +6,7 @@ function setRef<T>(ref: PossibleRef<T>, value: T | null) {
   if (typeof ref === "function") {
     ref(value);
   } else if (ref !== null && ref !== undefined) {
-    ref.current = value;
+    (ref as React.MutableRefObject<T | null>).current = value;
   }
 }
 

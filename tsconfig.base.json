@@ -6,7 +6,6 @@
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "ignoreDeprecations": "6.0",
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {

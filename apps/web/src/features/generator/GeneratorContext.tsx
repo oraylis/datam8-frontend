@@ -182,23 +182,26 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
           if (messages.length > 0) {
             setGeneratorLog(messages.join("\n"));
           }
-          throw new Error(readErrorMessage(json, `Generation failed (${res.status}).`));
+          // Check status first — FastAPI route-not-found 404 returns generic {"detail":"Not Found"}.
+          if (res.status === 404) throw new Error("The Generate endpoint was not found. Check that the backend is running and up to date.");
+          if (res.status === 401 || res.status === 403) throw new Error("Access denied. Check your authentication settings.");
+          throw new Error(readErrorMessage(json, "Generation failed. Check the generator log for details."));
         }
 
-        const payload = json as GenerateResponse;
+        const payload = json as GenerateResponse & { output_path?: string };
+        // Backend may serialise as `outputPath` (alias) or `output_path` (field name) depending on FastAPI config.
+        const outputPath = payload.outputPath ?? payload.output_path ?? null;
         if (messages.length > 0) {
-          setGeneratorLog(messages.join("\n"));
+          setGeneratorLog(messages.join("\n") + (outputPath ? `\nOutput: ${outputPath}` : ""));
         } else {
-          setGeneratorLog(`Generation succeeded for target '${payload.target}'.\nOutput: ${payload.outputPath}`);
+          const targetLabel = payload.target || target;
+          setGeneratorLog(`Generation succeeded for target '${targetLabel}'.` + (outputPath ? `\nOutput: ${outputPath}` : ""));
         }
         setGeneratorExit(0);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
-        showError("app", {
-          title: "Generator execution failed",
-          description: errorMessage,
-        });
         setGeneratorError(errorMessage);
+        setGeneratorLog((prev) => (prev ? prev + "\n\nError: " + errorMessage : "Error: " + errorMessage));
         setGeneratorExit(1);
       } finally {
         runInFlightRef.current = false;

@@ -27,6 +27,8 @@ import { useModelEditor } from "../../../ModelEditorContext";
 import { readBackendErrorMessage } from "../../../../../shared/api/errorMessage";
 import { saveModelEntityByRelPath } from "../../../../../shared/api/v2Client";
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
+import { MultiItemResponse } from "../../../model-types";
+import { SourceField, SourceObject } from "../../../generated-schema-types";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -65,7 +67,9 @@ type SchemaChangeType =
   | "REMOVED_COLUMN"
   | "TYPE_CHANGED"
   | "NULLABILITY_CHANGED"
-  | "PK_CHANGED";
+  | "PK_CHANGED"
+  | "DESCRIPTION_CHANGED"
+  | "PROPERTIES_CHANGED";
 
 type ColumnChange = {
   changeType: SchemaChangeType;
@@ -90,6 +94,8 @@ type ExternalSourceSchemaDiff = {
     pkChanges: number;
     typeChanges: number;
     nullableChanges: number;
+    descriptionChanges: number;
+    propertiesChanges: number;
   };
 };
 
@@ -165,52 +171,71 @@ export const RefreshSchemasDialog = ({
     return { table: value };
   };
 
-  const loadSchemas = async () => {
+  const loadSchemas = async (): Promise<string[]> => {
     const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas`;
     const response = await fetch(endpoint);
-    if (!response.ok) return [];
-    const payload = await response.json().catch(() => ({}));
-    const items = Array.isArray((payload as any)?.items) ? (payload as any).items : [];
-    return items.map((item: unknown) => `${item || ""}`.trim()).filter(Boolean);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
+        ? (payload as any).message
+        : `Failed to load schema list from the data source (${response.status}). Check the connection settings.`;
+      throw toHttpError(msg, response.status);
+    }
+    const payload = await response.json().catch((e: Error) => {
+      throw toHttpError(`Schema list response was not valid JSON: ${e.message}`, response.status);
+    }) as MultiItemResponse<string>;
+    return payload.items;
   };
 
-  const listTablesForSchema = async (schemaName: string) => {
+  const listTablesForSchema = async (schemaName: string): Promise<SourceObject[]> => {
     const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schemaName)}/tables`;
     const response = await fetch(endpoint);
-    if (!response.ok) return [];
-    const payload = await response.json().catch(() => ({}));
-    const items = Array.isArray((payload as any)?.items) ? (payload as any).items : [];
-    return items
-      .map((item: any) => `${item?.name || ""}`.trim())
-      .filter(Boolean);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
+        ? (payload as any).message
+        : `Failed to list tables for schema "${schemaName}" (${response.status}). Check the connection settings.`;
+      throw toHttpError(msg, response.status);
+    }
+    const payload = await response.json().catch((e: Error) => {
+      throw toHttpError(`Table list response was not valid JSON: ${e.message}`, response.status);
+    }) as MultiItemResponse<SourceObject>;
+    return payload.items;
   };
 
-  const loadSourceFields = async (sourceLocation: string) => {
+  const loadSourceFields = async (sourceLocation: string): Promise<SourceField[]> => {
     const parsed = parseSourceLocation(sourceLocation);
-    const loadViaSchema = async (schemaName: string) => {
+
+    const loadViaSchema = async (schemaName: string): Promise<SourceField[]> => {
       const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schemaName)}/tables/${encodeURIComponent(parsed.table)}`;
       const response = await fetch(endpoint);
-      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const errPayload = await response.json().catch(() => ({}));
         throw toHttpError(
-          readBackendErrorMessage(payload, `Failed to load source metadata (${response.status})`),
+          readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
           response.status,
         );
       }
-      return Array.isArray((payload as any)?.items) ? (payload as any).items : [];
+      const payload = await response.json().catch((e: Error) => {
+        throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
+      }) as MultiItemResponse<SourceField>;
+      return payload.items;
     };
 
-    const loadWithoutSchema = async () => {
+    const loadWithoutSchema = async (): Promise<SourceField[]> => {
       const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/tables/${encodeURIComponent(parsed.table)}`;
       const response = await fetch(endpoint);
-      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const errPayload = await response.json().catch(() => ({}));
         throw toHttpError(
-          readBackendErrorMessage(payload, `Failed to load source metadata (${response.status})`),
+          readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
           response.status,
         );
       }
-      return Array.isArray((payload as any)?.items) ? (payload as any).items : [];
+      const payload = await response.json().catch((e: Error) => {
+        throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
+      }) as MultiItemResponse<SourceField>;
+      return payload.items;
     };
 
     if (parsed.schema) {
@@ -220,9 +245,11 @@ export const RefreshSchemasDialog = ({
     const schemas = await loadSchemas();
     if (schemas.length > 0) {
       setKnownSchemas(schemas);
+
       for (const schemaName of schemas) {
         const schemaTables = await listTablesForSchema(schemaName);
-        if (!schemaTables.some((name: string) => name.toLowerCase() === parsed.table.toLowerCase())) continue;
+        const table = schemaTables.find((t) => t.name.toLowerCase() === parsed.table.toLowerCase());
+        if (!table) continue;
         return await loadViaSchema(schemaName);
       }
     } else {
@@ -232,7 +259,7 @@ export const RefreshSchemasDialog = ({
     return await loadWithoutSchema();
   };
 
-  const computeUsageDiff = (usage: ExternalSourceUsage, fields: any[]) => {
+  const computeUsageDiff = (usage: ExternalSourceUsage, fields: SourceField[]) => {
     const entity = modelEntities.find((entry) => entry.relPath === usage.entityRelPath);
     if (!entity) return null;
     const attributes = Array.isArray(entity.content?.attributes) ? entity.content.attributes : [];
@@ -252,10 +279,9 @@ export const RefreshSchemasDialog = ({
         sourceMappingBySourceName.set(sourceName, mapping);
       }
     }
-    const sourceByName = new Map<string, any>();
+    const sourceByName = new Map<string, SourceField>();
     for (const field of fields) {
-      const name = `${field?.name || ""}`.trim();
-      if (name) sourceByName.set(name, field);
+      sourceByName.set(field.name, field);
     }
 
     const changes: ColumnChange[] = [];
@@ -325,6 +351,41 @@ export const RefreshSchemasDialog = ({
           applyToEntitySuggested: true,
         });
       }
+
+      // Description change detection
+      const descBefore = attr && typeof attr.description === "string" ? attr.description : undefined;
+      const descAfter = typeof src?.description === "string" ? src.description : undefined;
+      if (descAfter !== undefined && descBefore !== descAfter) {
+        changes.push({
+          changeType: "DESCRIPTION_CHANGED",
+          columnName: name,
+          sourceBefore: { description: descBefore },
+          sourceAfter: { ...src, description: descAfter },
+          entityAttributeName: mappingTargetName || undefined,
+          applyToEntitySuggested: true,
+        });
+      }
+
+      // Properties change detection — only flag additions from source; never signal removal
+      const propsBefore: any[] = attr && Array.isArray(attr.properties) ? attr.properties : [];
+      const propsAfter: any[] = Array.isArray(src?.properties) ? src.properties : [];
+      if (propsAfter.length > 0) {
+        const existingKeys = new Set(propsBefore.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
+        const newProps = propsAfter.filter((p: any) => {
+          const key = `${p?.property}`.trim();
+          return key && !existingKeys.has(key);
+        });
+        if (newProps.length > 0) {
+          changes.push({
+            changeType: "PROPERTIES_CHANGED",
+            columnName: name,
+            sourceBefore: { properties: propsBefore },
+            sourceAfter: { ...src, properties: propsAfter },
+            entityAttributeName: mappingTargetName || undefined,
+            applyToEntitySuggested: true,
+          });
+        }
+      }
     }
     for (const mapping of sourceMappings) {
       const sourceName = `${mapping?.sourceName || ""}`.trim();
@@ -361,6 +422,8 @@ export const RefreshSchemasDialog = ({
         pkChanges: changes.filter((c) => c.changeType === "PK_CHANGED").length,
         typeChanges: changes.filter((c) => c.changeType === "TYPE_CHANGED").length,
         nullableChanges: changes.filter((c) => c.changeType === "NULLABILITY_CHANGED").length,
+        descriptionChanges: changes.filter((c) => c.changeType === "DESCRIPTION_CHANGED").length,
+        propertiesChanges: changes.filter((c) => c.changeType === "PROPERTIES_CHANGED").length,
       },
     } as ExternalSourceSchemaDiff;
   };
@@ -394,6 +457,7 @@ export const RefreshSchemasDialog = ({
         setUsages(nextUsages);
         setSelectedUsages(new Set(nextUsages.map((u) => `${u.entityRelPath}:${u.sourceIndex}`)));
       } catch (err: any) {
+        console.error("[DataM8] Failed to inspect source usages:", err);
         setError(err?.message || "Failed to inspect source usages");
       } finally {
         setIsLoading(false);
@@ -431,12 +495,12 @@ export const RefreshSchemasDialog = ({
       .filter((u) => selectedUsages.has(`${u.entityRelPath}:${u.sourceIndex}`))
       .map((u) => ({ entityRelPath: u.entityRelPath, sourceIndex: u.sourceIndex }));
 
-    const dirtyEntities = usagesToScan.filter(u => 
-        modelTabs.some(t => t.relPath === u.entityRelPath && t.dirty)
+    const dirtyEntities = usagesToScan.filter(u =>
+      modelTabs.some(t => t.relPath === u.entityRelPath && t.dirty)
     );
 
     if (dirtyEntities.length > 0) {
-        setDirtyWarning(`Warning: ${dirtyEntities.length} selected entity(s) have unsaved changes. Proceeding will overwrite them. Save them first or proceed with caution.`);
+      setDirtyWarning(`Warning: ${dirtyEntities.length} selected entity(s) have unsaved changes. Proceeding will overwrite them. Save them first or proceed with caution.`);
     }
 
     try {
@@ -471,6 +535,7 @@ export const RefreshSchemasDialog = ({
 
       setStep(STEPS.PREVIEW);
     } catch (err: any) {
+      console.error("[DataM8] Schema scan failed:", err);
       const status = err?.status;
       const message = err?.message || "Failed to scan schemas";
       if (!handleAuthFailure(status, message)) {
@@ -691,130 +756,151 @@ export const RefreshSchemasDialog = ({
     setError(null);
     setAuthErrorHint(null);
     try {
-        const selectionMap = new Map<string, DiffSelection>(
-          selections.map((sel) => [`${sel.entityRelPath}:${sel.sourceIndex}`, sel] as const),
+      const selectionMap = new Map<string, DiffSelection>(
+        selections.map((sel) => [`${sel.entityRelPath}:${sel.sourceIndex}`, sel] as const),
+      );
+      const updatedEntities: Array<{ entityRelPath: string; content: any }> = [];
+
+      for (const diff of diffs) {
+        const key = `${diff.entityRelPath}:${diff.sourceIndex}`;
+        const selection = selectionMap.get(key);
+        if (!selection) continue;
+        const selectedKeys = new Set(
+          selection.changes
+            .filter((entry) => entry.applyToEntity)
+            .map((entry) => `${entry.columnName}::${entry.changeType}`),
         );
-        const updatedEntities: Array<{ entityRelPath: string; content: any }> = [];
+        if (!selectedKeys.size) continue;
 
-        for (const diff of diffs) {
-          const key = `${diff.entityRelPath}:${diff.sourceIndex}`;
-          const selection = selectionMap.get(key);
-          if (!selection) continue;
-          const selectedKeys = new Set(
-            selection.changes
-              .filter((entry) => entry.applyToEntity)
-              .map((entry) => `${entry.columnName}::${entry.changeType}`),
-          );
-          if (!selectedKeys.size) continue;
+        const current = modelEntities.find((entity) => entity.relPath === diff.entityRelPath);
+        if (!current) continue;
+        const nextContent = structuredClone(current.content || {});
+        const attrs = Array.isArray(nextContent.attributes) ? nextContent.attributes : [];
+        const sources = Array.isArray(nextContent.sources) ? nextContent.sources : [];
+        const sourceEntry = sources[diff.sourceIndex];
+        const sourceMappings = Array.isArray(sourceEntry?.mapping) ? sourceEntry.mapping : [];
+        const byName = new Map<string, any>();
+        attrs.forEach((attr: any, index: number) => byName.set(`${attr?.name || ""}`, { attr, index }));
 
-          const current = modelEntities.find((entity) => entity.relPath === diff.entityRelPath);
-          if (!current) continue;
-          const nextContent = structuredClone(current.content || {});
-          const attrs = Array.isArray(nextContent.attributes) ? nextContent.attributes : [];
-          const sources = Array.isArray(nextContent.sources) ? nextContent.sources : [];
-          const sourceEntry = sources[diff.sourceIndex];
-          const sourceMappings = Array.isArray(sourceEntry?.mapping) ? sourceEntry.mapping : [];
-          const byName = new Map<string, any>();
-          attrs.forEach((attr: any, index: number) => byName.set(`${attr?.name || ""}`, { attr, index }));
+        const findSourceMappingIndex = (columnName: string) =>
+          sourceMappings.findIndex((m: any) => {
+            const sourceName = `${m?.sourceName || ""}`.trim();
+            return sourceName === columnName;
+          });
 
-          const findSourceMappingIndex = (columnName: string) =>
-            sourceMappings.findIndex((m: any) => {
-              const sourceName = `${m?.sourceName || ""}`.trim();
-              return sourceName === columnName;
-            });
-
-          for (const change of diff.changes) {
-            const marker = `${change.columnName}::${change.changeType}`;
-            if (!selectedKeys.has(marker)) continue;
-            if (change.changeType === "TYPE_CHANGED" || change.changeType === "NULLABILITY_CHANGED") {
-              const mappingIndex = findSourceMappingIndex(change.columnName);
-              if (mappingIndex >= 0) {
-                const mappingItem = sourceMappings[mappingIndex] || {};
-                const currentSourceDataType = normalizeDataTypeForSave(mappingItem?.sourceDataType) || {};
-                const nextSourceDataType = normalizeDataTypeForSave(
-                  change.sourceAfter?.sourceDataType || {
-                    type: change.sourceAfter?.dataType,
-                    nullable: change.sourceAfter?.isNullable,
-                    charLen: change.sourceAfter?.maxLength,
-                    precision: change.sourceAfter?.numericPrecision,
-                    scale: change.sourceAfter?.numericScale,
-                  },
-                );
-                if (nextSourceDataType) {
-                  sourceMappings[mappingIndex] = {
-                    ...mappingItem,
-                    sourceDataType: {
-                      ...currentSourceDataType,
-                      ...nextSourceDataType,
-                    },
-                  };
-                }
-              }
-              continue;
-            }
-            const attrKey = `${change.entityAttributeName || change.columnName || ""}`.trim();
-            const existing = attrKey ? byName.get(attrKey) : undefined;
-            if (change.changeType === "NEW_COLUMN" && !existing) {
-              attrs.push({
-                ordinalNumber: attrs.length + 1,
-                name: change.columnName,
-                attributeType: "Regular",
-                dataType: {
-                  type: `${change.sourceAfter?.dataType || "string"}`,
-                  nullable: Boolean(change.sourceAfter?.isNullable ?? true),
+        for (const change of diff.changes) {
+          const marker = `${change.columnName}::${change.changeType}`;
+          if (!selectedKeys.has(marker)) continue;
+          if (change.changeType === "TYPE_CHANGED" || change.changeType === "NULLABILITY_CHANGED") {
+            const mappingIndex = findSourceMappingIndex(change.columnName);
+            if (mappingIndex >= 0) {
+              const mappingItem = sourceMappings[mappingIndex] || {};
+              const currentSourceDataType = normalizeDataTypeForSave(mappingItem?.sourceDataType) || {};
+              const nextSourceDataType = normalizeDataTypeForSave(
+                change.sourceAfter?.sourceDataType || {
+                  type: change.sourceAfter?.dataType,
+                  nullable: change.sourceAfter?.isNullable,
+                  charLen: change.sourceAfter?.maxLength,
+                  precision: change.sourceAfter?.numericPrecision,
+                  scale: change.sourceAfter?.numericScale,
                 },
-                isBusinessKey: Boolean(change.sourceAfter?.isPrimaryKey),
-                properties: [],
-              });
-              continue;
+              );
+              if (nextSourceDataType) {
+                sourceMappings[mappingIndex] = {
+                  ...mappingItem,
+                  sourceDataType: {
+                    ...currentSourceDataType,
+                    ...nextSourceDataType,
+                  },
+                };
+              }
             }
-            if (change.changeType === "REMOVED_COLUMN" && existing) {
-              attrs.splice(existing.index, 1);
-              continue;
-            }
-            if (!existing) continue;
-            const targetAttr = existing.attr;
-            if (!targetAttr.dataType || typeof targetAttr.dataType !== "object") {
-              targetAttr.dataType = {};
-            }
-            if (change.changeType === "PK_CHANGED") {
-              targetAttr.isBusinessKey = Boolean(change.sourceAfter?.isPrimaryKey);
+            continue;
+          }
+          const attrKey = `${change.entityAttributeName || change.columnName || ""}`.trim();
+          const existing = attrKey ? byName.get(attrKey) : undefined;
+          if (change.changeType === "NEW_COLUMN" && !existing) {
+            attrs.push({
+              ordinalNumber: attrs.length + 1,
+              name: change.columnName,
+              attributeType: "Regular",
+              dataType: {
+                type: `${change.sourceAfter?.dataType || "string"}`,
+                nullable: Boolean(change.sourceAfter?.isNullable ?? true),
+              },
+              isBusinessKey: Boolean(change.sourceAfter?.isPrimaryKey),
+              properties: [],
+            });
+            continue;
+          }
+          if (change.changeType === "REMOVED_COLUMN" && existing) {
+            attrs.splice(existing.index, 1);
+            continue;
+          }
+          if (!existing) continue;
+          const targetAttr = existing.attr;
+          if (!targetAttr.dataType || typeof targetAttr.dataType !== "object") {
+            targetAttr.dataType = {};
+          }
+          if (change.changeType === "PK_CHANGED") {
+            targetAttr.isBusinessKey = Boolean(change.sourceAfter?.isPrimaryKey);
+          }
+          if (change.changeType === "DESCRIPTION_CHANGED") {
+            // Only set description if the attribute does not already have one
+            const existingDesc = typeof targetAttr.description === "string" ? targetAttr.description.trim() : "";
+            if (!existingDesc) {
+              targetAttr.description = change.sourceAfter?.description ?? undefined;
             }
           }
-
-          if (sourceEntry) {
-            sourceEntry.mapping = sourceMappings;
-            sources[diff.sourceIndex] = sourceEntry;
-            nextContent.sources = sources;
+          if (change.changeType === "PROPERTIES_CHANGED") {
+            // Additive only: add new properties from source, never remove or overwrite existing ones
+            const existing: any[] = Array.isArray(targetAttr.properties) ? targetAttr.properties : [];
+            const existingKeys = new Set(existing.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
+            const incoming: any[] = Array.isArray(change.sourceAfter?.properties) ? change.sourceAfter.properties : [];
+            const toAdd = incoming.filter((p: any) => {
+              const key = `${p?.property}`.trim();
+              return key && !existingKeys.has(key);
+            });
+            if (toAdd.length > 0) {
+              targetAttr.properties = [...existing, ...toAdd];
+            }
           }
-
-          nextContent.attributes = attrs.map((attr: any, index: number) => ({
-            ...attr,
-            ordinalNumber: index + 1,
-          }));
-          await saveModelEntityByRelPath(diff.entityRelPath, nextContent);
-          updatedEntities.push({ entityRelPath: diff.entityRelPath, content: nextContent });
         }
 
-        if (updatedEntities.length) {
-          setModelEntities((prev) =>
-            prev.map((entity) => {
-              const updated = updatedEntities.find((entry) => entry.entityRelPath === entity.relPath);
-              return updated ? { ...entity, content: updated.content } : entity;
-            }),
-          );
+        if (sourceEntry) {
+          sourceEntry.mapping = sourceMappings;
+          sources[diff.sourceIndex] = sourceEntry;
+          nextContent.sources = sources;
         }
 
-        setApplyResult(updatedEntities);
-        onClose();
+        nextContent.attributes = attrs.map((attr: any, index: number) => ({
+          ...attr,
+          ordinalNumber: index + 1,
+        }));
+        await saveModelEntityByRelPath(diff.entityRelPath, nextContent);
+        updatedEntities.push({ entityRelPath: diff.entityRelPath, content: nextContent });
+      }
+
+      if (updatedEntities.length) {
+        setModelEntities((prev) =>
+          prev.map((entity) => {
+            const updated = updatedEntities.find((entry) => entry.entityRelPath === entity.relPath);
+            return updated ? { ...entity, content: updated.content } : entity;
+          }),
+        );
+      }
+
+      setApplyResult(updatedEntities);
+      onClose();
     } catch (err: any) {
-        const status = err?.status;
-        const message = err?.message || "Failed to apply changes";
-        if (!handleAuthFailure(status, message)) {
-          setError(message);
-        }
+      console.error("[DataM8] Failed to apply schema changes:", err);
+      const status = err?.status;
+      const message = err?.message || "Failed to apply changes";
+      if (!handleAuthFailure(status, message)) {
+        setError(message);
+      }
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -823,7 +909,7 @@ export const RefreshSchemasDialog = ({
       <div className="text-sm text-muted-foreground">
         Select which external sources referencing this Data Source should be scanned for schema changes.
       </div>
-      
+
       {!boundConnectorId ? (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -840,11 +926,11 @@ export const RefreshSchemasDialog = ({
       )}
 
       {dirtyWarning && (
-         <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Unsaved Changes</AlertTitle>
-            <AlertDescription>{dirtyWarning}</AlertDescription>
-         </Alert>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Unsaved Changes</AlertTitle>
+          <AlertDescription>{dirtyWarning}</AlertDescription>
+        </Alert>
       )}
 
       <ScrollArea className="codex-popup-scroll flex-1">
@@ -852,12 +938,12 @@ export const RefreshSchemasDialog = ({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">
-                <Checkbox 
-                    checked={selectedUsages.size === usages.length && usages.length > 0} 
-                    onCheckedChange={(checked) => {
-                        if (checked) setSelectedUsages(new Set(usages.map(u => `${u.entityRelPath}:${u.sourceIndex}`)));
-                        else setSelectedUsages(new Set());
-                    }}
+                <Checkbox
+                  checked={selectedUsages.size === usages.length && usages.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) setSelectedUsages(new Set(usages.map(u => `${u.entityRelPath}:${u.sourceIndex}`)));
+                    else setSelectedUsages(new Set());
+                  }}
                 />
               </TableHead>
               <TableHead>Entity</TableHead>
@@ -875,8 +961,8 @@ export const RefreshSchemasDialog = ({
                   </TableCell>
                   <TableCell>
                     <div className="font-medium flex items-center gap-2">
-                        {u.entityName}
-                        {isDirty && <Badge variant="secondary" className="text-[10px] h-4">Dirty</Badge>}
+                      {u.entityName}
+                      {isDirty && <Badge variant="secondary" className="text-[10px] h-4">Dirty</Badge>}
                     </div>
                     <div className="text-xs text-muted-foreground">{u.layer || u.entityRelPath}</div>
                   </TableCell>
@@ -885,9 +971,9 @@ export const RefreshSchemasDialog = ({
               );
             })}
             {usages.length === 0 && !isLoading && (
-                <TableRow>
-                    <TableCell colSpan={3} className="text-center p-4 muted">No usages found for this data source.</TableCell>
-                </TableRow>
+              <TableRow>
+                <TableCell colSpan={3} className="text-center p-4 muted">No usages found for this data source.</TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
@@ -1153,16 +1239,16 @@ export const RefreshSchemasDialog = ({
   );
 
   const renderResultStep = () => (
-      <div className="flex flex-col items-center justify-center h-[300px] gap-4">
-          <div className="codex-popup-success flex h-16 w-16 items-center justify-center rounded-full">
-              <CheckCircle2 className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-semibold">Update Complete</h3>
-          <div className="text-center text-muted-foreground max-w-md">
-              Updated {applyResult?.length || 0} entities.
-              Mappings have been synchronized with the external source.
-          </div>
+    <div className="flex flex-col items-center justify-center h-[300px] gap-4">
+      <div className="codex-popup-success flex h-16 w-16 items-center justify-center rounded-full">
+        <CheckCircle2 className="w-8 h-8" />
       </div>
+      <h3 className="text-lg font-semibold">Update Complete</h3>
+      <div className="text-center text-muted-foreground max-w-md">
+        Updated {applyResult?.length || 0} entities.
+        Mappings have been synchronized with the external source.
+      </div>
+    </div>
   );
 
   return (
@@ -1173,10 +1259,10 @@ export const RefreshSchemasDialog = ({
         </DialogHeader>
 
         {errorMessage && (
-            <div className="codex-popup-error mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                {errorMessage}
-            </div>
+          <div className="codex-popup-error mb-4 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            {errorMessage}
+          </div>
         )}
 
         {step === STEPS.SELECT && renderSelectStep()}
@@ -1203,7 +1289,7 @@ export const RefreshSchemasDialog = ({
             </>
           )}
           {step === STEPS.RESULT && (
-              <Button onClick={onClose}>Close</Button>
+            <Button onClick={onClose}>Close</Button>
           )}
         </DialogFooter>
       </DialogContent>

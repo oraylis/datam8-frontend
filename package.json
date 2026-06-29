@@ -1,7 +1,7 @@
 {
   "name": "datam8",
   "private": true,
-  "version": "2.0.0-beta.4",
+  "version": "2.0.0-beta.5",
   "description": "DataM8 2.0 UI + API + Desktop shell",
   "engines": {
     "node": ">=24 <25"
@@ -15,8 +15,9 @@
     "dev:web": "npm --workspace apps/web exec vite",
     "dev:desktop": "npm run ci:ensure-rollup-native && node scripts/dev-desktop.mjs",
     "dev:desktop:source": "concurrently \"npm --workspace apps/web exec vite\" \"npm --workspace apps/desktop run dev\"",
+    "generate:schema-types": "node scripts/generate-schema-types.mjs",
     "ci:ensure-rollup-native": "node scripts/ensure-rollup-native.mjs",
-    "build:datam8-binaries": "node scripts/build-datam8-binaries.mjs",
+    "build:datam8-binaries": "npm run generate:schema-types && node scripts/build-datam8-binaries.mjs",
     "build:python-runtime": "node scripts/build-python-runtime.mjs",
     "ci:gates": "node scripts/ci-gates.mjs",
     "lint": "npm --workspaces run lint",
@@ -42,6 +43,7 @@
     "eslint": "^9.20.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
+    "json-schema-to-typescript": "^15.0.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "typescript-eslint": "^8.24.1"

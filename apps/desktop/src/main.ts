@@ -6,6 +6,7 @@ import path from "path";
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "child_process";
 
 import { APP_DISPLAY_NAME } from "./appConfig";
+import { UserSettings } from "./userSettings";
 
 const isDevToolsAllowed = () => !app.isPackaged || process.env.DATAM8_ALLOW_DEVTOOLS === "1";
 
@@ -26,6 +27,7 @@ try {
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 let currentSolutionPath: string | null = null;
+let userSettings: UserSettings | null = null;
 
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendBaseUrl: string | null = null;
@@ -200,39 +202,6 @@ function resolvePackagedPythonCandidates(): string[] {
   ];
 }
 
-function resolveBundledPythonRuntimeRoot(pythonPath: string): string | null {
-  const runtimeRoot = path.join(process.resourcesPath, "python-runtime");
-  const resolvedRuntimeRoot = path.resolve(runtimeRoot);
-  const resolvedPythonPath = path.resolve(pythonPath);
-  if (resolvedPythonPath === resolvedRuntimeRoot || resolvedPythonPath.startsWith(`${resolvedRuntimeRoot}${path.sep}`)) {
-    return runtimeRoot;
-  }
-  return null;
-}
-
-function buildBackendEnv(pythonPath: string, generatorSrcPath: string | null): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron" };
-
-  if (app.isPackaged) {
-    if (!generatorSrcPath) {
-      delete env.PYTHONPATH;
-    }
-    const runtimeRoot = resolveBundledPythonRuntimeRoot(pythonPath);
-    if (runtimeRoot && process.platform !== "win32") {
-      env.PYTHONHOME = runtimeRoot;
-      env.PYTHONNOUSERSITE = "1";
-    }
-  }
-
-  if (generatorSrcPath) {
-    env.PYTHONPATH = env.PYTHONPATH
-      ? `${generatorSrcPath}${path.delimiter}${env.PYTHONPATH}`
-      : generatorSrcPath;
-  }
-
-  return env;
-}
-
 function appendOutputPreview(preview: { value: string }, label: "stdout" | "stderr", chunk: unknown): void {
   if (preview.value.length >= BACKEND_OUTPUT_PREVIEW_LIMIT) return;
   const text = String(chunk);
@@ -241,10 +210,19 @@ function appendOutputPreview(preview: { value: string }, label: "stdout" | "stde
 }
 
 function resolvePythonRuntimePath(): string | null {
-  const override = (process.env.DATAM8_PYTHON_PATH || "").trim();
-  if (override) return isRunnablePython(override) ? override : null;
+  const override = process.env.DATAM8_PYTHON_PATH;
+  if (override) {
+    console.log("override detected");
+    return isRunnablePython(override) ? override : null;
+  }
+
+  if (userSettings?.pythonPath) {
+    console.log("user setting detected");
+    return isRunnablePython(userSettings.pythonPath) ? userSettings.pythonPath : null;
+  }
 
   if (app.isPackaged) {
+    console.log("packaged");
     for (const candidate of resolvePackagedPythonCandidates()) {
       if (ensureExecutable(candidate)) return candidate;
     }
@@ -253,6 +231,7 @@ function resolvePythonRuntimePath(): string | null {
 
   const repoRoot = resolveRepoRoot();
   if (repoRoot) {
+    console.log("submodule fallback");
     const submoduleRoot = path.join(repoRoot, "submodules", "datam8-generator");
     const devCandidates = process.platform === "win32"
       ? [path.join(submoduleRoot, ".venv", "Scripts", "python.exe")]
@@ -268,19 +247,6 @@ function resolvePythonRuntimePath(): string | null {
   }
 
   return null;
-}
-
-function resolveGeneratorSrcPath(): string | null {
-  const override = (process.env.DATAM8_GENERATOR_SRC_PATH || "").trim();
-  if (override) return override;
-  if (app.isPackaged) return null;
-
-  const repoRoot = resolveRepoRoot();
-  if (!repoRoot) return null;
-
-  const srcPath = path.join(repoRoot, "submodules", "datam8-generator", "src");
-  if (!fs.existsSync(srcPath)) return null;
-  return srcPath;
 }
 
 function parseReadyLine(line: string): { baseUrl: string; version: string } | null {
@@ -1031,7 +997,9 @@ function renameFolderOnDisk(payload: { fromFolderPath: string; toFolderPath: str
   return { fromPath: fromResolved, toPath: toResolved };
 }
 
-async function startBackend(solutionPath?: string) {
+async function startBackend(solutionPath?: string, tokenOverride?: string) {
+  userSettings = null;
+
   if (backendBaseUrl && backendToken && backendProcess) {
     try {
       await waitForBackendHealth(backendBaseUrl, backendToken, 2_500);
@@ -1055,6 +1023,11 @@ async function startBackend(solutionPath?: string) {
       }
     }
 
+    const targetSolutionPath = solutionPath || currentSolutionPath || "";
+    if (!targetSolutionPath) return;
+    const targetSolutionDir = path.dirname(path.resolve(targetSolutionPath));
+    userSettings = UserSettings.parseFromSolution(targetSolutionDir);
+
     const pythonPath = resolvePythonRuntimePath();
     if (!pythonPath) {
       const lines = [
@@ -1068,16 +1041,15 @@ async function startBackend(solutionPath?: string) {
       ];
       throw new Error(lines.join("\n"));
     }
-    const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
-
-    const targetSolutionPath = solutionPath || currentSolutionPath || "";
-    if (!targetSolutionPath) return;
-    const token = (backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
+    const backendModule = (process.env.DATAM8_BACKEND_MODULE || userSettings.backendModule || "datam8").trim();
+    const token = (tokenOverride || backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
     cleanupStaleBackendOnPort(BACKEND_PORT);
-    const generatorSrcPath = resolveGeneratorSrcPath();
-    const env = buildBackendEnv(pythonPath, generatorSrcPath);
+    const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron" };
     const backendOutputPreview = { value: "" };
+
+    console.log(`[datam8] resolved python path: '${pythonPath}'`);
+    console.log(`[datam8] resolved python module: '${backendModule}'`);
 
     const proc = spawn(
       pythonPath,
@@ -1189,7 +1161,6 @@ async function startBackend(solutionPath?: string) {
 
 function setupMenu() {
   const isMac = process.platform === "darwin";
-  const allowDevTools = isDevToolsAllowed();
   const menuItem = <T extends MenuItemConstructorOptions>(item: T): MenuItemConstructorOptions => item;
   const editSubmenu: MenuItemConstructorOptions[] = [
     menuItem({ role: "undo" }),
@@ -1205,8 +1176,34 @@ function setupMenu() {
   ];
   const viewSubmenu: MenuItemConstructorOptions[] = [
     menuItem({ role: "reload" }),
-    menuItem({ role: "forceReload" }),
-    ...(allowDevTools ? [menuItem({ role: "toggleDevTools" })] : []),
+    {
+      label: "Force Reload",
+      accelerator: "CmdOrCtrl+Shift+R",
+      click: async () => {
+        const savedToken = backendToken ?? undefined;
+        const savedPath = currentSolutionPath ?? undefined;
+        await stopBackend();
+        if (savedPath) {
+          try {
+            await startBackend(savedPath, savedToken);
+          } catch (err) {
+            dialog.showErrorBox("Force Reload Failed", `Backend failed to restart: ${(err as Error).message}`);
+          }
+          syncWindowTitle();
+        }
+        if (mainWindow) {
+          // After the renderer finishes reloading, re-send the solution path so
+          // the app re-opens the same solution it had before the force reload.
+          if (savedPath) {
+            mainWindow.webContents.once("did-finish-load", () => {
+              mainWindow?.webContents.send("solution:open-path", savedPath);
+            });
+          }
+          mainWindow.webContents.reload();
+        }
+      },
+    },
+    menuItem({ role: "toggleDevTools" }),
     menuItem({ type: "separator" }),
     menuItem({ role: "resetZoom" }),
     menuItem({ role: "zoomIn" }),
@@ -1218,21 +1215,21 @@ function setupMenu() {
   const template: MenuItemConstructorOptions[] = [
     ...(isMac
       ? [
-          {
-            label: app.getName(),
-            submenu: [
-              menuItem({ role: "about" }),
-              menuItem({ type: "separator" }),
-              menuItem({ role: "services" }),
-              menuItem({ type: "separator" }),
-              menuItem({ role: "hide" }),
-              menuItem({ role: "hideOthers" }),
-              menuItem({ role: "unhide" }),
-              menuItem({ type: "separator" }),
-              menuItem({ role: "quit" }),
-            ],
-          },
-        ]
+        {
+          label: app.getName(),
+          submenu: [
+            menuItem({ role: "about" }),
+            menuItem({ type: "separator" }),
+            menuItem({ role: "services" }),
+            menuItem({ type: "separator" }),
+            menuItem({ role: "hide" }),
+            menuItem({ role: "hideOthers" }),
+            menuItem({ role: "unhide" }),
+            menuItem({ type: "separator" }),
+            menuItem({ role: "quit" }),
+          ],
+        },
+      ]
       : []),
     {
       label: "File",
@@ -1253,6 +1250,19 @@ function setupMenu() {
           label: "Learn More",
           click: async () => {
             await shell.openExternal("https://github.com/oraylis/datam8");
+          },
+        },
+        { type: "separator" },
+        {
+          label: `About ${APP_DISPLAY_NAME}`,
+          click: () => {
+            void dialog.showMessageBox({
+              type: "info",
+              title: `About ${APP_DISPLAY_NAME}`,
+              message: `${APP_DISPLAY_NAME}`,
+              detail: `Version ${app.getVersion()}`,
+              buttons: ["OK"],
+            });
           },
         },
       ],
@@ -1298,14 +1308,14 @@ async function createWindow() {
     titleBarStyle: process.platform === "win32" ? "hidden" : "default",
     ...(process.platform === "win32"
       ? {
-          titleBarOverlay: {
-            color: getWindowsChromeColors(currentAppTheme).overlayColor,
-            symbolColor: getWindowsChromeColors(currentAppTheme).symbolColor,
-            height: 36,
-          },
-          autoHideMenuBar: true,
-          backgroundColor: getWindowsChromeColors(currentAppTheme).backgroundColor,
-        }
+        titleBarOverlay: {
+          color: getWindowsChromeColors(currentAppTheme).overlayColor,
+          symbolColor: getWindowsChromeColors(currentAppTheme).symbolColor,
+          height: 36,
+        },
+        autoHideMenuBar: true,
+        backgroundColor: getWindowsChromeColors(currentAppTheme).backgroundColor,
+      }
       : {}),
     trafficLightPosition: undefined,
     icon: iconPath,
@@ -1313,7 +1323,7 @@ async function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: isDevToolsAllowed(),
+      devTools: true,
       additionalArguments: [
         `--datam8-api-base=${backendBaseUrl}`,
         `--datam8-token=${backendToken || ""}`,
@@ -1321,28 +1331,6 @@ async function createWindow() {
       ],
     },
   });
-
-  if (!isDevToolsAllowed()) {
-    mainWindow.webContents.on("before-input-event", (event, input) => {
-      if (input.type !== "keyDown") return;
-
-      const key = (input.key || "").toLowerCase();
-      const isF12 = key === "f12";
-      const isCtrlShift = input.control && input.shift;
-      const isCmdAlt = input.meta && input.alt;
-      const isDevToolsChord = (isCtrlShift || isCmdAlt) && (key === "i" || key === "j" || key === "c");
-
-      if (isF12 || isDevToolsChord) event.preventDefault();
-    });
-
-    mainWindow.webContents.on("devtools-opened", () => {
-      try {
-        mainWindow?.webContents.closeDevTools();
-      } catch {
-        // ignore
-      }
-    });
-  }
 
   if (process.platform === "win32") {
     mainWindow.setAutoHideMenuBar(true);
@@ -1582,18 +1570,6 @@ nativeTheme.on("updated", () => {
 
 if (gotLock) {
   app.whenReady().then(async () => {
-    if (!isDevToolsAllowed()) {
-      app.on("web-contents-created", (_event, contents) => {
-        contents.on("devtools-opened", () => {
-          try {
-            contents.closeDevTools();
-          } catch {
-            // ignore
-          }
-        });
-      });
-    }
-
     setupMenu();
     await createWindow();
     wireAutoUpdates();

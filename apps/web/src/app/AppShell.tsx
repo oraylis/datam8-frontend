@@ -47,7 +47,8 @@ import {
   type PropertyRefactorScopeTarget,
   type SupportedBaseScopeTarget,
 } from "../features/model/refactor/propertyRefactorScopes";
-import type { BaseAttributeType, BaseDataProduct, BaseDataTypeDefinition, BaseEntity, BaseZone, FolderEntity, ModelEntity, Tab } from "../features/model/model-types";
+import type { PluginManifest } from "../features/model/generated-schema-types.ts";
+import type { BaseAttributeType, BaseDataProduct, BaseDataTypeDefinition, BaseEntity, BaseZone, EntityWrapper, FolderEntity, ModelEntity, Tab } from "../features/model/model-types";
 import { buildPropertyOptionsFromBaseEntities } from "../features/model/property-options";
 import { apiBase } from "../config";
 import { deepEqual } from "../shared/utils/deepEqual";
@@ -56,29 +57,30 @@ import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfi
 import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
 import { createEntity, deleteEntity, moveEntities, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
+import { refresh as refreshConnectorCatalog } from "../shared/connectors/connectorCatalog";
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
 type PendingBaseAction =
   | {
-      kind: "renameFolder";
-      fromFolder: string;
-      toFolder: string;
-      sourceRelPath: string;
-      reason: "zones" | "folderProperties";
-    }
+    kind: "renameFolder";
+    fromFolder: string;
+    toFolder: string;
+    sourceRelPath: string;
+    reason: "zones" | "folderProperties";
+  }
   | {
-      kind: "deleteFolderTree";
-      folderPath: string;
-      sourceRelPath: string;
-      reason: "zones";
-    }
+    kind: "deleteFolderTree";
+    folderPath: string;
+    sourceRelPath: string;
+    reason: "zones";
+  }
   | {
-      kind: "propertyRefactor";
-      payload: Partial<PropertyRefactorPayload>;
-      targets: PropertyRefactorScopeTarget[];
-      sourceRelPath: string;
-      preview?: string;
-    };
+    kind: "propertyRefactor";
+    payload: Partial<PropertyRefactorPayload>;
+    targets: PropertyRefactorScopeTarget[];
+    sourceRelPath: string;
+    preview?: string;
+  };
 
 const buildBaseEntityLocator = (entityType: string, item: Record<string, unknown>): string | null => {
   if (entityType === "propertyValues") {
@@ -464,12 +466,13 @@ export function AppShell() {
           ),
         );
         setTabDirty(nextEntity.relPath, "base", false);
+        console.log(`[DataM8] Base entity autosaved: ${nextEntity.relPath}`);
       } catch (err) {
         setTabDirty(relPath, "base", true);
         setBaseTabs((tabs) =>
           tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)),
         );
-        showAppError("Save failed", (err as Error).message);
+        showAppError("Save failed", (err as Error).message || "An unexpected error prevented the save. Please try again.");
       } finally {
         patchedBaseInFlightRef.current.delete(relPath);
         if (patchedBaseQueuedRef.current.has(relPath)) {
@@ -809,11 +812,11 @@ export function AppShell() {
           tabs.map((t) =>
             t.relPath === fromRelPath
               ? {
-                  ...t,
-                  relPath: toRelPath,
-                  dirty: false,
-                  title: persisted.name,
-                }
+                ...t,
+                relPath: toRelPath,
+                dirty: false,
+                title: persisted.name,
+              }
               : t,
           ),
         );
@@ -832,7 +835,7 @@ export function AppShell() {
         }
         setTabDirty(toRelPath, "entity", false);
       } catch (err) {
-      setTabDirty(fromRelPath, "entity", true);
+        setTabDirty(fromRelPath, "entity", true);
         throw err;
       }
     },
@@ -1508,18 +1511,35 @@ export function AppShell() {
       });
       if (!reloadResponse.ok) {
         const payload = await reloadResponse.json().catch(() => ({}));
-        const message =
-          typeof (payload as any)?.message === "string"
+        const serverMessage =
+          typeof (payload as any)?.message === "string" && (payload as any).message.trim()
             ? (payload as any).message
-            : typeof (payload as any)?.detail === "string"
+            : typeof (payload as any)?.detail === "string" && (payload as any).detail.trim()
               ? (payload as any).detail
-              : `Reload failed (${reloadResponse.status})`;
-        throw new Error(message);
+              : null;
+        throw new Error(serverMessage ?? "Failed to reload the model. The backend may have encountered an issue — try again or restart the app.");
       }
     } catch (err) {
       showAppError("Reload failed", (err as Error).message);
       return;
     }
+
+    // Rescan plugins on the backend, then refresh the frontend catalog.
+    // Must be sequential: the GET /plugins/ fetch must not start until
+    // POST /plugins/reload has finished updating the backend registry.
+    try {
+      const pluginReloadResponse = await fetch(`${apiBase}/plugins/reload`, { method: "POST" });
+      if (!pluginReloadResponse.ok) {
+        const payload = await pluginReloadResponse.json().catch(() => ({}));
+        const message = payload.message && typeof payload.message === "string" ? payload.message : null;
+        const detail = payload.detail && typeof payload.details === "string" ? payload.detail : null;
+        throw new Error(message ?? detail ?? `Plugin reload failed (${pluginReloadResponse.status}).`);
+      }
+    } catch (err) {
+      showAppError("Plugin reload failed", (err as Error).message);
+      return;
+    }
+    void refreshConnectorCatalog();
 
     const fallbackSource: SolutionSource | null = solutionSource
       ? solutionSource
@@ -1673,12 +1693,12 @@ export function AppShell() {
 
       setFolderEntities((prev) => {
         const normalizedPath = normalizeFolderPath(effectiveFolderPath);
-          const nextEntity: FolderEntity = {
-            locator: folderLocatorFromFolderPath(normalizedPath),
-            name: targetFolderName,
-            relPath: effectiveRelPath,
-            folderPath: normalizedPath,
-            content: nextContent,
+        const nextEntity: FolderEntity = {
+          locator: folderLocatorFromFolderPath(normalizedPath),
+          name: targetFolderName,
+          relPath: effectiveRelPath,
+          folderPath: normalizedPath,
+          content: nextContent,
         };
         const idx = prev.findIndex((entry) => normalizeFolderPath(entry.folderPath) === normalizedPath);
         if (idx < 0) return [...prev, nextEntity];
@@ -1768,7 +1788,7 @@ export function AppShell() {
           notifySuccess: true,
           notifyFailure: true,
         });
-      } catch {}
+      } catch { }
     },
     [deleteFolderTree],
   );
@@ -1871,7 +1891,17 @@ export function AppShell() {
 
       if (!response.ok) {
         setValidatorMessages(messages);
-        throw new Error(readValidateErrorMessage(payload, `Validation failed (${response.status}).`));
+        const validatorErrorMsg = (() => {
+          // Check status first — FastAPI's own 404 for a missing route always
+          // returns generic {"detail":"Not Found"} with no useful context.
+          if (response.status === 404) return "The Validate endpoint was not found. This feature may not be available in the current backend version. Check that the backend is up to date.";
+          if (response.status === 401 || response.status === 403) return "Access denied. Check your authentication settings.";
+          if (response.status >= 500) return "The backend encountered an internal error during validation. Please try again.";
+          const fromPayload = readValidateErrorMessage(payload, "");
+          if (fromPayload) return fromPayload;
+          return "Validation failed unexpectedly. Please try again.";
+        })();
+        throw new Error(validatorErrorMsg);
       }
 
       const resolvedPath = (payload as { solutionPath?: unknown }).solutionPath;
@@ -1881,13 +1911,13 @@ export function AppShell() {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred";
+      console.error("[DataM8] Validator run failed:", err);
       setValidatorError(message);
-      showAppError("Validator execution failed", message);
     } finally {
       validatorRunInFlightRef.current = false;
       setValidatorRunning(false);
     }
-  }, [generatorLogLevel, showAppError, solutionPath]);
+  }, [generatorLogLevel, solutionPath]);
 
   const handleToggleTheme = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -1905,7 +1935,7 @@ export function AppShell() {
       if (typeof title === "string" && title.trim()) {
         setWindowTitle(title);
       }
-    });
+    }).catch(() => { });
     const unsubscribe = desktopWindow?.onTitleChanged?.((title) => {
       setWindowTitle(title || "DataM8");
     });
@@ -1918,7 +1948,7 @@ export function AppShell() {
     if (!isWindowsElectron || !window.desktop?.menu?.getTopLevelLabels) return;
     void Promise.resolve(window.desktop.menu.getTopLevelLabels()).then((labels) => {
       setWindowMenuLabels(Array.isArray(labels) ? labels : []);
-    });
+    }).catch(() => { });
   }, [isWindowsElectron]);
 
   useEffect(() => {
@@ -2119,10 +2149,10 @@ export function AppShell() {
                 baseGroup={
                   baseTabs.length
                     ? {
-                        label: "Base",
-                        tabs: baseTabs,
-                        accent: "var(--accent)",
-                      }
+                      label: "Base",
+                      tabs: baseTabs,
+                      accent: "var(--accent)",
+                    }
                     : undefined
                 }
                 modelGroups={groupedModelTabs.map((group) => ({

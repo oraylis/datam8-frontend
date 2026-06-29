@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { toast } from "@datam8/ui";
 import type { BaseEntity, PropertyOption } from "../../../model-types";
 import { detectBaseType } from "../../../model-utils";
 import {
@@ -656,8 +657,11 @@ export const useBaseEditorState = ({
       baseDirtyRef.current = false;
       onDirtyBase(selectedBase.relPath, false);
       setTimeout(() => setBaseSaveStatus("idle"), 1500);
+      console.log(`[DataM8] Base entity saved: ${selectedBase.relPath}`);
+      toast({ variant: "success", title: "Saved", description: selectedBase.name || selectedBase.relPath, duration: 3500 });
       return true;
     } catch (err) {
+      console.error("[DataM8] Base entity save failed:", err);
       setBaseSaveStatus("error");
       setBaseSaveError((err as Error).message);
       onDirtyBase(selectedBase.relPath, true);

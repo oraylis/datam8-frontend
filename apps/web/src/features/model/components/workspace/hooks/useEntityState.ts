@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { toast } from "@datam8/ui";
 import type { EntitySection, ModelEntity, PropertyOption } from "../../../model-types";
 import { mergeInheritedProps } from "../../../model-utils";
 import { normalizeMappingForSave, normalizePropertiesForSave } from "../utils/sourceNormalization";
@@ -876,8 +877,11 @@ export const useEntityState = ({
       );
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 1500);
+      console.log(`[DataM8] Entity saved: ${selectedEntity.relPath}`);
+      toast({ variant: "success", title: "Saved", description: selectedEntity.name || selectedEntity.relPath, duration: 3500 });
       return true;
     } catch (err) {
+      console.error("[DataM8] Entity save failed:", err);
       setSaveStatus("error");
       setSaveError((err as Error).message);
       onDirtyEntity(selectedEntity.relPath, true);

@@ -83,7 +83,7 @@ async function mockApi(page: import("@playwright/test").Page) {
 
   await page.route("**/entities/**", async (route) => {
     const req = route.request();
-    if (req.method() !== "PATCH" && req.method() !== "PUT" && req.method() !== "DELETE") {
+    if (req.method() !== "PATCH" && req.method() !== "PUT" && req.method() !== "DELETE" && req.method() !== "POST") {
       await route.fulfill({ status: 405, json: { error: "method not allowed" } });
       return;
     }
@@ -114,9 +114,19 @@ test("saving renamed property applies refactor flow without apply dialog", async
   await propertyNameInput.press("Tab");
 
   await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
-  const baseWrite = entityWrites.find((entry) => /\/entities\/properties\/businessDomain$/i.test(entry.url));
+  const baseWrite = entityWrites.find(
+    (entry) =>
+      entry.method === "POST" &&
+      /\/entities\/rename$/i.test(entry.url) &&
+      entry.body.from === "/properties/domain" &&
+      entry.body.to === "/properties/businessDomain",
+  );
+  const propertyValueWrite = entityWrites.find(
+    (entry) => /\/entities\/propertyValues\/businessDomain\/sales$/i.test(entry.url),
+  );
 
   expect(baseWrite).toBeTruthy();
+  expect(propertyValueWrite).toBeTruthy();
   await expect(page.getByText("Property refactor applied")).toBeVisible();
   await expect(page.getByText("No assignment updates were required for the selected scope targets.")).toBeVisible();
 });

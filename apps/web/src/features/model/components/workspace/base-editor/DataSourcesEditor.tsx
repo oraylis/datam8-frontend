@@ -155,6 +155,7 @@ type DataSourcesEditorProps = {
   dataSourceTypes: any[];
   dataSourceTypesRelPath: string | null;
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
+  onCommit: (reason: "dropdown-change" | "add-item" | "delete-item") => void;
 };
 
 export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
@@ -172,6 +173,7 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
     dataSourceTypes,
     dataSourceTypesRelPath,
     onPatchBaseEntity,
+    onCommit,
   } = props;
 
   const { solutionPath } = useSolution();
@@ -333,8 +335,9 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
         next[key] = `${row?.value || ""}`;
       }
       updateField("extendedProperties", next);
+      onCommit("add-item");
     },
-    [updateField],
+    [onCommit, updateField],
   );
 
   useEffect(() => {
@@ -380,8 +383,14 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
           usedPropertyNames={new Set<string>(
             (current.properties || []).map((p: any) => `${p?.property ?? ""}`).filter((v: string) => v.trim().length > 0),
           )}
-          onAdd={(property, value) => updateField("properties", [...(current.properties || []), { property, value }])}
-          onRemove={(idx) => updateField("properties", (current.properties || []).filter((_p: any, i: number) => i !== idx))}
+          onAdd={(property, value) => {
+            updateField("properties", [...(current.properties || []), { property, value }]);
+            onCommit("add-item");
+          }}
+          onRemove={(idx) => {
+            updateField("properties", (current.properties || []).filter((_p: any, i: number) => i !== Number(idx)));
+            onCommit("delete-item");
+          }}
           addLabel="Add property"
         />
       </div>
@@ -398,7 +407,10 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
         <label>Type *</label>
         <FormSelect
           value={typeSelectValue}
-          onChange={(val) => handleTypeChange(val)}
+          onChange={(val) => {
+            handleTypeChange(val);
+            onCommit("dropdown-change");
+          }}
           options={availableTypes.map((t) => ({ value: t, label: t }))}
           placeholder={availableTypes.length ? "Select type" : "Create a Data Source Type first"}
           disabled={!availableTypes.length}
@@ -495,7 +507,10 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
                 showSchemaTitle={false}
                 showSchemaVersion={false}
                 value={connectionConfig}
-                onChange={(next) => updateField("extendedProperties", next)}
+                onChange={(next) => {
+                  updateField("extendedProperties", next);
+                  onCommit("dropdown-change");
+                }}
               />
             </div>
           ) : (
@@ -521,7 +536,10 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
       <DataTypeMappingsTable
         rows={mappingRows}
         dataTypes={dataTypes}
-        onChange={handleMappingsChange}
+        onChange={(rows) => {
+          handleMappingsChange(rows);
+          onCommit("dropdown-change");
+        }}
         isMissingField={isMissingMappingField}
         collapsed={mappingsCollapsed}
         onCollapsedChange={setMappingsCollapsed}

@@ -12,6 +12,7 @@ import { validateBaseContent } from "../lib/validation";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
 import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
 import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
+import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 const baseSelectedItemMemory = new Map<string, string | null>();
@@ -117,6 +118,7 @@ export const useBaseEditorState = ({
   const pendingPersistRevisionRef = useRef(0);
   const changeRevisionRef = useRef(0);
   const [changeRevision, setChangeRevision] = useState(0);
+  const [persistRequestTick, setPersistRequestTick] = useState(0);
 
   const bumpChangeRevision = useCallback(() => {
     const next = changeRevisionRef.current + 1;
@@ -691,11 +693,21 @@ export const useBaseEditorState = ({
         return false;
       }
       persistInFlightRef.current = true;
+      const saveStartedRevision = changeRevisionRef.current;
       const ok = await onSubmitBase();
       persistInFlightRef.current = false;
-      if (persistQueuedRef.current && baseDirtyRef.current) {
+      const queued = resolveQueuedPersistAfterSave(
+        persistQueuedRef.current,
+        reason,
+        changeRevisionRef.current,
+        saveStartedRevision,
+      );
+      if (queued.shouldReschedule) {
         persistQueuedRef.current = false;
-        return persistNow("tab-switch");
+        baseDirtyRef.current = queued.dirty;
+        pendingPersistReasonRef.current = queued.reason;
+        pendingPersistRevisionRef.current = queued.revision;
+        setPersistRequestTick((value) => value + 1);
       }
       return ok;
     },
@@ -706,6 +718,7 @@ export const useBaseEditorState = ({
     (reason: PersistReason) => {
       pendingPersistReasonRef.current = reason;
       pendingPersistRevisionRef.current = changeRevisionRef.current;
+      setPersistRequestTick((value) => value + 1);
     },
     [],
   );
@@ -717,7 +730,7 @@ export const useBaseEditorState = ({
     pendingPersistReasonRef.current = null;
     pendingPersistRevisionRef.current = 0;
     void persistNow(reason);
-  }, [changeRevision, persistNow]);
+  }, [changeRevision, persistNow, persistRequestTick]);
 
   const retrySave = useCallback(() => {
     void persistNow("tab-switch");

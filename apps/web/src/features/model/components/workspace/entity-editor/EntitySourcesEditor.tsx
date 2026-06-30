@@ -1,14 +1,18 @@
 import type React from "react";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
+  Button,
   Checkbox,
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   FormSelect,
+  Input,
 } from "@datam8/ui";
-import { ArrowRight, Check, ChevronDown, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, ChevronDown, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
@@ -45,6 +49,7 @@ type EntitySourcesEditorProps = {
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
   adoptingExternalSchemaIndex?: number | null;
   onDeleteSource?: () => void;
+  onSourceChange?: () => void;
   onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
 };
@@ -78,7 +83,6 @@ type SourcePropertiesProps = {
 type InternalSourceCardProps = {
   source: any;
   index: number;
-  zones: string[];
   propertyOptions: PropertyOption[];
   collapsedMappings: Record<number, boolean>;
   setCollapsedMappings: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
@@ -91,6 +95,7 @@ type InternalSourceCardProps = {
   onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
   removeSource: (idx: number) => void;
+  onEditSource: (idx: number, kind: "internal" | "external") => void;
   cardRef?: (el: HTMLDivElement | null) => void;
   currentEntityAttributeNames: string[];
 };
@@ -110,15 +115,23 @@ type ExternalSourceCardProps = {
   onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
   removeSource: (idx: number) => void;
-  dataSourceDetails: Record<string, any>;
-  solutionPath: string;
+  onEditSource: (idx: number, kind: "internal" | "external") => void;
   cardRef?: (el: HTMLDivElement | null) => void;
-  registerInputRef?: (el: HTMLInputElement | null) => void;
   currentEntityAttributeNames: string[];
-  onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
-  dataSourcesRelPath: string | null;
   onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
   isAdoptingExternalSchema?: boolean;
+};
+
+type SourceDialogState = {
+  index: number | null;
+  kind: "internal" | "external";
+  zone: string;
+  entityName: string;
+  sourceLocation: string | number;
+  dataSource: string;
+  sourceAlias: string;
+  mapping?: any[];
+  externalMeta?: any;
 };
 
 export const toPropertyChipItems = (
@@ -198,10 +211,14 @@ const SourceMappings = ({
   const mappings = source.mapping || [];
   const isCollapsed = collapsedMappings[sourceIdx] ?? true;
   const toggleCollapsed = () => setCollapsedMappings((prev) => ({ ...prev, [sourceIdx]: !isCollapsed }));
+  const defaultSourceName = isExternal ? currentEntityAttributeNames[0] || "" : sourceAttributeNames[0] || "";
+  const defaultTargetName = currentEntityAttributeNames[0] || "";
+  const canAddMapping = !!defaultSourceName && !!defaultTargetName;
   const addMapping = () => {
+    if (!canAddMapping) return;
     updateSource(sourceIdx, (s) => ({
       ...s,
-      mapping: [...(s.mapping || []), { targetName: "", sourceName: "" }],
+      mapping: [...(s.mapping || []), { sourceName: defaultSourceName, targetName: defaultTargetName }],
     }));
     setCollapsedMappings((prev) => ({ ...prev, [sourceIdx]: false }));
     onMappingChange?.();
@@ -243,6 +260,7 @@ const SourceMappings = ({
           <ActionButton
             variant="ghost"
             onClick={addMapping}
+            disabled={!canAddMapping}
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             Add Mapping
@@ -284,15 +302,16 @@ const SourceMappings = ({
                       ) : (
                         <FormSelect
                           value={m.sourceName || ""}
-                          onChange={(val) =>
+                          onChange={(val) => {
                             updateSource(sourceIdx, (s) => ({
                               ...s,
                               mapping: (s.mapping || []).map((item: any, ii: number) =>
                                 ii === mIdx ? { ...item, sourceName: val } : item,
                               ),
-                            }))
-                          }
-                          options={[{ value: "", label: "Select source attribute" }, ...withMissingOption(baseSourceOptions, m.sourceName)]}
+                            }));
+                            onMappingChange?.();
+                          }}
+                          options={withMissingOption(baseSourceOptions, m.sourceName)}
                           placeholder="Select source attribute"
                         />
                       )}
@@ -316,15 +335,16 @@ const SourceMappings = ({
                       ) : (
                         <FormSelect
                           value={m.targetName || ""}
-                          onChange={(val) =>
+                          onChange={(val) => {
                             updateSource(sourceIdx, (s) => ({
                               ...s,
                               mapping: (s.mapping || []).map((item: any, ii: number) =>
                                 ii === mIdx ? { ...item, targetName: val } : item,
                               ),
-                            }))
-                          }
-                          options={[{ value: "", label: "Select target attribute" }, ...withMissingOption(baseTargetOptions, m.targetName)]}
+                            }));
+                            onMappingChange?.();
+                          }}
+                          options={withMissingOption(baseTargetOptions, m.targetName)}
                           placeholder="Select target attribute"
                         />
                       )}
@@ -450,7 +470,6 @@ const SourcePropertiesChips = ({ source, sourceIdx, propertyOptions, updateSourc
 const InternalSourceCard = ({
   source,
   index,
-  zones,
   propertyOptions,
   collapsedMappings,
   setCollapsedMappings,
@@ -463,6 +482,7 @@ const InternalSourceCard = ({
   onMappingChange,
   onSourcePropertyChange,
   removeSource,
+  onEditSource,
   cardRef,
   currentEntityAttributeNames,
 }: InternalSourceCardProps) => {
@@ -470,7 +490,6 @@ const InternalSourceCard = ({
   const displayName = source.name || targetMeta?.name || "Internal source";
   const zoneValue = source.zone || targetMeta?.zone || "";
   const eyebrowText = `Internal - Zone: ${zoneValue || "Select zone"}`;
-  const [isEditing, setIsEditing] = useState(() => !zoneValue || !(source.name || targetMeta?.name));
   const targetEntity = useMemo(
     () => (targetMeta ? modelEntities.find((ent) => ent.relPath === targetMeta.relPath) : null),
     [modelEntities, targetMeta],
@@ -482,39 +501,6 @@ const InternalSourceCard = ({
         .filter((name: string) => name.trim().length > 0),
     [targetEntity],
   );
-  const entityOptions = useMemo(() => {
-    const filtered = modelEntities.filter((ent) => {
-      const parts = (ent.relPath || "").split("/");
-      const zone = parts[1];
-      return zoneValue ? zone === zoneValue : true;
-    });
-    const unique = new Map<string, string>();
-    filtered.forEach((ent) => {
-      if (!unique.has(ent.name)) unique.set(ent.name, ent.name);
-    });
-    return Array.from(unique.values())
-      .sort((a, b) => a.localeCompare(b))
-      .map((name) => ({ value: name, label: name }));
-  }, [modelEntities, zoneValue]);
-
-  const handleNameChange = (val: string) => {
-    updateSource(index, (s) => {
-      const match = modelEntities.find((ent) => {
-        const parts = (ent.relPath || "").split("/");
-        const zone = parts[1];
-        return ent.name === val && (!zoneValue || zone === zoneValue);
-      });
-      const parts = (match?.relPath || "").split("/");
-      return {
-        ...s,
-        name: val,
-        zone: match ? parts[1] : s.zone,
-        sourceLocation: match?.content?.id ?? s.sourceLocation,
-        type: "internal",
-      };
-    });
-  };
-
   return (
     <div className="source-block source-block--internal" key={index} ref={cardRef}>
       <div className="section-header" style={{ alignItems: "flex-start" }}>
@@ -543,11 +529,11 @@ const InternalSourceCard = ({
             <ExternalLink className="h-4 w-4" />
           </IconBtn>
           <IconBtn
-            title={isEditing ? "Done" : "Edit"}
-            aria-label={isEditing ? "Done editing" : "Edit"}
-            onClick={() => setIsEditing((prev) => !prev)}
+            title="Edit source"
+            aria-label="Edit source"
+            onClick={() => onEditSource(index, "internal")}
           >
-            {isEditing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+            <Pencil className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Delete source"
@@ -557,38 +543,6 @@ const InternalSourceCard = ({
           </IconBtn>
         </div>
       </div>
-      {isEditing ? (
-        <div className="form-grid" style={{ marginTop: 8 }}>
-          <div>
-            <label>Zone *</label>
-            <FormSelect
-              value={zoneValue}
-              onChange={(val) => updateSource(index, (s) => ({ ...s, zone: val, type: "internal" }))}
-              options={[
-                { value: "", label: "Select zone" },
-                ...zones.map((z) => ({ value: z, label: z })),
-                ...(zoneValue && !zones.includes(zoneValue) ? [{ value: zoneValue, label: zoneValue }] : []),
-              ]}
-              placeholder="Select zone"
-            />
-          </div>
-          <div>
-            <label>Name *</label>
-            <FormSelect
-              value={source.name || targetMeta?.name || ""}
-              onChange={handleNameChange}
-              options={[
-                { value: "", label: "Select entity" },
-                ...entityOptions,
-                ...(source.name && !entityOptions.find((opt) => opt.value === source.name)
-                  ? [{ value: source.name, label: source.name }]
-                  : []),
-              ]}
-              placeholder="Select entity"
-            />
-          </div>
-        </div>
-      ) : null}
       <SourceMappings
         source={source}
         sourceIdx={index}
@@ -622,26 +576,14 @@ const ExternalSourceCard = ({
   onMappingChange,
   onSourcePropertyChange,
   removeSource,
-  dataSourceDetails,
-  solutionPath,
+  onEditSource,
   cardRef,
-  registerInputRef,
   currentEntityAttributeNames,
-  onPatchBaseEntity,
-  dataSourcesRelPath,
   onAdoptExternalSourceSchema,
   isAdoptingExternalSchema,
 }: ExternalSourceCardProps) => {
-  const [showBrowser, setShowBrowser] = useState(false);
-  const dataSourceObject = dataSourceDetails[source.dataSource] || {};
   const title = source.sourceAlias || source.sourceLocation || "External source";
   const eyebrowText = `External - Data source: ${source.dataSource || "Select data source"} - Location: ${source.sourceLocation || "Set location"}`;
-  const [isEditing, setIsEditing] = useState(() => !source.dataSource || !source.sourceLocation);
-  useEffect(() => {
-    if (!source.dataSource) {
-      setShowBrowser(false);
-    }
-  }, [source.dataSource]);
   return (
     <div className="source-block source-block--external" key={index} ref={cardRef}>
       <div className="section-header" style={{ alignItems: "flex-start" }}>
@@ -671,17 +613,11 @@ const ExternalSourceCard = ({
             <ExternalLink className="h-4 w-4" />
           </IconBtn>
           <IconBtn
-            title={isEditing ? "Done" : "Edit"}
-            aria-label={isEditing ? "Done editing" : "Edit"}
-            onClick={() => {
-              setIsEditing((prev) => {
-                const next = !prev;
-                if (!next) setShowBrowser(false);
-                return next;
-              });
-            }}
+            title="Edit source"
+            aria-label="Edit source"
+            onClick={() => onEditSource(index, "external")}
           >
-            {isEditing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+            <Pencil className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Delete source"
@@ -691,98 +627,6 @@ const ExternalSourceCard = ({
           </IconBtn>
         </div>
       </div>
-      {isEditing ? (
-        <div className="form-grid" style={{ marginTop: 8 }}>
-          <div>
-            <label>Data source *</label>
-            <FormSelect
-              value={source.dataSource || ""}
-              onChange={(val) => updateSource(index, (s) => ({ ...s, dataSource: val, type: "external" }))}
-              options={[
-                { value: "", label: "Select data source" },
-                ...dataSourceOptions.map((ds) => ({ value: ds, label: ds })),
-                ...(source.dataSource && !dataSourceOptions.includes(source.dataSource)
-                  ? [{ value: source.dataSource, label: source.dataSource }]
-                  : []),
-              ]}
-              placeholder="Select data source"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="label-token mb-0">Source location *</label>
-              <ActionButton
-                variant="ghost"
-                onClick={() => setShowBrowser(true)}
-                disabled={!source.dataSource}
-                className="h-auto px-0 py-0 action-link hover:bg-transparent"
-              >
-                List tables
-              </ActionButton>
-            </div>
-            <input
-              placeholder="crm_db.dbo.orders, file path, etc."
-              value={`${source.sourceLocation ?? ""}`}
-              ref={registerInputRef}
-              onChange={(e) => updateSource(index, (s) => ({ ...s, sourceLocation: e.target.value, type: "external" }))}
-            />
-          </div>
-          <div>
-            <label>Source alias</label>
-            <input
-              placeholder="Alias for display"
-              value={source.sourceAlias || ""}
-              onChange={(e) => updateSource(index, (s) => ({ ...s, sourceAlias: e.target.value, type: "external" }))}
-            />
-          </div>
-        </div>
-      ) : null}
-      <Dialog open={isEditing && showBrowser} onOpenChange={setShowBrowser}>
-        <DialogContent className="entity-wizard max-h-[84vh] max-w-4xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Change entity</DialogTitle>
-          </DialogHeader>
-          <ExternalSourceConfigurator
-            dataSource={source.dataSource || ""}
-            dataSourceObject={dataSourceObject}
-            solutionPath={solutionPath}
-            selectedTable={source.sourceLocation}
-            mode="wizard-single"
-            onCancel={() => setShowBrowser(false)}
-            onTableSelected={(table, meta) => {
-              updateSource(index, (s) => {
-                const resolved = resolveSourceOverride({
-                  sourceOverride: meta?.sourceOverride,
-                  fallbackDataSource: s.dataSource,
-                  fallbackLocation: table,
-                  dataSources: dataSourceOptions,
-                });
-                const mapping =
-                  meta?.columns?.map((col: any) => {
-                    const sourceDataType = normalizeDataTypeForSave({
-                      type: col.dataType,
-                      nullable: col.isNullable,
-                      charLen: col.maxLength,
-                      precision: col.numericPrecision,
-                      scale: col.numericScale,
-                    });
-                    return sourceDataType
-                      ? { targetName: col.name, sourceName: col.name, sourceDataType }
-                      : { targetName: col.name, sourceName: col.name };
-                  }) || s.mapping;
-                return {
-                  ...s,
-                  dataSource: resolved.dataSource,
-                  sourceLocation: resolved.sourceLocation,
-                  mapping,
-                  __uiExternalMeta: meta || s.__uiExternalMeta,
-                };
-              });
-              setShowBrowser(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
       <SourceMappings
         source={source}
         sourceIdx={index}
@@ -831,6 +675,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     onAdoptExternalSourceSchema,
     adoptingExternalSchemaIndex,
     onDeleteSource,
+    onSourceChange,
     onMappingChange,
     onSourcePropertyChange,
   },
@@ -838,20 +683,16 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
 ) {
   const sourceCardRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const pendingSourceIndexRef = useRef<number | null>(null);
-  const pendingSourceTypeRef = useRef<"internal" | "external" | null>(null);
-  const sourceInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [sourceDialog, setSourceDialog] = useState<SourceDialogState | null>(null);
+  const [showExternalBrowser, setShowExternalBrowser] = useState(false);
 
   useEffect(() => {
     if (pendingSourceIndexRef.current !== null) {
       const idx = pendingSourceIndexRef.current;
       requestAnimationFrame(() => {
         sourceCardRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (pendingSourceTypeRef.current === "external") {
-          sourceInputRefs.current[idx]?.focus();
-        }
       });
       pendingSourceIndexRef.current = null;
-      pendingSourceTypeRef.current = null;
     }
   }, [sources.length]);
 
@@ -874,39 +715,85 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     onDeleteSource?.();
   };
 
-  const addInternalSource = useCallback(() => {
-    markEntityDirty();
-    pendingSourceIndexRef.current = sources.length;
-    pendingSourceTypeRef.current = "internal";
-    setSources((list) => {
-      const nextIdx = list.length;
-      setCollapsedMappings((prev) => ({ ...prev, [nextIdx]: true }));
-      return [
-        ...list,
-        {
-          sourceLocation: "",
-        },
-      ];
+  const openSourceDialog = useCallback((index: number | null, kind: "internal" | "external") => {
+    if (index === null) {
+      setSourceDialog({
+        index: null,
+        kind,
+        zone: "",
+        entityName: "",
+        sourceLocation: "",
+        dataSource: "",
+        sourceAlias: "",
+      });
+      return;
+    }
+    const source = sources[index] || {};
+    const target = kind === "internal" ? resolveInternalTarget(source, modelEntities, resolveEntityMetaById) : null;
+    setSourceDialog({
+      index,
+      kind,
+      zone: source.zone || target?.zone || "",
+      entityName: source.name || target?.name || "",
+      sourceLocation: source.sourceLocation ?? "",
+      dataSource: source.dataSource || "",
+      sourceAlias: source.sourceAlias || "",
+      mapping: source.mapping,
+      externalMeta: source.__uiExternalMeta,
     });
-  }, [markEntityDirty, setCollapsedMappings, setSources, sources.length]);
+  }, [modelEntities, resolveEntityMetaById, sources]);
+
+  const addInternalSource = useCallback(() => {
+    openSourceDialog(null, "internal");
+  }, [openSourceDialog]);
 
   const addExternalSource = useCallback(() => {
+    openSourceDialog(null, "external");
+  }, [openSourceDialog]);
+
+  const commitSourceDialog = useCallback(() => {
+    if (!sourceDialog) return;
+    let nextSource: any | null = null;
+    if (sourceDialog.kind === "internal") {
+      const match = modelEntities.find((ent) => {
+        const parts = (ent.relPath || "").split("/");
+        return parts[1] === sourceDialog.zone && ent.name === sourceDialog.entityName;
+      });
+      if (!match?.content?.id) return;
+      nextSource = {
+        type: "internal",
+        zone: sourceDialog.zone,
+        name: sourceDialog.entityName,
+        sourceLocation: match.content.id,
+        ...(sourceDialog.mapping?.length ? { mapping: sourceDialog.mapping } : {}),
+      };
+    } else {
+      const dataSource = sourceDialog.dataSource.trim();
+      const sourceLocation = typeof sourceDialog.sourceLocation === "string" ? sourceDialog.sourceLocation.trim() : sourceDialog.sourceLocation;
+      if (!dataSource || !sourceLocation) return;
+      nextSource = {
+        type: "external",
+        dataSource,
+        sourceLocation,
+        ...(sourceDialog.sourceAlias.trim() ? { sourceAlias: sourceDialog.sourceAlias.trim() } : {}),
+        ...(sourceDialog.mapping?.length ? { mapping: sourceDialog.mapping } : {}),
+        ...(sourceDialog.externalMeta ? { __uiExternalMeta: sourceDialog.externalMeta } : {}),
+      };
+    }
     markEntityDirty();
-    pendingSourceIndexRef.current = sources.length;
-    pendingSourceTypeRef.current = "external";
-    setSources((list) => {
-      const nextIdx = list.length;
-      setCollapsedMappings((prev) => ({ ...prev, [nextIdx]: true }));
-      return [
-        ...list,
-        {
-          dataSource: "",
-          sourceLocation: "",
-          sourceAlias: "",
-        },
-      ];
-    });
-  }, [markEntityDirty, setCollapsedMappings, setSources, sources.length]);
+    if (sourceDialog.index === null) {
+      pendingSourceIndexRef.current = sources.length;
+      setSources((list) => {
+        const nextIdx = list.length;
+        setCollapsedMappings((prev) => ({ ...prev, [nextIdx]: true }));
+        return [...list, nextSource];
+      });
+    } else {
+      setSources((list) => list.map((source, idx) => (idx === sourceDialog.index ? { ...source, ...nextSource } : source)));
+    }
+    onSourceChange?.();
+    setSourceDialog(null);
+  }, [markEntityDirty, modelEntities, onSourceChange, setCollapsedMappings, setSources, sourceDialog, sources.length]);
 
   useImperativeHandle(
     ref,
@@ -916,6 +803,23 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     }),
     [addExternalSource, addInternalSource],
   );
+
+  const sourceDialogEntityOptions = useMemo(() => {
+    if (!sourceDialog || sourceDialog.kind !== "internal") return [];
+    return modelEntities
+      .filter((ent) => {
+        const parts = (ent.relPath || "").split("/");
+        return parts[1] === sourceDialog.zone;
+      })
+      .map((ent) => ({ value: ent.name, label: ent.name }));
+  }, [modelEntities, sourceDialog]);
+  const sourceDialogCanSave =
+    !!sourceDialog &&
+    (sourceDialog.kind === "internal"
+      ? !!sourceDialog.zone && !!sourceDialog.entityName
+      : !!sourceDialog.dataSource.trim() && `${sourceDialog.sourceLocation ?? ""}`.trim().length > 0);
+  const sourceDialogDataSourceObject =
+    sourceDialog?.kind === "external" && sourceDialog.dataSource ? dataSourceDetails[sourceDialog.dataSource] || {} : {};
 
   return (
     <div>
@@ -938,18 +842,12 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             onMappingChange={onMappingChange}
             onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
-            dataSourceDetails={dataSourceDetails}
-            solutionPath={solutionPath}
+            onEditSource={openSourceDialog}
             currentEntityAttributeNames={currentEntityAttributeNames}
-            onPatchBaseEntity={onPatchBaseEntity}
-            dataSourcesRelPath={dataSourcesRelPath}
             onAdoptExternalSourceSchema={onAdoptExternalSourceSchema}
             isAdoptingExternalSchema={adoptingExternalSchemaIndex === idx}
             cardRef={(el) => {
               sourceCardRefs.current[idx] = el;
-            }}
-            registerInputRef={(el) => {
-              sourceInputRefs.current[idx] = el;
             }}
           />
         ) : (
@@ -957,7 +855,6 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             key={`source-${idx}`}
             source={src}
             index={idx}
-            zones={zones}
             propertyOptions={propertyOptions}
             collapsedMappings={collapsedMappings}
             setCollapsedMappings={setCollapsedMappings}
@@ -970,6 +867,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             onMappingChange={onMappingChange}
             onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
+            onEditSource={openSourceDialog}
             currentEntityAttributeNames={currentEntityAttributeNames}
             cardRef={(el) => {
               sourceCardRefs.current[idx] = el;
@@ -977,6 +875,139 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
           />
         );
       })}
+      <Dialog open={!!sourceDialog} onOpenChange={(open) => {
+        if (!open) {
+          setSourceDialog(null);
+          setShowExternalBrowser(false);
+        }
+      }}>
+        <DialogContent className="entity-linkage-dialog max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {sourceDialog?.index === null ? "Add" : "Edit"} {sourceDialog?.kind === "external" ? "External Source" : "Internal Source"}
+            </DialogTitle>
+            <DialogDescription>Complete the required fields before the source is added to the entity.</DialogDescription>
+          </DialogHeader>
+          {sourceDialog?.kind === "internal" ? (
+            <div className="form-grid">
+              <div>
+                <label>Zone *</label>
+                <FormSelect
+                  value={sourceDialog.zone}
+                  onChange={(zone) => setSourceDialog((draft) => draft ? { ...draft, zone, entityName: "", sourceLocation: "" } : draft)}
+                  options={[{ value: "", label: "Select zone" }, ...zones.map((zone) => ({ value: zone, label: zone }))]}
+                  placeholder="Select zone"
+                />
+              </div>
+              <div>
+                <label>Entity *</label>
+                <FormSelect
+                  value={sourceDialog.entityName}
+                  onChange={(entityName) => setSourceDialog((draft) => draft ? { ...draft, entityName } : draft)}
+                  disabled={!sourceDialog.zone}
+                  options={[{ value: "", label: "Select entity" }, ...sourceDialogEntityOptions]}
+                  placeholder="Select entity"
+                />
+              </div>
+            </div>
+          ) : sourceDialog?.kind === "external" ? (
+            <div className="form-grid">
+              <div>
+                <label>Data source *</label>
+                <FormSelect
+                  value={sourceDialog.dataSource}
+                  onChange={(dataSource) => setSourceDialog((draft) => draft ? { ...draft, dataSource, sourceLocation: "" } : draft)}
+                  options={[{ value: "", label: "Select data source" }, ...dataSourceOptions.map((dataSource) => ({ value: dataSource, label: dataSource }))]}
+                  placeholder="Select data source"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label-token mb-0">Source location *</label>
+                  <ActionButton
+                    variant="ghost"
+                    onClick={() => setShowExternalBrowser(true)}
+                    disabled={!sourceDialog.dataSource}
+                    className="h-auto px-0 py-0 action-link hover:bg-transparent"
+                  >
+                    List tables
+                  </ActionButton>
+                </div>
+                <Input
+                  placeholder="crm_db.dbo.orders, file path, etc."
+                  value={`${sourceDialog.sourceLocation ?? ""}`}
+                  onChange={(event) => setSourceDialog((draft) => draft ? { ...draft, sourceLocation: event.target.value } : draft)}
+                />
+              </div>
+              <div>
+                <label>Source alias</label>
+                <Input
+                  placeholder="Alias for display"
+                  value={sourceDialog.sourceAlias}
+                  onChange={(event) => setSourceDialog((draft) => draft ? { ...draft, sourceAlias: event.target.value } : draft)}
+                />
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setSourceDialog(null)}>
+              Cancel
+            </Button>
+            <Button onClick={commitSourceDialog} disabled={!sourceDialogCanSave}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!sourceDialog && sourceDialog.kind === "external" && showExternalBrowser} onOpenChange={setShowExternalBrowser}>
+        <DialogContent className="entity-wizard max-h-[84vh] max-w-4xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Change entity</DialogTitle>
+          </DialogHeader>
+          {sourceDialog?.kind === "external" ? (
+            <ExternalSourceConfigurator
+              dataSource={sourceDialog.dataSource}
+              dataSourceObject={sourceDialogDataSourceObject}
+              solutionPath={solutionPath}
+              selectedTable={`${sourceDialog.sourceLocation ?? ""}`}
+              mode="wizard-single"
+              onCancel={() => setShowExternalBrowser(false)}
+              onTableSelected={(table, meta) => {
+                setSourceDialog((draft) => {
+                  if (!draft || draft.kind !== "external") return draft;
+                  const resolved = resolveSourceOverride({
+                    sourceOverride: meta?.sourceOverride,
+                    fallbackDataSource: draft.dataSource,
+                    fallbackLocation: table,
+                    dataSources: dataSourceOptions,
+                  });
+                  const mapping =
+                    meta?.columns?.map((col: any) => {
+                      const sourceDataType = normalizeDataTypeForSave({
+                        type: col.dataType,
+                        nullable: col.isNullable,
+                        charLen: col.maxLength,
+                        precision: col.numericPrecision,
+                        scale: col.numericScale,
+                      });
+                      return sourceDataType
+                        ? { targetName: col.name, sourceName: col.name, sourceDataType }
+                        : { targetName: col.name, sourceName: col.name };
+                    }) || draft.mapping;
+                  return {
+                    ...draft,
+                    dataSource: resolved.dataSource || draft.dataSource,
+                    sourceLocation: resolved.sourceLocation ?? table,
+                    mapping,
+                    externalMeta: meta || draft.externalMeta,
+                  };
+                });
+                setShowExternalBrowser(false);
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });

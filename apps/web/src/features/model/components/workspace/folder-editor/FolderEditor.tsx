@@ -7,6 +7,7 @@ import type { FolderEntity, PropertyOption } from "../../../model-types";
 import { mergeInheritedProps } from "../../../model-utils";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
 import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
+import { resolveQueuedPersistAfterSave } from "../hooks/autosaveScheduling";
 
 type FolderEditorProps = {
   selectedFolderPath: string;
@@ -70,7 +71,7 @@ export function FolderEditor({
   const dirtyRef = useRef(false);
   const persistInFlightRef = useRef(false);
   const persistQueuedRef = useRef(false);
-  const pendingPersistReasonRef = useRef<"text-blur" | "dropdown-change" | "tab-switch" | "add-item" | null>(null);
+  const pendingPersistReasonRef = useRef<"text-blur" | "dropdown-change" | "tab-switch" | "add-item" | "delete-item" | null>(null);
   const pendingPersistRevisionRef = useRef(0);
   const changeRevisionRef = useRef(0);
   const [changeRevision, setChangeRevision] = useState(0);
@@ -81,6 +82,12 @@ export function FolderEditor({
     changeRevisionRef.current = next;
     setChangeRevision(next);
   }, []);
+
+  const markFolderDirty = useCallback(() => {
+    dirtyRef.current = true;
+    onDirtyChange?.(selectedFolderPath, true);
+    bumpChangeRevision();
+  }, [bumpChangeRevision, onDirtyChange, selectedFolderPath]);
 
   const currentMeta = useMemo(() => extractFolderMeta(folderEntity?.content), [folderEntity?.content]);
 
@@ -141,14 +148,19 @@ export function FolderEditor({
   );
 
   const addProperty = useCallback((property: string, value: string) => {
+    markFolderDirty();
     setProperties((prev) => [...prev, { property, value }]);
-  }, []);
+  }, [markFolderDirty]);
 
   const removeProperty = useCallback((removeKey: number | string) => {
     const idx = Number(removeKey);
     if (!Number.isFinite(idx)) return;
+    markFolderDirty();
     setProperties((prev) => prev.filter((_item, i) => i !== idx));
-  }, []);
+    pendingPersistReasonRef.current = "delete-item";
+    pendingPersistRevisionRef.current = changeRevisionRef.current;
+    setPersistRequestTick((value) => value + 1);
+  }, [markFolderDirty]);
 
   const buildUiContent = useCallback(() => {
     const cleanName = name.trim();
@@ -321,18 +333,28 @@ export function FolderEditor({
   }, [buildUiContent, bumpChangeRevision, jsonText, mode]);
 
   const persistNow = useCallback(
-    async (reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item"): Promise<boolean> => {
+    async (reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item" | "delete-item"): Promise<boolean> => {
       if (!dirtyRef.current) return true;
       if (persistInFlightRef.current) {
         persistQueuedRef.current = true;
         return false;
       }
       persistInFlightRef.current = true;
+      const saveStartedRevision = changeRevisionRef.current;
       const ok = await saveFolder();
       persistInFlightRef.current = false;
-      if (persistQueuedRef.current && dirtyRef.current) {
+      const queued = resolveQueuedPersistAfterSave(
+        persistQueuedRef.current,
+        reason,
+        changeRevisionRef.current,
+        saveStartedRevision,
+      );
+      if (queued.shouldReschedule) {
         persistQueuedRef.current = false;
-        return persistNow(reason);
+        dirtyRef.current = queued.dirty;
+        pendingPersistReasonRef.current = queued.reason;
+        pendingPersistRevisionRef.current = queued.revision;
+        setPersistRequestTick((value) => value + 1);
       }
       return ok;
     },
@@ -352,7 +374,7 @@ export function FolderEditor({
   }, [changeRevision, persistNow, persistRequestTick]);
 
   const persistAfterStateFlush = useCallback(
-    (reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item") => {
+    (reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item" | "delete-item") => {
       pendingPersistReasonRef.current = reason;
       pendingPersistRevisionRef.current = changeRevisionRef.current;
       setPersistRequestTick((value) => value + 1);
@@ -368,20 +390,6 @@ export function FolderEditor({
       pendingPersistRevisionRef.current = 0;
     };
   }, [persistNow, registerPersist]);
-
-  useEffect(() => {
-    const onSelectChanged = () => persistAfterStateFlush("dropdown-change");
-    const onCheckboxChanged = () => persistAfterStateFlush("add-item");
-    const onValueCommitted = () => persistAfterStateFlush("add-item");
-    window.addEventListener("dm8:form-select-change", onSelectChanged as EventListener);
-    window.addEventListener("dm8:checkbox-change", onCheckboxChanged as EventListener);
-    window.addEventListener("dm8:value-commit", onValueCommitted as EventListener);
-    return () => {
-      window.removeEventListener("dm8:form-select-change", onSelectChanged as EventListener);
-      window.removeEventListener("dm8:checkbox-change", onCheckboxChanged as EventListener);
-      window.removeEventListener("dm8:value-commit", onValueCommitted as EventListener);
-    };
-  }, [persistAfterStateFlush]);
 
   const retrySave = useCallback(() => {
     void persistNow("tab-switch");
@@ -404,6 +412,7 @@ export function FolderEditor({
     (event: React.FocusEvent<HTMLDivElement>) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+      if (target.closest("[data-explicit-autosave='true']")) return;
       if (target instanceof HTMLInputElement) {
         const blocked = new Set(["checkbox", "radio", "button", "submit", "reset", "file", "hidden", "color", "range"]);
         if (blocked.has((target.type || "").toLowerCase())) return;
@@ -440,15 +449,37 @@ export function FolderEditor({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Folder Name</label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Folder name" />
+                <Input
+                  value={name}
+                  onChange={(e) => {
+                    markFolderDirty();
+                    setName(e.target.value);
+                  }}
+                  placeholder="Folder name"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Display Name</label>
-                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Optional display name" />
+                <Input
+                  value={displayName}
+                  onChange={(e) => {
+                    markFolderDirty();
+                    setDisplayName(e.target.value);
+                  }}
+                  placeholder="Optional display name"
+                />
               </div>
               <div className="space-y-2 col-span-2">
                 <label className="text-sm font-medium">Description</label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" rows={3} />
+                <Textarea
+                  value={description}
+                  onChange={(e) => {
+                    markFolderDirty();
+                    setDescription(e.target.value);
+                  }}
+                  placeholder="Optional description"
+                  rows={3}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Data Product</label>
@@ -456,8 +487,10 @@ export function FolderEditor({
                   value={dataProduct || PRODUCT_NONE}
                   onChange={(value) => {
                     const next = value === PRODUCT_NONE ? "" : (value || "");
+                    markFolderDirty();
                     setDataProduct(next);
                     if (!next) setDataModule("");
+                    persistAfterStateFlush("dropdown-change");
                   }}
                   options={[{ value: PRODUCT_NONE, label: "None" }, ...productOptions.map((p) => ({ value: p, label: p }))]}
                   placeholder="Select data product"
@@ -467,7 +500,11 @@ export function FolderEditor({
                 <label className="text-sm font-medium">Data Module</label>
                 <FormSelect
                   value={dataModule || MODULE_NONE}
-                  onChange={(value) => setDataModule(value === MODULE_NONE ? "" : (value || ""))}
+                  onChange={(value) => {
+                    markFolderDirty();
+                    setDataModule(value === MODULE_NONE ? "" : (value || ""));
+                    persistAfterStateFlush("dropdown-change");
+                  }}
                   options={[{ value: MODULE_NONE, label: "None" }, ...moduleOptions.map((m) => ({ value: m, label: m }))]}
                   placeholder={dataProduct ? "Select data module" : "Select product first"}
                   disabled={!dataProduct}
@@ -482,7 +519,10 @@ export function FolderEditor({
               rows={20}
               className="code"
               value={jsonText}
-              onChange={(e) => setJsonText(e.target.value)}
+              onChange={(e) => {
+                markFolderDirty();
+                setJsonText(e.target.value);
+              }}
             />
           </div>
         )}

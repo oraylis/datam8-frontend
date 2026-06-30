@@ -78,12 +78,25 @@ function createMockSolutionPayload() {
 
 async function mockApi(page: import("@playwright/test").Page) {
   const solutionPayload = createMockSolutionPayload();
+  let entityWrites = 0;
+  let modelSaves = 0;
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
   });
   await page.route("**/model/save", async (route) => {
+    modelSaves += 1;
     await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.route("**/entities/**", async (route) => {
+    const method = route.request().method();
+    if (method === "PATCH" || method === "PUT") {
+      entityWrites += 1;
+      await route.fulfill({ json: { ok: true } });
+      return;
+    }
+    await route.fulfill({ status: 405, json: { message: "Method Not Allowed" } });
   });
 
   await page.route("**/solution/inspect**", async (route) => {
@@ -114,6 +127,11 @@ async function mockApi(page: import("@playwright/test").Page) {
     }
     await route.fulfill({ json: {} });
   });
+
+  return {
+    getEntityWrites: () => entityWrites,
+    getModelSaves: () => modelSaves,
+  };
 }
 
 async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
@@ -159,5 +177,29 @@ test("attribute selection mode replaces drag handles and restores them on clear"
   await expect(page.getByLabel("Clear selection")).toHaveCount(0);
   await expect(page.getByLabel("Select all attributes")).toBeVisible();
   await expect(page.getByTitle("Click to select or drag to reorder")).toHaveCount(3);
+});
+
+test("attribute details commit only when dialog save is clicked", async ({ page }) => {
+  const api = await mockApi(page);
+  await loadSolutionFromDialog(page);
+
+  await page.getByRole("button", { name: "Customer" }).click();
+  await page.getByRole("button", { name: "Attributes" }).click();
+
+  await page.getByTitle("Details").first().click();
+  const dialog = page.getByRole("dialog", { name: "Attribute Details" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("CustomerId")).toBeVisible();
+
+  await dialog.locator(".attribute-textarea--description").fill("Primary customer identifier");
+  await dialog.locator(".attribute-textarea--expression").fill("CustomerId + '-key'");
+
+  await expect.poll(api.getEntityWrites, { timeout: 1_000 }).toBe(0);
+  await expect.poll(api.getModelSaves, { timeout: 1_000 }).toBe(0);
+
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect.poll(api.getEntityWrites, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect.poll(api.getModelSaves, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect(dialog).toBeHidden();
 });
 

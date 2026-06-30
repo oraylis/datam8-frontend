@@ -122,20 +122,6 @@ export const BaseEditor = (props: BaseEditorProps) => {
 
   const [expandedPropertyGroups, setExpandedPropertyGroups] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const onSelectChanged = () => persistAfterStateFlush("dropdown-change");
-    const onCheckboxChanged = () => persistAfterStateFlush("add-item");
-    const onValueCommitted = () => persistAfterStateFlush("add-item");
-    window.addEventListener("dm8:form-select-change", onSelectChanged as EventListener);
-    window.addEventListener("dm8:checkbox-change", onCheckboxChanged as EventListener);
-    window.addEventListener("dm8:value-commit", onValueCommitted as EventListener);
-    return () => {
-      window.removeEventListener("dm8:form-select-change", onSelectChanged as EventListener);
-      window.removeEventListener("dm8:checkbox-change", onCheckboxChanged as EventListener);
-      window.removeEventListener("dm8:value-commit", onValueCommitted as EventListener);
-    };
-  }, [persistAfterStateFlush]);
-
   const propertyValueGroups = useMemo(() => {
     if (baseData?.type !== "propertyValues") return [];
     return buildPropertyValueGroups(Array.isArray(baseData?.items) ? baseData.items : []);
@@ -162,6 +148,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
       (event: React.FocusEvent<HTMLDivElement>) => {
         const target = event.target;
         if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+        if (target.closest("[data-explicit-autosave='true']")) return;
         if (target instanceof HTMLInputElement) {
           const blocked = new Set(["checkbox", "radio", "button", "submit", "reset", "file", "hidden", "color", "range"]);
           if (blocked.has((target.type || "").toLowerCase())) return;
@@ -375,7 +362,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                           <label>Default Type *</label>
                           <FormSelect
                             value={current.defaultType || ""}
-                            onChange={(val) => updateField("defaultType", val)}
+                            onChange={(val) => {
+                              updateField("defaultType", val);
+                              persistAfterStateFlush("dropdown-change");
+                            }}
                             options={withMissingOption(
                               [{ value: "", label: "Select type" }, ...dataTypes.map((dt) => ({ value: dt, label: dt }))],
                               current.defaultType,
@@ -388,7 +378,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                           <label>Has Unit</label>
                           <FormSelect
                             value={current.hasUnit || "NoUnit"}
-                            onChange={(val) => updateField("hasUnit", val)}
+                            onChange={(val) => {
+                              updateField("hasUnit", val);
+                              persistAfterStateFlush("dropdown-change");
+                            }}
                             options={["NoUnit", "Physical", "Currency"].map((opt) => ({ value: opt, label: opt }))}
                             placeholder="Has unit"
                           />
@@ -427,7 +420,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                             <div className="toggle-field__label">Can Be in Relation</div>
                             <Checkbox
                               checked={current.canBeInRelation ?? false}
-                              onCheckedChange={(checked) => updateField("canBeInRelation", checked === true)}
+                              onCheckedChange={(checked) => {
+                                updateField("canBeInRelation", checked === true);
+                                persistAfterStateFlush("dropdown-change");
+                              }}
                               aria-label="Can Be in Relation"
                             />
                           </div>
@@ -437,7 +433,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                             <div className="toggle-field__label">Is Default Property</div>
                             <Checkbox
                               checked={current.isDefaultProperty ?? false}
-                              onCheckedChange={(checked) => updateField("isDefaultProperty", checked === true)}
+                              onCheckedChange={(checked) => {
+                                updateField("isDefaultProperty", checked === true);
+                                persistAfterStateFlush("dropdown-change");
+                              }}
                               aria-label="Is Default Property"
                             />
                           </div>
@@ -512,7 +511,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                             <div className="toggle-field__label">Has Character Length</div>
                             <Checkbox
                               checked={current.hasCharLen ?? false}
-                              onCheckedChange={(checked) => updateField("hasCharLen", checked === true)}
+                              onCheckedChange={(checked) => {
+                                updateField("hasCharLen", checked === true);
+                                persistAfterStateFlush("dropdown-change");
+                              }}
                               aria-label="Has Character Length"
                             />
                           </div>
@@ -520,7 +522,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                             <div className="toggle-field__label">Has Precision</div>
                             <Checkbox
                               checked={current.hasPrecision ?? false}
-                              onCheckedChange={(checked) => updateField("hasPrecision", checked === true)}
+                              onCheckedChange={(checked) => {
+                                updateField("hasPrecision", checked === true);
+                                persistAfterStateFlush("dropdown-change");
+                              }}
                               aria-label="Has Precision"
                             />
                           </div>
@@ -528,7 +533,10 @@ export const BaseEditor = (props: BaseEditorProps) => {
                             <div className="toggle-field__label">Has Scale</div>
                             <Checkbox
                               checked={current.hasScale ?? false}
-                              onCheckedChange={(checked) => updateField("hasScale", checked === true)}
+                              onCheckedChange={(checked) => {
+                                updateField("hasScale", checked === true);
+                                persistAfterStateFlush("dropdown-change");
+                              }}
                               aria-label="Has Scale"
                             />
                           </div>
@@ -544,6 +552,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                                   onClick={() => {
                                     const nextKey = availableTargets[0] || "";
                                     updateField("targets", { ...(current.targets || {}), [nextKey]: "" });
+                                    persistAfterStateFlush("add-item");
                                   }}
                                   disabled={!availableTargets.length && !!targetEntries.length}
                                 >
@@ -572,6 +581,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                                         delete nextTargets[tgt];
                                         nextTargets[nextKey] = val;
                                         updateField("targets", nextTargets);
+                                        persistAfterStateFlush("dropdown-change");
                                       }}
                                       options={[
                                         { value: "", label: "Select target" },
@@ -599,6 +609,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                                         const nextTargets = { ...(current.targets || {}) };
                                         delete nextTargets[tgt];
                                         updateField("targets", nextTargets);
+                                        persistAfterStateFlush("delete-item");
                                       }}
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -629,6 +640,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                     dataSourceTypes={dataSourceTypes}
                     dataSourceTypesRelPath={dataSourceTypesRelPath}
                     onPatchBaseEntity={onPatchBaseEntity}
+                    onCommit={persistAfterStateFlush}
                   />
                 )}
                 {baseData.type === "dataSourceTypes" && (
@@ -645,6 +657,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                     onDirtyBase={onDirtyBase}
                     dataSourcesRelPath={dataSourcesRelPath}
                     onPatchBaseEntity={onPatchBaseEntity}
+                    onCommit={persistAfterStateFlush}
                   />
                 )}
                 {baseData.type === "dataProducts" && (
@@ -719,9 +732,12 @@ export const BaseEditor = (props: BaseEditorProps) => {
                                 updateField("properties", [...productProps, { property, value }]);
                                 persistAfterStateFlush("add-item");
                               }}
-                              onRemove={(idx) =>
-                                updateField("properties", productProps.filter((_p: any, i: number) => i !== idx))
-                              }
+                              onRemove={(idx) => {
+                                const index = typeof idx === "number" ? idx : Number(idx);
+                                if (!Number.isFinite(index)) return;
+                                updateField("properties", productProps.filter((_p: any, i: number) => i !== index));
+                                persistAfterStateFlush("delete-item");
+                              }}
                               addLabel="Add property"
                             />
                           </div>
@@ -874,6 +890,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                                                 if (!Number.isFinite(index)) return;
                                                 const nextProps = localModuleProps.filter((_p: any, i: number) => i !== index);
                                                 updateModule((mod, mIdx) => (mIdx === activeModuleIndex ? { ...mod, properties: nextProps } : mod));
+                                                persistAfterStateFlush("delete-item");
                                               }}
                                               addLabel="Add property"
                                             />
@@ -998,9 +1015,12 @@ export const BaseEditor = (props: BaseEditorProps) => {
                               updateField("properties", [...zoneProps, { property, value }]);
                               persistAfterStateFlush("add-item");
                             }}
-                            onRemove={(idx) =>
-                              updateField("properties", zoneProps.filter((_p: any, i: number) => i !== idx))
-                            }
+                            onRemove={(idx) => {
+                              const index = typeof idx === "number" ? idx : Number(idx);
+                              if (!Number.isFinite(index)) return;
+                              updateField("properties", zoneProps.filter((_p: any, i: number) => i !== index));
+                              persistAfterStateFlush("delete-item");
+                            }}
                             addLabel="Add property"
                           />
                         </div>
@@ -1054,6 +1074,7 @@ export const BaseEditor = (props: BaseEditorProps) => {
                     isMissingField={isMissingField}
                     propertyOptions={propertyOptions}
                     propertyScopeTypeOptions={propertyScopeTypeOptions}
+                    onCommit={persistAfterStateFlush}
                   />
                 )}
               </>

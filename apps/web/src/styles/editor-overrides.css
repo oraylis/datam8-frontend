@@ -293,6 +293,10 @@
   background: #fbfafb;
 }
 
+.entity-linkage-dialog {
+  background: #fbfafb;
+}
+
 .bulk-attribute-edit-dialog__summary {
   padding: 12px 14px;
   border: 1px solid var(--editor-form-border);
@@ -610,6 +614,9 @@
 .dark .move-entities-dialog input:not([type="checkbox"]):not([type="radio"]),
 .dark .move-entities-dialog textarea,
 .dark .move-entities-dialog [role="combobox"],
+.dark .entity-linkage-dialog input:not([type="checkbox"]):not([type="radio"]),
+.dark .entity-linkage-dialog textarea,
+.dark .entity-linkage-dialog [role="combobox"],
 .dark .bulk-attribute-edit-dialog input:not([type="checkbox"]):not([type="radio"]),
 .dark .bulk-attribute-edit-dialog textarea,
 .dark .bulk-attribute-edit-dialog [role="combobox"],
@@ -627,6 +634,8 @@
 .dark .new-folder-dialog textarea::placeholder,
 .dark .move-entities-dialog input::placeholder,
 .dark .move-entities-dialog textarea::placeholder,
+.dark .entity-linkage-dialog input::placeholder,
+.dark .entity-linkage-dialog textarea::placeholder,
 .dark .bulk-attribute-edit-dialog input::placeholder,
 .dark .bulk-attribute-edit-dialog textarea::placeholder,
 .dark .connector-picker-dialog input::placeholder,
@@ -635,15 +644,31 @@
 }
 
 .dark .move-entities-dialog,
+.dark .entity-linkage-dialog,
 .dark .bulk-attribute-edit-dialog {
   background: #181818;
+  color: #ffffff;
 }
 
 .light .new-solution-wizard,
 .light .new-folder-dialog,
 .light .move-entities-dialog,
+.light .entity-linkage-dialog,
 .light .bulk-attribute-edit-dialog {
   background: #fbfafb;
+  color: #000000;
+}
+
+.light .entity-linkage-dialog label,
+.light .entity-linkage-dialog .label-token,
+.light .entity-linkage-dialog .label-token-muted {
+  color: #000000;
+}
+
+.dark .entity-linkage-dialog label,
+.dark .entity-linkage-dialog .label-token,
+.dark .entity-linkage-dialog .label-token-muted {
+  color: #ffffff;
 }
 
 .light .connector-picker-dialog,
@@ -656,6 +681,9 @@
 .light .connector-picker-dialog [role="combobox"],
 .light .refresh-schemas-dialog input:not([type="checkbox"]):not([type="radio"]),
 .light .refresh-schemas-dialog textarea,
+.light .entity-linkage-dialog input:not([type="checkbox"]):not([type="radio"]),
+.light .entity-linkage-dialog textarea,
+.light .entity-linkage-dialog [role="combobox"],
 .light .bulk-attribute-edit-dialog input:not([type="checkbox"]):not([type="radio"]),
 .light .bulk-attribute-edit-dialog textarea,
 .light .bulk-attribute-edit-dialog [role="combobox"],
@@ -669,6 +697,8 @@
 .light .connector-picker-dialog textarea::placeholder,
 .light .refresh-schemas-dialog input::placeholder,
 .light .refresh-schemas-dialog textarea::placeholder,
+.light .entity-linkage-dialog input::placeholder,
+.light .entity-linkage-dialog textarea::placeholder,
 .light .bulk-attribute-edit-dialog input::placeholder,
 .light .bulk-attribute-edit-dialog textarea::placeholder {
   color: #9d9b9d;

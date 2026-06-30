@@ -38,9 +38,6 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   const handleValueChange = React.useCallback(
     (next: string) => {
       onChange?.(next);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("dm8:form-select-change"));
-      }
     },
     [onChange],
   );

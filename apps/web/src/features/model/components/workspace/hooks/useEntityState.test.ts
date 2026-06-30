@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  hasIncompleteFormLinkageDraft,
   normalizeOptionalStringField,
   normalizeRelationshipsForSave,
+  normalizeSourcesForSave,
+  resetAttributeSaveMarkers,
   serializeEntityContent,
 } from "./useEntityState";
 
@@ -58,106 +59,6 @@ describe("serializeEntityContent", () => {
   });
 });
 
-describe("hasIncompleteFormLinkageDraft", () => {
-  const zoneFromRelPath = (relPath: string | undefined) => {
-    if (!relPath) return "";
-    return relPath.split("/")[1] || "";
-  };
-  const inferSourceType = (src: any) =>
-    src && Object.prototype.hasOwnProperty.call(src, "dataSource") ? "external" : "internal";
-
-  it("returns true for incomplete internal source", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [{ sourceLocation: "" }],
-      relationships: [],
-      relationshipZones: {},
-      modelEntities: [],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("returns true for incomplete external source", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [{ dataSource: "crm", sourceLocation: "" }],
-      relationships: [],
-      relationshipZones: {},
-      modelEntities: [],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("returns true for relationship missing zone", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [],
-      relationships: [{ targetModelEntityId: 12 }],
-      relationshipZones: {},
-      modelEntities: [],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("returns false when relationships and sources are complete", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [{ sourceLocation: 42 }],
-      relationships: [{ targetModelEntityId: 12, mappings: [{ source: "CustomerId", target: "Id" }] }],
-      relationshipZones: {},
-      modelEntities: [{ relPath: "Model/Finance/Customer.json", content: { id: 12 }, name: "Customer" } as any],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(false);
-  });
-
-  it("returns true for relationship with partial mapping row", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [],
-      relationships: [{ targetModelEntityId: 12, mappings: [{ source: "CustomerId", target: "" }] }],
-      relationshipZones: {},
-      modelEntities: [{ relPath: "Model/Finance/Customer.json", content: { id: 12 }, name: "Customer" } as any],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("returns true for relationship without any complete mapping", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [],
-      relationships: [{ targetModelEntityId: 12, mappings: [] }],
-      relationshipZones: {},
-      modelEntities: [{ relPath: "Model/Finance/Customer.json", content: { id: 12 }, name: "Customer" } as any],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(true);
-  });
-
-  it("returns true for source with partial mapping row", () => {
-    const result = hasIncompleteFormLinkageDraft({
-      sources: [{ sourceLocation: 42, mapping: [{ sourceName: "A", targetName: "" }] }],
-      relationships: [],
-      relationshipZones: {},
-      modelEntities: [],
-      zoneFromRelPath,
-      inferSourceType,
-    });
-
-    expect(result).toBe(true);
-  });
-});
-
 describe("normalizeRelationshipsForSave", () => {
   it("drops relationships without target or without complete mappings", () => {
     const result = normalizeRelationshipsForSave([
@@ -168,6 +69,22 @@ describe("normalizeRelationshipsForSave", () => {
 
     expect(result).toEqual([
       { targetModelEntityId: 44, mappings: [{ source: "OrderId", target: "Id" }] },
+    ]);
+  });
+});
+
+describe("normalizeSourcesForSave", () => {
+  it("drops incomplete sources and keeps complete internal and external sources", () => {
+    const result = normalizeSourcesForSave([
+      { sourceLocation: "" },
+      { sourceLocation: 42, mapping: [{ sourceName: "A", targetName: "" }, { sourceName: "B", targetName: "C" }] },
+      { dataSource: "crm", sourceLocation: "" },
+      { dataSource: "crm", sourceLocation: "dbo.Customer", mapping: [{ sourceName: "Id", targetName: "CustomerId" }] },
+    ]);
+
+    expect(result).toEqual([
+      { sourceLocation: 42, mapping: [{ sourceName: "B", targetName: "C" }] },
+      { dataSource: "crm", sourceLocation: "dbo.Customer", mapping: [{ sourceName: "Id", targetName: "CustomerId" }] },
     ]);
   });
 });
@@ -184,5 +101,16 @@ describe("normalizeOptionalStringField", () => {
   it("drops non-string values", () => {
     expect(normalizeOptionalStringField(null)).toBeUndefined();
     expect(normalizeOptionalStringField(12)).toBeUndefined();
+  });
+});
+
+describe("resetAttributeSaveMarkers", () => {
+  it("keeps attribute ui ids stable and only resets save markers", () => {
+    const clean = { name: "Id", __uiId: "row-1", __isNew: false, __modified: false };
+    const changed = { name: "Description", __uiId: "row-2", __isNew: true, __modified: true };
+    const result = resetAttributeSaveMarkers([clean, changed]);
+
+    expect(result[0]).toBe(clean);
+    expect(result[1]).toEqual({ name: "Description", __uiId: "row-2", __isNew: false, __modified: false });
   });
 });

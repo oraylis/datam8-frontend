@@ -1,6 +1,18 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { Checkbox, FormSelect, Textarea, cn } from "@datam8/ui";
+import {
+  Checkbox,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  FormSelect,
+  Textarea,
+  cn,
+} from "@datam8/ui";
 import { Check, ChevronDown, GripVertical, Trash2 } from "lucide-react";
 import type { PropertyOption } from "../../../model-types";
 import { IconBtn } from "../common/IconBtn";
@@ -22,6 +34,7 @@ export type AttributeRowProps = {
   historyOptions: string[];
   expressionLanguageOptions: string[];
   onPatch: (idx: number, updater: (a: EntityAttribute) => EntityAttribute) => void;
+  onCommit: (reason: "text-blur" | "dropdown-change" | "add-item" | "delete-item") => void;
   onToggleDetails: (name: string) => void;
   onRemove: (idx: number, name: string) => void;
   onCommitRename: (idx: number, oldName: string, draft: string) => string | null;
@@ -53,6 +66,7 @@ export const EntityAttributeRow = memo(
     historyOptions,
     expressionLanguageOptions,
     onPatch,
+    onCommit,
     onToggleDetails,
     onRemove,
     onCommitRename,
@@ -68,8 +82,7 @@ export const EntityAttributeRow = memo(
     clearPendingFocus,
   }: AttributeRowProps) => {
     const [draftName, setDraftName] = useState(attr?.name || "");
-    const [draftDescription, setDraftDescription] = useState(attr?.description || "");
-    const [draftExpression, setDraftExpression] = useState(attr?.expression || "");
+    const [detailsDraft, setDetailsDraft] = useState<EntityAttribute>(attr);
     const [nameError, setNameError] = useState<string | null>(null);
     const nameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -83,20 +96,18 @@ export const EntityAttributeRow = memo(
     }, [attr?.name, nameRef]);
 
     useEffect(() => {
-      setDraftDescription(attr?.description || "");
-    }, [attr?.description]);
-
-    useEffect(() => {
-      setDraftExpression(attr?.expression || "");
-    }, [attr?.expression]);
-
-    useEffect(() => {
       if (pendingFocus && nameInputRef.current) {
         nameInputRef.current.focus();
         nameInputRef.current.select();
         clearPendingFocus();
       }
     }, [pendingFocus, clearPendingFocus]);
+
+    useEffect(() => {
+      if (detailsOpen) {
+        setDetailsDraft(attr);
+      }
+    }, [attr, detailsOpen]);
 
     const handleCommitName = useCallback(() => {
       const err = onCommitRename(index, attr?.name || "", draftName);
@@ -105,29 +116,17 @@ export const EntityAttributeRow = memo(
         return;
       }
       setNameError(null);
-    }, [attr?.name, draftName, index, onCommitRename]);
-
-    const handleCommitDescription = useCallback(() => {
-      const nextVal = draftDescription;
-      if ((attr?.description || "") === nextVal) return;
-      onPatch(index, (a) => ({ ...a, description: nextVal }));
-    }, [attr?.description, draftDescription, index, onPatch]);
-
-    const handleCommitExpression = useCallback(() => {
-      const nextVal = draftExpression;
-      if ((attr?.expression || "") === nextVal) return;
-      onPatch(index, (a) => ({ ...a, expression: nextVal }));
-    }, [attr?.expression, draftExpression, index, onPatch]);
+      onCommit("text-blur");
+    }, [attr?.name, draftName, index, onCommit, onCommitRename]);
 
     const typeDef = dataTypeDefinitions[attr?.dataType?.type || ""] || {};
-    const expressionLanguageValue = attr?.expressionLanguage || "";
-    const isKnownExpressionLanguage = expressionLanguageOptions.includes(expressionLanguageValue);
-    const expressionLanguageSelectValue = expressionLanguageValue
-      ? isKnownExpressionLanguage
-        ? expressionLanguageValue
+    const draftExpressionLanguageValue = detailsDraft?.expressionLanguage || "";
+    const draftExpressionLanguageSelectValue = draftExpressionLanguageValue
+      ? expressionLanguageOptions.includes(draftExpressionLanguageValue)
+        ? draftExpressionLanguageValue
         : "__custom__"
       : "";
-    const showCustomExpressionLanguage = expressionLanguageSelectValue === "__custom__";
+    const showCustomExpressionLanguage = draftExpressionLanguageSelectValue === "__custom__";
     const rowKey = attr?.name || "";
     const rawAttrProps = useMemo(
       () => (Array.isArray(attr?.properties) ? attr.properties : []),
@@ -155,9 +154,174 @@ export const EntityAttributeRow = memo(
       [rawAttrProps],
     );
 
+    const closeDetailsDialog = useCallback(() => {
+      if (detailsOpen) {
+        onToggleDetails(rowKey);
+      }
+    }, [detailsOpen, onToggleDetails, rowKey]);
+
+    const patchDetailsDraft = useCallback((updater: (draft: EntityAttribute) => EntityAttribute) => {
+      setDetailsDraft((draft) => updater(draft));
+    }, []);
+
+    const saveDetailsDialog = useCallback(() => {
+      onPatch(index, () => detailsDraft);
+      onCommit("dropdown-change");
+      closeDetailsDialog();
+    }, [closeDetailsDialog, detailsDraft, index, onCommit, onPatch]);
+
+    const detailsForm = (
+      <div className="form-grid">
+        <div>
+          <label>Display Name</label>
+          <input
+            value={detailsDraft.displayName || ""}
+            onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, displayName: e.target.value }))}
+          />
+        </div>
+        <div>
+          <label>Attribute Type</label>
+          <FormSelect
+            className="attribute-select"
+            value={detailsDraft.attributeType || ""}
+            onChange={(val) => patchDetailsDraft((draft) => ({ ...draft, attributeType: val }))}
+            options={[{ value: "", label: "Select attribute type" }, ...attributeTypeOptions]}
+            placeholder="Select attribute type"
+          />
+        </div>
+        <div className="attribute-detail-stack">
+          <div>
+            <label>Unit</label>
+            <input
+              value={detailsDraft.unit || ""}
+              onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, unit: e.target.value }))}
+            />
+          </div>
+          <div className="attribute-detail-stack__grow">
+            <label>Description</label>
+            <Textarea
+              rows={2}
+              className="attribute-textarea attribute-textarea--description"
+              value={detailsDraft.description || ""}
+              onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, description: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="attribute-detail-stack">
+          <div className="form-grid form-grid--tight">
+            <div className={showCustomExpressionLanguage ? undefined : "full"}>
+              <label>Expression Language</label>
+              <FormSelect
+                className="attribute-select"
+                value={draftExpressionLanguageSelectValue}
+                onChange={(val) => {
+                  if (val === "__custom__") {
+                    patchDetailsDraft((draft) => ({
+                      ...draft,
+                      expressionLanguage:
+                        draft.expressionLanguage && !expressionLanguageOptions.includes(draft.expressionLanguage)
+                          ? draft.expressionLanguage
+                          : "",
+                    }));
+                    return;
+                  }
+                  patchDetailsDraft((draft) => ({
+                    ...draft,
+                    expressionLanguage: val ? val : undefined,
+                  }));
+                }}
+                options={[
+                  { value: "", label: "None" },
+                  ...expressionLanguageOptions.map((lang) => ({ value: lang, label: lang })),
+                  { value: "__custom__", label: "Custom" },
+                ]}
+                placeholder="Select language"
+              />
+            </div>
+            {showCustomExpressionLanguage ? (
+              <div>
+                <label>Custom Language</label>
+                <input
+                  placeholder="Language name"
+                  value={detailsDraft.expressionLanguage || ""}
+                  onChange={(e) =>
+                    patchDetailsDraft((draft) => ({
+                      ...draft,
+                      expressionLanguage: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ) : null}
+            <div className="full">
+              <label>Expression</label>
+              <Textarea
+                rows={2}
+                className="attribute-textarea attribute-textarea--expression"
+                value={detailsDraft.expression || ""}
+                onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, expression: e.target.value }))}
+              />
+            </div>
+          </div>
+        </div>
+        {typeDef?.hasCharLen || typeDef?.hasPrecision || typeDef?.hasScale ? (
+          <div className="form-grid form-grid--3 full">
+            <div>
+              <label>Length</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={detailsDraft.dataType?.charLen ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value === "" ? undefined : Number(e.target.value);
+                  patchDetailsDraft((draft) => ({
+                    ...draft,
+                    dataType: { ...(draft.dataType || {}), charLen: Number.isFinite(val) ? val : undefined },
+                  }));
+                }}
+                disabled={!typeDef?.hasCharLen}
+              />
+            </div>
+            <div>
+              <label>Precision</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={detailsDraft.dataType?.precision ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value === "" ? undefined : Number(e.target.value);
+                  patchDetailsDraft((draft) => ({
+                    ...draft,
+                    dataType: { ...(draft.dataType || {}), precision: Number.isFinite(val) ? val : undefined },
+                  }));
+                }}
+                disabled={!typeDef?.hasPrecision}
+              />
+            </div>
+            <div>
+              <label>Scale</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={detailsDraft.dataType?.scale ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value === "" ? undefined : Number(e.target.value);
+                  patchDetailsDraft((draft) => ({
+                    ...draft,
+                    dataType: { ...(draft.dataType || {}), scale: Number.isFinite(val) ? val : undefined },
+                  }));
+                }}
+                disabled={!typeDef?.hasScale}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+
     return (
       <div
-        className={`value-row ${detailsOpen ? "value-row--active" : ""} ${isSelected ? "value-row--selected" : ""} ${dropClass}`}
+        className={`value-row ${isSelected ? "value-row--selected" : ""} ${dropClass}`}
         ref={(el) => rowRef(index, el)}
         onDragOver={
           showSelectionUi
@@ -211,6 +375,7 @@ export const EntityAttributeRow = memo(
               ref={nameInputRef}
               value={draftName}
               className={cn(nameError ? "input--error" : "")}
+              data-explicit-autosave="true"
               onChange={(e) => setDraftName(e.target.value)}
               onBlur={handleCommitName}
               onKeyDown={(e) => {
@@ -225,12 +390,13 @@ export const EntityAttributeRow = memo(
           <div>
             <FormSelect
               value={attr.dataType?.type || ""}
-              onChange={(val) =>
+              onChange={(val) => {
                 onPatch(index, (a) => ({
                   ...a,
                   dataType: { ...(a.dataType || {}), type: val },
-                }))
-              }
+                }));
+                onCommit("dropdown-change");
+              }}
               options={[{ value: "", label: "Select type" }, ...dataTypeOptions]}
               placeholder="Select type"
             />
@@ -244,6 +410,7 @@ export const EntityAttributeRow = memo(
                   ...a,
                   dataType: { ...(a.dataType || {}), nullable: next },
                 }));
+                onCommit("dropdown-change");
               }}
             />
           </div>
@@ -253,13 +420,17 @@ export const EntityAttributeRow = memo(
               onCheckedChange={(checked) => {
                 const next = checked === true;
                 onPatch(index, (a) => ({ ...a, isBusinessKey: next }));
+                onCommit("dropdown-change");
               }}
             />
           </div>
           <div>
             <FormSelect
               value={attr.history || ""}
-              onChange={(val) => onPatch(index, (a) => ({ ...a, history: val || undefined }))}
+              onChange={(val) => {
+                onPatch(index, (a) => ({ ...a, history: val || undefined }));
+                onCommit("dropdown-change");
+              }}
               options={[{ value: "", label: "None" }, ...historyOptions.map((h) => ({ value: h, label: h }))]}
               placeholder="Select history"
             />
@@ -270,18 +441,20 @@ export const EntityAttributeRow = memo(
               items={attrPropertyItems}
               propertyOptions={propertyOptions}
               usedPropertyNames={attrUsedPropertyNames}
-              onAdd={(property, value) =>
+              onAdd={(property, value) => {
                 onPatch(index, (a) => ({
                   ...a,
                   properties: [...(a.properties || []), { property, value }],
-                }))
-              }
-              onRemove={(idx) =>
+                }));
+                onCommit("add-item");
+              }}
+              onRemove={(idx) => {
                 onPatch(index, (a) => ({
                   ...a,
                   properties: (a.properties || []).filter((_item, ii) => ii !== Number(idx)),
-                }))
-              }
+                }));
+                onCommit("delete-item");
+              }}
               addLabel="Add column property"
             />
           </div>
@@ -295,163 +468,26 @@ export const EntityAttributeRow = memo(
                 <Trash2 className="h-4 w-4" />
               </IconBtn>
               <IconBtn active={detailsOpen} title="Details" data-no-attribute-select="true" onClick={() => onToggleDetails(rowKey)}>
-                <ChevronDown className={`h-4 w-4 chevron-toggle ${detailsOpen ? "chevron-toggle--open" : ""}`} />
+                <ChevronDown className="h-4 w-4" />
               </IconBtn>
             </div>
           </div>
         </div>
-        {detailsOpen ? (
-          <div className="source-block">
-            <div className="form-grid">
-              <div>
-                <label>Display Name</label>
-                <input
-                  value={attr.displayName || ""}
-                  onChange={(e) => onPatch(index, (a) => ({ ...a, displayName: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label>Attribute Type</label>
-                <FormSelect
-                  className="attribute-select"
-                  value={attr.attributeType || ""}
-                  onChange={(val) => onPatch(index, (a) => ({ ...a, attributeType: val }))}
-                  options={[{ value: "", label: "Select attribute type" }, ...attributeTypeOptions]}
-                  placeholder="Select attribute type"
-                />
-              </div>
-              <div className="attribute-detail-stack">
-                <div>
-                  <label>Unit</label>
-                  <input
-                    value={attr.unit || ""}
-                    onChange={(e) => onPatch(index, (a) => ({ ...a, unit: e.target.value }))}
-                  />
-                </div>
-                <div className="attribute-detail-stack__grow">
-                  <label>Description</label>
-                  <Textarea
-                    rows={2}
-                    className="attribute-textarea attribute-textarea--description"
-                    value={draftDescription}
-                    onChange={(e) => setDraftDescription(e.target.value)}
-                    onBlur={handleCommitDescription}
-                  />
-                </div>
-              </div>
-              <div className="attribute-detail-stack">
-                <div className="form-grid form-grid--tight">
-                  <div className={showCustomExpressionLanguage ? undefined : "full"}>
-                    <label>Expression Language</label>
-                    <FormSelect
-                      className="attribute-select"
-                      value={expressionLanguageSelectValue}
-                      onChange={(val) => {
-                        if (val === "__custom__") {
-                          onPatch(index, (a) => ({
-                            ...a,
-                            expressionLanguage:
-                              a.expressionLanguage && !expressionLanguageOptions.includes(a.expressionLanguage)
-                                ? a.expressionLanguage
-                                : "",
-                          }));
-                          return;
-                        }
-                        onPatch(index, (a) => ({
-                          ...a,
-                          expressionLanguage: val ? val : undefined,
-                        }));
-                      }}
-                      options={[
-                        { value: "", label: "None" },
-                        ...expressionLanguageOptions.map((lang) => ({ value: lang, label: lang })),
-                        { value: "__custom__", label: "Custom" },
-                      ]}
-                      placeholder="Select language"
-                    />
-                  </div>
-                  {showCustomExpressionLanguage ? (
-                    <div>
-                      <label>Custom Language</label>
-                      <input
-                        placeholder="Language name"
-                        value={expressionLanguageValue}
-                        onChange={(e) =>
-                          onPatch(index, (a) => ({
-                            ...a,
-                            expressionLanguage: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  ) : null}
-                  <div className="full">
-                    <label>Expression</label>
-                    <Textarea
-                      rows={2}
-                      className="attribute-textarea attribute-textarea--expression"
-                      value={draftExpression}
-                      onChange={(e) => setDraftExpression(e.target.value)}
-                      onBlur={handleCommitExpression}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            {typeDef?.hasCharLen || typeDef?.hasPrecision || typeDef?.hasScale ? (
-              <div className="form-grid form-grid--3 mt-3">
-                <div>
-                  <label>Length</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={attr.dataType?.charLen ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value === "" ? undefined : Number(e.target.value);
-                      onPatch(index, (a) => ({
-                        ...a,
-                        dataType: { ...(a.dataType || {}), charLen: Number.isFinite(val) ? val : undefined },
-                      }));
-                    }}
-                    disabled={!typeDef?.hasCharLen}
-                  />
-                </div>
-                <div>
-                  <label>Precision</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={attr.dataType?.precision ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value === "" ? undefined : Number(e.target.value);
-                      onPatch(index, (a) => ({
-                        ...a,
-                        dataType: { ...(a.dataType || {}), precision: Number.isFinite(val) ? val : undefined },
-                      }));
-                    }}
-                    disabled={!typeDef?.hasPrecision}
-                  />
-                </div>
-                <div>
-                  <label>Scale</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={attr.dataType?.scale ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value === "" ? undefined : Number(e.target.value);
-                      onPatch(index, (a) => ({
-                        ...a,
-                        dataType: { ...(a.dataType || {}), scale: Number.isFinite(val) ? val : undefined },
-                      }));
-                    }}
-                    disabled={!typeDef?.hasScale}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <Dialog open={detailsOpen} onOpenChange={(open) => !open && closeDetailsDialog()}>
+          <DialogContent className="entity-linkage-dialog attribute-details-dialog max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Attribute Details</DialogTitle>
+              <DialogDescription>{attr.name || "Configure additional attribute fields."}</DialogDescription>
+            </DialogHeader>
+            {detailsForm}
+            <DialogFooter>
+              <Button variant="secondary" onClick={closeDetailsDialog}>
+                Cancel
+              </Button>
+              <Button onClick={saveDetailsDialog}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   },

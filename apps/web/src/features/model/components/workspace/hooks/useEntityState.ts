@@ -7,15 +7,10 @@ import { deepEqual } from "../../../../../shared/utils/deepEqual";
 import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
 import { reindexRecordAfterMove } from "./transformationSourceMaps";
 import { saveFunctionSource } from "../../../../../shared/desktop/functionSourceBridge";
+import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 const asNonEmptyString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
-const hasPartialMappingRow = (mapping: any): boolean => {
-  const source = asNonEmptyString(mapping?.source ?? mapping?.sourceName);
-  const target = asNonEmptyString(mapping?.target ?? mapping?.targetName);
-  if (!source && !target) return false;
-  return !source || !target;
-};
 
 const normalizePropertyAssignments = (value: unknown): Array<{ property: string; value: string }> =>
   (Array.isArray(value) ? value : [])
@@ -32,49 +27,6 @@ export const isValidInternalSourceLocation = (value: unknown): boolean => {
   if (typeof value === "string") return value.trim().length > 0;
   if (typeof value === "number") return Number.isFinite(value);
   return false;
-};
-
-export const hasIncompleteFormLinkageDraft = ({
-  sources,
-  relationships,
-  relationshipZones,
-  modelEntities,
-  zoneFromRelPath,
-  inferSourceType,
-}: {
-  sources: any[];
-  relationships: any[];
-  relationshipZones: Record<number, string>;
-  modelEntities: ModelEntity[];
-  zoneFromRelPath: (relPath: string | undefined) => string;
-  inferSourceType: (src: any) => string;
-}): boolean => {
-  const hasIncompleteRelationship = (relationships || []).some((rel: any, idx: number) => {
-    const target = modelEntities.find((m) => m.content?.id === rel?.targetModelEntityId);
-    const inferredZone = target ? zoneFromRelPath(target.relPath) : "";
-    const selectedZone = relationshipZones[idx] || inferredZone || "";
-    if (!selectedZone) return true;
-    if (rel?.targetModelEntityId === null || rel?.targetModelEntityId === undefined) return true;
-    const mappings = rel?.mappings || [];
-    const hasPartialMappings = mappings.some((m: any) => hasPartialMappingRow(m));
-    if (hasPartialMappings) return true;
-    const hasCompleteMappings = mappings.some((m: any) => {
-      const source = asNonEmptyString(m?.source ?? m?.sourceName);
-      const target = asNonEmptyString(m?.target ?? m?.targetName);
-      return source && target;
-    });
-    if (!hasCompleteMappings) return true;
-    return false;
-  });
-  if (hasIncompleteRelationship) return true;
-
-  return (sources || []).some((src: any) => {
-    const type = inferSourceType(src);
-    const mappings = src?.mapping || [];
-    if (mappings.some((m: any) => hasPartialMappingRow(m))) return true;
-    if (type === "internal") return !isValidInternalSourceLocation(src?.sourceLocation);
-    return !src?.dataSource || !src?.sourceLocation;
-  });
 };
 
 export const serializeEntityContent = ({
@@ -151,6 +103,47 @@ export const normalizeRelationshipsForSave = (relationships: any[] | undefined) 
     })
     .filter((rel: any) => rel !== null);
 
+export const normalizeSourcesForSave = (list: any[] | undefined) =>
+  (list || [])
+    .map((src) => {
+      const isExternal = Object.prototype.hasOwnProperty.call(src ?? {}, "dataSource") || src?.type === "external";
+      const mapping = normalizeMappingForSave(src?.mapping).filter((item: any) => {
+        const sourceName = asNonEmptyString(item?.sourceName);
+        const targetName = asNonEmptyString(item?.targetName);
+        return sourceName.length > 0 && targetName.length > 0;
+      });
+      const properties = normalizePropertiesForSave(src?.properties);
+      if (isExternal) {
+        const dataSource = asNonEmptyString(src?.dataSource);
+        const sourceLocation = src?.sourceLocation;
+        if (!dataSource || !isValidInternalSourceLocation(sourceLocation)) return null;
+        const out: any = {};
+        out.dataSource = dataSource;
+        if (src?.sourceAlias) out.sourceAlias = src.sourceAlias;
+        out.sourceLocation = sourceLocation;
+        if (properties.length) out.properties = properties;
+        if (mapping.length) out.mapping = mapping;
+        return out;
+      }
+      if (!isValidInternalSourceLocation(src?.sourceLocation)) return null;
+      const out: any = {};
+      out.sourceLocation = src?.sourceLocation;
+      if (properties.length) out.properties = properties;
+      if (mapping.length) out.mapping = mapping;
+      return out;
+    })
+    .filter((src) => src !== null);
+
+export const resetAttributeSaveMarkers = <T extends { __isNew?: boolean; __modified?: boolean }>(attributes: T[]): T[] =>
+  attributes.map((attr) => {
+    if (!attr?.__isNew && !attr?.__modified) return attr;
+    return {
+      ...attr,
+      __isNew: false,
+      __modified: false,
+    };
+  });
+
 export type EntityEditorDraft = {
   mode: "form" | "json";
   entitySection: EntitySection;
@@ -225,6 +218,7 @@ export const useEntityState = ({
 }: EntityStateParams) => {
   const originalRef = useRef<any | null>(null);
   const originalRelRef = useRef<string | null>(null);
+  const pendingSelfSaveAckRelPathRef = useRef<string | null>(null);
   const baselineReadyRef = useRef<boolean>(false);
   const skipNextDirtyRef = useRef<boolean>(false);
   const hydratingRef = useRef<boolean>(false);
@@ -255,6 +249,7 @@ export const useEntityState = ({
   const pendingPersistRevisionRef = useRef(0);
   const changeRevisionRef = useRef(0);
   const [changeRevision, setChangeRevision] = useState(0);
+  const [persistRequestTick, setPersistRequestTick] = useState(0);
 
   const bumpChangeRevision = useCallback(() => {
     const next = changeRevisionRef.current + 1;
@@ -354,40 +349,6 @@ export const useEntityState = ({
       return null;
     },
     [modelEntities, resolveEntityMetaById],
-  );
-
-  const normalizeSourcesForSave = useCallback(
-    (list: any[]) =>
-      (list || [])
-      .map((src) => {
-        const isExternal = Object.prototype.hasOwnProperty.call(src ?? {}, "dataSource") || src?.type === "external";
-        const mapping = normalizeMappingForSave(src?.mapping).filter((item: any) => {
-          const sourceName = asNonEmptyString(item?.sourceName);
-          const targetName = asNonEmptyString(item?.targetName);
-          return sourceName.length > 0 && targetName.length > 0;
-        });
-        const properties = normalizePropertiesForSave(src?.properties);
-        if (isExternal) {
-          const dataSource = asNonEmptyString(src?.dataSource);
-          const sourceLocation = src?.sourceLocation;
-          if (!dataSource || !isValidInternalSourceLocation(sourceLocation)) return null;
-          const out: any = {};
-          out.dataSource = dataSource;
-          if (src?.sourceAlias) out.sourceAlias = src.sourceAlias;
-          out.sourceLocation = sourceLocation;
-          if (properties.length) out.properties = properties;
-          if (mapping.length) out.mapping = mapping;
-          return out;
-        }
-        if (!isValidInternalSourceLocation(src?.sourceLocation)) return null;
-        const out: any = {};
-        out.sourceLocation = src?.sourceLocation;
-        if (properties.length) out.properties = properties;
-        if (mapping.length) out.mapping = mapping;
-        return out;
-      })
-      .filter((src) => src !== null),
-    [],
   );
 
   const normalizeTransformations = useCallback(
@@ -560,6 +521,7 @@ export const useEntityState = ({
     hydratingRef.current = true;
     const previousRelPath = originalRelRef.current;
     if (previousRelPath && previousRelPath !== selectedEntity.relPath && baselineReadyRef.current) {
+      pendingSelfSaveAckRelPathRef.current = null;
       const previousDraft: EntityEditorDraft = {
         mode,
         entitySection,
@@ -623,6 +585,15 @@ export const useEntityState = ({
       transformations: normalizedTransformations,
       properties: localProperties,
     });
+    if (previousRelPath === selectedEntity.relPath && pendingSelfSaveAckRelPathRef.current === selectedEntity.relPath) {
+      pendingSelfSaveAckRelPathRef.current = null;
+      hydratingRef.current = false;
+      return;
+    }
+    if (previousRelPath === selectedEntity.relPath && baselineReadyRef.current && deepEqual(canonical, originalRef.current)) {
+      hydratingRef.current = false;
+      return;
+    }
     originalRef.current = cloneDeep(canonical);
     originalRelRef.current = selectedEntity.relPath;
     const canonicalJson = JSON.stringify(canonical, null, 2);
@@ -740,7 +711,6 @@ export const useEntityState = ({
       formState,
       mode,
       normalizeAttributes,
-      normalizeSourcesForSave,
       properties,
       relationships,
       selectedEntity,
@@ -757,48 +727,57 @@ export const useEntityState = ({
       skipNextDirtyRef.current = false;
       return;
     }
-    const draft = buildDraftContent();
-    let isDirty = false;
-    if (draft === "parse-error") {
-      isDirty = true;
-    } else {
-      isDirty = !deepEqual(draft, originalRef.current);
-    }
-    if (!isDirty && Object.values(transformSourceDirty).some(Boolean)) {
-      isDirty = true;
-    }
-    entityDirtyRef.current = isDirty;
-    if (!isDirty) {
-      persistQueuedRef.current = false;
-      pendingPersistReasonRef.current = null;
-      pendingPersistRevisionRef.current = 0;
-      setSaveStatus("idle");
-      setSaveError(null);
-    }
+    const timer = window.setTimeout(() => {
+      if (!selectedEntity || originalRelRef.current !== selectedEntity.relPath || hydratingRef.current) return;
+      const draft = buildDraftContent();
+      let isDirty = false;
+      if (draft === "parse-error") {
+        isDirty = true;
+      } else {
+        isDirty = !deepEqual(draft, originalRef.current);
+      }
+      if (!isDirty && Object.values(transformSourceDirty).some(Boolean)) {
+        isDirty = true;
+      }
+      entityDirtyRef.current = isDirty;
+      if (!isDirty) {
+        persistQueuedRef.current = false;
+        pendingPersistReasonRef.current = null;
+        pendingPersistRevisionRef.current = 0;
+        setSaveStatus("idle");
+        setSaveError(null);
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, [buildDraftContent, selectedEntity, transformSourceDirty]);
 
   useEffect(() => {
     if (!selectedEntity || originalRelRef.current !== selectedEntity.relPath || !baselineReadyRef.current) return;
     if (hydratingRef.current) return;
-    const draft: EntityEditorDraft = {
-      mode,
-      entitySection,
-      formState: cloneDeep(formState),
-      jsonText,
-      attributes: cloneDeep(attributes),
-      sources: cloneDeep(sources),
-      relationships: cloneDeep(relationships),
-      transformations: cloneDeep(transformations),
-      properties: cloneDeep(properties),
-      openAttributeDetails: cloneDeep(openAttributeDetails),
-      openMappingDetails: cloneDeep(openMappingDetails),
-      collapsedMappings: cloneDeep(collapsedMappings),
-      relationshipZones: cloneDeep(relationshipZones),
-      openTransformSources: cloneDeep(openTransformSources),
-      transformSourceCache: cloneDeep(transformSourceCache),
-      transformSourceDirty: cloneDeep(transformSourceDirty),
-    };
-    setEntityDraft(selectedEntity.relPath, draft);
+    const relPath = selectedEntity.relPath;
+    const timer = window.setTimeout(() => {
+      if (!selectedEntity || originalRelRef.current !== relPath || hydratingRef.current) return;
+      const draft: EntityEditorDraft = {
+        mode,
+        entitySection,
+        formState: cloneDeep(formState),
+        jsonText,
+        attributes: cloneDeep(attributes),
+        sources: cloneDeep(sources),
+        relationships: cloneDeep(relationships),
+        transformations: cloneDeep(transformations),
+        properties: cloneDeep(properties),
+        openAttributeDetails: cloneDeep(openAttributeDetails),
+        openMappingDetails: cloneDeep(openMappingDetails),
+        collapsedMappings: cloneDeep(collapsedMappings),
+        relationshipZones: cloneDeep(relationshipZones),
+        openTransformSources: cloneDeep(openTransformSources),
+        transformSourceCache: cloneDeep(transformSourceCache),
+        transformSourceDirty: cloneDeep(transformSourceDirty),
+      };
+      setEntityDraft(relPath, draft);
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, [
     attributes,
     collapsedMappings,
@@ -858,29 +837,19 @@ export const useEntityState = ({
           return next;
         });
       }
+      pendingSelfSaveAckRelPathRef.current = selectedEntity.relPath;
       await onSave({ ...selectedEntity, content: newContent, name: newContent?.name || selectedEntity.name });
       originalRef.current = cloneDeep(newContent);
       skipNextDirtyRef.current = true;
       entityDirtyRef.current = false;
       onDirtyEntity(selectedEntity.relPath, false);
-      setAttributes((prev) =>
-        (newContent.attributes || []).map((a: any, idx: number) => ({
-          ...a,
-          __uiId:
-            prev[idx]?.__uiId ||
-            (typeof crypto !== "undefined" && crypto.randomUUID
-              ? crypto.randomUUID()
-              : `attr-${Date.now()}-${Math.random().toString(16).slice(2)}`),
-          __isNew: false,
-          __modified: false,
-        })),
-      );
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 1500);
       console.log(`[DataM8] Entity saved: ${selectedEntity.relPath}`);
       toast({ variant: "success", title: "Saved", description: selectedEntity.name || selectedEntity.relPath, duration: 3500 });
       return true;
     } catch (err) {
+      pendingSelfSaveAckRelPathRef.current = null;
       console.error("[DataM8] Entity save failed:", err);
       setSaveStatus("error");
       setSaveError((err as Error).message);
@@ -898,42 +867,40 @@ export const useEntityState = ({
     transformations,
   ]);
 
-  const hasIncompleteLinkageDraft = useCallback(() => {
-    if (mode === "json") return false;
-    return hasIncompleteFormLinkageDraft({
-      sources,
-      relationships,
-      relationshipZones,
-      modelEntities,
-      zoneFromRelPath,
-      inferSourceType,
-    });
-  }, [inferSourceType, mode, modelEntities, relationshipZones, relationships, sources, zoneFromRelPath]);
-
   const persistNow = useCallback(
     async (reason: PersistReason): Promise<boolean> => {
       if (!selectedEntity || !entityDirtyRef.current) return true;
-      if (hasIncompleteLinkageDraft()) return true;
       if (persistInFlightRef.current) {
         persistQueuedRef.current = true;
         return false;
       }
       persistInFlightRef.current = true;
+      const saveStartedRevision = changeRevisionRef.current;
       const ok = await onSubmit();
       persistInFlightRef.current = false;
-      if (persistQueuedRef.current && entityDirtyRef.current) {
+      const queued = resolveQueuedPersistAfterSave(
+        persistQueuedRef.current,
+        reason,
+        changeRevisionRef.current,
+        saveStartedRevision,
+      );
+      if (queued.shouldReschedule) {
         persistQueuedRef.current = false;
-        return persistNow(reason);
+        entityDirtyRef.current = queued.dirty;
+        pendingPersistReasonRef.current = queued.reason;
+        pendingPersistRevisionRef.current = queued.revision;
+        setPersistRequestTick((value) => value + 1);
       }
       return ok;
     },
-    [hasIncompleteLinkageDraft, onSubmit, selectedEntity],
+    [onSubmit, selectedEntity],
   );
 
   const persistAfterStateFlush = useCallback(
     (reason: PersistReason) => {
       pendingPersistReasonRef.current = reason;
       pendingPersistRevisionRef.current = changeRevisionRef.current;
+      setPersistRequestTick((value) => value + 1);
     },
     [],
   );
@@ -945,7 +912,7 @@ export const useEntityState = ({
     pendingPersistReasonRef.current = null;
     pendingPersistRevisionRef.current = 0;
     void persistNow(reason);
-  }, [changeRevision, persistNow]);
+  }, [changeRevision, persistNow, persistRequestTick]);
 
   const retrySave = useCallback(() => {
     void persistNow("tab-switch");

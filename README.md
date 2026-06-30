@@ -19,7 +19,6 @@ Legacy cleanup:
 
 ## Prerequisites
 - Node.js 24 LTS (repo uses npm workspaces; Node 25+ is unsupported).
-- Node.js 24 LTS (repo uses npm workspaces; Node 25+ is unsupported).
 - Python 3.12+ for local desktop dev/backend runs. (handled by `uv sync`)
 - `uv` for preparing `submodules/datam8-generator/.venv`.
 

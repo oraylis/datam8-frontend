@@ -21,7 +21,7 @@ describe("toast notification behavior", () => {
   it("uses sticky destructive toasts and auto-dismiss defaults for non-errors", () => {
     const source = readFileSync(useToastPath, "utf8");
 
-    expect(source).toContain("const INFO_TOAST_DURATION_MS = 4000;");
+    expect(source).toContain("const INFO_TOAST_DURATION_MS = 7000;");
     expect(source).toContain("const STICKY_ERROR_DURATION_MS = 2147483647;");
     expect(source).toContain('if (props.variant === "destructive")');
     expect(source).toContain("return STICKY_ERROR_DURATION_MS;");

@@ -1917,7 +1917,7 @@ export function AppShell() {
       validatorRunInFlightRef.current = false;
       setValidatorRunning(false);
     }
-  }, [generatorLogLevel, solutionPath]);
+  }, [generatorLogLevel, showAppError, solutionPath]);
 
   const handleToggleTheme = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");

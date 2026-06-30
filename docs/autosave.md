@@ -27,20 +27,29 @@ Autosave is coordinated by editor-local state hooks plus `AppShell` integration:
 
 ## Trigger matrix
 
-Autosave reasons are internal trigger labels used for gating and scheduling:
+Autosave reasons are internal trigger labels used by editor commands:
 
 | Trigger | Source | Entity | Base | Folder |
 |---|---|---:|---:|---:|
-| `text-blur` | `onBlurCapture` on text inputs and textareas | Yes | Yes | Yes |
-| `dropdown-change` | `dm8:form-select-change` event | Yes | Yes | Yes |
-| `add-item` | add/commit actions, checkbox/value-commit events | Yes | Yes | Yes |
-| `delete-item` | delete actions | Yes | Yes | No |
+| `text-blur` | parent `onBlurCapture` for directly bound text inputs and textareas | Yes | Yes | Yes |
+| `dropdown-change` | explicit command from select/checkbox handlers | Yes | Yes | Yes |
+| `add-item` | explicit command from add/reorder/property-list handlers | Yes | Yes | Yes |
+| `delete-item` | delete actions | Yes | Yes | Yes |
 | `undo-delete` | undo delete actions | Yes | Yes | No |
 | `tab-switch` | tab or selection switch via `AppShell` | Yes | Yes | Yes |
 
 Notes:
-- Checkbox changes are routed through `dm8:checkbox-change` and currently map to `add-item`.
-- Value commits are routed through `dm8:value-commit` and map to `add-item`.
+- `FormSelect` and `Checkbox` do not dispatch autosave events. The owning editor handler must call the matching command.
+- Text fields that own a local draft and commit themselves, such as validated rename fields, are marked with `data-explicit-autosave="true"` so the parent blur handler does not save twice.
+
+## Editor commands
+
+Workspace editors follow one command model:
+
+- `editText`: update central editor state and mark dirty. Save happens once through the parent blur handler with `text-blur`.
+- `commitAction`: update central editor state, mark dirty, and schedule save after React state flush. Use this for selects, checkboxes, add/remove/reorder, `PropertyChips`, and `PropertyList`.
+- `commitDraft`: validate a local draft, write it to central editor state, and schedule save after React state flush. Use this only when intermediate values are invalid or have side effects, for example attribute rename with `refactorNames`.
+- `saveNow`: run an explicit save for tab switches, retry, and app-level persist callbacks.
 
 ## Persistence model
 
@@ -52,7 +61,7 @@ Each editor uses the same core pattern:
 4. `persistNow` enforces:
    - early return if not dirty,
    - single in-flight request (`persistInFlight`),
-   - one queued replay (`persistQueued`) if changes arrive while saving.
+   - one queued replay only when a newer change revision arrived while saving.
 
 This avoids overlapping saves while still persisting the latest state.
 
@@ -60,11 +69,10 @@ This avoids overlapping saves while still persisting the latest state.
 
 ### Entity editor (`useEntityState`)
 
-- For reasons other than `tab-switch`, save is skipped if the draft has incomplete linkage:
-  - relationships missing zone or target entity,
-  - internal sources without valid `sourceLocation`,
-  - external sources missing data source or source location.
-- `tab-switch` forces an attempted save (still validated inside submit).
+- Relationship and source creation/editing happens in dialogs and commits only valid data into editor state.
+- Relationships require a target entity and at least one complete source/target mapping before dialog save.
+- Internal sources require a target entity; external sources require a data source and source location.
+- Save payload normalization still filters incomplete legacy linkage rows defensively, but normal UI flows do not create them.
 
 ### Base editor (`useBaseEditorState`)
 
@@ -156,9 +164,9 @@ This path bypasses form-level base editor validation and is intended for control
 
 When adding a new editable control:
 
-1. Ensure the change marks editor state dirty.
-2. Emit or wire one of the known trigger reasons.
-3. Verify the change participates in `persistAfterStateFlush`.
+1. Text input or textarea: bind directly to editor state, mark dirty in `onChange`, and rely on parent blur.
+2. Select, checkbox, add/remove/reorder, `PropertyChips`, or `PropertyList`: update editor state and call the local commit action with the correct reason.
+3. Local draft with validation or side effects: validate, commit to editor state, and schedule save from the draft commit handler. Mark the input with `data-explicit-autosave="true"` if it can also bubble to parent blur.
 4. Confirm behavior in both normal save and save-error/retry scenarios.
 5. If base side effects are introduced, extend follow-up action detection and notification messaging.
 6. Update this document and summary READMEs.

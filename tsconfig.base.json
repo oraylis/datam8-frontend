@@ -8,6 +8,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@datam8/types": ["packages/types/src"],
       "@datam8/types/*": ["packages/types/src/*"],

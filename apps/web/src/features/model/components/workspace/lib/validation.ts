@@ -16,28 +16,6 @@ const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : []
 const asString = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
 const normalizeName = (value: unknown): string => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
-const findDuplicateNames = (list: unknown[], nameSelector?: (row: LooseRecord) => unknown): string[] => {
-  const select = nameSelector || ((row: LooseRecord) => row.name);
-  const seen = new Map<string, string>();
-  const duplicates = new Set<string>();
-  asList(list).forEach((item) => {
-    const row = asRecord(item);
-    const raw = select(row);
-    if (typeof raw !== "string") return;
-    const trimmed = raw.trim();
-    if (!trimmed) return;
-    const key = normalizeName(trimmed);
-    if (!key) return;
-    const existing = seen.get(key);
-    if (existing) {
-      duplicates.add(existing);
-      return;
-    }
-    seen.set(key, trimmed);
-  });
-  return Array.from(duplicates.values());
-};
-
 export const validateBaseContent = (type: string, content: unknown): ValidationResult => {
   const contentRecord = asRecord(content);
   const missing: Record<string, Set<string>> = {};
@@ -47,6 +25,42 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
     if (!missing[key]) missing[key] = new Set();
     missing[key].add(field);
     if (message) errors.push(message);
+  };
+
+  const markDuplicateNames = (
+    list: unknown[],
+    keyPrefix: string,
+    nameSelector?: (row: LooseRecord) => unknown,
+    keySelector?: (row: LooseRecord, idx: number) => string,
+    labelSelector?: (row: LooseRecord) => unknown,
+  ): string[] => {
+    const selectName = nameSelector || ((row: LooseRecord) => row.name);
+    const selectKey = keySelector || ((row: LooseRecord, idx: number) => listKey(keyPrefix, asString(row.name), idx));
+    const selectLabel = labelSelector || selectName;
+    const grouped = new Map<string, Array<{ key: string; value: string }>>();
+
+    asList(list).forEach((item, idx) => {
+      const row = asRecord(item);
+      const raw = selectName(row);
+      if (typeof raw !== "string") return;
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const normalized = normalizeName(trimmed);
+      if (!normalized) return;
+      const label = selectLabel(row);
+      const labelText = typeof label === "string" && label.trim() ? label.trim() : trimmed;
+      const group = grouped.get(normalized) || [];
+      group.push({ key: selectKey(row, idx), value: labelText });
+      grouped.set(normalized, group);
+    });
+
+    const duplicateNames = new Set<string>();
+    grouped.forEach((group) => {
+      if (group.length <= 1) return;
+      group.forEach((entry) => mark(entry.key, "name"));
+      duplicateNames.add(group[0].value);
+    });
+    return Array.from(duplicateNames.values());
   };
 
   switch (type) {
@@ -60,7 +74,7 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
         if (!row.displayName) mark(key, "displayName");
         if (!row.defaultType) mark(key, "defaultType");
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "attributeType");
       if (duplicateNames.length) {
         errors.push(`Attribute Type names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -83,7 +97,7 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
           });
         }
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "dataType");
       if (duplicateNames.length) {
         errors.push(`Data Type names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -103,7 +117,7 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
           if (!mapping.targetType) mark(mKey, "targetType");
         });
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "dataSource");
       if (duplicateNames.length) {
         errors.push(`Data Source names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -125,7 +139,7 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
           if (!mapping.targetType) mark(mKey, "targetType");
         });
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "dataSourceType");
       if (duplicateNames.length) {
         errors.push(`Data Source Type names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -144,13 +158,18 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
           const mKey = `${key}:module_${mIdx + 1}`;
           if (!moduleRow.name) mark(mKey, "name");
         });
-        const duplicateModules = findDuplicateNames(modules);
+        const duplicateModules = markDuplicateNames(
+          modules,
+          "module",
+          (moduleRow) => moduleRow.name,
+          (_moduleRow, mIdx) => `${key}:module_${mIdx + 1}`,
+        );
         if (duplicateModules.length) {
           const label = asString(row.name) || `dataProduct_${idx + 1}`;
           errors.push(`Data Product "${label}" has duplicate module names: ${duplicateModules.join(", ")}.`);
         }
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "dataProduct");
       if (duplicateNames.length) {
         errors.push(`Data Product names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -165,7 +184,7 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
         if (!row.targetName) mark(key, "targetName");
         if (!row.displayName) mark(key, "displayName");
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "zone");
       if (duplicateNames.length) {
         errors.push(`Zone names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -195,7 +214,7 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
           seenScopeTypes.add(normalizedType);
         });
       });
-      const duplicateNames = findDuplicateNames(list);
+      const duplicateNames = markDuplicateNames(list, "property");
       if (duplicateNames.length) {
         errors.push(`Property names must be unique. Duplicates: ${duplicateNames.join(", ")}.`);
       }
@@ -214,25 +233,25 @@ export const validateBaseContent = (type: string, content: unknown): ValidationR
           }
         });
       });
-      const duplicateNames = new Set<string>();
-      values.forEach((val) => {
-        const row = asRecord(val);
-        const propertyName = asString(row.property) || "";
-        const valueName = asString(row.name) || "";
-        if (!propertyName || !valueName) return;
-        const matches = values.filter((candidate) => {
-          const candidateRow = asRecord(candidate);
-          return (
-            normalizeName(candidateRow.property) === normalizeName(propertyName) &&
-            normalizeName(candidateRow.name) === normalizeName(valueName)
-          );
-        });
-        if (matches.length > 1) {
-          duplicateNames.add(`${propertyName}.${valueName}`);
-        }
-      });
-      if (duplicateNames.size > 0) {
-        errors.push(`Property Value names must be unique per property. Duplicates: ${Array.from(duplicateNames).join(", ")}.`);
+      const duplicateNames = markDuplicateNames(
+        values,
+        "propertyValue",
+        (row) => {
+          const propertyName = (asString(row.property) || "").trim();
+          const valueName = (asString(row.name) || "").trim();
+          if (!propertyName || !valueName) return "";
+          return `${propertyName}::${valueName}`;
+        },
+        (row, idx) => `propertyValue:${asString(row.property) || "unknown"}:${asString(row.name) || idx + 1}`,
+        (row) => {
+          const propertyName = (asString(row.property) || "").trim();
+          const valueName = (asString(row.name) || "").trim();
+          if (!propertyName || !valueName) return "";
+          return `${propertyName}.${valueName}`;
+        },
+      );
+      if (duplicateNames.length > 0) {
+        errors.push(`Property Value names must be unique per property. Duplicates: ${duplicateNames.join(", ")}.`);
       }
       break;
     }

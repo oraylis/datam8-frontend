@@ -86,6 +86,21 @@ type PendingBaseAction =
 type SaveNotificationStatus = "saved" | "bulk-saved" | "failed";
 type SaveNotification = { status: SaveNotificationStatus; label: string };
 type BaseSaveResult = { notificationStatus?: Extract<SaveNotificationStatus, "saved" | "bulk-saved"> };
+type BulkDraftCleanup = {
+  baseRelPaths?: string[];
+  entityRelPaths?: string[];
+  sourceBaseRelPath?: string | null;
+  sourceEntityRelPath?: string | null;
+};
+type PropertyRefactorRunResult = {
+  modelEntities: number;
+  folderEntities: number;
+  baseEntities: number;
+  changeCount: number;
+  updatedModelRelPaths: string[];
+  updatedBaseRelPaths: string[];
+  updatedFolderPaths: string[];
+};
 
 const buildBaseEntityLocator = (entityType: string, item: Record<string, unknown>): string | null => {
   if (entityType === "propertyValues") {
@@ -311,7 +326,21 @@ export function AppShell() {
       saveNotificationTimerRef.current = null;
     }, 2000);
   }, []);
-  const { duplicateModelEntities, deleteModelEntities } = useModelActions({ onSaveNotification: showSaveNotification });
+  const clearDraftsForBulkSave = useCallback(
+    ({ baseRelPaths = [], entityRelPaths = [], sourceBaseRelPath = null, sourceEntityRelPath = null }: BulkDraftCleanup) => {
+      Array.from(new Set(baseRelPaths))
+        .filter((relPath) => relPath && relPath !== sourceBaseRelPath)
+        .forEach((relPath) => setBaseDraft(relPath, null));
+      Array.from(new Set(entityRelPaths))
+        .filter((relPath) => relPath && relPath !== sourceEntityRelPath)
+        .forEach((relPath) => setEntityDraft(relPath, null));
+    },
+    [setBaseDraft, setEntityDraft],
+  );
+  const { duplicateModelEntities, deleteModelEntities } = useModelActions({
+    onSaveNotification: showSaveNotification,
+    onBulkDraftCleanup: clearDraftsForBulkSave,
+  });
   const { resolvedTheme, setTheme } = useTheme();
   const isWindowsElectron = window.desktop?.isElectron && window.desktop?.platform === "win32";
   const {
@@ -979,10 +1008,18 @@ export function AppShell() {
   );
 
   const runPropertyRefactor = useCallback(
-    async (changes: Partial<PropertyRefactorPayload>, targets: PropertyRefactorScopeTarget[]) => {
+    async (changes: Partial<PropertyRefactorPayload>, targets: PropertyRefactorScopeTarget[]): Promise<PropertyRefactorRunResult> => {
       const payload = createPropertyRefactorPayload(changes);
       if (!payload || targets.length === 0) {
-        return { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+        return {
+          modelEntities: 0,
+          folderEntities: 0,
+          baseEntities: 0,
+          changeCount: 0,
+          updatedModelRelPaths: [],
+          updatedBaseRelPaths: [],
+          updatedFolderPaths: [],
+        };
       }
       const targetSet = new Set<PropertyRefactorScopeTarget>(targets);
       const baseTargets = targets.filter(
@@ -1004,7 +1041,15 @@ export function AppShell() {
         folderResult.updatedEntities.length === 0 &&
         baseResult.updatedEntities.length === 0
       ) {
-        return { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+        return {
+          modelEntities: 0,
+          folderEntities: 0,
+          baseEntities: 0,
+          changeCount: 0,
+          updatedModelRelPaths: [],
+          updatedBaseRelPaths: [],
+          updatedFolderPaths: [],
+        };
       }
 
       const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
@@ -1065,6 +1110,9 @@ export function AppShell() {
         folderEntities: folderResult.updatedEntities.length,
         baseEntities: baseResult.updatedEntities.length,
         changeCount: modelResult.changeCount + folderResult.changeCount + baseResult.changeCount,
+        updatedModelRelPaths: modelResult.updatedEntities.map((entity) => entity.relPath),
+        updatedBaseRelPaths: baseResult.updatedEntities.map((entry) => entry.relPath),
+        updatedFolderPaths: folderResult.updatedEntities.map((entry) => normalizeFolderPath(entry.folderPath || "")),
       };
     },
     [baseEntities, folderEntities, modelEntities, setBaseEntities, setFolderEntities, setModelEntities],
@@ -1192,16 +1240,28 @@ export function AppShell() {
   }, []);
 
   const executePendingBaseActions = useCallback(async (actions: PendingBaseAction[], options?: { notify?: boolean }) => {
-    if (actions.length === 0) return { applied: 0, failed: 0 };
+    if (actions.length === 0) return { applied: 0, failed: 0, updatedModelRelPaths: [] as string[], updatedBaseRelPaths: [] as string[] };
     const notify = options?.notify !== false;
     const failed: PendingBaseAction[] = [];
+    const updatedModelRelPaths = new Set<string>();
+    const updatedBaseRelPaths = new Set<string>();
     let applied = 0;
 
     for (const action of actions) {
       try {
         if (action.kind === "renameFolder") {
+          modelEntities
+            .filter((entity) => entity.relPath.startsWith(action.fromFolder))
+            .forEach((entity) => updatedModelRelPaths.add(entity.relPath));
           await renameModelFolder(action.fromFolder, action.toFolder);
         } else if (action.kind === "deleteFolderTree") {
+          const normalized = normalizeFolderPath(action.folderPath.replace(/^Model\/?/i, ""));
+          modelEntities
+            .filter((entity) => {
+              const rel = normalizeFolderPath(entity.relPath.replace(/^Model\//, "").replace(/\/[^/]+\.json$/i, ""));
+              return rel === normalized || rel.startsWith(`${normalized}/`);
+            })
+            .forEach((entity) => updatedModelRelPaths.add(entity.relPath));
           await deleteFolderTree(action.folderPath, {
             confirm: false,
             allowZoneRoot: true,
@@ -1209,7 +1269,9 @@ export function AppShell() {
             notifyFailure: false,
           });
         } else {
-          await runPropertyRefactor(action.payload, action.targets);
+          const result = await runPropertyRefactor(action.payload, action.targets);
+          result.updatedModelRelPaths.forEach((relPath) => updatedModelRelPaths.add(relPath));
+          result.updatedBaseRelPaths.forEach((relPath) => updatedBaseRelPaths.add(relPath));
         }
         applied += 1;
       } catch (err) {
@@ -1229,33 +1291,17 @@ export function AppShell() {
       showSaveNotification("bulk-saved");
     }
 
-    const hasStructuralActions = actions.some((action) => action.kind !== "propertyRefactor");
-    if (applied > 0 && hasStructuralActions) {
-      try {
-        const fallbackSource: SolutionSource | null = solutionSource
-          ? solutionSource
-          : electronLike && solutionPath
-            ? { kind: "electron-path", path: solutionPath }
-            : { kind: "server-path", path: solutionPath || "" };
-        const result = fallbackSource ? await loadSolution(fallbackSource) : undefined;
-        if (result) {
-          applyLoadedSolution(result);
-        }
-      } catch (err) {
-        showAppError("Reload after actions failed", (err as Error).message || "Unknown error");
-      }
-    }
-    return { applied, failed: failed.length };
+    return {
+      applied,
+      failed: failed.length,
+      updatedModelRelPaths: Array.from(updatedModelRelPaths),
+      updatedBaseRelPaths: Array.from(updatedBaseRelPaths),
+    };
   }, [
-    applyLoadedSolution,
     deleteFolderTree,
-    electronLike,
-    loadSolution,
+    modelEntities,
     renameModelFolder,
     runPropertyRefactor,
-    solutionPath,
-    solutionSource,
-    showAppError,
     showSaveNotification,
   ]);
 
@@ -1394,10 +1440,14 @@ export function AppShell() {
             });
             const refactorActions = uniqueActions.filter((action) => action.kind === "propertyRefactor");
             const structuralActions = uniqueActions.filter((action) => action.kind !== "propertyRefactor");
+            const bulkUpdatedBaseRelPaths = new Set<string>();
+            const bulkUpdatedModelRelPaths = new Set<string>();
 
             if (refactorActions.length > 0) {
               for (const action of refactorActions) {
-                await runPropertyRefactor(action.payload, action.targets);
+                const result = await runPropertyRefactor(action.payload, action.targets);
+                result.updatedBaseRelPaths.forEach((relPath) => bulkUpdatedBaseRelPaths.add(relPath));
+                result.updatedModelRelPaths.forEach((relPath) => bulkUpdatedModelRelPaths.add(relPath));
               }
               notificationStatus = "bulk-saved";
             }
@@ -1407,9 +1457,19 @@ export function AppShell() {
               if (actionResult.failed > 0) {
                 throw new Error(`${actionResult.failed} follow-up action(s) failed.`);
               }
+              actionResult.updatedBaseRelPaths.forEach((relPath) => bulkUpdatedBaseRelPaths.add(relPath));
+              actionResult.updatedModelRelPaths.forEach((relPath) => bulkUpdatedModelRelPaths.add(relPath));
               if (actionResult.applied > 0) {
                 notificationStatus = "bulk-saved";
               }
+            }
+
+            if (notificationStatus === "bulk-saved") {
+              clearDraftsForBulkSave({
+                baseRelPaths: Array.from(bulkUpdatedBaseRelPaths),
+                entityRelPaths: Array.from(bulkUpdatedModelRelPaths),
+                sourceBaseRelPath: updated.relPath,
+              });
             }
           }
         }
@@ -1434,6 +1494,7 @@ export function AppShell() {
       runPropertyRefactor,
       executePendingBaseActions,
       clearPatchedBaseTimer,
+      clearDraftsForBulkSave,
       setBaseEntities,
       setBaseTabs,
       setTabDirty,
@@ -1741,7 +1802,7 @@ export function AppShell() {
       setActiveWorkTab(`folder:${normalizeFolderPath(effectiveFolderPath)}`);
 
       if (renameRequested) {
-        await executePendingBaseActions([
+        const actionResult = await executePendingBaseActions([
           {
             kind: "renameFolder",
             fromFolder: `Model/${currentFolderPath}`,
@@ -1750,9 +1811,13 @@ export function AppShell() {
             reason: "folderProperties",
           },
         ]);
+        clearDraftsForBulkSave({
+          entityRelPaths: actionResult.updatedModelRelPaths,
+          baseRelPaths: actionResult.updatedBaseRelPaths,
+        });
       }
     },
-    [executePendingBaseActions, folderEntityByPath, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
+    [clearDraftsForBulkSave, executePendingBaseActions, folderEntityByPath, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
   );
 
   const setFolderDirty = useCallback((folderPath: string, dirty: boolean) => {

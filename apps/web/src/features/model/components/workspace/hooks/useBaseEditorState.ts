@@ -338,8 +338,12 @@ export const useBaseEditorState = ({
       }
     }
 
+    const wasDirty = baseDirtyRef.current;
     const baseDirty = parseError || !deepEqual(currentContent, originalBaseRef.current);
     baseDirtyRef.current = baseDirty;
+    if (wasDirty !== baseDirty) {
+      onDirtyBase(selectedBase.relPath, baseDirty);
+    }
     if (!baseDirty) {
       persistQueuedRef.current = false;
       pendingPersistReasonRef.current = null;
@@ -351,6 +355,7 @@ export const useBaseEditorState = ({
     baseDraft,
     baseJsonText,
     baseMode,
+    onDirtyBase,
     selectedBase,
   ]);
 
@@ -642,10 +647,11 @@ export const useBaseEditorState = ({
 
       const validation = validateBaseDraft(detected.type, content);
       if (validation.errors.length || Object.keys(validation.missing).length) {
-        setBaseSaveStatus("idle");
-        setBaseSaveError(null);
+        setBaseSaveStatus("error");
+        setBaseSaveError(validation.errors.join("\n") || "Base validation failed.");
         onDirtyBase(selectedBase.relPath, true);
-        return true;
+        onSaveNotification?.("failed");
+        return false;
       }
 
       const saveResult = await onSaveBase({ ...latest, content });

@@ -11,6 +11,8 @@ describe("validateBaseContent duplicate names", () => {
     });
 
     expect(result.errors.some((message) => message.includes("Data Source names must be unique"))).toBe(true);
+    expect(result.missing.CRM?.has("name")).toBe(true);
+    expect(result.missing[" crm "]?.has("name")).toBe(true);
   });
 
   it("flags duplicate module names inside a data product", () => {
@@ -27,6 +29,8 @@ describe("validateBaseContent duplicate names", () => {
     });
 
     expect(result.errors.some((message) => message.includes("duplicate module names"))).toBe(true);
+    expect(result.missing["Sales:module_1"]?.has("name")).toBe(true);
+    expect(result.missing["Sales:module_2"]?.has("name")).toBe(true);
   });
 
   it("accepts zone properties assignments", () => {
@@ -55,6 +59,8 @@ describe("validateBaseContent duplicate names", () => {
     });
 
     expect(result.errors.some((message) => message.includes("Property names must be unique"))).toBe(true);
+    expect(result.missing.Country?.has("name")).toBe(true);
+    expect(result.missing.country?.has("name")).toBe(true);
   });
 
   it("flags missing scope type for properties", () => {
@@ -140,5 +146,7 @@ describe("validateBaseContent duplicate names", () => {
     });
 
     expect(result.errors.some((message) => message.includes("Property Value names must be unique per property"))).toBe(true);
+    expect(result.missing["propertyValue:schedule:daily"]?.has("name")).toBe(true);
+    expect(result.missing["propertyValue: schedule : daily "]?.has("name")).toBe(true);
   });
 });

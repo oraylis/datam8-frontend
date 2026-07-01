@@ -2,25 +2,23 @@ import { useCallback } from "react";
 import { useModelEditor } from "../ModelEditorContext";
 import { useConfirm } from "../../../shared/hooks/useConfirm";
 import { ModelEntity } from "../model-types";
-import { findModelEntityDependents, EntityDependency } from "../model-deps";
+import { findModelEntityDependents } from "../model-deps";
 import { generateModelEntityId } from "../model-utils";
 import { modelLocatorFromRelPath } from "../locator-utils";
 import { createModelEntityByRelPath, deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
 
 export function useModelActions({
   onSaveNotification,
+  onBulkDraftCleanup,
 }: {
   onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
+  onBulkDraftCleanup?: (cleanup: { entityRelPaths?: string[]; sourceEntityRelPath?: string | null }) => void;
 } = {}) {
   const { 
     modelEntities,
     setModelEntities,
-    toggleEntitySelection,
     setSelectedRelPaths,
     setSelectedRelPath,
-    solutionPath,
-    modelTabs,
-    setModelTabs,
     closeTab,
   } = useModelEditor() as any;
 
@@ -48,7 +46,6 @@ export function useModelActions({
       const updates: ModelEntity[] = []; // Other entities updated (deps)
 
       // 1. Create duplicates
-      const allEntities = [...modelEntities, ...newEntities];
       for (const ent of selected) {
         const existingNames: Set<string> = new Set(modelEntities.map((m: ModelEntity) => m.name).concat(newEntities.map(n => n.name)));
         const newName = generateNewName(ent.name, existingNames);
@@ -227,6 +224,9 @@ export function useModelActions({
           if (newEntities.length > 0) {
               setSelectedRelPath(newEntities[0].relPath);
           }
+          if (newEntities.length + updates.length > 1 && updates.length > 0) {
+            onBulkDraftCleanup?.({ entityRelPaths: updates.map((entity) => entity.relPath) });
+          }
           onSaveNotification?.(newEntities.length + updates.length > 1 ? "bulk-saved" : "saved");
 
       } catch (err) {
@@ -234,7 +234,7 @@ export function useModelActions({
           onSaveNotification?.("failed");
       }
     },
-    [generateNewName, modelEntities, onSaveNotification, setModelEntities, setSelectedRelPaths, setSelectedRelPath]
+    [generateNewName, modelEntities, onBulkDraftCleanup, onSaveNotification, setModelEntities, setSelectedRelPaths, setSelectedRelPath]
   );
 
   const deleteModelEntities = useCallback(
@@ -415,6 +415,9 @@ export function useModelActions({
             // Update selection
             setSelectedRelPaths(new Set());
             setSelectedRelPath(null);
+            if (deletable.length + updates.length > 1 && updates.length > 0) {
+              onBulkDraftCleanup?.({ entityRelPaths: updates.map((entity) => entity.relPath) });
+            }
             onSaveNotification?.(deletable.length + updates.length > 1 ? "bulk-saved" : "saved");
 
         } catch (err) {
@@ -422,7 +425,7 @@ export function useModelActions({
             onSaveNotification?.("failed");
         }
     },
-    [closeTab, confirm, modelEntities, onSaveNotification, setModelEntities, setSelectedRelPath, setSelectedRelPaths]
+    [closeTab, confirm, modelEntities, onBulkDraftCleanup, onSaveNotification, setModelEntities, setSelectedRelPath, setSelectedRelPaths]
   );
 
   return { duplicateModelEntities, deleteModelEntities };

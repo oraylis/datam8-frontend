@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FormSelect, Input, Textarea, toast } from "@datam8/ui";
+import { FormSelect, Input, Textarea } from "@datam8/ui";
 import type { PropertyAssignment } from "@datam8/types";
 import { EditorPanelHeader } from "../common/EditorPanelHeader";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
 import type { FolderEntity, PropertyOption } from "../../../model-types";
 import { mergeInheritedProps } from "../../../model-utils";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
-import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
 import { resolveQueuedPersistAfterSave } from "../hooks/autosaveScheduling";
 
 type FolderEditorProps = {
@@ -19,6 +18,7 @@ type FolderEditorProps = {
   onSave: (params: { relPath: string; content: any; folderPath: string; name: string }) => Promise<void>;
   registerPersist?: (persist: (() => Promise<boolean>) | null) => void;
   onDirtyChange?: (folderPath: string, dirty: boolean) => void;
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
 };
 
 type FolderProperty = { property: string; value: string };
@@ -56,6 +56,7 @@ export function FolderEditor({
   onSave,
   registerPersist,
   onDirtyChange,
+  onSaveNotification,
 }: FolderEditorProps) {
   const [mode, setMode] = useState<"ui" | "json">("ui");
   const [name, setName] = useState("");
@@ -228,16 +229,17 @@ export function FolderEditor({
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 1200);
       console.log(`[DataM8] Folder saved: ${selectedFolderPath}`);
-      toast({ variant: "success", title: "Saved", description: folderName, duration: 3500 });
+      onSaveNotification?.("saved");
       return true;
     } catch (err) {
       console.error("[DataM8] Folder save failed:", err);
       setSaveStatus("error");
       setSaveError((err as Error).message || "Save failed.");
       onDirtyChange?.(selectedFolderPath, true);
+      onSaveNotification?.("failed");
       return false;
     }
-  }, [buildUiContent, jsonText, mode, name, onDirtyChange, onSave, selectedFolderPath, targetRelPath]);
+  }, [buildUiContent, jsonText, mode, name, onDirtyChange, onSave, onSaveNotification, selectedFolderPath, targetRelPath]);
 
   useEffect(() => {
     const fallbackName = selectedFolderPath.split("/").filter(Boolean).pop() || "";
@@ -390,23 +392,6 @@ export function FolderEditor({
       pendingPersistRevisionRef.current = 0;
     };
   }, [persistNow, registerPersist]);
-
-  const retrySave = useCallback(() => {
-    void persistNow("tab-switch");
-  }, [persistNow]);
-
-  const { notifySaveFailure, resetSaveFailureToastMemory } = useSaveFailureToast({
-    contextKey: `folder:${selectedFolderPath || "none"}`,
-    onRetry: retrySave,
-  });
-
-  useEffect(() => {
-    if (saveStatus === "error") {
-      notifySaveFailure(saveError);
-      return;
-    }
-    resetSaveFailureToastMemory();
-  }, [notifySaveFailure, resetSaveFailureToastMemory, saveError, saveStatus]);
 
   const handleTextFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {

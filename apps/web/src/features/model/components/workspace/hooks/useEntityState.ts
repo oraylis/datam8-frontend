@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { toast } from "@datam8/ui";
 import type { EntitySection, ModelEntity, PropertyOption } from "../../../model-types";
 import { mergeInheritedProps } from "../../../model-utils";
 import { normalizeMappingForSave, normalizePropertiesForSave } from "../utils/sourceNormalization";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
-import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
 import { reindexRecordAfterMove } from "./transformationSourceMaps";
 import { saveFunctionSource } from "../../../../../shared/desktop/functionSourceBridge";
 import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
@@ -184,6 +182,7 @@ type EntityStateParams = {
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
   getEntityDraft: (relPath: string) => EntityEditorDraft | null;
   setEntityDraft: (relPath: string, draft: EntityEditorDraft | null) => void;
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
 };
 
 type PersistReason =
@@ -215,6 +214,7 @@ export const useEntityState = ({
   onPatchBaseEntity,
   getEntityDraft,
   setEntityDraft,
+  onSaveNotification,
 }: EntityStateParams) => {
   const originalRef = useRef<any | null>(null);
   const originalRelRef = useRef<string | null>(null);
@@ -846,7 +846,7 @@ export const useEntityState = ({
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 1500);
       console.log(`[DataM8] Entity saved: ${selectedEntity.relPath}`);
-      toast({ variant: "success", title: "Saved", description: selectedEntity.name || selectedEntity.relPath, duration: 3500 });
+      onSaveNotification?.("saved");
       return true;
     } catch (err) {
       pendingSelfSaveAckRelPathRef.current = null;
@@ -854,12 +854,14 @@ export const useEntityState = ({
       setSaveStatus("error");
       setSaveError((err as Error).message);
       onDirtyEntity(selectedEntity.relPath, true);
+      onSaveNotification?.("failed");
       return false;
     }
   }, [
     buildDraftContent,
     onDirtyEntity,
     onSave,
+    onSaveNotification,
     selectedEntity,
     solutionPath,
     transformSourceCache,
@@ -913,23 +915,6 @@ export const useEntityState = ({
     pendingPersistRevisionRef.current = 0;
     void persistNow(reason);
   }, [changeRevision, persistNow, persistRequestTick]);
-
-  const retrySave = useCallback(() => {
-    void persistNow("tab-switch");
-  }, [persistNow]);
-
-  const { notifySaveFailure, resetSaveFailureToastMemory } = useSaveFailureToast({
-    contextKey: `entity:${selectedEntity?.relPath || "none"}`,
-    onRetry: retrySave,
-  });
-
-  useEffect(() => {
-    if (saveStatus === "error") {
-      notifySaveFailure(saveError);
-      return;
-    }
-    resetSaveFailureToastMemory();
-  }, [notifySaveFailure, resetSaveFailureToastMemory, saveError, saveStatus]);
 
   return {
     // state
@@ -988,7 +973,6 @@ export const useEntityState = ({
     onSubmit,
     persistNow,
     persistAfterStateFlush,
-    retrySave,
     dataTypes,
     attributeTypeOptions,
     dataTypeDefinitions,

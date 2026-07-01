@@ -6,9 +6,12 @@ import { findModelEntityDependents, EntityDependency } from "../model-deps";
 import { generateModelEntityId } from "../model-utils";
 import { modelLocatorFromRelPath } from "../locator-utils";
 import { createModelEntityByRelPath, deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
-import { useErrorSurface } from "../../../shared/ui/ErrorSurface";
 
-export function useModelActions() {
+export function useModelActions({
+  onSaveNotification,
+}: {
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
+} = {}) {
   const { 
     modelEntities,
     setModelEntities,
@@ -22,7 +25,6 @@ export function useModelActions() {
   } = useModelEditor() as any;
 
   const confirm = useConfirm();
-  const { showError } = useErrorSurface();
 
   const generateNewName = useCallback(
     (originalName: string, existingNames: Set<string>) => {
@@ -225,12 +227,14 @@ export function useModelActions() {
           if (newEntities.length > 0) {
               setSelectedRelPath(newEntities[0].relPath);
           }
+          onSaveNotification?.(newEntities.length + updates.length > 1 ? "bulk-saved" : "saved");
 
       } catch (err) {
-          showError("app", { title: "Duplication failed", description: (err as Error).message });
+          console.error("[DataM8] Duplication failed:", err);
+          onSaveNotification?.("failed");
       }
     },
-    [generateNewName, modelEntities, setModelEntities, setSelectedRelPaths, setSelectedRelPath, showError]
+    [generateNewName, modelEntities, onSaveNotification, setModelEntities, setSelectedRelPaths, setSelectedRelPath]
   );
 
   const deleteModelEntities = useCallback(
@@ -408,15 +412,17 @@ export function useModelActions() {
            // Close tabs for deleted
            deletable.forEach(d => closeTab("entity", d.relPath));
            
-           // Update selection
-           setSelectedRelPaths(new Set());
-           setSelectedRelPath(null);
+            // Update selection
+            setSelectedRelPaths(new Set());
+            setSelectedRelPath(null);
+            onSaveNotification?.(deletable.length + updates.length > 1 ? "bulk-saved" : "saved");
 
-       } catch (err) {
-           showError("app", { title: "Delete failed", description: (err as Error).message });
-       }
+        } catch (err) {
+            console.error("[DataM8] Delete failed:", err);
+            onSaveNotification?.("failed");
+        }
     },
-    [closeTab, confirm, modelEntities, setModelEntities, setSelectedRelPath, setSelectedRelPaths, showError]
+    [closeTab, confirm, modelEntities, onSaveNotification, setModelEntities, setSelectedRelPath, setSelectedRelPaths]
   );
 
   return { duplicateModelEntities, deleteModelEntities };

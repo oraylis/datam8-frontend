@@ -2,9 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ThemeProvider } from "@datam8/ui/theme";
-import { toast } from "@datam8/ui";
 import "@datam8/ui/styles.css";
 import "./index.css";
+import { publishAppError } from "./shared/ui/appErrorBridge";
 
 let didLogAuthShimInstalled = false;
 
@@ -63,14 +63,14 @@ window.addEventListener("unhandledrejection", (event) => {
   // Suppress AbortError — these are expected from cancelled fetch requests.
   if (message === "AbortError" || /aborted/i.test(message)) return;
   console.error("[DataM8] Unhandled rejection:", reason);
-  toast({ variant: "destructive", title: "Unhandled error", description: message });
+  publishAppError("Unhandled error", message);
 });
 
 window.addEventListener("error", (event) => {
   if (!event.error) return;
   const message = event.error instanceof Error ? event.error.message : String(event.error);
   console.error("[DataM8] Runtime error:", event.error);
-  toast({ variant: "destructive", title: "Runtime error", description: message });
+  publishAppError("Runtime error", message);
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

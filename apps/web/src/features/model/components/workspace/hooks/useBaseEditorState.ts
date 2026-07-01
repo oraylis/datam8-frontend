@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { toast } from "@datam8/ui";
 import type { BaseEntity, PropertyOption } from "../../../model-types";
 import { detectBaseType } from "../../../model-utils";
 import {
@@ -10,7 +9,6 @@ import {
 } from "../lib/baseItemSelection";
 import { validateBaseContent } from "../lib/validation";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
-import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
 import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
 import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
 
@@ -48,11 +46,13 @@ export type BaseEditorDraft = {
   selectedDataModule: string | null;
 };
 
+type BaseSaveResult = { notificationStatus?: "saved" | "bulk-saved" };
+
 type BaseStateParams = {
   baseEntities: BaseEntity[];
   selectedBase: BaseEntity | null;
   onSelectBase: (relPath: string, title?: string) => void;
-  onSaveBase: (updated: BaseEntity) => Promise<void>;
+  onSaveBase: (updated: BaseEntity) => Promise<BaseSaveResult>;
   onDirtyBase: (relPath: string, dirty: boolean) => void;
   baseItemSelectionRequest?: { relPath: string; itemName: string; token: number } | null;
   propertyOptions: PropertyOption[];
@@ -60,6 +60,7 @@ type BaseStateParams = {
   dataTypes: string[];
   getBaseDraft: (relPath: string) => BaseEditorDraft | null;
   setBaseEditorDraft: (relPath: string, draft: BaseEditorDraft | null) => void;
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
 };
 
 export type PersistReason =
@@ -89,6 +90,7 @@ export const useBaseEditorState = ({
   dataTypes,
   getBaseDraft,
   setBaseEditorDraft,
+  onSaveNotification,
 }: BaseStateParams) => {
   const { showError } = useErrorSurface();
   const propertyValuesEntry = useMemo(() => baseEntities.find((b) => isPropertyValuesBase(b)), [baseEntities]);
@@ -646,7 +648,7 @@ export const useBaseEditorState = ({
         return true;
       }
 
-      await onSaveBase({ ...latest, content });
+      const saveResult = await onSaveBase({ ...latest, content });
       originalBaseRef.current = cloneDeep(content);
       lastBaseContentKeyRef.current = JSON.stringify(content || {});
       if (usedLatestFallback) {
@@ -660,16 +662,17 @@ export const useBaseEditorState = ({
       onDirtyBase(selectedBase.relPath, false);
       setTimeout(() => setBaseSaveStatus("idle"), 1500);
       console.log(`[DataM8] Base entity saved: ${selectedBase.relPath}`);
-      toast({ variant: "success", title: "Saved", description: selectedBase.name || selectedBase.relPath, duration: 3500 });
+      onSaveNotification?.(saveResult?.notificationStatus ?? "saved");
       return true;
     } catch (err) {
       console.error("[DataM8] Base entity save failed:", err);
       setBaseSaveStatus("error");
       setBaseSaveError((err as Error).message);
       onDirtyBase(selectedBase.relPath, true);
+      onSaveNotification?.("failed");
       return false;
     }
-  }, [baseDraft, baseEntities, baseJsonText, baseMode, onDirtyBase, onSaveBase, selectedBase, validateBaseDraft]);
+  }, [baseDraft, baseEntities, baseJsonText, baseMode, onDirtyBase, onSaveBase, onSaveNotification, selectedBase, validateBaseDraft]);
 
   const hasIncompleteBaseRequiredDraft = useCallback((): boolean => {
     if (!selectedBase || baseMode === "json") return false;
@@ -732,23 +735,6 @@ export const useBaseEditorState = ({
     void persistNow(reason);
   }, [changeRevision, persistNow, persistRequestTick]);
 
-  const retrySave = useCallback(() => {
-    void persistNow("tab-switch");
-  }, [persistNow]);
-
-  const { notifySaveFailure, resetSaveFailureToastMemory } = useSaveFailureToast({
-    contextKey: `base:${selectedBase?.relPath || "none"}`,
-    onRetry: retrySave,
-  });
-
-  useEffect(() => {
-    if (baseSaveStatus === "error") {
-      notifySaveFailure(baseSaveError);
-      return;
-    }
-    resetSaveFailureToastMemory();
-  }, [baseSaveError, baseSaveStatus, notifySaveFailure, resetSaveFailureToastMemory]);
-
   const dataSourceTypes = useMemo(() => {
     const entry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSourceTypes");
     const content =
@@ -780,7 +766,6 @@ export const useBaseEditorState = ({
     onSubmitBase,
     persistNow,
     persistAfterStateFlush,
-    retrySave,
     propertyOptions,
     generatorTargets,
     dataTypes,

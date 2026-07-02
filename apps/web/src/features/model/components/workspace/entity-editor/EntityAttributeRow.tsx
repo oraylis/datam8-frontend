@@ -13,7 +13,7 @@ import {
   Textarea,
   cn,
 } from "@datam8/ui";
-import { Check, ChevronDown, GripVertical, Trash2 } from "lucide-react";
+import { Check, ChevronDown, GripVertical, Tag, Trash2 } from "lucide-react";
 import type { PropertyOption } from "../../../model-types";
 import { IconBtn } from "../common/IconBtn";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
@@ -82,8 +82,9 @@ export const EntityAttributeRow = memo(
     clearPendingFocus,
   }: AttributeRowProps) => {
     const [draftName, setDraftName] = useState(attr?.name || "");
-    const [detailsDraft, setDetailsDraft] = useState<EntityAttribute>(attr);
+    const [detailsDraft, setDetailsDraft] = useState<EntityAttribute | null>(null);
     const [nameError, setNameError] = useState<string | null>(null);
+    const [propertyChipsMounted, setPropertyChipsMounted] = useState(false);
     const nameInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
@@ -106,7 +107,9 @@ export const EntityAttributeRow = memo(
     useEffect(() => {
       if (detailsOpen) {
         setDetailsDraft(attr);
+        return;
       }
+      setDetailsDraft(null);
     }, [attr, detailsOpen]);
 
     const handleCommitName = useCallback(() => {
@@ -119,39 +122,37 @@ export const EntityAttributeRow = memo(
       onCommit("text-blur");
     }, [attr?.name, draftName, index, onCommit, onCommitRename]);
 
-    const typeDef = dataTypeDefinitions[attr?.dataType?.type || ""] || {};
-    const draftExpressionLanguageValue = detailsDraft?.expressionLanguage || "";
-    const draftExpressionLanguageSelectValue = draftExpressionLanguageValue
-      ? expressionLanguageOptions.includes(draftExpressionLanguageValue)
-        ? draftExpressionLanguageValue
-        : "__custom__"
-      : "";
-    const showCustomExpressionLanguage = draftExpressionLanguageSelectValue === "__custom__";
     const rowKey = attr?.name || "";
     const rawAttrProps = useMemo(
       () => (Array.isArray(attr?.properties) ? attr.properties : []),
       [attr?.properties],
     );
-    const attrPropertyItems: PropertyChipItem[] = rawAttrProps
-      .map((p, pIdx): PropertyChipItem | null => {
-        const property = `${p?.property ?? ""}`;
-        if (!property.trim()) return null;
-        return {
-          key: `${rowKey}-prop-${pIdx}-${property}`,
-          property,
-          value: `${p?.value ?? ""}`,
-          inherited: false,
-          title: "Column property",
-          removeKey: pIdx,
-        };
-      })
-      .filter((item: PropertyChipItem | null): item is PropertyChipItem => item !== null);
+    const hasAttributeProperties = rawAttrProps.length > 0;
+    const shouldRenderPropertyChips = hasAttributeProperties || propertyChipsMounted;
+    const attrPropertyItems: PropertyChipItem[] = shouldRenderPropertyChips
+      ? rawAttrProps
+          .map((p, pIdx): PropertyChipItem | null => {
+            const property = `${p?.property ?? ""}`;
+            if (!property.trim()) return null;
+            return {
+              key: `${rowKey}-prop-${pIdx}-${property}`,
+              property,
+              value: `${p?.value ?? ""}`,
+              inherited: false,
+              title: "Column property",
+              removeKey: pIdx,
+            };
+          })
+          .filter((item: PropertyChipItem | null): item is PropertyChipItem => item !== null)
+      : [];
     const attrUsedPropertyNames = useMemo(
       () =>
         new Set<string>(
-          rawAttrProps.map((p) => `${p?.property ?? ""}`).filter((v: string) => v.trim().length > 0),
+          shouldRenderPropertyChips
+            ? rawAttrProps.map((p) => `${p?.property ?? ""}`).filter((v: string) => v.trim().length > 0)
+            : [],
         ),
-      [rawAttrProps],
+      [rawAttrProps, shouldRenderPropertyChips],
     );
 
     const closeDetailsDialog = useCallback(() => {
@@ -161,163 +162,177 @@ export const EntityAttributeRow = memo(
     }, [detailsOpen, onToggleDetails, rowKey]);
 
     const patchDetailsDraft = useCallback((updater: (draft: EntityAttribute) => EntityAttribute) => {
-      setDetailsDraft((draft) => updater(draft));
+      setDetailsDraft((draft) => (draft ? updater(draft) : draft));
     }, []);
 
     const saveDetailsDialog = useCallback(() => {
+      if (!detailsDraft) return;
       onPatch(index, () => detailsDraft);
       onCommit("dropdown-change");
       closeDetailsDialog();
     }, [closeDetailsDialog, detailsDraft, index, onCommit, onPatch]);
 
-    const detailsForm = (
-      <div className="form-grid">
-        <div>
-          <label>Display Name</label>
-          <input
-            value={detailsDraft.displayName || ""}
-            onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, displayName: e.target.value }))}
-          />
-        </div>
-        <div>
-          <label>Attribute Type</label>
-          <FormSelect
-            className="attribute-select"
-            value={detailsDraft.attributeType || ""}
-            onChange={(val) => patchDetailsDraft((draft) => ({ ...draft, attributeType: val }))}
-            options={[{ value: "", label: "Select attribute type" }, ...attributeTypeOptions]}
-            placeholder="Select attribute type"
-          />
-        </div>
-        <div className="attribute-detail-stack">
-          <div>
-            <label>Unit</label>
-            <input
-              value={detailsDraft.unit || ""}
-              onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, unit: e.target.value }))}
-            />
-          </div>
-          <div className="attribute-detail-stack__grow">
-            <label>Description</label>
-            <Textarea
-              rows={2}
-              className="attribute-textarea attribute-textarea--description"
-              value={detailsDraft.description || ""}
-              onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, description: e.target.value }))}
-            />
-          </div>
-        </div>
-        <div className="attribute-detail-stack">
-          <div className="form-grid form-grid--tight">
-            <div className={showCustomExpressionLanguage ? undefined : "full"}>
-              <label>Expression Language</label>
-              <FormSelect
-                className="attribute-select"
-                value={draftExpressionLanguageSelectValue}
-                onChange={(val) => {
-                  if (val === "__custom__") {
-                    patchDetailsDraft((draft) => ({
-                      ...draft,
-                      expressionLanguage:
-                        draft.expressionLanguage && !expressionLanguageOptions.includes(draft.expressionLanguage)
-                          ? draft.expressionLanguage
-                          : "",
-                    }));
-                    return;
-                  }
-                  patchDetailsDraft((draft) => ({
-                    ...draft,
-                    expressionLanguage: val ? val : undefined,
-                  }));
-                }}
-                options={[
-                  { value: "", label: "None" },
-                  ...expressionLanguageOptions.map((lang) => ({ value: lang, label: lang })),
-                  { value: "__custom__", label: "Custom" },
-                ]}
-                placeholder="Select language"
-              />
-            </div>
-            {showCustomExpressionLanguage ? (
+    const detailsForm = detailsOpen && detailsDraft
+      ? (() => {
+          const typeDef = dataTypeDefinitions[detailsDraft?.dataType?.type || ""] || {};
+          const draftExpressionLanguageValue = detailsDraft?.expressionLanguage || "";
+          const draftExpressionLanguageSelectValue = draftExpressionLanguageValue
+            ? expressionLanguageOptions.includes(draftExpressionLanguageValue)
+              ? draftExpressionLanguageValue
+              : "__custom__"
+            : "";
+          const showCustomExpressionLanguage = draftExpressionLanguageSelectValue === "__custom__";
+
+          return (
+            <div className="form-grid">
               <div>
-                <label>Custom Language</label>
+                <label>Display Name</label>
                 <input
-                  placeholder="Language name"
-                  value={detailsDraft.expressionLanguage || ""}
-                  onChange={(e) =>
-                    patchDetailsDraft((draft) => ({
-                      ...draft,
-                      expressionLanguage: e.target.value,
-                    }))
-                  }
+                  value={detailsDraft.displayName || ""}
+                  onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, displayName: e.target.value }))}
                 />
               </div>
-            ) : null}
-            <div className="full">
-              <label>Expression</label>
-              <Textarea
-                rows={2}
-                className="attribute-textarea attribute-textarea--expression"
-                value={detailsDraft.expression || ""}
-                onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, expression: e.target.value }))}
-              />
+              <div>
+                <label>Attribute Type</label>
+                <FormSelect
+                  className="attribute-select"
+                  value={detailsDraft.attributeType || ""}
+                  onChange={(val) => patchDetailsDraft((draft) => ({ ...draft, attributeType: val }))}
+                  options={[{ value: "", label: "Select attribute type" }, ...attributeTypeOptions]}
+                  placeholder="Select attribute type"
+                />
+              </div>
+              <div className="attribute-detail-stack">
+                <div>
+                  <label>Unit</label>
+                  <input
+                    value={detailsDraft.unit || ""}
+                    onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, unit: e.target.value }))}
+                  />
+                </div>
+                <div className="attribute-detail-stack__grow">
+                  <label>Description</label>
+                  <Textarea
+                    rows={2}
+                    className="attribute-textarea attribute-textarea--description"
+                    value={detailsDraft.description || ""}
+                    onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, description: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="attribute-detail-stack">
+                <div className="form-grid form-grid--tight">
+                  <div className={showCustomExpressionLanguage ? undefined : "full"}>
+                    <label>Expression Language</label>
+                    <FormSelect
+                      className="attribute-select"
+                      value={draftExpressionLanguageSelectValue}
+                      onChange={(val) => {
+                        if (val === "__custom__") {
+                          patchDetailsDraft((draft) => ({
+                            ...draft,
+                            expressionLanguage:
+                              draft.expressionLanguage && !expressionLanguageOptions.includes(draft.expressionLanguage)
+                                ? draft.expressionLanguage
+                                : "",
+                          }));
+                          return;
+                        }
+                        patchDetailsDraft((draft) => ({
+                          ...draft,
+                          expressionLanguage: val ? val : undefined,
+                        }));
+                      }}
+                      options={[
+                        { value: "", label: "None" },
+                        ...expressionLanguageOptions.map((lang) => ({ value: lang, label: lang })),
+                        { value: "__custom__", label: "Custom" },
+                      ]}
+                      placeholder="Select language"
+                    />
+                  </div>
+                  {showCustomExpressionLanguage ? (
+                    <div>
+                      <label>Custom Language</label>
+                      <input
+                        placeholder="Language name"
+                        value={detailsDraft.expressionLanguage || ""}
+                        onChange={(e) =>
+                          patchDetailsDraft((draft) => ({
+                            ...draft,
+                            expressionLanguage: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  ) : null}
+                  <div className="full">
+                    <label>Expression</label>
+                    <Textarea
+                      rows={2}
+                      className="attribute-textarea attribute-textarea--expression"
+                      value={detailsDraft.expression || ""}
+                      onChange={(e) => patchDetailsDraft((draft) => ({ ...draft, expression: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              {typeDef?.hasCharLen || typeDef?.hasPrecision || typeDef?.hasScale ? (
+                <div className="form-grid form-grid--3 full">
+                  <div>
+                    <label>Length</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={detailsDraft.dataType?.charLen ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                        patchDetailsDraft((draft) => ({
+                          ...draft,
+                          dataType: { ...(draft.dataType || {}), charLen: Number.isFinite(val) ? val : undefined },
+                        }));
+                      }}
+                      disabled={!typeDef?.hasCharLen}
+                    />
+                  </div>
+                  <div>
+                    <label>Precision</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={detailsDraft.dataType?.precision ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                        patchDetailsDraft((draft) => ({
+                          ...draft,
+                          dataType: { ...(draft.dataType || {}), precision: Number.isFinite(val) ? val : undefined },
+                        }));
+                      }}
+                      disabled={!typeDef?.hasPrecision}
+                    />
+                  </div>
+                  <div>
+                    <label>Scale</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={detailsDraft.dataType?.scale ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                        patchDetailsDraft((draft) => ({
+                          ...draft,
+                          dataType: { ...(draft.dataType || {}), scale: Number.isFinite(val) ? val : undefined },
+                        }));
+                      }}
+                      disabled={!typeDef?.hasScale}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
-          </div>
-        </div>
-        {typeDef?.hasCharLen || typeDef?.hasPrecision || typeDef?.hasScale ? (
-          <div className="form-grid form-grid--3 full">
-            <div>
-              <label>Length</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={detailsDraft.dataType?.charLen ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value === "" ? undefined : Number(e.target.value);
-                  patchDetailsDraft((draft) => ({
-                    ...draft,
-                    dataType: { ...(draft.dataType || {}), charLen: Number.isFinite(val) ? val : undefined },
-                  }));
-                }}
-                disabled={!typeDef?.hasCharLen}
-              />
-            </div>
-            <div>
-              <label>Precision</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={detailsDraft.dataType?.precision ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value === "" ? undefined : Number(e.target.value);
-                  patchDetailsDraft((draft) => ({
-                    ...draft,
-                    dataType: { ...(draft.dataType || {}), precision: Number.isFinite(val) ? val : undefined },
-                  }));
-                }}
-                disabled={!typeDef?.hasPrecision}
-              />
-            </div>
-            <div>
-              <label>Scale</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={detailsDraft.dataType?.scale ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value === "" ? undefined : Number(e.target.value);
-                  patchDetailsDraft((draft) => ({
-                    ...draft,
-                    dataType: { ...(draft.dataType || {}), scale: Number.isFinite(val) ? val : undefined },
-                  }));
-                }}
-                disabled={!typeDef?.hasScale}
-              />
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
+          );
+        })()
+      : null;
 
     return (
       <div
@@ -436,27 +451,47 @@ export const EntityAttributeRow = memo(
             />
           </div>
           <div>
-            <PropertyChips
-              className="chips--sm"
-              items={attrPropertyItems}
-              propertyOptions={propertyOptions}
-              usedPropertyNames={attrUsedPropertyNames}
-              onAdd={(property, value) => {
-                onPatch(index, (a) => ({
-                  ...a,
-                  properties: [...(a.properties || []), { property, value }],
-                }));
-                onCommit("add-item");
-              }}
-              onRemove={(idx) => {
-                onPatch(index, (a) => ({
-                  ...a,
-                  properties: (a.properties || []).filter((_item, ii) => ii !== Number(idx)),
-                }));
-                onCommit("delete-item");
-              }}
-              addLabel="Add column property"
-            />
+            {shouldRenderPropertyChips ? (
+              <PropertyChips
+                className="chips--sm"
+                items={attrPropertyItems}
+                propertyOptions={propertyOptions}
+                usedPropertyNames={attrUsedPropertyNames}
+                defaultOpen={propertyChipsMounted && attrPropertyItems.length === 0}
+                onOpenChange={(open) => {
+                  if (!open && attrPropertyItems.length === 0) {
+                    setPropertyChipsMounted(false);
+                  }
+                }}
+                onAdd={(property, value) => {
+                  onPatch(index, (a) => ({
+                    ...a,
+                    properties: [...(a.properties || []), { property, value }],
+                  }));
+                  onCommit("add-item");
+                }}
+                onRemove={(idx) => {
+                  onPatch(index, (a) => ({
+                    ...a,
+                    properties: (a.properties || []).filter((_item, ii) => ii !== Number(idx)),
+                  }));
+                  onCommit("delete-item");
+                }}
+                addLabel="Add column property"
+              />
+            ) : (
+              <div className="chips chips--sm">
+                <button
+                  type="button"
+                  className="chip chip--add"
+                  aria-label="Add column property"
+                  title="Add column property"
+                  onClick={() => setPropertyChipsMounted(true)}
+                >
+                  <Tag className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <div className="actions actions--tight">
@@ -473,21 +508,25 @@ export const EntityAttributeRow = memo(
             </div>
           </div>
         </div>
-        <Dialog open={detailsOpen} onOpenChange={(open) => !open && closeDetailsDialog()}>
-          <DialogContent className="entity-linkage-dialog attribute-details-dialog max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Attribute Details</DialogTitle>
-              <DialogDescription>{attr.name || "Configure additional attribute fields."}</DialogDescription>
-            </DialogHeader>
-            {detailsForm}
-            <DialogFooter>
-              <Button variant="secondary" onClick={closeDetailsDialog}>
-                Cancel
-              </Button>
-              <Button onClick={saveDetailsDialog}>Save</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {detailsOpen ? (
+          <Dialog open={detailsOpen} onOpenChange={(open) => !open && closeDetailsDialog()}>
+            <DialogContent className="entity-linkage-dialog attribute-details-dialog max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Attribute Details</DialogTitle>
+                <DialogDescription>{attr.name || "Configure additional attribute fields."}</DialogDescription>
+              </DialogHeader>
+              {detailsForm}
+              <DialogFooter>
+                <Button variant="secondary" onClick={closeDetailsDialog}>
+                  Cancel
+                </Button>
+                <Button onClick={saveDetailsDialog} disabled={!detailsDraft}>
+                  Save
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </div>
     );
   },

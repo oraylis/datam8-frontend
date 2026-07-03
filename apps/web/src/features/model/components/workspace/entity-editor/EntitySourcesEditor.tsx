@@ -12,7 +12,7 @@ import {
   FormSelect,
   Input,
 } from "@datam8/ui";
-import { ArrowRight, ChevronDown, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, ExternalLink, Loader2, PanelTopOpen, Trash2 } from "lucide-react";
 import type { ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
@@ -58,8 +58,6 @@ type SourceMappingsProps = {
   source: any;
   sourceIdx: number;
   propertyOptions: PropertyOption[];
-  openMappingDetails: Record<string, boolean>;
-  setOpenMappingDetails: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   collapsedMappings: Record<number, boolean>;
   setCollapsedMappings: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
   updateSource: (idx: number, updater: (src: any) => any) => void;
@@ -86,8 +84,6 @@ type InternalSourceCardProps = {
   propertyOptions: PropertyOption[];
   collapsedMappings: Record<number, boolean>;
   setCollapsedMappings: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-  openMappingDetails: Record<string, boolean>;
-  setOpenMappingDetails: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   resolveEntityMetaById: (id: any) => any;
   modelEntities: ModelEntity[];
   onJumpToEntity: (relPath: string) => void;
@@ -107,8 +103,6 @@ type ExternalSourceCardProps = {
   propertyOptions: PropertyOption[];
   collapsedMappings: Record<number, boolean>;
   setCollapsedMappings: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-  openMappingDetails: Record<string, boolean>;
-  setOpenMappingDetails: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   onJumpToEntity: (relPath: string) => void;
   onJumpToDataSource: (name: string) => void;
   updateSource: (idx: number, updater: (src: any) => any) => void;
@@ -196,8 +190,6 @@ const SourceMappings = ({
   source,
   sourceIdx,
   propertyOptions,
-  openMappingDetails,
-  setOpenMappingDetails,
   collapsedMappings,
   setCollapsedMappings,
   updateSource,
@@ -270,22 +262,23 @@ const SourceMappings = ({
       {!isCollapsed ? (
         mappings.length ? (
           <div className="table entity-mapping-table">
-            <div className="table-row table-head" style={{ gridTemplateColumns: "1.2fr 0.2fr 1.2fr 1.4fr 0.6fr" }}>
+            <div className="table-row table-head" style={{ gridTemplateColumns: "1.2fr 0.2fr 1.2fr 0.8fr 0.55fr 1.2fr 0.5fr" }}>
               <div>Source</div>
               <div></div>
               <div>Target</div>
+              <div>Source Data Type</div>
+              <div className="boolean-cell">Nullable</div>
               <div>Properties</div>
               <div>Actions</div>
             </div>
             {mappings.map((m: any, mIdx: number) => {
               const mapKey = `${sourceIdx}-map-${mIdx}`;
               const mappingProps = Array.isArray(m?.properties) ? m.properties : [];
-              const toggleDetails = () => setOpenMappingDetails((prev) => ({ ...prev, [mapKey]: !prev[mapKey] }));
               const mappingPropertyItems = toPropertyChipItems(mappingProps, `${mapKey}-prop`, "Mapping property");
               const mappingUsedPropertyNames = toUsedPropertyNameSet(mappingProps);
               return (
-                <div key={mapKey} className={`value-row ${isExternal && openMappingDetails[mapKey] ? "value-row--active" : ""}`}>
-                  <div className="table-row" style={{ gridTemplateColumns: "1.2fr 0.2fr 1.2fr 1.4fr 0.6fr" }}>
+                <div key={mapKey} className="value-row">
+                  <div className="table-row" style={{ gridTemplateColumns: "1.2fr 0.2fr 1.2fr 0.8fr 0.55fr 1.2fr 0.5fr" }}>
                     <div>
                       {isExternal ? (
                         <input
@@ -350,6 +343,12 @@ const SourceMappings = ({
                       )}
                     </div>
                     <div>
+                      <input value={m.sourceDataType?.type || ""} readOnly />
+                    </div>
+                    <div className="boolean-cell">
+                      <Checkbox checked={m.sourceDataType?.nullable ?? true} disabled />
+                    </div>
+                    <div>
                       <PropertyChips
                         className="chips--sm"
                         items={mappingPropertyItems}
@@ -399,29 +398,8 @@ const SourceMappings = ({
                       >
                         <Trash2 className="h-4 w-4" />
                       </IconBtn>
-                      {isExternal ? (
-                        <IconBtn active={!!openMappingDetails[mapKey]} title="Details" onClick={toggleDetails}>
-                          <ChevronDown
-                            className={`h-4 w-4 chevron-toggle ${openMappingDetails[mapKey] ? "chevron-toggle--open" : ""}`}
-                          />
-                        </IconBtn>
-                      ) : null}
                     </div>
                   </div>
-                  {isExternal && openMappingDetails[mapKey] ? (
-                    <div className="source-block">
-                      <div className="form-grid">
-                        <div>
-                          <label>Source Data Type</label>
-                          <input value={m.sourceDataType?.type || ""} readOnly />
-                        </div>
-                        <div className="boolean-cell">
-                          <label style={{ marginRight: 8 }}>Nullable</label>
-                          <Checkbox checked={m.sourceDataType?.nullable ?? true} disabled />
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               );
             })}
@@ -473,8 +451,6 @@ const InternalSourceCard = ({
   propertyOptions,
   collapsedMappings,
   setCollapsedMappings,
-  openMappingDetails,
-  setOpenMappingDetails,
   resolveEntityMetaById,
   modelEntities,
   onJumpToEntity,
@@ -529,11 +505,11 @@ const InternalSourceCard = ({
             <ExternalLink className="h-4 w-4" />
           </IconBtn>
           <IconBtn
-            title="Edit source"
-            aria-label="Edit source"
+            title="Open details"
+            aria-label="Open details"
             onClick={() => onEditSource(index, "internal")}
           >
-            <Pencil className="h-4 w-4" />
+            <PanelTopOpen className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Delete source"
@@ -547,8 +523,6 @@ const InternalSourceCard = ({
         source={source}
         sourceIdx={index}
         propertyOptions={propertyOptions}
-        openMappingDetails={openMappingDetails}
-        setOpenMappingDetails={setOpenMappingDetails}
         collapsedMappings={collapsedMappings}
         setCollapsedMappings={setCollapsedMappings}
         updateSource={updateSource}
@@ -568,8 +542,6 @@ const ExternalSourceCard = ({
   propertyOptions,
   collapsedMappings,
   setCollapsedMappings,
-  openMappingDetails,
-  setOpenMappingDetails,
   onJumpToEntity,
   onJumpToDataSource,
   updateSource,
@@ -613,11 +585,11 @@ const ExternalSourceCard = ({
             <ExternalLink className="h-4 w-4" />
           </IconBtn>
           <IconBtn
-            title="Edit source"
-            aria-label="Edit source"
+            title="Open details"
+            aria-label="Open details"
             onClick={() => onEditSource(index, "external")}
           >
-            <Pencil className="h-4 w-4" />
+            <PanelTopOpen className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Delete source"
@@ -631,8 +603,6 @@ const ExternalSourceCard = ({
         source={source}
         sourceIdx={index}
         propertyOptions={propertyOptions}
-        openMappingDetails={openMappingDetails}
-        setOpenMappingDetails={setOpenMappingDetails}
         collapsedMappings={collapsedMappings}
         setCollapsedMappings={setCollapsedMappings}
         updateSource={updateSource}
@@ -658,7 +628,6 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     propertyOptions,
     collapsedMappings,
     setCollapsedMappings,
-    openMappingDetails,
     setOpenMappingDetails,
     zones,
     modelEntities,
@@ -834,8 +803,6 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             propertyOptions={propertyOptions}
             collapsedMappings={collapsedMappings}
             setCollapsedMappings={setCollapsedMappings}
-            openMappingDetails={openMappingDetails}
-            setOpenMappingDetails={setOpenMappingDetails}
             onJumpToEntity={onJumpToEntity}
             onJumpToDataSource={onJumpToDataSource}
             updateSource={updateSource}
@@ -858,8 +825,6 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             propertyOptions={propertyOptions}
             collapsedMappings={collapsedMappings}
             setCollapsedMappings={setCollapsedMappings}
-            openMappingDetails={openMappingDetails}
-            setOpenMappingDetails={setOpenMappingDetails}
             resolveEntityMetaById={resolveEntityMetaById}
             modelEntities={modelEntities}
             onJumpToEntity={onJumpToEntity}

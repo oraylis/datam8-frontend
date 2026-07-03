@@ -203,10 +203,41 @@ function resolvePackagedPythonCandidates(): string[] {
 }
 
 function appendOutputPreview(preview: { value: string }, label: "stdout" | "stderr", chunk: unknown): void {
-  if (preview.value.length >= BACKEND_OUTPUT_PREVIEW_LIMIT) return;
   const text = String(chunk);
-  const remaining = BACKEND_OUTPUT_PREVIEW_LIMIT - preview.value.length;
-  preview.value += `[${label}] ${text.slice(0, remaining)}`;
+  preview.value += `[${label}] ${text}`;
+  if (preview.value.length > BACKEND_OUTPUT_PREVIEW_LIMIT) {
+    preview.value = preview.value.slice(-BACKEND_OUTPUT_PREVIEW_LIMIT);
+  }
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function summarizeBackendStartupFailure(message: string, output: string): string {
+  const clean = stripAnsi(`${message}\n${output}`).replace(/\r/g, "");
+  const httpException = clean.match(/HTTPException:\s*\d+:\s*\[\s*['"]([^'"]+)['"]\s*\]/);
+  const extracted = httpException?.[1]?.trim();
+
+  if (extracted) {
+    return [
+      "Failed to open solution.",
+      "",
+      extracted,
+    ].join("\n");
+  }
+
+  const entityNotFound = clean.match(/Entity was not found in model:\s*([^\]\n]+)/);
+  if (entityNotFound?.[0]) {
+    return [
+      "Failed to open solution.",
+      "",
+      entityNotFound[0].trim(),
+    ].join("\n");
+  }
+
+  const trimmedMessage = stripAnsi(message).trim();
+  return trimmedMessage || "Failed to start backend.";
 }
 
 function resolvePythonRuntimePath(): string | null {
@@ -1081,6 +1112,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     proc.stderr.on("data", (chunk) => appendOutputPreview(backendOutputPreview, "stderr", chunk));
     proc.stderr.pipe(process.stderr);
 
+    let isStartupPhase = true;
     proc.once("exit", (code, signal) => {
       const wasActiveProcess = backendProcess === proc;
       if (wasActiveProcess) {
@@ -1090,7 +1122,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
         backendVersion = null;
         backendSolutionPath = null;
       }
-      if (isQuitting || !wasActiveProcess) return;
+      if (isQuitting || !wasActiveProcess || isStartupPhase) return;
 
       const output = backendOutputPreview.value.trim();
       const message = [
@@ -1136,6 +1168,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       await waitForBackendHealth(backendBaseUrl, token);
       const versionPayload = await backendRequestJson<{ appVersion?: string; app_version?: string; schemaVersion?: string; schema_version?: string }>("/version");
       backendVersion = `${versionPayload?.appVersion || versionPayload?.app_version || versionPayload?.schemaVersion || versionPayload?.schema_version || backendVersion || "0.0.0"}`;
+      isStartupPhase = false;
     } catch (err) {
       try {
         proc.kill();
@@ -1148,7 +1181,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       backendSolutionPath = null;
       const msg = err instanceof Error ? err.message : String(err);
       const output = backendOutputPreview.value.trim();
-      throw new Error(`Failed to start backend: ${msg}${output ? `\n\nBackend output (preview):\n${output}` : ""}`);
+      throw new Error(summarizeBackendStartupFailure(msg, output));
     }
   })();
 

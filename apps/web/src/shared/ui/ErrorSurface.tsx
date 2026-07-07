@@ -45,15 +45,27 @@ export function ErrorSurfaceProvider({ children }: { children: ReactNode }) {
     const title = `${payload.title || ""}`.trim() || "Operation failed";
     const description = `${payload.description || ""}`.trim();
     const retryLabel = `${payload.retryLabel || ""}`.trim() || "Retry";
-    setErrorEntries((prev) => ({
-      ...prev,
-      [scope]: {
-        title,
-        description,
-        onRetry: payload.onRetry || null,
-        retryLabel,
-      },
-    }));
+    const onRetry = payload.onRetry || null;
+    setErrorEntries((prev) => {
+      const current = prev[scope];
+      if (
+        current &&
+        current.title === title &&
+        current.description === description &&
+        current.retryLabel === retryLabel
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [scope]: {
+          title,
+          description,
+          onRetry,
+          retryLabel,
+        },
+      };
+    });
     setInfoEntries((prev) => {
       if (!prev[scope]) return prev;
       const next = { ...prev };
@@ -195,4 +207,3 @@ export function InfoSurfaceHost({ scope }: { scope: ErrorSurfaceScope }) {
     </div>
   );
 }
-

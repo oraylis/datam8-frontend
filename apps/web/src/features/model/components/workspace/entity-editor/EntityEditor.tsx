@@ -10,7 +10,7 @@ import { IconBtn } from "../common/IconBtn";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
 import { BulkAttributeEditDialog } from "./BulkAttributeEditDialog";
 import { EntityAttributeRow } from "./EntityAttributeRow";
-import { EntityRelationshipsEditor } from "./EntityRelationshipsEditor";
+import { EntityRelationshipsEditor, type EntityRelationshipsEditorHandle } from "./EntityRelationshipsEditor";
 import { derivePySourcePath, EntityTransformationsEditor } from "./EntityTransformationsEditor";
 import { EntitySourcesEditor, type EntitySourcesEditorHandle } from "./EntitySourcesEditor";
 import { applyBulkAttributeEditRules, getAttributeIdsInRange, type BulkAttributeEditRule } from "./bulkAttributeEdit";
@@ -348,6 +348,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const clearPendingFocus = useCallback(() => setPendingFocusName(null), []);
   const sourcesEditorRef = useRef<EntitySourcesEditorHandle | null>(null);
+  const relationshipsEditorRef = useRef<EntityRelationshipsEditorHandle | null>(null);
   const [adoptingSchemaIndex, setAdoptingSchemaIndex] = useState<number | null>(null);
 
   const adoptExternalSourceSchema = useCallback(
@@ -565,24 +566,11 @@ export const EntityEditor = (props: EntityEditorProps) => {
     ],
   );
 
-  useEffect(() => {
-    const onSelectChanged = () => persistAfterStateFlush("dropdown-change");
-    const onCheckboxChanged = () => persistAfterStateFlush("add-item");
-    const onValueCommitted = () => persistAfterStateFlush("add-item");
-    window.addEventListener("dm8:form-select-change", onSelectChanged as EventListener);
-    window.addEventListener("dm8:checkbox-change", onCheckboxChanged as EventListener);
-    window.addEventListener("dm8:value-commit", onValueCommitted as EventListener);
-    return () => {
-      window.removeEventListener("dm8:form-select-change", onSelectChanged as EventListener);
-      window.removeEventListener("dm8:checkbox-change", onCheckboxChanged as EventListener);
-      window.removeEventListener("dm8:value-commit", onValueCommitted as EventListener);
-    };
-  }, [persistAfterStateFlush]);
-
   const handleTextFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+      if (target.closest("[data-explicit-autosave='true']")) return;
       if (target instanceof HTMLInputElement) {
         const blocked = new Set(["checkbox", "radio", "button", "submit", "reset", "file", "hidden", "color", "range"]);
         if (blocked.has((target.type || "").toLowerCase())) return;
@@ -653,7 +641,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
     if (attributes.some((a) => !a?.__uiId)) {
       setAttributes((list) => withOrdinals(list));
     }
-  }, [attributes]);
+  }, [attributes, setAttributes, withOrdinals]);
 
   useEffect(() => {
     attributesRef.current = attributes;
@@ -877,13 +865,11 @@ export const EntityEditor = (props: EntityEditorProps) => {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => {
                         sourcesEditorRef.current?.addInternalSource();
-                        persistAfterStateFlush("add-item");
                       }}>
                         Internal source
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => {
                         sourcesEditorRef.current?.addExternalSource();
-                        persistAfterStateFlush("add-item");
                       }}>
                         External source
                       </DropdownMenuItem>
@@ -894,9 +880,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   <ActionButton
                     variant="default"
                     onClick={() => {
-                      markEntityDirty();
-                      setRelationships((list) => [...list, { targetModelEntityId: null, name: `Rel${list.length + 1}` }]);
-                      persistAfterStateFlush("add-item");
+                      relationshipsEditorRef.current?.addRelationship();
                     }}
                   >
                     Add Relationship
@@ -1026,6 +1010,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                         historyOptions={historyOptions}
                         expressionLanguageOptions={expressionLanguageOptions}
                         onPatch={updateAttributeAtNoOrdinals}
+                        onCommit={persistAfterStateFlush}
                         onToggleDetails={toggleDetails}
                         onRemove={handleRemoveAttribute}
                         onCommitRename={commitRename}
@@ -1044,89 +1029,93 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   })}
                 </div>
               </div>
-            )}
-            {entitySection === "sources" && (
-              <EntitySourcesEditor
-                ref={sourcesEditorRef}
-                sources={sources}
-                setSources={setSources}
-                propertyOptions={propertyOptions}
-                collapsedMappings={collapsedMappings}
-                setCollapsedMappings={setCollapsedMappings}
-                openMappingDetails={openMappingDetails}
-                setOpenMappingDetails={setOpenMappingDetails}
-                zones={zones}
-                modelEntities={modelEntities}
-                resolveEntityMetaById={resolveEntityMetaById}
-                onJumpToEntity={onJumpToEntity}
-                onJumpToDataSource={onJumpToDataSource}
-                markEntityDirty={markEntityDirty}
-                dataSourceOptions={dataSourceOptions}
-                dataSourceDetails={dataSourceDetails}
-                adoptingExternalSchemaIndex={adoptingSchemaIndex}
-                solutionPath={solutionPath}
-                onPatchBaseEntity={onPatchBaseEntity}
-                dataSourcesRelPath={dataSourcesRelPath}
-                currentEntityAttributeNames={currentEntityAttributeNames}
-                onAdoptExternalSourceSchema={adoptExternalSourceSchema}
-                onDeleteSource={() => persistAfterStateFlush("delete-item")}
-                onMappingChange={() => persistAfterStateFlush("delete-item")}
-                onSourcePropertyChange={() => persistAfterStateFlush("delete-item")}
+              )}
+              {entitySection === "sources" && (
+                <EntitySourcesEditor
+                  ref={sourcesEditorRef}
+                  sources={sources}
+                  setSources={setSources}
+                  propertyOptions={propertyOptions}
+                  collapsedMappings={collapsedMappings}
+                  setCollapsedMappings={setCollapsedMappings}
+                  openMappingDetails={openMappingDetails}
+                  setOpenMappingDetails={setOpenMappingDetails}
+                  zones={zones}
+                  modelEntities={modelEntities}
+                  resolveEntityMetaById={resolveEntityMetaById}
+                  onJumpToEntity={onJumpToEntity}
+                  onJumpToDataSource={onJumpToDataSource}
+                  markEntityDirty={markEntityDirty}
+                  dataSourceOptions={dataSourceOptions}
+                  dataSourceDetails={dataSourceDetails}
+                  adoptingExternalSchemaIndex={adoptingSchemaIndex}
+                  solutionPath={solutionPath}
+                  onPatchBaseEntity={onPatchBaseEntity}
+                  dataSourcesRelPath={dataSourcesRelPath}
+                  currentEntityAttributeNames={currentEntityAttributeNames}
+                  onAdoptExternalSourceSchema={adoptExternalSourceSchema}
+                  onDeleteSource={() => persistAfterStateFlush("delete-item")}
+                  onSourceChange={() => persistAfterStateFlush("dropdown-change")}
+                  onMappingChange={() => persistAfterStateFlush("dropdown-change")}
+                  onSourcePropertyChange={() => persistAfterStateFlush("add-item")}
+                />
+              )}
+              {entitySection === "relationships" && (
+                <EntityRelationshipsEditor
+                  ref={relationshipsEditorRef}
+                  relationships={relationships}
+                  setRelationships={setRelationships}
+                  relationshipZones={relationshipZones}
+                  setRelationshipZones={setRelationshipZones}
+                  modelEntities={modelEntities}
+                  zones={zones}
+                  attributes={attributes}
+                  resolveEntityNameById={resolveEntityNameById}
+                  zoneFromRelPath={zoneFromRelPath}
+                  onJumpToEntity={onJumpToEntity}
+                  markEntityDirty={markEntityDirty}
+                  onRelationshipChange={() => persistAfterStateFlush("dropdown-change")}
+                  onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
+                />
+              )}
+              {entitySection === "transformations" && (
+                <EntityTransformationsEditor
+                  transformations={transformations}
+                  transformKinds={transformKinds}
+                  openTransformSources={openTransformSources}
+                  transformSourceCache={transformSourceCache}
+                  transformSourceDirty={transformSourceDirty}
+                  dragTransformIndex={dragTransformIndex}
+                  normalizeTransformations={normalizeTransformations}
+                  updateTransformation={updateTransformation}
+                  reorderTransformations={reorderTransformations}
+                  setTransformations={setTransformations}
+                  setOpenTransformSources={setOpenTransformSources}
+                  setTransformSourceCache={setTransformSourceCache}
+                  setTransformSourceDirty={setTransformSourceDirty}
+                  setSaveError={setSaveError}
+                  markEntityDirty={markEntityDirty}
+                  selectedEntity={selectedEntity}
+                  entityName={String(formState?.name || selectedEntity?.content?.name || selectedEntity?.name || "")}
+                  solutionPath={solutionPath}
+                  onCommit={persistAfterStateFlush}
+                  onDeleteTransformation={() => persistAfterStateFlush("delete-item")}
+                />
+              )}
+            </>
+          ) : (
+            <div>
+              <label>JSON</label>
+              <Textarea
+                rows={20}
+                className="code"
+                value={jsonText}
+                onChange={(e) => {
+                  markEntityDirty();
+                  setJsonText(e.target.value);
+                }}
               />
-            )}
-            {entitySection === "relationships" && (
-              <EntityRelationshipsEditor
-                relationships={relationships}
-                setRelationships={setRelationships}
-                relationshipZones={relationshipZones}
-                setRelationshipZones={setRelationshipZones}
-                modelEntities={modelEntities}
-                zones={zones}
-                attributes={attributes}
-                resolveEntityNameById={resolveEntityNameById}
-                zoneFromRelPath={zoneFromRelPath}
-                onJumpToEntity={onJumpToEntity}
-                markEntityDirty={markEntityDirty}
-                onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
-              />
-            )}
-            {entitySection === "transformations" && (
-              <EntityTransformationsEditor
-                transformations={transformations}
-                transformKinds={transformKinds}
-                openTransformSources={openTransformSources}
-                transformSourceCache={transformSourceCache}
-                transformSourceDirty={transformSourceDirty}
-                dragTransformIndex={dragTransformIndex}
-                normalizeTransformations={normalizeTransformations}
-                updateTransformation={updateTransformation}
-                reorderTransformations={reorderTransformations}
-                setTransformations={setTransformations}
-                setOpenTransformSources={setOpenTransformSources}
-                setTransformSourceCache={setTransformSourceCache}
-                setTransformSourceDirty={setTransformSourceDirty}
-                setSaveError={setSaveError}
-                markEntityDirty={markEntityDirty}
-                selectedEntity={selectedEntity}
-                entityName={String(formState?.name || selectedEntity?.content?.name || selectedEntity?.name || "")}
-                solutionPath={solutionPath}
-                onDeleteTransformation={() => persistAfterStateFlush("delete-item")}
-              />
-            )}
-          </>
-        ) : (
-          <div>
-            <label>JSON</label>
-            <Textarea
-              rows={20}
-              className="code"
-              value={jsonText}
-              onChange={(e) => {
-                markEntityDirty();
-                setJsonText(e.target.value);
-              }}
-            />
-          </div>
+            </div>
         )}
       </div>
       <BulkAttributeEditDialog

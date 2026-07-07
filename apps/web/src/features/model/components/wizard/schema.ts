@@ -32,10 +32,10 @@ export const step1Schema = z.object({
   selectedSource: z.string().optional(),
   selectedTables: z.array(z.string()).optional(),
   selectedInternalEntities: z.array(z.string()).optional(),
-  tableRenames: z.record(z.string()).optional(),
-  tableDescriptions: z.record(z.string()).optional(),
-  tableProperties: z.record(z.array(propertySchema)).optional(),
-  tableSourceOverrides: z.record(sourceOverrideSchema).optional(),
+  tableRenames: z.record(z.string(), z.string()).optional(),
+  tableDescriptions: z.record(z.string(), z.string()).optional(),
+  tableProperties: z.record(z.string(), z.array(propertySchema)).optional(),
+  tableSourceOverrides: z.record(z.string(), sourceOverrideSchema).optional(),
 });
 
 export const sourceSchema = z

@@ -59,6 +59,7 @@ type EntityTransformationsEditorProps = {
   selectedEntity: ModelEntity | null;
   entityName: string;
   solutionPath: string;
+  onCommit?: (reason: "dropdown-change" | "add-item" | "delete-item") => void;
   onDeleteTransformation?: () => void;
 };
 
@@ -81,6 +82,7 @@ export const EntityTransformationsEditor = ({
   selectedEntity,
   entityName,
   solutionPath,
+  onCommit,
   onDeleteTransformation,
 }: EntityTransformationsEditorProps) => {
   const [dragOverState, setDragOverState] = useState<{ index: number; position: "before" | "after" } | null>(null);
@@ -142,9 +144,7 @@ export const EntityTransformationsEditor = ({
               const baseTarget = position === "before" ? idx : idx + 1;
               const target = from < baseTarget ? baseTarget - 1 : baseTarget;
               reorderTransformations(from, target);
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("dm8:value-commit"));
-              }
+              onCommit?.("add-item");
               dragTransformIndex.current = null;
               setDragOverState(null);
             };
@@ -223,6 +223,7 @@ export const EntityTransformationsEditor = ({
                             ? t.__uiPrevFunctionSource || t.function?.source || derivePySourcePath(t.name || "", t.function?.source)
                             : undefined,
                       }));
+                      onCommit?.("dropdown-change");
                     }}
                     options={[{ value: "", label: "Select kind" }, ...transformKinds.map((k) => ({ value: k, label: k }))]}
                     placeholder="Select kind"

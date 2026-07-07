@@ -96,7 +96,7 @@ export function GeneratorPanel({
 
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={selectedTarget || undefined} onValueChange={onSelectTarget} disabled={!targets.length || running}>
+            <Select value={selectedTarget || ""} onValueChange={onSelectTarget} disabled={!targets.length || running}>
               <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="Select target" />
               </SelectTrigger>

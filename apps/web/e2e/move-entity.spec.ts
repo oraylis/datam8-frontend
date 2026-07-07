@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+type JsonRecord = Record<string, unknown>;
+
 function createMockSolutionPayload() {
   return {
     solution: {
@@ -100,7 +102,7 @@ function createMockSolutionPayload() {
 
 async function mockApi(page: import("@playwright/test").Page) {
   const solutionPayload = createMockSolutionPayload();
-  const moveBodies: any[] = [];
+  const moveBodies: JsonRecord[] = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -190,4 +192,3 @@ test("Move to… moves model entity to new Zone/Product/Module", async ({ page }
   await expect(page.getByRole("button", { name: "ProductX" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Customer" }).first()).toBeVisible();
 });
-

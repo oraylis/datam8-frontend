@@ -21,6 +21,7 @@ type DataSourceDetails = {
 };
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
+type BaseSaveResult = { notificationStatus?: "saved" | "bulk-saved" };
 type BaseItemSelectionRequest = {
   relPath: string;
   itemName: string;
@@ -58,6 +59,7 @@ export function Workspace({
   setBaseDraft,
   registerEntityPersist,
   registerBasePersist,
+  onSaveNotification,
 }: {
   activeTab: Tab;
   activeWorkTab: string | null;
@@ -66,7 +68,7 @@ export function Workspace({
   baseEntities: BaseEntity[];
   selectedBase: BaseEntity | null;
   onSelectBase: (relPath: string, title?: string) => void;
-  onSaveBase: (updated: BaseEntity) => Promise<void>;
+  onSaveBase: (updated: BaseEntity) => Promise<BaseSaveResult>;
   onDirtyEntity: (relPath: string, dirty: boolean) => void;
   onDirtyBase: (relPath: string, dirty: boolean) => void;
   dataTypes: string[];
@@ -89,6 +91,7 @@ export function Workspace({
   setBaseDraft: (relPath: string, draft: any | null) => void;
   registerEntityPersist?: (persist: (() => Promise<boolean>) | null) => void;
   registerBasePersist?: (persist: (() => Promise<boolean>) | null) => void;
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
 }) {
   const dataSourceOptions = useMemo(() => {
     const names = new Set<string>();
@@ -166,6 +169,7 @@ export function Workspace({
     setEntityDraft,
     dataSourceOptions,
     dataSourcesRelPath,
+    onSaveNotification,
   });
 
   const baseState = useBaseEditorState({
@@ -180,17 +184,21 @@ export function Workspace({
     dataTypes,
     getBaseDraft,
     setBaseEditorDraft: setBaseDraft,
+    onSaveNotification,
   });
 
-  useEffect(() => {
-    registerEntityPersist?.(() => entityState.persistNow("tab-switch"));
-    return () => registerEntityPersist?.(null);
-  }, [entityState.persistNow, registerEntityPersist]);
+  const persistEntityNow = entityState.persistNow;
+  const persistBaseNow = baseState.persistNow;
 
   useEffect(() => {
-    registerBasePersist?.(() => baseState.persistNow("tab-switch"));
+    registerEntityPersist?.(() => persistEntityNow("tab-switch"));
+    return () => registerEntityPersist?.(null);
+  }, [persistEntityNow, registerEntityPersist]);
+
+  useEffect(() => {
+    registerBasePersist?.(() => persistBaseNow("tab-switch"));
     return () => registerBasePersist?.(null);
-  }, [baseState.persistNow, registerBasePersist]);
+  }, [persistBaseNow, registerBasePersist]);
 
   const content = (() => {
     switch (activeTab.kind) {

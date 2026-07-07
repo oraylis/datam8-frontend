@@ -19,6 +19,7 @@ type PropertyValuesEditorProps = {
   isMissingField: (key: string, field: string) => boolean;
   propertyOptions: PropertyOption[];
   propertyScopeTypeOptions: Array<{ value: string; label: string }>;
+  onCommit: (reason: "dropdown-change" | "add-item" | "delete-item") => void;
 };
 
 const RESERVED_VALUE_FIELDS = new Set(["name", "displayName", "default", "property", "properties"]);
@@ -34,6 +35,7 @@ export const PropertyValuesEditor = ({
   isMissingField,
   propertyOptions,
   propertyScopeTypeOptions,
+  onCommit,
 }: PropertyValuesEditorProps) => {
   const currentList = Array.isArray(baseData.items) ? baseData.items : [];
   const currentIndex = findBaseItemIndex(currentList, selectedBaseItem);
@@ -101,7 +103,10 @@ export const PropertyValuesEditor = ({
               actions={(
                 <ActionButton
                   variant="ghost"
-                  onClick={() => setScopes([...scopes, { type: "", singleUsage: true, mandatory: false }])}
+                  onClick={() => {
+                    setScopes([...scopes, { type: "", singleUsage: true, mandatory: false }]);
+                    onCommit("add-item");
+                  }}
                 >
                   Add Scope
                 </ActionButton>
@@ -135,7 +140,10 @@ export const PropertyValuesEditor = ({
                           return (
                         <FormSelect
                           value={scopeType}
-                          onChange={(value) => updateScope(scopeIdx, { ...scope, type: value })}
+                          onChange={(value) => {
+                            updateScope(scopeIdx, { ...scope, type: value });
+                            onCommit("dropdown-change");
+                          }}
                           options={options}
                           placeholder="Select type"
                           className={isMissingField(itemKey, `scope:${scopeIdx}:type`) ? "border-destructive" : undefined}
@@ -147,7 +155,10 @@ export const PropertyValuesEditor = ({
                         <div className="toggle-field">
                           <Checkbox
                             checked={scope?.singleUsage !== false}
-                            onCheckedChange={(checked) => updateScope(scopeIdx, { ...scope, singleUsage: checked === true })}
+                            onCheckedChange={(checked) => {
+                              updateScope(scopeIdx, { ...scope, singleUsage: checked === true });
+                              onCommit("dropdown-change");
+                            }}
                             aria-label="Single Usage"
                           />
                         </div>
@@ -156,7 +167,10 @@ export const PropertyValuesEditor = ({
                         <div className="toggle-field">
                           <Checkbox
                             checked={scope?.mandatory === true}
-                            onCheckedChange={(checked) => updateScope(scopeIdx, { ...scope, mandatory: checked === true })}
+                            onCheckedChange={(checked) => {
+                              updateScope(scopeIdx, { ...scope, mandatory: checked === true });
+                              onCommit("dropdown-change");
+                            }}
                             aria-label="Mandatory"
                           />
                         </div>
@@ -164,7 +178,10 @@ export const PropertyValuesEditor = ({
                       <div className="actions actions--tight">
                         <IconBtn
                           title="Remove"
-                          onClick={() => setScopes(scopes.filter((_scope: any, idx: number) => idx !== scopeIdx))}
+                          onClick={() => {
+                            setScopes(scopes.filter((_scope: any, idx: number) => idx !== scopeIdx));
+                            onCommit("delete-item");
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </IconBtn>
@@ -234,8 +251,14 @@ export const PropertyValuesEditor = ({
             .filter((item: PropertyChipItem | null): item is PropertyChipItem => item !== null)}
           propertyOptions={subPropertyOptions}
           usedPropertyNames={new Set(assignments.map((entry: any) => `${entry?.property ?? ""}`).filter((value: string) => value.trim().length > 0))}
-          onAdd={(property, value) => setAssignments([...assignments, { property, value }])}
-          onRemove={(index) => setAssignments(assignments.filter((_item: any, idx: number) => idx !== Number(index)))}
+          onAdd={(property, value) => {
+            setAssignments([...assignments, { property, value }]);
+            onCommit("add-item");
+          }}
+          onRemove={(index) => {
+            setAssignments(assignments.filter((_item: any, idx: number) => idx !== Number(index)));
+            onCommit("delete-item");
+          }}
           addLabel="Add sub property"
           addDisabled={!subPropertyOptions.some((entry) => (entry.values || []).length > 0)}
         />
@@ -245,7 +268,10 @@ export const PropertyValuesEditor = ({
           <label>Property *</label>
           <FormSelect
             value={current.property || ""}
-            onChange={(value) => updateCurrent((item) => ({ ...item, property: value }))}
+            onChange={(value) => {
+              updateCurrent((item) => ({ ...item, property: value }));
+              onCommit("dropdown-change");
+            }}
             options={[{ value: "", label: "Select property" }, ...allPropertyNames.map((value) => ({ value, label: value }))]}
             placeholder="Select property"
             className={invalidStyle("property") ? "border-destructive" : undefined}
@@ -274,7 +300,10 @@ export const PropertyValuesEditor = ({
           <div className="toggle-field toggle-field--inline">
             <Checkbox
               checked={!!current.default}
-              onCheckedChange={(checked) => updateCurrent((item) => ({ ...item, default: checked === true }))}
+              onCheckedChange={(checked) => {
+                updateCurrent((item) => ({ ...item, default: checked === true }));
+                onCommit("dropdown-change");
+              }}
               aria-label="Default"
             />
           </div>
@@ -285,7 +314,10 @@ export const PropertyValuesEditor = ({
             actions={(
               <ActionButton
                 variant="ghost"
-                onClick={() => setAttributes([...attributeRows, { name: `attr_${attributeRows.length + 1}`, value: "" }])}
+                onClick={() => {
+                  setAttributes([...attributeRows, { name: `attr_${attributeRows.length + 1}`, value: "" }]);
+                  onCommit("add-item");
+                }}
               >
                 Add Attribute
               </ActionButton>
@@ -330,7 +362,10 @@ export const PropertyValuesEditor = ({
                     <div className="actions actions--tight">
                       <IconBtn
                         title="Remove"
-                        onClick={() => setAttributes(attributeRows.filter((_entry, idx) => idx !== attrIndex))}
+                        onClick={() => {
+                          setAttributes(attributeRows.filter((_entry, idx) => idx !== attrIndex));
+                          onCommit("delete-item");
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </IconBtn>

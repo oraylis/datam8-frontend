@@ -1,5 +1,5 @@
 import React from "react";
-import { toast } from "@datam8/ui";
+import { publishAppError } from "./appErrorBridge";
 
 interface Props {
   children: React.ReactNode;
@@ -21,11 +21,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    toast({
-      variant: "destructive",
-      title: "Unexpected error",
-      description: error.message || "An unexpected rendering error occurred.",
-    });
+    publishAppError("Unexpected error", error.message || "An unexpected rendering error occurred.");
     console.error("[DataM8] Uncaught render error:", error, info.componentStack);
   }
 

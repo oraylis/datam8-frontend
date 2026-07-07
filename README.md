@@ -18,7 +18,7 @@ Legacy cleanup:
 - `packages/datam8_cli` was removed from this repository. Frontend uses `submodules/datam8-generator` as backend runtime.
 
 ## Prerequisites
-- Node.js 20.x or 22.x LTS (repo uses npm workspaces; Node 25+ is unsupported).
+- Node.js 24 LTS (repo uses npm workspaces; Node 25+ is unsupported).
 - Python 3.12+ for local desktop dev/backend runs. (handled by `uv sync`)
 - `uv` for preparing `submodules/datam8-generator/.venv`.
 
@@ -48,7 +48,8 @@ Key runtime env vars:
 
 ## Build and Package
 - Web build (electron mode): `npm run build:web:electron`
-- Backend runtime artifacts: `npm run build:datam8-binaries`
+- Backend wheel artifacts: `npm run build:datam8-binaries`
+- Packaged Python runtime: `npm run build:python-runtime`
 - Desktop packages:
   - current OS: `npm run build:desktop`
   - explicit: `npm run build:desktop:win`, `npm run build:desktop:mac`, `npm run build:desktop:linux`
@@ -72,5 +73,4 @@ Removed:
 
 ## Troubleshooting
 See `docs/troubleshooting.md`.
-
 

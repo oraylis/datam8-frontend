@@ -2,15 +2,20 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ThemeProvider } from "@datam8/ui/theme";
-import { toast } from "@datam8/ui";
 import "@datam8/ui/styles.css";
 import "./index.css";
+import { publishAppError } from "./shared/ui/appErrorBridge";
 
 let didLogAuthShimInstalled = false;
 
+type DesktopRuntime = {
+  isElectron?: boolean;
+  token?: string;
+  apiBase?: string;
+};
+
 function installAuthFetchShim() {
-  const anyWindow = window as any;
-  const desktop = anyWindow?.desktop;
+  const desktop = (window as Window & { desktop?: DesktopRuntime }).desktop;
   if (!desktop?.isElectron) return;
 
   const token = typeof desktop?.token === "string" ? desktop.token.trim() : "";
@@ -29,19 +34,19 @@ function installAuthFetchShim() {
   window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = input instanceof Request ? input : null;
     const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : req?.url;
-    if (!urlStr) return originalFetch(input as any, init);
+    if (!urlStr) return originalFetch(input, init);
 
     const url = new URL(urlStr, window.location.origin);
     const isBackend = urlStr.startsWith(apiBase) || url.origin === apiOrigin;
-    if (!isBackend) return originalFetch(input as any, init);
+    if (!isBackend) return originalFetch(input, init);
 
     const headers = new Headers(init?.headers || req?.headers);
     if (!headers.has("authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    return originalFetch(input as any, { ...(init || {}), headers });
-  }) as any;
+    return originalFetch(input, { ...(init || {}), headers });
+  }) satisfies typeof window.fetch;
 }
 
 installAuthFetchShim();
@@ -58,14 +63,14 @@ window.addEventListener("unhandledrejection", (event) => {
   // Suppress AbortError — these are expected from cancelled fetch requests.
   if (message === "AbortError" || /aborted/i.test(message)) return;
   console.error("[DataM8] Unhandled rejection:", reason);
-  toast({ variant: "destructive", title: "Unhandled error", description: message });
+  publishAppError("Unhandled error", message);
 });
 
 window.addEventListener("error", (event) => {
   if (!event.error) return;
   const message = event.error instanceof Error ? event.error.message : String(event.error);
   console.error("[DataM8] Runtime error:", event.error);
-  toast({ variant: "destructive", title: "Runtime error", description: message });
+  publishAppError("Runtime error", message);
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

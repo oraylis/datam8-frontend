@@ -2,27 +2,27 @@ import { useCallback } from "react";
 import { useModelEditor } from "../ModelEditorContext";
 import { useConfirm } from "../../../shared/hooks/useConfirm";
 import { ModelEntity } from "../model-types";
-import { findModelEntityDependents, EntityDependency } from "../model-deps";
+import { findModelEntityDependents } from "../model-deps";
 import { generateModelEntityId } from "../model-utils";
 import { modelLocatorFromRelPath } from "../locator-utils";
-import { deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
-import { useErrorSurface } from "../../../shared/ui/ErrorSurface";
+import { createModelEntityByRelPath, deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
 
-export function useModelActions() {
+export function useModelActions({
+  onSaveNotification,
+  onBulkDraftCleanup,
+}: {
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
+  onBulkDraftCleanup?: (cleanup: { entityRelPaths?: string[]; sourceEntityRelPath?: string | null }) => void;
+} = {}) {
   const { 
     modelEntities,
     setModelEntities,
-    toggleEntitySelection,
     setSelectedRelPaths,
     setSelectedRelPath,
-    solutionPath,
-    modelTabs,
-    setModelTabs,
     closeTab,
   } = useModelEditor() as any;
 
   const confirm = useConfirm();
-  const { showError } = useErrorSurface();
 
   const generateNewName = useCallback(
     (originalName: string, existingNames: Set<string>) => {
@@ -46,7 +46,6 @@ export function useModelActions() {
       const updates: ModelEntity[] = []; // Other entities updated (deps)
 
       // 1. Create duplicates
-      const allEntities = [...modelEntities, ...newEntities];
       for (const ent of selected) {
         const existingNames: Set<string> = new Set(modelEntities.map((m: ModelEntity) => m.name).concat(newEntities.map(n => n.name)));
         const newName = generateNewName(ent.name, existingNames);
@@ -201,11 +200,16 @@ export function useModelActions() {
 
       // 3. Save all new and updated entities
       try {
-          const allToSave = [...newEntities, ...updates];
-          await Promise.all(allToSave.map(e => 
-             saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
-               .catch((err) => { throw new Error(`Failed to save "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
-          ));
+          await Promise.all([
+            ...newEntities.map(e =>
+              createModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
+                .catch((err) => { throw new Error(`Failed to create "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
+            ),
+            ...updates.map(e =>
+              saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
+                .catch((err) => { throw new Error(`Failed to save "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
+            ),
+          ]);
 
           // 4. Update state
           setModelEntities((prev: ModelEntity[]) => {
@@ -220,12 +224,17 @@ export function useModelActions() {
           if (newEntities.length > 0) {
               setSelectedRelPath(newEntities[0].relPath);
           }
+          if (newEntities.length + updates.length > 1 && updates.length > 0) {
+            onBulkDraftCleanup?.({ entityRelPaths: updates.map((entity) => entity.relPath) });
+          }
+          onSaveNotification?.(newEntities.length + updates.length > 1 ? "bulk-saved" : "saved");
 
       } catch (err) {
-          showError("app", { title: "Duplication failed", description: (err as Error).message });
+          console.error("[DataM8] Duplication failed:", err);
+          onSaveNotification?.("failed");
       }
     },
-    [generateNewName, modelEntities, setModelEntities, setSelectedRelPaths, setSelectedRelPath, showError]
+    [generateNewName, modelEntities, onBulkDraftCleanup, onSaveNotification, setModelEntities, setSelectedRelPaths, setSelectedRelPath]
   );
 
   const deleteModelEntities = useCallback(
@@ -403,17 +412,21 @@ export function useModelActions() {
            // Close tabs for deleted
            deletable.forEach(d => closeTab("entity", d.relPath));
            
-           // Update selection
-           setSelectedRelPaths(new Set());
-           setSelectedRelPath(null);
+            // Update selection
+            setSelectedRelPaths(new Set());
+            setSelectedRelPath(null);
+            if (deletable.length + updates.length > 1 && updates.length > 0) {
+              onBulkDraftCleanup?.({ entityRelPaths: updates.map((entity) => entity.relPath) });
+            }
+            onSaveNotification?.(deletable.length + updates.length > 1 ? "bulk-saved" : "saved");
 
-       } catch (err) {
-           showError("app", { title: "Delete failed", description: (err as Error).message });
-       }
+        } catch (err) {
+            console.error("[DataM8] Delete failed:", err);
+            onSaveNotification?.("failed");
+        }
     },
-    [closeTab, confirm, modelEntities, setModelEntities, setSelectedRelPath, setSelectedRelPaths, showError]
+    [closeTab, confirm, modelEntities, onBulkDraftCleanup, onSaveNotification, setModelEntities, setSelectedRelPath, setSelectedRelPaths]
   );
 
   return { duplicateModelEntities, deleteModelEntities };
 }
-

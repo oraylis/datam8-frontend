@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useState } from "react";
-import { toast } from "@datam8/ui";
 import { apiBase } from "../../config";
+import { publishAppError } from "../../shared/ui/appErrorBridge";
 
 export type FsEntry = { name: string; path: string; type: "file" | "dir" };
 
@@ -37,7 +37,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load files";
       setFsError(message);
-      toast({ variant: "destructive", title: "File system error", description: message });
+      publishAppError("File system error", message);
     } finally {
       setFsLoading(false);
     }

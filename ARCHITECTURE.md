@@ -1,12 +1,12 @@
-# DataM8 Architecture (HTTP + Jobs)
+# DataM8 Architecture (HTTP Root Endpoints)
 
 ## High-Level View
 ```
-[Electron shell] ── spawns bundled `datam8 serve` (FastAPI) ──(HTTP/SSE, token-auth)──▶ [Backend]
+[Electron shell] ── spawns `python -m datam8 serve` (FastAPI) ──(HTTP, token-auth)──▶ [Backend]
         │
         │ (passes baseUrl + token via additionalArguments + preload)
         ▼
-[Web UI (React/Vite)] ── calls /api/* + /jobs/* ── subscribes /jobs/:id/events (SSE)
+[Web UI (React/Vite)] ── calls root backend endpoints (no /api/* namespace)
 ```
 
 ## Modules & Responsibilities
@@ -14,18 +14,18 @@
   - Layout + ribbon + tabs: `src/app/AppShell.tsx`, `features/model/ModelEditorContext.tsx`.
   - Workspace composition: `features/model/components/Workspace.tsx` → entity editor (`workspace/entity-editor/*`), base editor (`workspace/base-editor/*`), new entity wizard (`CreateModelEntityWizard.tsx`).
   - Solution loading: `features/solution/*` (desktop path, file upload, server list).
-  - Generator panel: `features/generator/*` (starts `generate` Job, streams logs via SSE).
+  - Generator panel: `features/generator/*` (runs synchronous `POST /generate` and displays returned messages).
   - Filesystem picker: `features/fs/FileSystemContext.tsx`.
 - **Desktop (`apps/desktop`)**
   - Main process: `src/main.ts` spawns `datam8 serve --host 127.0.0.1 --port 0 --token <random>`, parses readiness JSON from stdout, verifies `/health`, then creates the BrowserWindow.
   - Preload: `src/preload.ts` exposes `{ apiBase, token }` + native dialogs + theme events to the renderer.
-  - Packaging: electron-builder bundles the `datam8` binary into `resources/bin/<platform>/datam8(.exe)`.
+  - Packaging: electron-builder bundles a Python runtime under `resources/python-runtime`; production starts `python -m datam8`.
 - **Backend (submodule)**
-  - `submodules/datam8-generator` is the single source of truth for the `datam8` CLI, FastAPI server, and Job system.
+  - `submodules/datam8-generator` is the single source of truth for the `datam8` CLI, FastAPI server, and backend contract.
 
 ## Backend Lifecycle (Desktop-safe)
 Frontend starts the backend once and keeps it long-lived:
-- Spawn: `datam8 serve --host 127.0.0.1 --port 0 --token <random>`
+- Spawn: `python -m datam8 serve --host 127.0.0.1 --port 0 --token <random>`
 - Readiness: backend prints exactly one JSON line to stdout:
   - `{"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}`
 - All other logs go to stderr.
@@ -36,20 +36,21 @@ Frontend starts the backend once and keeps it long-lived:
   - `Authorization: Bearer <token>`
 - Unauthenticated: `GET /health`, `GET /version`
 
-## Long Tasks (Jobs)
-Anything that can take > ~1s is a Job:
-- Create: `POST /jobs` `{ "type": "<jobType>", "params": { ... } }`
-- Inspect: `GET /jobs/:id`
-- Cancel: `POST /jobs/:id/cancel` (best-effort)
-- Stream: `GET /jobs/:id/events` (SSE: status/log/progress/result/error)
+## Backend Calls
+Frontend uses root endpoints. There is no `/api/*` namespace and no Jobs/SSE layer in the current contract.
+
+- Solution load: `GET /solution/inspect`, `GET /solution/full`
+- File-system picker: `GET /fs/list`
+- Generate: synchronous `POST /generate`
+- Validate: synchronous `POST /validate`
+- Editor operations use root model/base/entity/refactor/plugin/secret endpoints.
 
 ## Data Flow (UI)
-1) **Solution discovery**: Web uses `/api/fs/list` or desktop file picker to locate a `.dm8s`.
-2) **Load**: Web calls `/api/solution/full` and `/api/*` entity endpoints (legacy surface retained for parity).
-3) **Edit**: Web maintains per-tab drafts, then saves via `/api/model/entities` and `/api/base/entities`.
-4) **Index**: long-running index work is started as `POST /jobs` with `{ type: "index" }`.
-5) **Generate**: generator runs as `POST /jobs` with `{ type: "generate" }` and streams logs via SSE.
+1) **Solution discovery**: Web uses `GET /fs/list` or desktop file picker to locate a `.dm8s`.
+2) **Load**: Web calls `GET /solution/full`.
+3) **Edit**: Web maintains per-tab drafts, then saves through root model/base/entity endpoints.
+4) **Generate/Validate**: Web sends synchronous `POST /generate` or `POST /validate` and renders returned messages.
 
 ## Build & Runtime Notes
-- Dev: `npm run dev:desktop` expects a `datam8` binary (override with `DATAM8_CLI_PATH`).
-- Packaging: electron-builder bundles `submodules/datam8-generator/dist/bin/<platform>/datam8(.exe)` into `resources/bin/<platform>/`.
+- Dev: `npm run dev:desktop` expects the `submodules/datam8-generator/.venv` Python interpreter, or `DATAM8_PYTHON_PATH` pointing to a compatible Python.
+- Packaging: `npm run build:python-runtime` creates the runtime copied into desktop packages.

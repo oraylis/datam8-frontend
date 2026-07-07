@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+type TestWindow = Window & {
+  __createNewCalls: unknown[];
+  __mockSolutionPayload: ReturnType<typeof createMockSolutionPayload>;
+  desktop: {
+    isElectron: boolean;
+    apiBase: string;
+    token: string;
+    window: { setSolutionPath: () => Promise<boolean> };
+    solution: {
+      pickOpenPath: () => Promise<string>;
+      pickDirectory: () => Promise<string>;
+      onOpenPath: () => () => void;
+      load: () => Promise<{ payload: ReturnType<typeof createMockSolutionPayload> | null }>;
+      createNew: (payload: unknown) => Promise<{ solutionPath: string; payload: ReturnType<typeof createMockSolutionPayload> | null }>;
+    };
+    theme: {
+      current: () => Promise<string>;
+      onThemeChanged: () => () => void;
+    };
+  };
+};
+
 function createMockSolutionPayload() {
   return {
     solution: {
@@ -40,8 +62,9 @@ async function mockSharedApi(page: import("@playwright/test").Page) {
 
 async function initDesktopBridge(page: import("@playwright/test").Page) {
   await page.addInitScript(() => {
-    (window as any).__createNewCalls = [];
-    (window as any).desktop = {
+    const testWindow = window as TestWindow;
+    testWindow.__createNewCalls = [];
+    testWindow.desktop = {
       isElectron: true,
       apiBase: "http://localhost:4320",
       token: "desktop-test-token",
@@ -50,10 +73,10 @@ async function initDesktopBridge(page: import("@playwright/test").Page) {
         pickOpenPath: async () => "/tmp/mock.dm8s",
         pickDirectory: async () => "/tmp/projects",
         onOpenPath: () => () => {},
-        load: async () => ({ payload: (window as any).__mockSolutionPayload || null }),
+        load: async () => ({ payload: testWindow.__mockSolutionPayload || null }),
         createNew: async (payload: unknown) => {
-          (window as any).__createNewCalls.push(payload);
-          return { solutionPath: "/tmp/projects/NewProject/NewProject.dm8s", payload: (window as any).__mockSolutionPayload || null };
+          testWindow.__createNewCalls.push(payload);
+          return { solutionPath: "/tmp/projects/NewProject/NewProject.dm8s", payload: testWindow.__mockSolutionPayload || null };
         },
       },
       theme: {
@@ -61,7 +84,7 @@ async function initDesktopBridge(page: import("@playwright/test").Page) {
         onThemeChanged: () => () => {},
       },
     };
-    (window as any).__mockSolutionPayload = {
+    testWindow.__mockSolutionPayload = {
       solution: {
         schemaVersion: "2.0.0",
         basePath: "Base",
@@ -93,7 +116,7 @@ test("new project uses desktop createNew bridge with required fields only", asyn
   await page.getByRole("button", { name: "Browse" }).click();
   await page.getByRole("button", { name: "Create Solution" }).click();
 
-  const calls = await page.evaluate(() => (window as any).__createNewCalls as Array<any>);
+  const calls = await page.evaluate(() => (window as unknown as TestWindow).__createNewCalls);
   expect(calls).toHaveLength(1);
   expect(calls[0]).toEqual({
     saveDir: "/tmp/projects",

@@ -35,7 +35,10 @@ export default [
     rules: {
       "react-hooks/rules-of-hooks": "warn",
       "react-hooks/exhaustive-deps": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
+      // DataM8 edits schema-flexible solution JSON. Enforcing this globally creates
+      // low-signal noise in editor payload code; boundary code should still prefer
+      // unknown plus local guards where practical.
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ];

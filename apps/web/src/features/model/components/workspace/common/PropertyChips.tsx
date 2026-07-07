@@ -21,6 +21,8 @@ type PropertyChipsProps = {
   onRemove?: (removeKey: number | string) => void;
   addLabel?: string;
   addDisabled?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export const PropertyChips = ({
@@ -32,6 +34,8 @@ export const PropertyChips = ({
   onRemove,
   addLabel = "Add property",
   addDisabled = false,
+  defaultOpen = false,
+  onOpenChange,
 }: PropertyChipsProps) => {
   const used = useMemo(
     () => usedPropertyNames ?? new Set(items.filter((i) => !i.inherited).map((i) => i.property)),
@@ -47,7 +51,7 @@ export const PropertyChips = ({
     [propertyOptions, used],
   );
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [draftProperty, setDraftProperty] = useState("");
   const [draftValue, setDraftValue] = useState("");
 
@@ -66,12 +70,17 @@ export const PropertyChips = ({
     setDraftValue("");
   };
 
+  const setMenuOpen = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+    if (!next) resetDraft();
+  };
+
   const addProperty = () => {
     const property = draftProperty.trim();
     if (!property) return;
     onAdd(property, `${draftValue ?? ""}`);
-    resetDraft();
-    setOpen(false);
+    setMenuOpen(false);
   };
 
   return (
@@ -99,8 +108,7 @@ export const PropertyChips = ({
         open={open}
         onOpenChange={(next) => {
           if (addDisabled) return;
-          setOpen(next);
-          if (!next) resetDraft();
+          setMenuOpen(next);
         }}
       >
         <DropdownMenuTrigger asChild>
@@ -156,8 +164,7 @@ export const PropertyChips = ({
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  resetDraft();
-                  setOpen(false);
+                  setMenuOpen(false);
                 }}
               >
                 Cancel

@@ -4,7 +4,7 @@
   "version": "2.0.0-beta.5",
   "description": "DataM8 2.0 UI + API + Desktop shell",
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=24 <25"
   },
   "workspaces": [
     "apps/*",
@@ -25,6 +25,7 @@
     "test:runtime:packaged": "node scripts/smoke-python-runtime.mjs",
     "test:e2e": "npm --workspace apps/web run e2e",
     "test:e2e:release": "node scripts/e2e-release.mjs",
+    "test:e2e:release:full": "cross-env DATAM8_RELEASE_NPM_SCRIPT=e2e:release:full node scripts/e2e-release.mjs",
     "build:web:electron": "cross-env VITE_APP_MODE=electron npm --workspace apps/web run build -- --mode electron",
     "build:desktop": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && node scripts/package-desktop.mjs",
     "build:desktop:win": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:win",
@@ -33,14 +34,26 @@
     "version:set": "node scripts/set-version.mjs"
   },
   "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "adm-zip": "^0.5.16",
-    "concurrently": "^9.2.1",
-    "cross-env": "^7.0.3",
-    "esbuild": "^0.25.10",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "esbuild": "^0.28.1",
     "eslint": "^9.20.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
     "json-schema-to-typescript": "^15.0.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "typescript-eslint": "^8.24.1"
+  },
+  "overrides": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.1"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.53.3"
   }
 }

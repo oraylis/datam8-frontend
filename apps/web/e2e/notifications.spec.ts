@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+type JsonRecord = Record<string, unknown>;
+
 function createMockSolutionPayload() {
   return {
     solution: {
@@ -69,8 +71,8 @@ async function mockApi(page: import("@playwright/test").Page, options?: { failMo
   const payload = createMockSolutionPayload();
   const failModelSave = !!options?.failModelSave;
   const longError = "Backend validation failed: ".concat("x".repeat(240));
-  const modelSaveBodies: any[] = [];
-  const modelMoveBodies: any[] = [];
+  const modelSaveBodies: JsonRecord[] = [];
+  const modelMoveBodies: JsonRecord[] = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -150,7 +152,7 @@ async function clickBaseItem(page: import("@playwright/test").Page, name: string
     .click();
 }
 
-test("shows sticky save-failed toast with details and no inline retry alert", async ({ page }) => {
+test("shows transient save-failed pill without inline retry alert", async ({ page }) => {
   await mockApi(page, { failModelSave: true });
   await loadSolutionFromDialog(page);
 
@@ -161,20 +163,13 @@ test("shows sticky save-failed toast with details and no inline retry alert", as
   await displayNameInput.fill("Customer v2");
   await displayNameInput.press("Tab");
 
-  const saveFailed = page.getByText("Save failed").first();
+  const saveFailedPill = page.locator(".sidebar__save-pill").filter({ hasText: "Save failed" });
   const saveFailedSurfaces = page.locator(".error-surface").filter({ hasText: "Save failed" });
-  await expect(saveFailed).toBeVisible();
-  await expect(saveFailedSurfaces).toHaveCount(1);
-  await expect(saveFailedSurfaces.getByRole("button", { name: "Retry" })).toBeVisible();
-  await saveFailedSurfaces.getByRole("button", { name: "Retry" }).click();
-  await page.waitForTimeout(350);
-  await expect(saveFailed).toBeVisible();
-  await expect(saveFailedSurfaces).toHaveCount(1);
-  await saveFailedSurfaces.getByRole("button", { name: "Close error" }).click();
-  await expect(saveFailedSurfaces).toHaveCount(1);
+  await expect(saveFailedPill).toBeVisible();
+  await expect(saveFailedSurfaces).toHaveCount(0);
 
-  await page.waitForTimeout(4500);
-  await expect(saveFailedSurfaces).toHaveCount(1);
+  await page.waitForTimeout(2500);
+  await expect(saveFailedPill).toHaveCount(0);
 });
 
 test("deleting a base item updates the list without error/info surfaces", async ({ page }) => {

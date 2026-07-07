@@ -282,7 +282,7 @@ test("stores connector binding in DataSourceType.connectionProperties (Variant A
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
   });
 
-  await mockApi(page, counters, {
+  const { entityWrites } = await mockApi(page, counters, {
     solutionPayload,
     connectors: [
       {
@@ -562,5 +562,4 @@ test("bound connector version requirement does not block rendering when connecto
   await expect(page.getByText("SQL Server connection")).toBeVisible();
   await expect(page.getByText("Schema v0.1.0")).toBeVisible();
 });
-
 

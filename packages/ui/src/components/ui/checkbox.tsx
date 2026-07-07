@@ -11,9 +11,6 @@ const Checkbox = React.forwardRef<
   const handleCheckedChange = React.useCallback(
     (checked: CheckboxPrimitive.CheckedState) => {
       onCheckedChange?.(checked);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("dm8:checkbox-change"));
-      }
     },
     [onCheckedChange],
   );

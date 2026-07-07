@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "commonjs",
     "outDir": "dist",
-    "target": "ES2020",
+    "rootDir": "src",
+    "ignoreDeprecations": "6.0",
     "types": ["node"]
   },
   "include": ["src"]

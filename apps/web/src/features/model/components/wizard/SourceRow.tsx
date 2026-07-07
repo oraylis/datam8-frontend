@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue, type UseFormWatch } from "react-hook-form";
 import { Badge, Button, Card, CardContent, Checkbox, FormSelect, Input, Label } from "@datam8/ui";
 import { Trash2, Loader2 } from "lucide-react";
@@ -48,6 +48,12 @@ function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined
   return mapped.length > 0 ? mapped : undefined;
 }
 
+function isAuthFailure(status?: number, message?: string) {
+  if (status === 401 || status === 403) return true;
+  const m = (message || "").toLowerCase();
+  return m.includes("auth_failed") || m.includes("authentication") || m.includes("unauthorized") || m.includes("forbidden");
+}
+
 export const ExternalSourceConfigurator = ({
   dataSource,
   dataSourceObject,
@@ -84,12 +90,6 @@ export const ExternalSourceConfigurator = ({
   const supportsMetadata = !!connectorId && !isHttpApi;
   const isUnsupportedType = useMemo(() => !!dataSource && !connectorId, [connectorId, dataSource]);
 
-  const isAuthFailure = (status?: number, message?: string) => {
-    if (status === 401 || status === 403) return true;
-    const m = (message || "").toLowerCase();
-    return m.includes("auth_failed") || m.includes("authentication") || m.includes("unauthorized") || m.includes("forbidden");
-  };
-
   useEffect(() => {
     setTables([]);
     setMetadata(null);
@@ -102,15 +102,15 @@ export const ExternalSourceConfigurator = ({
     }
   }, [dataSource, isHttpApi, selectedTable]);
 
-  const handleAuthFailure = (status?: number, message?: string) => {
+  const handleAuthFailure = useCallback((status?: number, message?: string) => {
     if (isAuthFailure(status, message)) {
       setError(AUTH_FAILURE_MESSAGE);
       return true;
     }
     return false;
-  };
+  }, []);
 
-  const fetchTables = async () => {
+  const fetchTables = useCallback(async () => {
     if (!dataSource) return;
     setLoading(true);
     setError(null);
@@ -143,9 +143,9 @@ export const ExternalSourceConfigurator = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataSource, handleAuthFailure]);
 
-  const fetchMetadata = async (tableRef: SourceTableListItem) => {
+  const fetchMetadata = useCallback(async (tableRef: SourceTableListItem) => {
     if (!dataSource) return;
     setLoading(true);
     setError(null);
@@ -197,9 +197,9 @@ export const ExternalSourceConfigurator = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataSource, handleAuthFailure, onTableSelected]);
 
-  const fetchHttpApiMetadata = async () => {
+  const fetchHttpApiMetadata = useCallback(async () => {
     if (!dataSource || !httpSourceLocation) return;
     setLoading(true);
     setError(null);
@@ -247,7 +247,7 @@ export const ExternalSourceConfigurator = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataSource, handleAuthFailure, httpSourceLocation, onTableSelected]);
 
   const showTableList = !!dataSource && supportsMetadata;
   const isWizardSingleMode = mode === "wizard-single";
@@ -589,4 +589,3 @@ export const SourceRow = ({
     </Card>
   );
 };
-

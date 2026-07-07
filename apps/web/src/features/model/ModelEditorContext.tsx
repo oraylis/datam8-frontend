@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BaseEntity, BaseTab, FolderEntity, ModelEntity, ModelTab, Tab } from "./model-types";
+import type { EntityEditorDraft } from "./components/workspace/hooks/useEntityState";
+import type { BaseEditorDraft } from "./components/workspace/hooks/useBaseEditorState";
 
 type ModelEditorContextValue = {
   modelEntities: ModelEntity[];
@@ -47,10 +49,10 @@ type ModelEditorContextValue = {
   closeAllTabs: () => void;
   clearActiveSelection: () => void;
   setTabDirty: (relPath: string, kind: "entity" | "base", dirty: boolean) => void;
-  getEntityDraft: (relPath: string) => any | null;
-  setEntityDraft: (relPath: string, draft: any | null) => void;
-  getBaseDraft: (relPath: string) => any | null;
-  setBaseDraft: (relPath: string, draft: any | null) => void;
+  getEntityDraft: (relPath: string) => EntityEditorDraft | null;
+  setEntityDraft: (relPath: string, draft: EntityEditorDraft | null) => void;
+  getBaseDraft: (relPath: string) => BaseEditorDraft | null;
+  setBaseDraft: (relPath: string, draft: BaseEditorDraft | null) => void;
   clearAllDrafts: () => void;
   anyDirty: boolean;
 };
@@ -78,10 +80,10 @@ export function ModelEditorProvider({ children }: { children: React.ReactNode })
   const [selectedRelPath, setSelectedRelPath] = useState<string | null>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [selectedBaseRelPath, setSelectedBaseRelPath] = useState<string | null>(null);
-  const [entityDraftsByRelPath, setEntityDraftsByRelPath] = useState<Record<string, any>>({});
-  const [baseDraftsByRelPath, setBaseDraftsByRelPath] = useState<Record<string, any>>({});
-  const entityDraftsRef = useRef<Record<string, any>>(entityDraftsByRelPath);
-  const baseDraftsRef = useRef<Record<string, any>>(baseDraftsByRelPath);
+  const [entityDraftsByRelPath, setEntityDraftsByRelPath] = useState<Record<string, EntityEditorDraft>>({});
+  const [baseDraftsByRelPath, setBaseDraftsByRelPath] = useState<Record<string, BaseEditorDraft>>({});
+  const entityDraftsRef = useRef<Record<string, EntityEditorDraft>>(entityDraftsByRelPath);
+  const baseDraftsRef = useRef<Record<string, BaseEditorDraft>>(baseDraftsByRelPath);
 
   useEffect(() => {
     entityDraftsRef.current = entityDraftsByRelPath;
@@ -214,7 +216,7 @@ export function ModelEditorProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  const setEntityDraft = useCallback((relPath: string, draft: any | null) => {
+  const setEntityDraft = useCallback((relPath: string, draft: EntityEditorDraft | null) => {
     if (!relPath) return;
     const current = entityDraftsRef.current;
     if (draft === null) {
@@ -235,7 +237,7 @@ export function ModelEditorProvider({ children }: { children: React.ReactNode })
     return entityDraftsRef.current[relPath] ?? null;
   }, []);
 
-  const setBaseDraft = useCallback((relPath: string, draft: any | null) => {
+  const setBaseDraft = useCallback((relPath: string, draft: BaseEditorDraft | null) => {
     if (!relPath) return;
     const current = baseDraftsRef.current;
     if (draft === null) {

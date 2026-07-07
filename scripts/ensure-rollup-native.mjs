@@ -6,6 +6,7 @@ import fs from "fs";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const webRoot = path.join(repoRoot, "apps", "web");
 
 function log(msg) {
   process.stdout.write(`[ensure-rollup-native] ${msg}\n`);
@@ -41,15 +42,15 @@ function looksLikeRollupNativeOptionalDepMissing(err, missingPkg) {
   return /cannot find (module|package)/i.test(haystack);
 }
 
-function runRollupProbe() {
+function runModuleProbe(moduleName, cwd = repoRoot) {
   // Run in a fresh Node process to avoid module caching after a failed require/import.
-  const probe = String.raw`(async () => {
+  const probe = `(async () => {
   try {
-    await import("rollup");
+    await import(${JSON.stringify(moduleName)});
     process.exit(0);
   } catch (e1) {
     try {
-      require("rollup");
+      require(${JSON.stringify(moduleName)});
       process.exit(0);
     } catch (e2) {
       const err = e2 || e1;
@@ -67,7 +68,7 @@ function runRollupProbe() {
 })();`;
 
   const res = spawnSync(process.execPath, ["-e", probe], {
-    cwd: repoRoot,
+    cwd,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
   });
@@ -78,6 +79,20 @@ function runRollupProbe() {
     stdout: String(res.stdout || ""),
     stderr: String(res.stderr || ""),
   };
+}
+
+function runRollupProbe() {
+  return runModuleProbe("rollup");
+}
+
+function runViteNativeProbe() {
+  const vite = runModuleProbe("vite", webRoot);
+  if (!vite.ok) return { ok: false, moduleName: "vite", result: vite };
+
+  const rolldown = runModuleProbe("rolldown", webRoot);
+  if (!rolldown.ok) return { ok: false, moduleName: "rolldown", result: rolldown };
+
+  return { ok: true };
 }
 
 function resolveRollupVersion() {
@@ -127,6 +142,20 @@ if (first.ok) {
 
 const firstText = `${first.stderr}\n${first.stdout}`.trim();
 const missingPkg = extractMissingRollupNativePackage(firstText);
+
+if (/Cannot find module 'rollup'|Cannot find package 'rollup'/i.test(firstText)) {
+  log("Rollup package is not installed. Checking Vite 8/Rolldown native dependencies instead…");
+  const viteNative = runViteNativeProbe();
+  if (viteNative.ok) {
+    log("Vite and Rolldown are loadable.");
+    process.exit(0);
+  }
+
+  error(`${viteNative.moduleName} failed to load.`);
+  const text = `${viteNative.result.stderr}\n${viteNative.result.stdout}`.trim();
+  error(text || `Exit code: ${viteNative.result.status}`);
+  process.exit(1);
+}
 
 if (!looksLikeRollupNativeOptionalDepMissing(firstText, missingPkg)) {
   error("Rollup failed to load, but this does not look like a missing @rollup/rollup-<platform> package.");

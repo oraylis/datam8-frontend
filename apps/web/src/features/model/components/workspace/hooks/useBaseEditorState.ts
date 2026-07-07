@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { toast } from "@datam8/ui";
 import type { BaseEntity, PropertyOption } from "../../../model-types";
 import { detectBaseType } from "../../../model-utils";
 import {
@@ -10,8 +9,8 @@ import {
 } from "../lib/baseItemSelection";
 import { validateBaseContent } from "../lib/validation";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
-import { useSaveFailureToast } from "../../../../../shared/ui/useSaveFailureToast";
 import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
+import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 const baseSelectedItemMemory = new Map<string, string | null>();
@@ -38,8 +37,8 @@ const firstNonEmpty = (...values: Array<unknown>) => {
   return "";
 };
 
-type BaseEditorDraft = {
-  baseDraft: any;
+export type BaseEditorDraft = {
+  baseDraft: BaseEntity["content"];
   baseMode: "form" | "json";
   baseJsonText: string;
   selectedBaseItem: string | null;
@@ -47,11 +46,13 @@ type BaseEditorDraft = {
   selectedDataModule: string | null;
 };
 
+type BaseSaveResult = { notificationStatus?: "saved" | "bulk-saved" };
+
 type BaseStateParams = {
   baseEntities: BaseEntity[];
   selectedBase: BaseEntity | null;
   onSelectBase: (relPath: string, title?: string) => void;
-  onSaveBase: (updated: BaseEntity) => Promise<void>;
+  onSaveBase: (updated: BaseEntity) => Promise<BaseSaveResult>;
   onDirtyBase: (relPath: string, dirty: boolean) => void;
   baseItemSelectionRequest?: { relPath: string; itemName: string; token: number } | null;
   propertyOptions: PropertyOption[];
@@ -59,6 +60,7 @@ type BaseStateParams = {
   dataTypes: string[];
   getBaseDraft: (relPath: string) => BaseEditorDraft | null;
   setBaseEditorDraft: (relPath: string, draft: BaseEditorDraft | null) => void;
+  onSaveNotification?: (status: "saved" | "bulk-saved" | "failed") => void;
 };
 
 export type PersistReason =
@@ -88,6 +90,7 @@ export const useBaseEditorState = ({
   dataTypes,
   getBaseDraft,
   setBaseEditorDraft,
+  onSaveNotification,
 }: BaseStateParams) => {
   const { showError } = useErrorSurface();
   const propertyValuesEntry = useMemo(() => baseEntities.find((b) => isPropertyValuesBase(b)), [baseEntities]);
@@ -117,6 +120,7 @@ export const useBaseEditorState = ({
   const pendingPersistRevisionRef = useRef(0);
   const changeRevisionRef = useRef(0);
   const [changeRevision, setChangeRevision] = useState(0);
+  const [persistRequestTick, setPersistRequestTick] = useState(0);
 
   const bumpChangeRevision = useCallback(() => {
     const next = changeRevisionRef.current + 1;
@@ -286,6 +290,7 @@ export const useBaseEditorState = ({
     selectedDataModule,
     scheduleHydrationRelease,
     setBaseEditorDraft,
+    setSelectedBaseItem,
   ]);
 
   useEffect(() => {
@@ -333,8 +338,12 @@ export const useBaseEditorState = ({
       }
     }
 
+    const wasDirty = baseDirtyRef.current;
     const baseDirty = parseError || !deepEqual(currentContent, originalBaseRef.current);
     baseDirtyRef.current = baseDirty;
+    if (wasDirty !== baseDirty) {
+      onDirtyBase(selectedBase.relPath, baseDirty);
+    }
     if (!baseDirty) {
       persistQueuedRef.current = false;
       pendingPersistReasonRef.current = null;
@@ -346,6 +355,7 @@ export const useBaseEditorState = ({
     baseDraft,
     baseJsonText,
     baseMode,
+    onDirtyBase,
     selectedBase,
   ]);
 
@@ -401,7 +411,7 @@ export const useBaseEditorState = ({
     if (!selectedBaseItem || selectedIndex < 0) {
       setSelectedBaseItem(getBaseItemSelectionKey(items[0], 0));
     }
-  }, [baseData, selectedBase, selectedBaseItem]);
+  }, [baseData, selectedBase, selectedBaseItem, setSelectedBaseItem]);
 
   useEffect(() => {
     const request = baseItemSelectionRequest;
@@ -421,7 +431,7 @@ export const useBaseEditorState = ({
     setSelectedBaseItem(getBaseItemSelectionKey(items[targetIndex], targetIndex));
     setBaseMode("form");
     lastHandledBaseItemRequestRef.current = request.token;
-  }, [baseData.items, baseItemSelectionRequest, selectedBase]);
+  }, [baseData.items, baseItemSelectionRequest, selectedBase, setSelectedBaseItem]);
 
   const setDraftListForType = (draft: any, type: string, nextList: any[]) => {
     switch (type) {
@@ -553,6 +563,9 @@ export const useBaseEditorState = ({
     markBaseDirty,
     propertyOptions,
     selectedBase,
+    setBaseDraft,
+    setBaseMode,
+    setSelectedBaseItem,
   ]);
 
   const removeBaseItem = useCallback(
@@ -593,7 +606,7 @@ export const useBaseEditorState = ({
         },
       };
     },
-    [baseData.items, baseData.type, baseDraft, markBaseDirty, selectedBase, showError],
+    [baseData.items, baseData.type, baseDraft, markBaseDirty, selectedBase, setBaseDraft, setBaseMode, setSelectedBaseItem, showError],
   );
 
   const onSubmitBase = useCallback(async (): Promise<boolean> => {
@@ -634,13 +647,14 @@ export const useBaseEditorState = ({
 
       const validation = validateBaseDraft(detected.type, content);
       if (validation.errors.length || Object.keys(validation.missing).length) {
-        setBaseSaveStatus("idle");
-        setBaseSaveError(null);
+        setBaseSaveStatus("error");
+        setBaseSaveError(validation.errors.join("\n") || "Base validation failed.");
         onDirtyBase(selectedBase.relPath, true);
-        return true;
+        onSaveNotification?.("failed");
+        return false;
       }
 
-      await onSaveBase({ ...latest, content });
+      const saveResult = await onSaveBase({ ...latest, content });
       originalBaseRef.current = cloneDeep(content);
       lastBaseContentKeyRef.current = JSON.stringify(content || {});
       if (usedLatestFallback) {
@@ -654,16 +668,17 @@ export const useBaseEditorState = ({
       onDirtyBase(selectedBase.relPath, false);
       setTimeout(() => setBaseSaveStatus("idle"), 1500);
       console.log(`[DataM8] Base entity saved: ${selectedBase.relPath}`);
-      toast({ variant: "success", title: "Saved", description: selectedBase.name || selectedBase.relPath, duration: 3500 });
+      onSaveNotification?.(saveResult?.notificationStatus ?? "saved");
       return true;
     } catch (err) {
       console.error("[DataM8] Base entity save failed:", err);
       setBaseSaveStatus("error");
       setBaseSaveError((err as Error).message);
       onDirtyBase(selectedBase.relPath, true);
+      onSaveNotification?.("failed");
       return false;
     }
-  }, [baseDraft, baseEntities, baseJsonText, baseMode, onDirtyBase, onSaveBase, selectedBase, validateBaseDraft]);
+  }, [baseDraft, baseEntities, baseJsonText, baseMode, onDirtyBase, onSaveBase, onSaveNotification, selectedBase, validateBaseDraft]);
 
   const hasIncompleteBaseRequiredDraft = useCallback((): boolean => {
     if (!selectedBase || baseMode === "json") return false;
@@ -687,11 +702,21 @@ export const useBaseEditorState = ({
         return false;
       }
       persistInFlightRef.current = true;
+      const saveStartedRevision = changeRevisionRef.current;
       const ok = await onSubmitBase();
       persistInFlightRef.current = false;
-      if (persistQueuedRef.current && baseDirtyRef.current) {
+      const queued = resolveQueuedPersistAfterSave(
+        persistQueuedRef.current,
+        reason,
+        changeRevisionRef.current,
+        saveStartedRevision,
+      );
+      if (queued.shouldReschedule) {
         persistQueuedRef.current = false;
-        return persistNow("tab-switch");
+        baseDirtyRef.current = queued.dirty;
+        pendingPersistReasonRef.current = queued.reason;
+        pendingPersistRevisionRef.current = queued.revision;
+        setPersistRequestTick((value) => value + 1);
       }
       return ok;
     },
@@ -702,6 +727,7 @@ export const useBaseEditorState = ({
     (reason: PersistReason) => {
       pendingPersistReasonRef.current = reason;
       pendingPersistRevisionRef.current = changeRevisionRef.current;
+      setPersistRequestTick((value) => value + 1);
     },
     [],
   );
@@ -713,24 +739,7 @@ export const useBaseEditorState = ({
     pendingPersistReasonRef.current = null;
     pendingPersistRevisionRef.current = 0;
     void persistNow(reason);
-  }, [changeRevision, persistNow]);
-
-  const retrySave = useCallback(() => {
-    void persistNow("tab-switch");
-  }, [persistNow]);
-
-  const { notifySaveFailure, resetSaveFailureToastMemory } = useSaveFailureToast({
-    contextKey: `base:${selectedBase?.relPath || "none"}`,
-    onRetry: retrySave,
-  });
-
-  useEffect(() => {
-    if (baseSaveStatus === "error") {
-      notifySaveFailure(baseSaveError);
-      return;
-    }
-    resetSaveFailureToastMemory();
-  }, [baseSaveError, baseSaveStatus, notifySaveFailure, resetSaveFailureToastMemory]);
+  }, [changeRevision, persistNow, persistRequestTick]);
 
   const dataSourceTypes = useMemo(() => {
     const entry = baseEntities.find((b) => detectBaseType(b.content, b.relPath).type === "dataSourceTypes");
@@ -763,7 +772,6 @@ export const useBaseEditorState = ({
     onSubmitBase,
     persistNow,
     persistAfterStateFlush,
-    retrySave,
     propertyOptions,
     generatorTargets,
     dataTypes,

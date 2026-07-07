@@ -1,9 +1,18 @@
 export type AppMode = "browser" | "databricks" | "electron";
 export type RuntimeAppMode = AppMode | "server";
 
+type DesktopRuntime = {
+  isElectron?: boolean;
+  apiBase?: string;
+};
+
+function getDesktopRuntime(): DesktopRuntime | undefined {
+  return (window as Window & { desktop?: DesktopRuntime }).desktop;
+}
+
 function isElectronRuntime(): boolean {
   try {
-    return (window as any)?.desktop?.isElectron === true;
+    return getDesktopRuntime()?.isElectron === true;
   } catch {
     return false;
   }
@@ -16,9 +25,9 @@ const envMode =
 
 function resolveDesktopApiBase(): string | null {
   try {
-    const anyWindow = window as any;
-    if (anyWindow?.desktop?.isElectron !== true) return null;
-    const base = anyWindow?.desktop?.apiBase;
+    const desktop = getDesktopRuntime();
+    if (desktop?.isElectron !== true) return null;
+    const base = desktop.apiBase;
     return typeof base === "string" && base.trim() ? base : null;
   } catch {
     return null;
@@ -68,4 +77,3 @@ export function isElectronMode(mode: RuntimeAppMode = runtimeConfig.mode) {
 export function shouldUseServerDialog(mode: RuntimeAppMode = runtimeConfig.mode) {
   return !isBrowserLike(mode) && !isElectronMode(mode);
 }
-

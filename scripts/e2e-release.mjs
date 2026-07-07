@@ -108,7 +108,8 @@ async function main() {
     await waitForHealth();
     console.log(`[release-e2e] Backend ready at ${releaseApiBase}`);
 
-    const command = process.platform === "win32" ? "npm run e2e:release" : "npm run e2e:release";
+    const npmScript = (process.env.DATAM8_RELEASE_NPM_SCRIPT || "e2e:release").trim();
+    const command = process.platform === "win32" ? `npm run ${npmScript}` : `npm run ${npmScript}`;
     const child = spawn(command, {
       cwd: appsWebRoot,
       env: {
@@ -145,4 +146,3 @@ main().catch((err) => {
   console.error(err?.stack || String(err));
   process.exit(1);
 });
-

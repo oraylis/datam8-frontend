@@ -14,6 +14,7 @@ import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
 import { pruneConnectionPropertiesForConnector } from "./dataSourceConnectionProperties";
 
 const DEFAULT_CONNECTOR_TYPE_MAPPING = [{ sourceType: "string", targetType: "string" }];
+const EMPTY_ARRAY: any[] = [];
 
 type DataSourceTypesEditorProps = {
   selectedBase: BaseEntity;
@@ -28,6 +29,7 @@ type DataSourceTypesEditorProps = {
   onDirtyBase: (relPath: string, dirty: boolean) => void;
   dataSourcesRelPath: string | null;
   onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
+  onCommit: (reason: "dropdown-change" | "add-item" | "delete-item") => void;
 };
 
 export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorProps) => {
@@ -44,9 +46,10 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
     onDirtyBase,
     dataSourcesRelPath,
     onPatchBaseEntity,
+    onCommit,
   } = props;
 
-  const currentList = baseData.items;
+  const currentList = useMemo(() => baseData.items || EMPTY_ARRAY, [baseData.items]);
   const currentIndex = useMemo(() => findBaseItemIndex(currentList, selectedBaseItem), [currentList, selectedBaseItem]);
   const current = useMemo(() => (currentIndex >= 0 ? currentList[currentIndex] : null), [currentIndex, currentList]);
   const itemKey = current?.name || `dataSourceType_${currentIndex + 1}`;
@@ -158,6 +161,7 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
       updateField("connectionProperties", connectionProperties);
       updateField("authModes", authModes);
       updateField("dataTypeMapping", nextDataTypeMapping);
+      onCommit("dropdown-change");
 
       onPatchBaseEntity(selectedBase.relPath, (content) => {
         const types = Array.isArray(content?.dataSourceTypes) ? content.dataSourceTypes : [];
@@ -192,7 +196,7 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
         });
       }
     },
-    [current, currentIndex, dataSourcesRelPath, onPatchBaseEntity, selectedBase.relPath, updateField],
+    [current, currentIndex, dataSourcesRelPath, onCommit, onPatchBaseEntity, selectedBase.relPath, updateField],
   );
 
   if (!current) return <div className="muted">Select a Data Source Type.</div>;
@@ -262,6 +266,7 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
                 className="add-btn"
                 onClick={() => {
                   updateField("dataTypeMapping", [...(current.dataTypeMapping || []), { sourceType: "", targetType: "" }]);
+                  onCommit("add-item");
                   setMappingsCollapsed(false);
                 }}
               >
@@ -282,28 +287,29 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
                   <div>
                     <Input
                       value={m.sourceType || ""}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         updateField(
                           "dataTypeMapping",
                           (current.dataTypeMapping || []).map((item: any, ii: number) =>
                             ii === mIdx ? { ...item, sourceType: e.target.value } : item,
                           ),
-                        )
-                      }
+                        );
+                      }}
                       style={isMissingField(`${itemKey}:mapping_${mIdx + 1}`, "sourceType") ? { borderColor: "#d92d20" } : undefined}
                     />
                   </div>
                   <div>
                     <FormSelect
                       value={m.targetType || ""}
-                      onChange={(val) =>
+                      onChange={(val) => {
                         updateField(
                           "dataTypeMapping",
                           (current.dataTypeMapping || []).map((item: any, ii: number) =>
                             ii === mIdx ? { ...item, targetType: val } : item,
                           ),
-                        )
-                      }
+                        );
+                        onCommit("dropdown-change");
+                      }}
                       options={withMissingOption(targetTypeOptions, m.targetType)}
                       placeholder={dataTypes.length ? "Select type" : "Create Data Types first"}
                       allowUnknownValue={false}
@@ -314,9 +320,10 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
                   <div className="actions actions--tight">
                     <IconBtn
                       title="Remove"
-                      onClick={() =>
-                        updateField("dataTypeMapping", (current.dataTypeMapping || []).filter((_item: any, ii: number) => ii !== mIdx))
-                      }
+                      onClick={() => {
+                        updateField("dataTypeMapping", (current.dataTypeMapping || []).filter((_item: any, ii: number) => ii !== mIdx));
+                        onCommit("delete-item");
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </IconBtn>

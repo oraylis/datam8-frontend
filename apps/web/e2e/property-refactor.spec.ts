@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+type JsonRecord = Record<string, unknown>;
+
 function createMockSolutionPayload() {
   return {
     solution: {
@@ -45,7 +47,7 @@ function createMockSolutionPayload() {
 
 async function mockApi(page: import("@playwright/test").Page) {
   const payload = createMockSolutionPayload();
-  const entityWrites: Array<{ method: string; url: string; body: any }> = [];
+  const entityWrites: Array<{ method: string; url: string; body: JsonRecord }> = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -81,7 +83,7 @@ async function mockApi(page: import("@playwright/test").Page) {
 
   await page.route("**/entities/**", async (route) => {
     const req = route.request();
-    if (req.method() !== "PATCH" && req.method() !== "PUT" && req.method() !== "DELETE") {
+    if (req.method() !== "PATCH" && req.method() !== "PUT" && req.method() !== "DELETE" && req.method() !== "POST") {
       await route.fulfill({ status: 405, json: { error: "method not allowed" } });
       return;
     }
@@ -111,10 +113,28 @@ test("saving renamed property applies refactor flow without apply dialog", async
   await propertyNameInput.fill("businessDomain");
   await propertyNameInput.press("Tab");
 
-  await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
-  const baseWrite = entityWrites.find((entry) => /\/entities\/properties\/businessDomain$/i.test(entry.url));
+  await expect
+    .poll(
+      () =>
+        entityWrites.find(
+          (entry) =>
+            entry.method === "POST" &&
+            /\/entities\/rename$/i.test(entry.url) &&
+            entry.body.from === "/properties/domain" &&
+            entry.body.to === "/properties/businessDomain",
+        ),
+      { timeout: 10_000 },
+    )
+    .toBeTruthy();
 
+  const baseWrite = entityWrites.find(
+    (entry) =>
+      entry.method === "POST" &&
+      /\/entities\/rename$/i.test(entry.url) &&
+      entry.body.from === "/properties/domain" &&
+      entry.body.to === "/properties/businessDomain",
+  );
   expect(baseWrite).toBeTruthy();
-  await expect(page.getByText("Property refactor applied")).toBeVisible();
-  await expect(page.getByText("No assignment updates were required for the selected scope targets.")).toBeVisible();
+  const savePill = page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" });
+  await expect(savePill).toBeVisible({ timeout: 30_000 });
 });

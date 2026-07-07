@@ -55,8 +55,9 @@ import { deepEqual } from "../shared/utils/deepEqual";
 import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
 import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
-import { createEntity, deleteEntity, moveEntities, patchEntity, saveModel } from "../shared/api/v2Client";
+import { createEntity, deleteEntity, moveEntities, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
+import { subscribeAppErrors } from "../shared/ui/appErrorBridge";
 import { refresh as refreshConnectorCatalog } from "../shared/connectors/connectorCatalog";
 
 type BaseEntityUpdater = (content: BaseEntity["content"]) => BaseEntity["content"];
@@ -81,6 +82,25 @@ type PendingBaseAction =
     sourceRelPath: string;
     preview?: string;
   };
+
+type SaveNotificationStatus = "saved" | "bulk-saved" | "failed";
+type SaveNotification = { status: SaveNotificationStatus; label: string };
+type BaseSaveResult = { notificationStatus?: Extract<SaveNotificationStatus, "saved" | "bulk-saved"> };
+type BulkDraftCleanup = {
+  baseRelPaths?: string[];
+  entityRelPaths?: string[];
+  sourceBaseRelPath?: string | null;
+  sourceEntityRelPath?: string | null;
+};
+type PropertyRefactorRunResult = {
+  modelEntities: number;
+  folderEntities: number;
+  baseEntities: number;
+  changeCount: number;
+  updatedModelRelPaths: string[];
+  updatedBaseRelPaths: string[];
+  updatedFolderPaths: string[];
+};
 
 const buildBaseEntityLocator = (entityType: string, item: Record<string, unknown>): string | null => {
   if (entityType === "propertyValues") {
@@ -122,6 +142,60 @@ const assertNoDuplicateBaseKeys = (entityType: string, items: unknown[]): void =
       `Cannot save ${entityType}: duplicate keys detected (${list}). The v2 /entities locator is not unique for these items.`,
     );
   }
+};
+
+const persistBaseListItems = async (
+  baseType: string,
+  prevItems: unknown[],
+  nextItems: unknown[],
+  opts?: { save?: boolean },
+): Promise<boolean> => {
+  let hadMutation = false;
+  const previousByKey = new Map<string, Record<string, unknown>>();
+  for (const item of prevItems) {
+    const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
+    if (!locator) continue;
+    previousByKey.set(locator, item as Record<string, unknown>);
+  }
+
+  for (const [index, item] of nextItems.entries()) {
+    const nextItem = item as Record<string, unknown>;
+    const locator = buildBaseEntityLocator(baseType, nextItem);
+    if (!locator) continue;
+    const prevItem = previousByKey.get(locator);
+    if (prevItem) {
+      if (!deepEqual(prevItem, nextItem)) {
+        await patchEntity(locator, nextItem, opts);
+        hadMutation = true;
+      }
+      previousByKey.delete(locator);
+      continue;
+    }
+
+    const indexedPrevious = prevItems.length === nextItems.length ? (prevItems[index] as Record<string, unknown> | undefined) : undefined;
+    const previousLocator = indexedPrevious ? buildBaseEntityLocator(baseType, indexedPrevious) : null;
+    if (previousLocator && previousLocator !== locator && previousByKey.has(previousLocator)) {
+      await renameEntity(previousLocator, locator, nextItem, opts);
+      previousByKey.delete(previousLocator);
+      hadMutation = true;
+      continue;
+    }
+
+    try {
+      await createEntity(locator, nextItem, opts);
+      hadMutation = true;
+    } catch {
+      await patchEntity(locator, nextItem, opts);
+      hadMutation = true;
+    }
+  }
+
+  for (const [locator] of previousByKey) {
+    await deleteEntity(locator, opts);
+    hadMutation = true;
+  }
+
+  return hadMutation;
 };
 
 const buildTopLevelEntityPatch = (
@@ -237,7 +311,36 @@ export function AppShell() {
     setBaseDraft,
     clearAllDrafts,
   } = useModelEditor();
-  const { duplicateModelEntities, deleteModelEntities } = useModelActions();
+  const [saveNotification, setSaveNotification] = useState<SaveNotification | null>(null);
+  const saveNotificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showSaveNotification = useCallback((status: SaveNotificationStatus) => {
+    if (saveNotificationTimerRef.current) {
+      clearTimeout(saveNotificationTimerRef.current);
+    }
+    setSaveNotification({
+      status,
+      label: status === "failed" ? "Save failed" : "Saved",
+    });
+    saveNotificationTimerRef.current = setTimeout(() => {
+      setSaveNotification(null);
+      saveNotificationTimerRef.current = null;
+    }, 2000);
+  }, []);
+  const clearDraftsForBulkSave = useCallback(
+    ({ baseRelPaths = [], entityRelPaths = [], sourceBaseRelPath = null, sourceEntityRelPath = null }: BulkDraftCleanup) => {
+      Array.from(new Set(baseRelPaths))
+        .filter((relPath) => relPath && relPath !== sourceBaseRelPath)
+        .forEach((relPath) => setBaseDraft(relPath, null));
+      Array.from(new Set(entityRelPaths))
+        .filter((relPath) => relPath && relPath !== sourceEntityRelPath)
+        .forEach((relPath) => setEntityDraft(relPath, null));
+    },
+    [setBaseDraft, setEntityDraft],
+  );
+  const { duplicateModelEntities, deleteModelEntities } = useModelActions({
+    onSaveNotification: showSaveNotification,
+    onBulkDraftCleanup: clearDraftsForBulkSave,
+  });
   const { resolvedTheme, setTheme } = useTheme();
   const isWindowsElectron = window.desktop?.isElectron && window.desktop?.platform === "win32";
   const {
@@ -261,7 +364,7 @@ export function AppShell() {
   const [validatorResolvedPath, setValidatorResolvedPath] = useState<string | null>(null);
   const [validatorError, setValidatorError] = useState<string | null>(null);
   const validatorRunInFlightRef = useRef(false);
-  const { showError, showInfo } = useErrorSurface();
+  const { showError } = useErrorSurface();
   const confirm = useConfirm();
   const { width: sidebarSize, setWidth: setSidebarSize, startResize } = useResizablePane({
     initialWidth: sidebarWidth,
@@ -272,12 +375,26 @@ export function AppShell() {
     setSidebarSize(sidebarWidth);
   }, [setSidebarSize, sidebarWidth]);
 
+  useEffect(() => {
+    return () => {
+      if (saveNotificationTimerRef.current) {
+        clearTimeout(saveNotificationTimerRef.current);
+      }
+    };
+  }, []);
+
   const showAppError = useCallback(
     (title: string, description?: string, onRetry?: (() => void) | null) => {
       showError("app", { title, description, onRetry: onRetry || null, retryLabel: "Retry" });
     },
     [showError],
   );
+
+  useEffect(() => {
+    return subscribeAppErrors((event) => {
+      showAppError(event.title, event.description || undefined);
+    });
+  }, [showAppError]);
 
   useEffect(() => {
     (async () => {
@@ -390,38 +507,7 @@ export function AppShell() {
 
         if (baseType && baseType !== "unknown") {
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          const previousByKey = new Map<string, Record<string, unknown>>();
-          for (const item of prevItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            previousByKey.set(locator, item as Record<string, unknown>);
-          }
-
-          for (const item of nextItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            const prevItem = previousByKey.get(locator);
-            if (prevItem) {
-              if (!deepEqual(prevItem, item)) {
-                await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              }
-              previousByKey.delete(locator);
-            } else {
-              try {
-                await createEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              } catch {
-                await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              }
-            }
-          }
-
-          for (const [locator] of previousByKey) {
-            await deleteEntity(locator, { save: false });
-            hadMutation = true;
-          }
+          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
         } else {
           const locator = nextEntity.locator || modelLocatorFromRelPath(nextEntity.relPath);
           try {
@@ -444,12 +530,14 @@ export function AppShell() {
         );
         setTabDirty(nextEntity.relPath, "base", false);
         console.log(`[DataM8] Base entity autosaved: ${nextEntity.relPath}`);
+        showSaveNotification("saved");
       } catch (err) {
+        console.error("[DataM8] Base entity autosave failed:", err);
         setTabDirty(relPath, "base", true);
         setBaseTabs((tabs) =>
           tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)),
         );
-        showAppError("Save failed", (err as Error).message || "An unexpected error prevented the save. Please try again.");
+        showSaveNotification("failed");
       } finally {
         patchedBaseInFlightRef.current.delete(relPath);
         if (patchedBaseQueuedRef.current.has(relPath)) {
@@ -462,7 +550,7 @@ export function AppShell() {
         }
       }
     },
-    [clearPatchedBaseTimer, formatBaseTitle, setBaseTabs, setTabDirty, showAppError],
+    [clearPatchedBaseTimer, formatBaseTitle, setBaseTabs, setTabDirty, showSaveNotification],
   );
 
   const schedulePatchedBaseAutosave = useCallback(
@@ -920,10 +1008,18 @@ export function AppShell() {
   );
 
   const runPropertyRefactor = useCallback(
-    async (changes: Partial<PropertyRefactorPayload>, targets: PropertyRefactorScopeTarget[]) => {
+    async (changes: Partial<PropertyRefactorPayload>, targets: PropertyRefactorScopeTarget[]): Promise<PropertyRefactorRunResult> => {
       const payload = createPropertyRefactorPayload(changes);
       if (!payload || targets.length === 0) {
-        return { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+        return {
+          modelEntities: 0,
+          folderEntities: 0,
+          baseEntities: 0,
+          changeCount: 0,
+          updatedModelRelPaths: [],
+          updatedBaseRelPaths: [],
+          updatedFolderPaths: [],
+        };
       }
       const targetSet = new Set<PropertyRefactorScopeTarget>(targets);
       const baseTargets = targets.filter(
@@ -945,7 +1041,15 @@ export function AppShell() {
         folderResult.updatedEntities.length === 0 &&
         baseResult.updatedEntities.length === 0
       ) {
-        return { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
+        return {
+          modelEntities: 0,
+          folderEntities: 0,
+          baseEntities: 0,
+          changeCount: 0,
+          updatedModelRelPaths: [],
+          updatedBaseRelPaths: [],
+          updatedFolderPaths: [],
+        };
       }
 
       const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
@@ -984,35 +1088,7 @@ export function AppShell() {
         const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
         const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
         assertNoDuplicateBaseKeys(baseType, nextItems);
-
-        const previousByKey = new Map<string, Record<string, unknown>>();
-        prevItems.forEach((item) => {
-          const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-          if (!locator) return;
-          previousByKey.set(locator, item as Record<string, unknown>);
-        });
-
-        for (const item of nextItems) {
-          const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-          if (!locator) continue;
-          const previousItem = previousByKey.get(locator);
-          if (previousItem) {
-            if (!deepEqual(previousItem, item)) {
-              await patchEntity(locator, item as Record<string, unknown>);
-            }
-            previousByKey.delete(locator);
-          } else {
-            try {
-              await createEntity(locator, item as Record<string, unknown>);
-            } catch {
-              await patchEntity(locator, item as Record<string, unknown>);
-            }
-          }
-        }
-
-        for (const [locator] of previousByKey) {
-          await deleteEntity(locator);
-        }
+        await persistBaseListItems(baseType, prevItems, nextItems);
       }
 
       const updatedModelByRelPath = new Map(modelResult.updatedEntities.map((entity) => [entity.relPath, entity]));
@@ -1034,6 +1110,9 @@ export function AppShell() {
         folderEntities: folderResult.updatedEntities.length,
         baseEntities: baseResult.updatedEntities.length,
         changeCount: modelResult.changeCount + folderResult.changeCount + baseResult.changeCount,
+        updatedModelRelPaths: modelResult.updatedEntities.map((entity) => entity.relPath),
+        updatedBaseRelPaths: baseResult.updatedEntities.map((entry) => entry.relPath),
+        updatedFolderPaths: folderResult.updatedEntities.map((entry) => normalizeFolderPath(entry.folderPath || "")),
       };
     },
     [baseEntities, folderEntities, modelEntities, setBaseEntities, setFolderEntities, setModelEntities],
@@ -1048,7 +1127,7 @@ export function AppShell() {
       const normalized = normalizedRaw.replace(/^Model\/?/i, "");
       if (!normalized) return true;
       if (!options?.allowZoneRoot && normalized.split("/").filter(Boolean).length <= 1) {
-        showAppError("Delete folder not allowed", "Zone root folders cannot be deleted from the model tree.");
+        showSaveNotification("failed");
         return false;
       }
 
@@ -1119,11 +1198,15 @@ export function AppShell() {
           setSelectedFolderPath(null);
           setActiveWorkTab(null);
         }
+        if (options?.notifySuccess !== false) {
+          showSaveNotification("saved");
+        }
 
         return true;
       } catch (err) {
         if (options?.notifyFailure !== false) {
-          showAppError("Delete folder failed", (err as Error).message || "Unknown error");
+          console.error("[DataM8] Delete folder failed:", err);
+          showSaveNotification("failed");
         }
         throw err;
       }
@@ -1142,7 +1225,7 @@ export function AppShell() {
       setSelectedFolderPath,
       setSelectedRelPath,
       setSelectedRelPaths,
-      showAppError,
+      showSaveNotification,
     ],
   );
 
@@ -1156,84 +1239,78 @@ export function AppShell() {
     return `${action.kind}:${JSON.stringify(createPropertyRefactorPayload(action.payload) || {})}:${action.targets.join(",")}`;
   }, []);
 
-  const executePendingBaseActions = useCallback(async (actions: PendingBaseAction[]) => {
-    if (actions.length === 0) return;
+  const executePendingBaseActions = useCallback(async (actions: PendingBaseAction[], options?: { notify?: boolean }) => {
+    if (actions.length === 0) return { applied: 0, failed: 0, updatedModelRelPaths: [] as string[], updatedBaseRelPaths: [] as string[] };
+    const notify = options?.notify !== false;
     const failed: PendingBaseAction[] = [];
+    const updatedModelRelPaths = new Set<string>();
+    const updatedBaseRelPaths = new Set<string>();
     let applied = 0;
-    let renamedFolders = 0;
-    let deletedFolderTrees = 0;
 
     for (const action of actions) {
       try {
         if (action.kind === "renameFolder") {
+          modelEntities
+            .filter((entity) => entity.relPath.startsWith(action.fromFolder))
+            .forEach((entity) => updatedModelRelPaths.add(entity.relPath));
           await renameModelFolder(action.fromFolder, action.toFolder);
-          renamedFolders += 1;
         } else if (action.kind === "deleteFolderTree") {
+          const normalized = normalizeFolderPath(action.folderPath.replace(/^Model\/?/i, ""));
+          modelEntities
+            .filter((entity) => {
+              const rel = normalizeFolderPath(entity.relPath.replace(/^Model\//, "").replace(/\/[^/]+\.json$/i, ""));
+              return rel === normalized || rel.startsWith(`${normalized}/`);
+            })
+            .forEach((entity) => updatedModelRelPaths.add(entity.relPath));
           await deleteFolderTree(action.folderPath, {
             confirm: false,
             allowZoneRoot: true,
             notifySuccess: false,
             notifyFailure: false,
           });
-          deletedFolderTrees += 1;
         } else {
-          await runPropertyRefactor(action.payload, action.targets);
+          const result = await runPropertyRefactor(action.payload, action.targets);
+          result.updatedModelRelPaths.forEach((relPath) => updatedModelRelPaths.add(relPath));
+          result.updatedBaseRelPaths.forEach((relPath) => updatedBaseRelPaths.add(relPath));
         }
         applied += 1;
       } catch (err) {
+        console.error("[DataM8] Apply action failed:", err);
         failed.push(action);
-        showAppError("Apply action failed", (err as Error).message);
-      }
-    }
-
-    if (failed.length > 0) {
-      showAppError("Some actions were not applied", `${failed.length} action(s) failed.`);
-    }
-
-    if (applied > 0) {
-      showInfo("app", {
-        title: "Apply actions executed",
-        description:
-          renamedFolders > 0 || deletedFolderTrees > 0
-            ? `Applied ${applied} action(s): renamed ${renamedFolders} folder(s), deleted ${deletedFolderTrees} folder tree(s).`
-            : `Applied ${applied} action(s).`,
-      });
-    }
-
-    const hasStructuralActions = actions.some((action) => action.kind !== "propertyRefactor");
-    if (applied > 0 && hasStructuralActions) {
-      try {
-        const fallbackSource: SolutionSource | null = solutionSource
-          ? solutionSource
-          : electronLike && solutionPath
-            ? { kind: "electron-path", path: solutionPath }
-            : { kind: "server-path", path: solutionPath || "" };
-        const result = fallbackSource ? await loadSolution(fallbackSource) : undefined;
-        if (result) {
-          applyLoadedSolution(result);
+        if (notify) {
+          showSaveNotification("failed");
         }
-      } catch (err) {
-        showAppError("Reload after actions failed", (err as Error).message || "Unknown error");
       }
     }
+
+    if (failed.length > 0 && notify) {
+      showSaveNotification("failed");
+    }
+
+    if (applied > 0 && notify) {
+      showSaveNotification("bulk-saved");
+    }
+
+    return {
+      applied,
+      failed: failed.length,
+      updatedModelRelPaths: Array.from(updatedModelRelPaths),
+      updatedBaseRelPaths: Array.from(updatedBaseRelPaths),
+    };
   }, [
-    applyLoadedSolution,
     deleteFolderTree,
-    electronLike,
-    loadSolution,
+    modelEntities,
     renameModelFolder,
     runPropertyRefactor,
-    solutionPath,
-    solutionSource,
-    showAppError,
-    showInfo,
+    showSaveNotification,
   ]);
 
   const handleSaveBase = useCallback(
-    async (updated: BaseEntity) => {
+    async (updated: BaseEntity): Promise<BaseSaveResult> => {
       const previous = baseEntities.find((b) => b.relPath === updated.relPath);
       try {
         let hadMutation = false;
+        let notificationStatus: BaseSaveResult["notificationStatus"] = "saved";
         const detectedUpdated = detectBaseType(updated.content, updated.relPath);
         const detectedPrevious = detectBaseType(previous?.content || {}, previous?.relPath || updated.relPath);
         const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
@@ -1242,33 +1319,7 @@ export function AppShell() {
 
         if (baseType && baseType !== "unknown") {
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          const previousByKey = new Map<string, Record<string, unknown>>();
-          for (const item of prevItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            previousByKey.set(locator, item as Record<string, unknown>);
-          }
-
-          for (const item of nextItems) {
-            const locator = buildBaseEntityLocator(baseType, item as Record<string, unknown>);
-            if (!locator) continue;
-            const prevItem = previousByKey.get(locator);
-            if (prevItem) {
-              if (!deepEqual(prevItem, item)) {
-                await patchEntity(locator, item as Record<string, unknown>, { save: false });
-                hadMutation = true;
-              }
-              previousByKey.delete(locator);
-            } else {
-              await createEntity(locator, item as Record<string, unknown>, { save: false });
-              hadMutation = true;
-            }
-          }
-
-          for (const [locator] of previousByKey) {
-            await deleteEntity(locator, { save: false });
-            hadMutation = true;
-          }
+          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
         } else {
           const updatedLocator = updated.locator || modelLocatorFromRelPath(updated.relPath);
           try {
@@ -1389,29 +1440,36 @@ export function AppShell() {
             });
             const refactorActions = uniqueActions.filter((action) => action.kind === "propertyRefactor");
             const structuralActions = uniqueActions.filter((action) => action.kind !== "propertyRefactor");
+            const bulkUpdatedBaseRelPaths = new Set<string>();
+            const bulkUpdatedModelRelPaths = new Set<string>();
 
             if (refactorActions.length > 0) {
-              let summary = { modelEntities: 0, folderEntities: 0, baseEntities: 0, changeCount: 0 };
               for (const action of refactorActions) {
                 const result = await runPropertyRefactor(action.payload, action.targets);
-                summary = {
-                  modelEntities: summary.modelEntities + result.modelEntities,
-                  folderEntities: summary.folderEntities + result.folderEntities,
-                  baseEntities: summary.baseEntities + result.baseEntities,
-                  changeCount: summary.changeCount + result.changeCount,
-                };
+                result.updatedBaseRelPaths.forEach((relPath) => bulkUpdatedBaseRelPaths.add(relPath));
+                result.updatedModelRelPaths.forEach((relPath) => bulkUpdatedModelRelPaths.add(relPath));
               }
-              showInfo("app", {
-                title: "Property refactor applied",
-                description:
-                  summary.changeCount > 0
-                    ? `Updated ${summary.changeCount} property assignment(s) across ${summary.modelEntities} model, ${summary.folderEntities} folder and ${summary.baseEntities} base entries.`
-                    : "No assignment updates were required for the selected scope targets.",
-              });
+              notificationStatus = "bulk-saved";
             }
 
             if (structuralActions.length > 0) {
-              await executePendingBaseActions(structuralActions);
+              const actionResult = await executePendingBaseActions(structuralActions, { notify: false });
+              if (actionResult.failed > 0) {
+                throw new Error(`${actionResult.failed} follow-up action(s) failed.`);
+              }
+              actionResult.updatedBaseRelPaths.forEach((relPath) => bulkUpdatedBaseRelPaths.add(relPath));
+              actionResult.updatedModelRelPaths.forEach((relPath) => bulkUpdatedModelRelPaths.add(relPath));
+              if (actionResult.applied > 0) {
+                notificationStatus = "bulk-saved";
+              }
+            }
+
+            if (notificationStatus === "bulk-saved") {
+              clearDraftsForBulkSave({
+                baseRelPaths: Array.from(bulkUpdatedBaseRelPaths),
+                entityRelPaths: Array.from(bulkUpdatedModelRelPaths),
+                sourceBaseRelPath: updated.relPath,
+              });
             }
           }
         }
@@ -1420,6 +1478,7 @@ export function AppShell() {
         if (hadMutation) {
           await saveModel();
         }
+        return { notificationStatus };
       } catch (err) {
         setTabDirty(updated.relPath, "base", true);
         throw err;
@@ -1435,10 +1494,10 @@ export function AppShell() {
       runPropertyRefactor,
       executePendingBaseActions,
       clearPatchedBaseTimer,
+      clearDraftsForBulkSave,
       setBaseEntities,
       setBaseTabs,
       setTabDirty,
-      showInfo,
     ],
   );
 
@@ -1474,8 +1533,10 @@ export function AppShell() {
           setActiveWorkTab(`entity:${toRelPath}`);
         }
         setTreeFilter("");
+        showSaveNotification("saved");
       } catch (err) {
-        showAppError("Move failed", (err as Error).message);
+        console.error("[DataM8] Move failed:", err);
+        showSaveNotification("failed");
       }
     },
     [
@@ -1488,7 +1549,7 @@ export function AppShell() {
       setSelectedRelPath,
       setSelectedRelPaths,
       setTreeFilter,
-      showAppError,
+      showSaveNotification,
     ],
   );
 
@@ -1525,6 +1586,7 @@ export function AppShell() {
   }, [activeWorkTab]);
 
   const handleReload = useCallback(async () => {
+    if (!solution) return;
     if (hasAnyDirty) {
       const proceed = await confirm({
         title: "Reload solution?",
@@ -1580,7 +1642,7 @@ export function AppShell() {
     if (result) {
       applyLoadedSolution(result);
     }
-  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solutionPath, solutionSource]);
+  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solution, solutionPath, solutionSource]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")
@@ -1740,7 +1802,7 @@ export function AppShell() {
       setActiveWorkTab(`folder:${normalizeFolderPath(effectiveFolderPath)}`);
 
       if (renameRequested) {
-        await executePendingBaseActions([
+        const actionResult = await executePendingBaseActions([
           {
             kind: "renameFolder",
             fromFolder: `Model/${currentFolderPath}`,
@@ -1749,9 +1811,13 @@ export function AppShell() {
             reason: "folderProperties",
           },
         ]);
+        clearDraftsForBulkSave({
+          entityRelPaths: actionResult.updatedModelRelPaths,
+          baseRelPaths: actionResult.updatedBaseRelPaths,
+        });
       }
     },
-    [executePendingBaseActions, folderEntityByPath, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
+    [clearDraftsForBulkSave, executePendingBaseActions, folderEntityByPath, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
   );
 
   const setFolderDirty = useCallback((folderPath: string, dirty: boolean) => {
@@ -1795,19 +1861,25 @@ export function AppShell() {
       properties: [],
     };
 
-    await saveFolderMetadata({
-      relPath: `Model/${newFolderPath}/.properties.json`,
-      content,
-      folderPath: newFolderPath,
-      name: folderName,
-    });
-    ensureExpandedPath(parent);
-    ensureExpandedPath(newFolderPath);
-    setSelectedFolderPath(newFolderPath);
-    setActiveWorkTab(`folder:${newFolderPath}`);
-    setNewFolderDialogOpen(false);
-    setNewFolderName("");
-  }, [ensureExpandedPath, folderEntityByPath, newFolderName, newFolderParentPath, saveFolderMetadata, setActiveWorkTab, setSelectedFolderPath, showAppError]);
+    try {
+      await saveFolderMetadata({
+        relPath: `Model/${newFolderPath}/.properties.json`,
+        content,
+        folderPath: newFolderPath,
+        name: folderName,
+      });
+      ensureExpandedPath(parent);
+      ensureExpandedPath(newFolderPath);
+      setSelectedFolderPath(newFolderPath);
+      setActiveWorkTab(`folder:${newFolderPath}`);
+      setNewFolderDialogOpen(false);
+      setNewFolderName("");
+      showSaveNotification("saved");
+    } catch (err) {
+      console.error("[DataM8] Folder creation failed:", err);
+      showSaveNotification("failed");
+    }
+  }, [ensureExpandedPath, folderEntityByPath, newFolderName, newFolderParentPath, saveFolderMetadata, setActiveWorkTab, setSelectedFolderPath, showAppError, showSaveNotification]);
 
   const deleteFolder = useCallback(
     async (folderPath: string) => {
@@ -1947,7 +2019,7 @@ export function AppShell() {
       validatorRunInFlightRef.current = false;
       setValidatorRunning(false);
     }
-  }, [generatorLogLevel, solutionPath]);
+  }, [generatorLogLevel, showAppError, solutionPath]);
 
   const handleToggleTheme = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -2160,9 +2232,15 @@ export function AppShell() {
             onReload={() => {
               void handleReload();
             }}
-            onAddEntity={() => setWizardOpen(true)}
+            canReload={!!solution && !solutionLoading}
+            onAddEntity={() => {
+              if (!solution || solutionLoading) return;
+              setWizardOpen(true);
+            }}
+            canAddEntity={!!solution && !solutionLoading}
             onToggleTheme={handleToggleTheme}
             resolvedTheme={resolvedTheme}
+            saveNotification={saveNotification}
             modelTreeLoading={solutionLoading}
           />
         </aside>
@@ -2275,6 +2353,7 @@ export function AppShell() {
                   folderPersistRef.current = persist;
                 }}
                 onDirtyChange={setFolderDirty}
+                onSaveNotification={showSaveNotification}
               />
             ) : (
               <Workspace
@@ -2299,6 +2378,7 @@ export function AppShell() {
                 registerBasePersist={(persist) => {
                   basePersistRef.current = persist;
                 }}
+                onSaveNotification={showSaveNotification}
                 dataTypes={dataTypes}
                 dataTypeDefinitions={dataTypeDefinitions}
                 attributeTypeOptions={attributeTypeOptions}
@@ -2394,6 +2474,3 @@ export function AppShell() {
     </div>
   );
 }
-
-
-

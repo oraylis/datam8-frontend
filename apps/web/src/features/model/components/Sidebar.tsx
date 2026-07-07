@@ -32,9 +32,12 @@ type SidebarProps = {
   onNew: () => void;
   onOpen: () => void;
   onReload: () => void;
+  canReload?: boolean;
   onAddEntity: () => void;
+  canAddEntity?: boolean;
   onToggleTheme: () => void;
   resolvedTheme: "light" | "dark";
+  saveNotification?: { status: "saved" | "bulk-saved" | "failed"; label: string } | null;
   modelTreeLoading?: boolean;
 };
 
@@ -68,9 +71,12 @@ export function Sidebar({
   onNew,
   onOpen,
   onReload,
+  canReload = true,
   onAddEntity,
+  canAddEntity = true,
   onToggleTheme,
   resolvedTheme,
+  saveNotification,
   modelTreeLoading = false,
 }: SidebarProps) {
   const [visibleScope, setVisibleScope] = useState<SidebarScope>(selectedBaseRelPath ? "base" : "model");
@@ -111,11 +117,11 @@ export function Sidebar({
             <FolderOpen className="h-4 w-4" />
             {sidebarOpen ? <span>Open</span> : null}
           </Button>
-          <Button variant="sidebar" onClick={onReload} title="Reload">
+          <Button variant="sidebar" onClick={onReload} title="Reload" disabled={!canReload}>
             <RefreshCw className="h-4 w-4" />
             {sidebarOpen ? <span>Reload</span> : null}
           </Button>
-          <Button variant="sidebar" onClick={onAddEntity} title="Add Entity">
+          <Button variant="sidebar" onClick={onAddEntity} title="Add Entity" disabled={!canAddEntity}>
             <Plus className="h-4 w-4" />
             {sidebarOpen ? <span>Add Entity</span> : null}
           </Button>
@@ -224,6 +230,22 @@ export function Sidebar({
         >
           {resolvedTheme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
         </button>
+        {saveNotification ? (
+          <div
+            className={cn(
+              "sidebar__save-pill",
+              saveNotification.status === "failed"
+                ? "sidebar__save-pill--failed"
+                : saveNotification.status === "bulk-saved"
+                  ? "sidebar__save-pill--bulk-saved"
+                  : "sidebar__save-pill--saved",
+            )}
+            role="status"
+            aria-live="polite"
+          >
+            {saveNotification.label}
+          </div>
+        ) : null}
       </div>
 
       {onResizeStart ? <div className="sidebar__resizer" onMouseDown={(e) => onResizeStart(e)} /> : null}

@@ -9,7 +9,7 @@ Symptom:
 
 Common causes:
 - Web dev server failed to start due to missing Rollup native optional dependency (`@rollup/rollup-<platform>`).
-- Unsupported Node.js version (this repo supports Node 20.x/22.x LTS).
+- Unsupported Node.js version (this repo supports Node 24 LTS; Node 25+ is unsupported).
 - Port `4320` is already in use (Vite runs with `strictPort`).
 
 Fix:

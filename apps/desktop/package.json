@@ -24,6 +24,8 @@
   "build": {
     "appId": "com.datam8",
     "productName": "DataM8",
+    "executableName": "datam8",
+    "desktopName": "datam8",
     "electronVersion": "42.4.0",
     "deb": {
       "packageName": "datam8",
@@ -88,7 +90,8 @@
         "deb"
       ],
       "maintainer": "DataM8",
-      "icon": "build/icons/icon-512.png"
+      "icon": "build/icons/icon-512.png",
+      "syncDesktopName": true
     },
     "publish": [
       {

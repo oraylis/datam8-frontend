@@ -1899,7 +1899,15 @@ textarea:not([class]):focus {
 }
 
 .source-block .source-title {
+  display: block;
   font: var(--font-section-title);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.source-header-main {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .source-eyebrow {
@@ -1907,9 +1915,10 @@ textarea:not([class]):focus {
   color: var(--muted);
   letter-spacing: 0.02em;
   margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
   max-width: 100%;
 }
 

@@ -106,7 +106,7 @@ test.describe("property refactor release workflow", () => {
     await page.locator(".base-editor").locator("label", { hasText: "Name" }).locator("..").getByRole("textbox").first().fill(renamedProperty);
     await page.keyboard.press("Tab");
 
-    await expect(page.getByText("Property refactor applied")).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => hasPropertyAssignment(modelDir, renamedProperty, seedValue), { timeout: 30_000 }).toBeTruthy();
     await expect
       .poll(

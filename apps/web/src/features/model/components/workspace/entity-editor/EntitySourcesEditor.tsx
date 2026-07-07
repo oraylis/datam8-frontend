@@ -283,14 +283,15 @@ const SourceMappings = ({
                       {isExternal ? (
                         <input
                           value={m.sourceName || ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
                             updateSource(sourceIdx, (s) => ({
                               ...s,
                               mapping: (s.mapping || []).map((item: any, ii: number) =>
                                 ii === mIdx ? { ...item, sourceName: e.target.value } : item,
                               ),
-                            }))
-                          }
+                            }));
+                            onMappingChange?.();
+                          }}
                         />
                       ) : (
                         <FormSelect
@@ -316,14 +317,15 @@ const SourceMappings = ({
                       {isExternal ? (
                         <input
                           value={m.targetName || ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
                             updateSource(sourceIdx, (s) => ({
                               ...s,
                               mapping: (s.mapping || []).map((item: any, ii: number) =>
                                 ii === mIdx ? { ...item, targetName: e.target.value } : item,
                               ),
-                            }))
-                          }
+                            }));
+                            onMappingChange?.();
+                          }}
                         />
                       ) : (
                         <FormSelect
@@ -343,10 +345,52 @@ const SourceMappings = ({
                       )}
                     </div>
                     <div>
-                      <input value={m.sourceDataType?.type || ""} readOnly />
+                      <input
+                        value={m.sourceDataType?.type || ""}
+                        onChange={(e) => {
+                          const type = e.target.value;
+                          updateSource(sourceIdx, (s) => ({
+                            ...s,
+                            mapping: (s.mapping || []).map((item: any, ii: number) =>
+                              ii === mIdx
+                                ? {
+                                    ...item,
+                                    sourceDataType: {
+                                      ...(item.sourceDataType || {}),
+                                      type,
+                                      nullable: item.sourceDataType?.nullable ?? true,
+                                    },
+                                  }
+                                : item,
+                            ),
+                          }));
+                          onMappingChange?.();
+                        }}
+                      />
                     </div>
                     <div className="boolean-cell">
-                      <Checkbox checked={m.sourceDataType?.nullable ?? true} disabled />
+                      <Checkbox
+                        checked={m.sourceDataType?.nullable ?? true}
+                        onCheckedChange={(checked) => {
+                          const nullable = checked === true;
+                          updateSource(sourceIdx, (s) => ({
+                            ...s,
+                            mapping: (s.mapping || []).map((item: any, ii: number) =>
+                              ii === mIdx
+                                ? {
+                                    ...item,
+                                    sourceDataType: {
+                                      ...(item.sourceDataType || {}),
+                                      type: item.sourceDataType?.type ?? "",
+                                      nullable,
+                                    },
+                                  }
+                                : item,
+                            ),
+                          }));
+                          onMappingChange?.();
+                        }}
+                      />
                     </div>
                     <div>
                       <PropertyChips
@@ -480,7 +524,7 @@ const InternalSourceCard = ({
   return (
     <div className="source-block source-block--internal" key={index} ref={cardRef}>
       <div className="section-header" style={{ alignItems: "flex-start" }}>
-        <div>
+        <div className="source-header-main">
           <div className="source-eyebrow" title={eyebrowText}>
             <span className="source-kind source-kind--internal">Internal</span>
             {` - Zone: ${zoneValue || "Select zone"}`}
@@ -559,7 +603,7 @@ const ExternalSourceCard = ({
   return (
     <div className="source-block source-block--external" key={index} ref={cardRef}>
       <div className="section-header" style={{ alignItems: "flex-start" }}>
-        <div>
+        <div className="source-header-main">
           <div className="source-eyebrow" title={eyebrowText}>
             <span className="source-kind source-kind--external">External</span>
             {` - Data source: ${source.dataSource || "Select data source"}`}

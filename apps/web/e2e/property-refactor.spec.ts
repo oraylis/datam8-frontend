@@ -113,7 +113,20 @@ test("saving renamed property applies refactor flow without apply dialog", async
   await propertyNameInput.fill("businessDomain");
   await propertyNameInput.press("Tab");
 
-  await expect.poll(() => entityWrites.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(1);
+  await expect
+    .poll(
+      () =>
+        entityWrites.find(
+          (entry) =>
+            entry.method === "POST" &&
+            /\/entities\/rename$/i.test(entry.url) &&
+            entry.body.from === "/properties/domain" &&
+            entry.body.to === "/properties/businessDomain",
+        ),
+      { timeout: 10_000 },
+    )
+    .toBeTruthy();
+
   const baseWrite = entityWrites.find(
     (entry) =>
       entry.method === "POST" &&
@@ -121,8 +134,7 @@ test("saving renamed property applies refactor flow without apply dialog", async
       entry.body.from === "/properties/domain" &&
       entry.body.to === "/properties/businessDomain",
   );
-
   expect(baseWrite).toBeTruthy();
-  await expect(page.getByText("Property refactor applied")).toBeVisible();
-  await expect(page.getByText("No assignment updates were required for the selected scope targets.")).toBeVisible();
+  const savePill = page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" });
+  await expect(savePill).toBeVisible({ timeout: 30_000 });
 });

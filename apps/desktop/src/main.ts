@@ -210,36 +210,6 @@ function appendOutputPreview(preview: { value: string }, label: "stdout" | "stde
   }
 }
 
-function stripAnsi(value: string): string {
-  return value.replace(/\x1b\[[0-9;]*m/g, "");
-}
-
-function summarizeBackendStartupFailure(message: string, output: string): string {
-  const clean = stripAnsi(`${message}\n${output}`).replace(/\r/g, "");
-  const httpException = clean.match(/HTTPException:\s*\d+:\s*\[\s*['"]([^'"]+)['"]\s*\]/);
-  const extracted = httpException?.[1]?.trim();
-
-  if (extracted) {
-    return [
-      "Failed to open solution.",
-      "",
-      extracted,
-    ].join("\n");
-  }
-
-  const entityNotFound = clean.match(/Entity was not found in model:\s*([^\]\n]+)/);
-  if (entityNotFound?.[0]) {
-    return [
-      "Failed to open solution.",
-      "",
-      entityNotFound[0].trim(),
-    ].join("\n");
-  }
-
-  const trimmedMessage = stripAnsi(message).trim();
-  return trimmedMessage || "Failed to start backend.";
-}
-
 function resolvePythonRuntimePath(): string | null {
   const override = process.env.DATAM8_PYTHON_PATH;
   if (override) {
@@ -1181,7 +1151,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       backendSolutionPath = null;
       const msg = err instanceof Error ? err.message : String(err);
       const output = backendOutputPreview.value.trim();
-      throw new Error(summarizeBackendStartupFailure(msg, output));
+      throw new Error(`Failed to open solution: ${msg}${output ? `\n\nBackend output (preview):\n${output}` : ""}`);
     }
   })();
 

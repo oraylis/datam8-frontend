@@ -301,7 +301,7 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
       await page.getByText(seedProperty, { exact: true }).click();
       await page.locator(".base-editor").locator("label", { hasText: "Name" }).locator("..").getByRole("textbox").first().fill(renamedProperty);
       await saveByBlur(page);
-      await expect(page.getByText("Property refactor applied")).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" })).toBeVisible({ timeout: 30_000 });
       await expect.poll(() => hasPropertyAssignment(modelDir, renamedProperty, seedValue), { timeout: 30_000 }).toBeTruthy();
       await expect
         .poll(
@@ -332,7 +332,7 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
       await clickBase(page, "Properties");
       await page.getByText(deleteProperty, { exact: true }).click();
       await page.getByLabel(`Delete ${deleteProperty}`, { exact: true }).click();
-      await expect(page.getByText("Property refactor applied")).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" })).toBeVisible({ timeout: 30_000 });
       await expect.poll(() => fileContainsText(modelDir, deleteProperty), { timeout: 30_000 }).toBeFalsy();
       await expect.poll(() => hasPropertyValue(propertyValuesPath, deleteProperty, deletePropertyValue), { timeout: 30_000 }).toBeFalsy();
 
@@ -348,7 +348,7 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
         .filter({ hasText: deleteValue })
         .getByLabel(`Delete ${deleteValue}`, { exact: true })
         .click({ force: true, timeout: 10_000 });
-      await expect(page.getByText("Property refactor applied")).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" })).toBeVisible({ timeout: 30_000 });
       await expect.poll(() => hasPropertyAssignment(modelDir, deleteValueProperty, deleteValue), { timeout: 30_000 }).toBeFalsy();
       await expect.poll(() => hasPropertyValue(propertyValuesPath, deleteValueProperty, deleteValue), { timeout: 30_000 }).toBeFalsy();
     });

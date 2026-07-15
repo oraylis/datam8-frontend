@@ -877,14 +877,25 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   </DropdownMenu>
                 ) : null}
                 {entitySection === "relationships" ? (
-                  <ActionButton
-                    variant="default"
-                    onClick={() => {
-                      relationshipsEditorRef.current?.addRelationship();
-                    }}
-                  >
-                    Add Relationship
-                  </ActionButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <ActionButton variant="default">
+                        Add relationship <ChevronDown className="h-4 w-4" />
+                      </ActionButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        relationshipsEditorRef.current?.addInternalRelationship();
+                      }}>
+                        Internal relationship
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        relationshipsEditorRef.current?.addExternalRelationship();
+                      }}>
+                        External relationship
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 ) : null}
                 {entitySection === "transformations" ? (
                   <ActionButton
@@ -1073,7 +1084,11 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   resolveEntityNameById={resolveEntityNameById}
                   zoneFromRelPath={zoneFromRelPath}
                   onJumpToEntity={onJumpToEntity}
+                  onJumpToDataSource={onJumpToDataSource}
                   markEntityDirty={markEntityDirty}
+                  dataSourceOptions={dataSourceOptions}
+                  dataSourceDetails={dataSourceDetails}
+                  solutionPath={solutionPath}
                   onRelationshipChange={() => persistAfterStateFlush("dropdown-change")}
                   onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
                 />

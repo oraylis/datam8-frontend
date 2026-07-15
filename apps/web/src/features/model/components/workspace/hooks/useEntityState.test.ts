@@ -65,10 +65,41 @@ describe("normalizeRelationshipsForSave", () => {
       { targetModelEntityId: 12, mappings: [{ source: "CustomerId", target: "" }] },
       { targetModelEntityId: null, mappings: [{ source: "A", target: "B" }] },
       { targetModelEntityId: 44, mappings: [{ source: "OrderId", target: "Id" }] },
+      { dataSource: "crm", targetLocation: "", mappings: [{ source: "CustomerId", target: "Id" }] },
+      { dataSource: "crm", targetLocation: "dbo.Customer", mappings: [{ source: "CustomerId", target: "Id" }] },
     ]);
 
     expect(result).toEqual([
       { targetModelEntityId: 44, mappings: [{ source: "OrderId", target: "Id" }] },
+      { dataSource: "crm", targetLocation: "dbo.Customer", mappings: [{ source: "CustomerId", target: "Id" }] },
+    ]);
+  });
+
+  it("serializes external relationships to canonical attributes", () => {
+    const result = serializeEntityContent({
+      baseContent: { id: 1, name: "Order" },
+      formValues: { name: "Order" },
+      attributes: [],
+      sources: [],
+      relationships: [
+        {
+          dataSource: "crm",
+          targetLocation: "dbo.Customer",
+          alias: "Customer",
+          mappings: [{ source: "CustomerId", target: "Id" }],
+        },
+      ],
+      transformations: [],
+      properties: [],
+    });
+
+    expect(result.relationships).toEqual([
+      {
+        dataSource: "crm",
+        targetLocation: "dbo.Customer",
+        alias: "Customer",
+        attributes: [{ sourceName: "CustomerId", targetName: "Id" }],
+      },
     ]);
   });
 });

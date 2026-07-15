@@ -12,7 +12,7 @@ import {
   FormSelect,
   Input,
 } from "@datam8/ui";
-import { ArrowRight, ExternalLink, Loader2, PanelTopOpen, Trash2 } from "lucide-react";
+import { ArrowRight, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
@@ -553,7 +553,7 @@ const InternalSourceCard = ({
             aria-label="Open details"
             onClick={() => onEditSource(index, "internal")}
           >
-            <PanelTopOpen className="h-4 w-4" />
+            <Pencil className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Delete source"
@@ -633,7 +633,7 @@ const ExternalSourceCard = ({
             aria-label="Open details"
             onClick={() => onEditSource(index, "external")}
           >
-            <PanelTopOpen className="h-4 w-4" />
+            <Pencil className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Delete source"

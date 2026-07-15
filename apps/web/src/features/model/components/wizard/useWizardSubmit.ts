@@ -61,7 +61,9 @@ type MappedSource = {
 };
 
 type MappedRelationship = {
+  dataSource?: string;
   targetLocation: string | number | undefined;
+  alias?: string;
   attributes: Array<{ sourceName?: string; targetName?: string }>;
 };
 
@@ -196,6 +198,15 @@ function mapAttribute(attr: WizardAttribute, idx: number, nowIso: string): Mappe
 }
 
 function mapRelationship(rel: WizardRelationship, modelEntities: ModelEntity[]): MappedRelationship {
+  if (rel.type === "external") {
+    const mapped: MappedRelationship = {
+      dataSource: rel.dataSource,
+      targetLocation: rel.targetLocation,
+      attributes: [{ sourceName: rel.sourceAttribute, targetName: rel.targetAttribute }],
+    };
+    if (rel.alias) mapped.alias = rel.alias;
+    return mapped;
+  }
   const targetEntity = modelEntities.find((entity) => entity.relPath === rel.targetRelPath);
   return {
     targetLocation: targetEntity?.content?.id,

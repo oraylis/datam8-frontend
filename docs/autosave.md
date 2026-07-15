@@ -70,7 +70,7 @@ This avoids overlapping saves while still persisting the latest state.
 ### Entity editor (`useEntityState`)
 
 - Relationship and source creation/editing happens in dialogs and commits only valid data into editor state.
-- Relationships require a target entity and at least one complete source/target mapping before dialog save.
+- Relationships require an internal target entity or external data source/location, plus at least one complete source/target mapping before dialog save.
 - Internal sources require a target entity; external sources require a data source and source location.
 - Save payload normalization still filters incomplete legacy linkage rows defensively, but normal UI flows do not create them.
 

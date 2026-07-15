@@ -1,13 +1,16 @@
 import type React from "react";
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from "react";
 import { ArrowRight, ExternalLink, Pencil, Trash2 } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormSelect } from "@datam8/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormSelect, Input } from "@datam8/ui";
 import type { ModelEntity } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
+import { ExternalSourceConfigurator } from "../../wizard/SourceRow";
+import { resolveSourceOverride } from "../../wizard/sourceOverride";
 
 export type EntityRelationshipsEditorHandle = {
-  addRelationship: () => void;
+  addInternalRelationship: () => void;
+  addExternalRelationship: () => void;
 };
 
 type EntityRelationshipsEditorProps = {
@@ -21,15 +24,24 @@ type EntityRelationshipsEditorProps = {
   resolveEntityNameById: (id: any) => any;
   zoneFromRelPath: (relPath: string | undefined) => string;
   onJumpToEntity: (relPath: string) => void;
+  onJumpToDataSource: (name: string) => void;
   markEntityDirty: () => void;
+  dataSourceOptions: string[];
+  dataSourceDetails: Record<string, unknown>;
+  solutionPath: string;
   onRelationshipChange?: () => void;
   onDeleteRelationship?: () => void;
 };
 
 type RelationshipDialogState = {
   index: number | null;
+  kind: "internal" | "external";
   zone: string;
   targetModelEntityId: number | null;
+  dataSource: string;
+  targetLocation: string;
+  alias: string;
+  externalMeta?: any;
   mappings: Array<{ source: string; target: string }>;
 };
 
@@ -47,32 +59,47 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
   resolveEntityNameById,
   zoneFromRelPath,
   onJumpToEntity,
+  onJumpToDataSource,
   markEntityDirty,
+  dataSourceOptions,
+  dataSourceDetails,
+  solutionPath,
   onRelationshipChange,
   onDeleteRelationship,
 }: EntityRelationshipsEditorProps, ref) {
   const [mappingsCollapsed, setMappingsCollapsed] = useState<Record<number, boolean>>({});
   const [relationshipDialog, setRelationshipDialog] = useState<RelationshipDialogState | null>(null);
+  const [showExternalBrowser, setShowExternalBrowser] = useState(false);
 
   const sourceColumns = useMemo(() => (attributes || []).map((a: any) => a.name).filter(Boolean), [attributes]);
 
-  const openRelationshipDialog = useCallback((idx: number | null) => {
+  const openRelationshipDialog = useCallback((idx: number | null, kind: "internal" | "external") => {
     if (idx === null) {
       setRelationshipDialog({
         index: null,
+        kind,
         zone: "",
         targetModelEntityId: null,
+        dataSource: "",
+        targetLocation: "",
+        alias: "",
         mappings: [],
       });
       return;
     }
     const rel = relationships[idx];
+    const isExternal = !!rel?.dataSource;
     const currentTarget = modelEntities.find((ent) => ent.content?.id === rel?.targetModelEntityId);
     const zone = currentTarget ? getEntityZone(currentTarget, zoneFromRelPath) : relationshipZones[idx] || "";
     setRelationshipDialog({
       index: idx,
+      kind: isExternal ? "external" : "internal",
       zone,
       targetModelEntityId: rel?.targetModelEntityId ?? null,
+      dataSource: rel?.dataSource || "",
+      targetLocation: `${rel?.targetLocation ?? ""}`,
+      alias: rel?.alias || "",
+      externalMeta: rel?.__uiExternalMeta,
       mappings: (rel?.mappings || []).map((mapping: any) => ({
         source: mapping?.source || "",
         target: mapping?.target || "",
@@ -80,7 +107,14 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
     });
   }, [modelEntities, relationshipZones, relationships, zoneFromRelPath]);
 
-  useImperativeHandle(ref, () => ({ addRelationship: () => openRelationshipDialog(null) }), [openRelationshipDialog]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      addInternalRelationship: () => openRelationshipDialog(null, "internal"),
+      addExternalRelationship: () => openRelationshipDialog(null, "external"),
+    }),
+    [openRelationshipDialog],
+  );
 
   const removeRelationship = (idx: number) => {
     markEntityDirty();
@@ -120,22 +154,40 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
   const dialogTargetEntity = relationshipDialog
     ? dialogTargetCandidates.find((ent) => ent.content?.id === relationshipDialog.targetModelEntityId)
     : null;
-  const dialogTargetColumns = (dialogTargetEntity?.content?.attributes || [])
-    .map((a: any) => (typeof a?.name === "string" ? a.name : ""))
-    .filter((name: string) => name.trim().length > 0);
+  const dialogTargetColumns = relationshipDialog?.kind === "external"
+    ? (relationshipDialog.externalMeta?.columns || [])
+        .map((column: any) => (typeof column?.name === "string" ? column.name : ""))
+        .filter((name: string) => name.trim().length > 0)
+    : (dialogTargetEntity?.content?.attributes || [])
+        .map((a: any) => (typeof a?.name === "string" ? a.name : ""))
+        .filter((name: string) => name.trim().length > 0);
   const canSaveDialog =
-    !!relationshipDialog?.zone &&
-    relationshipDialog.targetModelEntityId !== null &&
+    !!relationshipDialog &&
+    (relationshipDialog.kind === "external"
+      ? !!relationshipDialog.dataSource.trim() && !!relationshipDialog.targetLocation.trim()
+      : !!relationshipDialog.zone && relationshipDialog.targetModelEntityId !== null) &&
     relationshipDialog.mappings.some((mapping) => mapping.source.trim() && mapping.target.trim());
 
   const saveRelationshipDialog = () => {
     if (!relationshipDialog || !canSaveDialog) return;
-    const nextRel = {
-      targetModelEntityId: relationshipDialog.targetModelEntityId,
+    const baseRel = {
       mappings: relationshipDialog.mappings
         .map((mapping) => ({ source: mapping.source.trim(), target: mapping.target.trim() }))
         .filter((mapping) => mapping.source && mapping.target),
     };
+    const nextRel = relationshipDialog.kind === "external"
+      ? {
+          ...baseRel,
+          dataSource: relationshipDialog.dataSource.trim(),
+          targetLocation: relationshipDialog.targetLocation.trim(),
+          ...(relationshipDialog.alias.trim() ? { alias: relationshipDialog.alias.trim() } : {}),
+          ...(relationshipDialog.externalMeta ? { __uiExternalMeta: relationshipDialog.externalMeta } : {}),
+        }
+      : {
+          ...baseRel,
+          targetModelEntityId: relationshipDialog.targetModelEntityId,
+          ...(relationshipDialog.alias.trim() ? { alias: relationshipDialog.alias.trim() } : {}),
+        };
     markEntityDirty();
     if (relationshipDialog.index === null) {
       setRelationships((list) => [...list, { ...nextRel, name: `Rel${list.length + 1}` }]);
@@ -150,6 +202,7 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
   return (
     <div>
       {relationships.map((rel, idx) => {
+        const isExternal = !!rel?.dataSource;
         const mappings = rel.mappings || [];
         const isCollapsed = mappingsCollapsed[idx] ?? true;
         const currentTarget = modelEntities.find((ent) => ent.content?.id === rel.targetModelEntityId);
@@ -157,17 +210,23 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
         const selectedZone = relationshipZones[idx] || inferredZone || "";
         const targetCandidates = modelEntities.filter((ent) => zoneFromRelPath(ent.relPath) === selectedZone);
         const targetEntity = targetCandidates.find((ent) => ent.content?.id === rel.targetModelEntityId);
-        const targetColumns = (targetEntity?.content?.attributes || []).map((a: any) => a.name).filter(Boolean) || [];
+        const targetColumns = isExternal
+          ? (rel.__uiExternalMeta?.columns || []).map((column: any) => column?.name).filter(Boolean)
+          : (targetEntity?.content?.attributes || []).map((a: any) => a.name).filter(Boolean) || [];
 
         const targetName = rel.targetModelEntityId ? resolveEntityNameById(rel.targetModelEntityId) : "";
-        const eyebrowText = `Zone: ${selectedZone || "Select zone"}${targetName ? ` - Target: ${targetName}` : ""}`;
-        const titleText = targetName || rel.name || `Relationship ${idx + 1}`;
+        const kindLabel = isExternal ? "External" : "Internal";
+        const eyebrowDetails = isExternal
+          ? `Data source: ${rel.dataSource || "Select data source"} - Target: ${rel.targetLocation || "Set target"}`
+          : `Zone: ${selectedZone || "Select zone"}${targetName ? ` - Target: ${targetName}` : ""}`;
+        const eyebrowText = `${kindLabel} - ${eyebrowDetails}`;
+        const titleText = isExternal ? rel.alias || rel.targetLocation || rel.name || `Relationship ${idx + 1}` : targetName || rel.name || `Relationship ${idx + 1}`;
 
         const toggleCollapsed = () => setMappingsCollapsed((prev) => ({ ...prev, [idx]: !isCollapsed }));
         const addMapping = () => {
-          if (!sourceColumns.length || !targetColumns.length) return;
+          if (!sourceColumns.length || (!isExternal && !targetColumns.length)) return;
           const newSource = sourceColumns[0];
-          const newTarget = targetColumns[0];
+          const newTarget = targetColumns[0] || "";
           markEntityDirty();
           setRelationships((list) =>
             list.map((r, i) => (i === idx ? { ...r, mappings: [...(r.mappings || []), { source: newSource, target: newTarget }] } : r)),
@@ -177,27 +236,41 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
         };
 
         return (
-          <div className="source-block" key={idx}>
+          <div className={`source-block ${isExternal ? "source-block--external" : "source-block--internal"}`} key={idx}>
             <div className="section-header" style={{ alignItems: "flex-start" }}>
               <div>
                 <div className="source-eyebrow" title={eyebrowText}>
-                  {eyebrowText}
+                  <span className={`source-kind ${isExternal ? "source-kind--external" : "source-kind--internal"}`}>
+                    {kindLabel}
+                  </span>
+                  <span>{eyebrowDetails}</span>
                 </div>
                 <div className="section-title source-title">{titleText}</div>
               </div>
               <div className="actions actions--tight">
+                {isExternal ? (
+                  <IconBtn
+                    title="Open data source"
+                    aria-label="Open data source"
+                    onClick={() => rel.dataSource && onJumpToDataSource(rel.dataSource)}
+                    disabled={!rel.dataSource}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </IconBtn>
+                ) : (
+                  <IconBtn
+                    title="Open entity"
+                    aria-label="Open entity"
+                    onClick={() => currentTarget?.relPath && onJumpToEntity(currentTarget.relPath)}
+                    disabled={!currentTarget?.relPath}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </IconBtn>
+                )}
                 <IconBtn
-                  title="Open entity"
-                  aria-label="Open entity"
-                  onClick={() => currentTarget?.relPath && onJumpToEntity(currentTarget.relPath)}
-                  disabled={!currentTarget?.relPath}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </IconBtn>
-                <IconBtn
-                  title="Edit relationship"
-                  aria-label="Edit relationship"
-                  onClick={() => openRelationshipDialog(idx)}
+                  title="Open details"
+                  aria-label="Open details"
+                  onClick={() => openRelationshipDialog(idx, isExternal ? "external" : "internal")}
                 >
                   <Pencil className="h-4 w-4" />
                 </IconBtn>
@@ -216,7 +289,7 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
                 <ActionButton
                   variant="ghost"
                   onClick={addMapping}
-                  disabled={!sourceColumns.length || !targetColumns.length}
+                  disabled={!sourceColumns.length || (!isExternal && !targetColumns.length)}
                   style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
                   Add Mapping
@@ -270,31 +343,62 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
                           <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
-                          <FormSelect
-                            value={m.target || ""}
-                            onChange={(val) => {
-                              markEntityDirty();
-                              setRelationships((list) =>
-                                list.map((r, i) =>
-                                  i === idx
-                                    ? {
-                                        ...r,
-                                        mappings: (r.mappings || []).map((item: any, ii: number) =>
-                                          ii === mIdx ? { ...item, target: val } : item,
-                                        ),
-                                      }
-                                    : r,
-                                ),
-                              );
-                              onRelationshipChange?.();
-                            }}
-                            disabled={!rel.targetModelEntityId}
-                            options={[
-                              ...targetColumns.map((col: string) => ({ value: col, label: col })),
-                              ...(m.target && !targetColumns.includes(m.target) ? [{ value: m.target, label: m.target }] : []),
-                            ]}
-                            placeholder="Select target column"
-                          />
+                          {isExternal ? (
+                            <Input
+                              value={m.target || ""}
+                              list={`relationship-${idx}-target-columns`}
+                              onChange={(event) => {
+                                const val = event.target.value;
+                                markEntityDirty();
+                                setRelationships((list) =>
+                                  list.map((r, i) =>
+                                    i === idx
+                                      ? {
+                                          ...r,
+                                          mappings: (r.mappings || []).map((item: any, ii: number) =>
+                                            ii === mIdx ? { ...item, target: val } : item,
+                                          ),
+                                        }
+                                      : r,
+                                  ),
+                                );
+                                onRelationshipChange?.();
+                              }}
+                            />
+                          ) : (
+                            <FormSelect
+                              value={m.target || ""}
+                              onChange={(val) => {
+                                markEntityDirty();
+                                setRelationships((list) =>
+                                  list.map((r, i) =>
+                                    i === idx
+                                      ? {
+                                          ...r,
+                                          mappings: (r.mappings || []).map((item: any, ii: number) =>
+                                            ii === mIdx ? { ...item, target: val } : item,
+                                          ),
+                                        }
+                                      : r,
+                                  ),
+                                );
+                                onRelationshipChange?.();
+                              }}
+                              disabled={!rel.targetModelEntityId}
+                              options={[
+                                ...targetColumns.map((col: string) => ({ value: col, label: col })),
+                                ...(m.target && !targetColumns.includes(m.target) ? [{ value: m.target, label: m.target }] : []),
+                              ]}
+                              placeholder="Select target column"
+                            />
+                          )}
+                          {isExternal && targetColumns.length ? (
+                            <datalist id={`relationship-${idx}-target-columns`}>
+                              {targetColumns.map((col: string) => (
+                                <option key={col} value={col} />
+                              ))}
+                            </datalist>
+                          ) : null}
                         </div>
                         <div className="actions actions--tight">
                           <IconBtn
@@ -323,68 +427,119 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
           </div>
         );
       })}
-      <Dialog open={!!relationshipDialog} onOpenChange={(open) => !open && setRelationshipDialog(null)}>
+      <Dialog open={!!relationshipDialog} onOpenChange={(open) => {
+        if (!open) {
+          setRelationshipDialog(null);
+          setShowExternalBrowser(false);
+        }
+      }}>
         <DialogContent className="entity-linkage-dialog max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{relationshipDialog?.index === null ? "Add Relationship" : "Edit Relationship"}</DialogTitle>
-            <DialogDescription>Select a target entity and at least one complete mapping.</DialogDescription>
+            <DialogTitle>
+              {relationshipDialog?.index === null ? "Add" : "Edit"} {relationshipDialog?.kind === "external" ? "External" : "Internal"} Relationship
+            </DialogTitle>
+            <DialogDescription>Select a target and at least one complete mapping.</DialogDescription>
           </DialogHeader>
           {relationshipDialog ? (
             <div className="grid gap-4">
-              <div className="form-grid">
-                <div>
-                  <label>Zone *</label>
-                  <FormSelect
-                    value={relationshipDialog.zone}
-                    onChange={(zone) =>
-                      setRelationshipDialog((draft) =>
-                        draft
-                          ? {
-                          ...draft,
-                          zone,
-                          targetModelEntityId: null,
-                          mappings: [],
-                        }
-                          : draft,
-                      )
-                    }
-                    options={[{ value: "", label: "Select zone" }, ...zones.map((z) => ({ value: z, label: z }))]}
-                    placeholder="Select zone"
-                  />
+              {relationshipDialog.kind === "internal" ? (
+                <div className="form-grid">
+                  <div>
+                    <label>Zone *</label>
+                    <FormSelect
+                      value={relationshipDialog.zone}
+                      onChange={(zone) =>
+                        setRelationshipDialog((draft) =>
+                          draft
+                            ? {
+                                ...draft,
+                                zone,
+                                targetModelEntityId: null,
+                                mappings: [],
+                              }
+                            : draft,
+                        )
+                      }
+                      options={[{ value: "", label: "Select zone" }, ...zones.map((z) => ({ value: z, label: z }))]}
+                      placeholder="Select zone"
+                    />
+                  </div>
+                  <div>
+                    <label>Target Entity *</label>
+                    <FormSelect
+                      value={`${relationshipDialog.targetModelEntityId ?? ""}`}
+                      onChange={(value) =>
+                        setRelationshipDialog((draft) => {
+                          if (!draft) return draft;
+                          const targetModelEntityId = value ? Number(value) : null;
+                          return {
+                            ...draft,
+                            targetModelEntityId,
+                            mappings: [],
+                          };
+                        })
+                      }
+                      disabled={!relationshipDialog.zone}
+                      options={[
+                        { value: "", label: "Select target" },
+                        ...dialogTargetCandidates.map((ent) => ({ value: `${ent.content?.id ?? ""}`, label: ent.name })),
+                      ]}
+                      placeholder="Select target"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label>Target Entity *</label>
-                  <FormSelect
-                    value={`${relationshipDialog.targetModelEntityId ?? ""}`}
-                    onChange={(value) =>
-                      setRelationshipDialog((draft) => {
-                        if (!draft) return draft;
-                        const targetModelEntityId = value ? Number(value) : null;
-                        const target = dialogTargetCandidates.find((candidate) => candidate.content?.id === targetModelEntityId);
-                        const targetColumns = (target?.content?.attributes || [])
-                          .map((a: any) => (typeof a?.name === "string" ? a.name : ""))
-                          .filter((name: string) => name.trim().length > 0);
-                        return {
-                          ...draft,
-                          targetModelEntityId,
-                          mappings: [],
-                        };
-                      })
-                    }
-                    disabled={!relationshipDialog.zone}
-                    options={[
-                      { value: "", label: "Select target" },
-                      ...dialogTargetCandidates.map((ent) => ({ value: `${ent.content?.id ?? ""}`, label: ent.name })),
-                    ]}
-                    placeholder="Select target"
-                  />
+              ) : (
+                <div className="form-grid">
+                  <div>
+                    <label>Data source *</label>
+                    <FormSelect
+                      value={relationshipDialog.dataSource}
+                      onChange={(dataSource) =>
+                        setRelationshipDialog((draft) =>
+                          draft ? { ...draft, dataSource, targetLocation: "", externalMeta: undefined, mappings: [] } : draft,
+                        )
+                      }
+                      options={[{ value: "", label: "Select data source" }, ...dataSourceOptions.map((dataSource) => ({ value: dataSource, label: dataSource }))]}
+                      placeholder="Select data source"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="label-token mb-0">Target location *</label>
+                      <ActionButton
+                        variant="ghost"
+                        onClick={() => setShowExternalBrowser(true)}
+                        disabled={!relationshipDialog.dataSource}
+                        className="h-auto px-0 py-0 action-link hover:bg-transparent"
+                      >
+                        List tables
+                      </ActionButton>
+                    </div>
+                    <Input
+                      value={relationshipDialog.targetLocation}
+                      onChange={(event) =>
+                        setRelationshipDialog((draft) => draft ? { ...draft, targetLocation: event.target.value } : draft)
+                      }
+                      placeholder="dbo.Customer, API path, etc."
+                    />
+                  </div>
+                  <div>
+                    <label>Alias</label>
+                    <Input
+                      value={relationshipDialog.alias}
+                      onChange={(event) =>
+                        setRelationshipDialog((draft) => draft ? { ...draft, alias: event.target.value } : draft)
+                      }
+                      placeholder="Alias for display"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="section-header">
                 <label>Mappings *</label>
                 <ActionButton
                   variant="ghost"
-                  disabled={!sourceColumns.length || !dialogTargetColumns.length}
+                  disabled={!sourceColumns.length || (relationshipDialog.kind === "internal" && !dialogTargetColumns.length)}
                   onClick={() =>
                     setRelationshipDialog((draft) =>
                       draft
@@ -421,21 +576,53 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
                         options={sourceColumns.map((column) => ({ value: column, label: column }))}
                         placeholder="Source column"
                       />
-                      <FormSelect
-                        value={mapping.target}
-                        onChange={(target) =>
-                          setRelationshipDialog((draft) =>
-                            draft
-                              ? {
-                                  ...draft,
-                                  mappings: draft.mappings.map((item, idx) => (idx === mappingIdx ? { ...item, target } : item)),
-                                }
-                              : draft,
-                          )
-                        }
-                        options={dialogTargetColumns.map((column: string) => ({ value: column, label: column }))}
-                        placeholder="Target column"
-                      />
+                      {relationshipDialog.kind === "external" ? (
+                        <>
+                          <Input
+                            value={mapping.target}
+                            list="relationship-dialog-target-columns"
+                            onChange={(event) =>
+                              setRelationshipDialog((draft) =>
+                                draft
+                                  ? {
+                                      ...draft,
+                                      mappings: draft.mappings.map((item, idx) =>
+                                        idx === mappingIdx ? { ...item, target: event.target.value } : item,
+                                      ),
+                                    }
+                                  : draft,
+                              )
+                            }
+                            placeholder="Target column"
+                          />
+                          {dialogTargetColumns.length ? (
+                            <datalist id="relationship-dialog-target-columns">
+                              {dialogTargetColumns.map((column: string) => (
+                                <option key={column} value={column} />
+                              ))}
+                            </datalist>
+                          ) : null}
+                        </>
+                      ) : (
+                        <FormSelect
+                          value={mapping.target}
+                          onChange={(target) =>
+                            setRelationshipDialog((draft) =>
+                              draft
+                                ? {
+                                    ...draft,
+                                    mappings: draft.mappings.map((item, idx) => (idx === mappingIdx ? { ...item, target } : item)),
+                                  }
+                                : draft,
+                            )
+                          }
+                          options={[
+                            ...dialogTargetColumns.map((column: string) => ({ value: column, label: column })),
+                            ...(mapping.target && !dialogTargetColumns.includes(mapping.target) ? [{ value: mapping.target, label: mapping.target }] : []),
+                          ]}
+                          placeholder="Target column"
+                        />
+                      )}
                       <IconBtn
                         title="Remove mapping"
                         onClick={() =>
@@ -462,6 +649,42 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
               Save
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!relationshipDialog && relationshipDialog.kind === "external" && showExternalBrowser} onOpenChange={setShowExternalBrowser}>
+        <DialogContent className="entity-wizard max-h-[84vh] max-w-4xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Select target</DialogTitle>
+          </DialogHeader>
+          {relationshipDialog?.kind === "external" ? (
+            <ExternalSourceConfigurator
+              dataSource={relationshipDialog.dataSource}
+              dataSourceObject={(dataSourceDetails[relationshipDialog.dataSource] || {}) as any}
+              solutionPath={solutionPath}
+              selectedTable={relationshipDialog.targetLocation}
+              mode="wizard-single"
+              onCancel={() => setShowExternalBrowser(false)}
+              onTableSelected={(table, meta) => {
+                setRelationshipDialog((draft) => {
+                  if (!draft || draft.kind !== "external") return draft;
+                  const resolved = resolveSourceOverride({
+                    sourceOverride: meta?.sourceOverride,
+                    fallbackDataSource: draft.dataSource,
+                    fallbackLocation: table,
+                    dataSources: dataSourceOptions,
+                  });
+                  return {
+                    ...draft,
+                    dataSource: resolved.dataSource || draft.dataSource,
+                    targetLocation: `${resolved.sourceLocation ?? table}`,
+                    externalMeta: meta,
+                    mappings: [],
+                  };
+                });
+                setShowExternalBrowser(false);
+              }}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

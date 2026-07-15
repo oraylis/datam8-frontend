@@ -458,11 +458,6 @@
   padding: 0 !important;
 }
 
-.editor-panel .panel__body .source-kind--internal,
-.editor-panel .panel__body .source-kind--external {
-  color: hsl(var(--ui-muted-foreground));
-}
-
 .light .editor-panel .panel__body label:not([class]) {
   color: hsl(var(--ui-foreground));
 }

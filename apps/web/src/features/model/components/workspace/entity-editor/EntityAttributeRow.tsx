@@ -13,7 +13,7 @@ import {
   Textarea,
   cn,
 } from "@datam8/ui";
-import { Check, GripVertical, PanelTopOpen, Tag, Trash2 } from "lucide-react";
+import { Check, GripVertical, Pencil, Tag, Trash2 } from "lucide-react";
 import type { PropertyOption } from "../../../model-types";
 import { IconBtn } from "../common/IconBtn";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
@@ -503,7 +503,7 @@ export const EntityAttributeRow = memo(
                 <Trash2 className="h-4 w-4" />
               </IconBtn>
               <IconBtn active={detailsOpen} title="Open details" data-no-attribute-select="true" onClick={() => onToggleDetails(rowKey)}>
-                <PanelTopOpen className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </IconBtn>
             </div>
           </div>

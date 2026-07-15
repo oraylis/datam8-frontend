@@ -477,14 +477,15 @@ export interface TransformationFunction {
   source: string;
 }
 /**
- * Maps attributes to a target location.
+ * Maps attributes to an internal or external target location.
  *
  * This interface was referenced by `ModelEntity`'s JSON-Schema
  * via the `definition` "ModelRelationship".
  */
 
 export interface ModelRelationship {
-  targetLocation: number;
+  dataSource?: string;
+  targetLocation: number | string;
   alias?: string;
   /**
    * @minItems 1

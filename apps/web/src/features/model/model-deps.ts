@@ -91,18 +91,20 @@ export function findModelEntityDependents(
        }
     }
 
-    // 3. Check relationships (targetModelEntityId)
+    // 3. Check relationships (internal target references)
     if (Array.isArray(content.relationships)) {
       content.relationships.forEach((rel: any, idx: number) => {
          // Check by ID
-         if (targetId !== undefined && rel.targetModelEntityId === targetId) {
+         const isExternalRelationship = !!rel?.dataSource;
+         const internalTargetId = rel.targetModelEntityId ?? (!isExternalRelationship ? rel.targetLocation : undefined);
+         if (targetId !== undefined && internalTargetId === targetId) {
              deps.push({
                 dependentEntityId: entity.locator,
                 dependentEntityName: entity.name,
                 dependentRelPath: entity.relPath,
                 path: entity.relPath,
                 kind: "collection",
-                field: `relationships[${idx}].targetModelEntityId`,
+                field: `relationships[${idx}].${rel.targetModelEntityId !== undefined ? "targetModelEntityId" : "targetLocation"}`,
                 matchType: "id"
              });
          }

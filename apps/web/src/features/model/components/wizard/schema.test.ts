@@ -58,3 +58,47 @@ describe("wizard schema folder selection rules", () => {
     }
   });
 });
+
+describe("wizard relationship schema", () => {
+  const baseManualValues = {
+    creationMode: "manual" as const,
+    name: "Order",
+    folderPath: "Core/Sales",
+    sources: [],
+    attributes: [{ name: "CustomerId", dataType: "int", attributeType: "Regular" }],
+  };
+
+  it("accepts an external relationship with data source, target location and mapping", () => {
+    const result = wizardSchema.safeParse({
+      ...baseManualValues,
+      relationships: [
+        {
+          type: "external",
+          dataSource: "crm",
+          targetLocation: "dbo.Customer",
+          sourceAttribute: "CustomerId",
+          targetAttribute: "Id",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an external relationship without target location", () => {
+    const result = wizardSchema.safeParse({
+      ...baseManualValues,
+      relationships: [
+        {
+          type: "external",
+          dataSource: "crm",
+          targetLocation: "",
+          sourceAttribute: "CustomerId",
+          targetAttribute: "Id",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});

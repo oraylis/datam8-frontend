@@ -1099,6 +1099,7 @@ export function CreateModelEntityWizard({
                       size="sm"
                       onClick={() =>
                         appendRelationship({
+                          type: "internal",
                           targetRelPath: "",
                           sourceAttribute: "",
                           targetAttribute: "",
@@ -1123,6 +1124,8 @@ export function CreateModelEntityWizard({
                         removeRelationship={removeRelationship}
                         modelEntities={modelEntities}
                         zones={zones}
+                        dataSources={dataSources}
+                        solutionPath={solutionPath}
                         watchedAttributes={watchedAttributes}
                         errors={errors}
                         watch={watch}

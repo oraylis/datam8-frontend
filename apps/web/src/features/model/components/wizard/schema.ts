@@ -75,12 +75,30 @@ export const attributeSchema = z.object({
   properties: z.array(propertySchema).optional(),
 });
 
-export const relationshipSchema = z.object({
-  targetZone: z.string().min(1, "Zone is required"),
-  targetRelPath: z.string().min(1, "Target Entity is required"),
-  sourceAttribute: z.string().min(1, "Source Attribute is required"),
-  targetAttribute: z.string().min(1, "Target Attribute is required"),
-});
+export const relationshipSchema = z
+  .object({
+    type: z.enum(["internal", "external"]).default("internal"),
+    targetZone: z.string().optional(),
+    targetRelPath: z.string().optional(),
+    dataSource: z.string().optional(),
+    targetLocation: z.string().optional(),
+    alias: z.string().optional(),
+    metadata: z.any().optional(),
+    sourceAttribute: z.string().min(1, "Source Attribute is required"),
+    targetAttribute: z.string().min(1, "Target Attribute is required"),
+  })
+  .refine(
+    (data) => {
+      if (data.type === "external") {
+        return !!data.dataSource && !!data.targetLocation;
+      }
+      return !!data.targetZone && !!data.targetRelPath;
+    },
+    {
+      message: "Required fields missing for selected relationship type",
+      path: ["targetLocation"],
+    },
+  );
 
 export const wizardSchema = step1Schema.extend({
   sources: z.array(sourceSchema),

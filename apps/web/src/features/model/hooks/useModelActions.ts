@@ -146,7 +146,10 @@ export function useModelActions({
                              // Check if we haven't already added a duplicate for this specific relationship type to avoid double adding
                              const alreadyExists = content.relationships.some((r: any) => {
                                  // Check if a relationship with the same original target/source already points to the duplicate
-                                 const isTargetDup = (dep.field.includes("targetModelEntityId") && r.targetModelEntityId === dupId);
+                                 const isTargetDup = (
+                                   (dep.field.includes("targetModelEntityId") && r.targetModelEntityId === dupId) ||
+                                   (dep.field.includes("targetLocation") && !r.dataSource && r.targetLocation === dupId)
+                                 );
                                  const isSourceDup = (dep.field.includes("sourceModelEntityId") && r.sourceModelEntityId === dupId);
                                  const isTargetLocatorDup = (dep.field.includes("targetEntityId") && r.targetEntityId === dupLocator);
                                  const isSourceLocatorDup = (dep.field.includes("sourceEntityId") && r.sourceEntityId === dupLocator);
@@ -157,6 +160,7 @@ export function useModelActions({
                                  const newRel = structuredClone(originalRel);
                                  // Update relevant field in newRel to point to the duplicate
                                  if (dep.field.includes("targetModelEntityId") && dupId !== undefined) newRel.targetModelEntityId = dupId;
+                                 if (dep.field.includes("targetLocation") && dupId !== undefined) newRel.targetLocation = dupId;
                                  if (dep.field.includes("sourceModelEntityId") && dupId !== undefined) newRel.sourceModelEntityId = dupId;
                                  if (dep.field.includes("targetEntityId") && dupLocator !== undefined) newRel.targetEntityId = dupLocator;
                                  if (dep.field.includes("sourceEntityId") && dupLocator !== undefined) newRel.sourceEntityId = dupLocator;
@@ -355,6 +359,7 @@ export function useModelActions({
                         content.relationships = content.relationships.filter((rel: any) => {
                             // Check targetModelEntityId (ID match)
                             if (delId !== undefined && rel.targetModelEntityId === delId) return false;
+                            if (delId !== undefined && !rel.dataSource && rel.targetLocation === delId) return false;
                             
                             // Check sourceModelEntityId (ID match)
                             if (delId !== undefined && rel.sourceModelEntityId === delId) return false;

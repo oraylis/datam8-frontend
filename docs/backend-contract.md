@@ -33,6 +33,7 @@ Frontend uses root endpoints (no `/api/*` namespace):
 - `POST /validate` (synchronous, returns `messages` log lines)
 - editor/model/base/index/refactor/connectors/plugins/secrets routes under root paths
   - Base entity rename uses `POST /entities/rename` for single Base-list items in collection files; model entity and folder moves continue to use `POST /entities/move`.
+  - Model relationships may target an internal model entity (`targetLocation: number`) or an external data source (`dataSource` + string `targetLocation`); see canonical contract for the exact wire shape.
   - Secrets API: `POST /secrets/check`, `PUT /secrets/set`
   - Secret references are stored as `ref://<path>`
   - Plugin install is wheel-only via `POST /plugins/install`

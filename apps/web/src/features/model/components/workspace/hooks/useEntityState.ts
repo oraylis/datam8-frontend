@@ -44,13 +44,19 @@ export const serializeEntityContent = ({
   transformations: any[];
   properties: any[];
 }) => {
-  const serializedRelationships = (relationships || []).map((rel: any) => ({
-    targetLocation: rel.targetModelEntityId ?? rel.targetLocation ?? null,
-    attributes: (rel.mappings || []).map((m: any) => ({
-      sourceName: m.source,
-      targetName: m.target,
-    })),
-  }));
+  const serializedRelationships = (relationships || []).map((rel: any) => {
+    const attributes = (rel.mappings || rel.attributes || []).map((m: any) => ({
+      sourceName: m.source ?? m.sourceName,
+      targetName: m.target ?? m.targetName,
+    }));
+    const targetLocation = rel.dataSource
+      ? rel.targetLocation
+      : rel.targetModelEntityId ?? rel.targetLocation ?? null;
+    const out: any = { targetLocation, attributes };
+    if (rel.dataSource) out.dataSource = rel.dataSource;
+    if (rel.alias) out.alias = rel.alias;
+    return out;
+  });
   const serializedTransforms = (transformations || []).map((t, i) => {
     const base = { ...t, stepNo: i + 1 };
     delete (base as any).__uiPrevFunctionSource;
@@ -84,15 +90,31 @@ export const serializeEntityContent = ({
 export const normalizeRelationshipsForSave = (relationships: any[] | undefined) =>
   (relationships || [])
     .map((rel: any) => {
+      const dataSource = asNonEmptyString(rel?.dataSource);
+      const targetLocation = dataSource
+        ? asNonEmptyString(rel?.targetLocation)
+        : rel?.targetModelEntityId ?? rel?.targetLocation ?? null;
       const targetModelEntityId = rel?.targetModelEntityId ?? rel?.targetLocation ?? null;
-      const mappings = (rel?.mappings || [])
+      const mappings = (rel?.mappings || rel?.attributes || [])
         .map((m: any) => ({
-          source: asNonEmptyString(m?.source),
-          target: asNonEmptyString(m?.target),
+          source: asNonEmptyString(m?.source ?? m?.sourceName),
+          target: asNonEmptyString(m?.target ?? m?.targetName),
         }))
         .filter((m: any) => m.source && m.target);
-      if (targetModelEntityId === null || targetModelEntityId === undefined) return null;
       if (!mappings.length) return null;
+      if (dataSource) {
+        if (!targetLocation) return null;
+        const out: any = {
+          dataSource,
+          targetLocation,
+          mappings,
+        };
+        const alias = asNonEmptyString(rel?.alias);
+        if (alias) out.alias = alias;
+        if (rel?.__uiExternalMeta) out.__uiExternalMeta = rel.__uiExternalMeta;
+        return out;
+      }
+      if (targetModelEntityId === null || targetModelEntityId === undefined) return null;
       return {
         ...rel,
         targetModelEntityId,
@@ -558,13 +580,25 @@ export const useEntityState = ({
       __modified: false,
     }));
     const sourceState = cloneDeep(content?.sources || []);
-    const normalizedRelationships = (content?.relationships || []).map((rel: any) => ({
-      targetModelEntityId: rel.targetModelEntityId ?? rel.targetLocation ?? null,
-      mappings: (rel.mappings || rel.attributes || []).map((m: any) => ({
+    const normalizedRelationships = (content?.relationships || []).map((rel: any) => {
+      const mappings = (rel.mappings || rel.attributes || []).map((m: any) => ({
         source: m.source ?? m.sourceName ?? "",
         target: m.target ?? m.targetName ?? "",
-      })),
-    }));
+      }));
+      if (rel?.dataSource) {
+        return {
+          dataSource: rel.dataSource,
+          targetLocation: rel.targetLocation ?? "",
+          alias: rel.alias ?? "",
+          mappings,
+        };
+      }
+      return {
+        targetModelEntityId: rel.targetModelEntityId ?? rel.targetLocation ?? null,
+        alias: rel.alias ?? "",
+        mappings,
+      };
+    });
     const normalizedTransformations = (content?.transformations || []).map((t: any, i: number) => ({
       ...t,
       stepNo: i + 1,
@@ -668,6 +702,7 @@ export const useEntityState = ({
     setRelationshipZones((prev) => {
       const next: Record<number, string> = {};
       relationships.forEach((rel, idx) => {
+        if (rel?.dataSource) return;
         const target = modelEntities.find((m) => m.content?.id === rel.targetModelEntityId);
         const zone = target ? zoneFromRelPath(target.relPath) : prev[idx] || "";
         if (zone) next[idx] = zone;
@@ -688,7 +723,18 @@ export const useEntityState = ({
           }
           const normalizedAttributes = normalizeAttributes(parsed?.attributes || [], { forSave });
           const sourcePayload = forSave ? normalizeSourcesForSave(parsed?.sources || []) : parsed?.sources || [];
-          return { ...parsed, attributes: normalizedAttributes, sources: sourcePayload };
+          const relationshipPayload = forSave
+            ? serializeEntityContent({
+                baseContent: {},
+                formValues: {},
+                attributes: [],
+                sources: [],
+                relationships: normalizeRelationshipsForSave(parsed?.relationships || []),
+                transformations: [],
+                properties: [],
+              }).relationships
+            : parsed?.relationships || [];
+          return { ...parsed, attributes: normalizedAttributes, sources: sourcePayload, relationships: relationshipPayload };
         } catch {
           return "parse-error";
         }

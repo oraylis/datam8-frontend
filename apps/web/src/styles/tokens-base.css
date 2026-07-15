@@ -1878,26 +1878,6 @@ textarea:not([class]):focus {
   overflow: hidden;
 }
 
-.source-block--internal::before,
-.source-block--external::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 12px 0 0 12px;
-  opacity: 0.9;
-}
-
-.source-block--internal::before {
-  background: var(--source-internal-color);
-}
-
-.source-block--external::before {
-  background: var(--source-external-color);
-}
-
 .source-block .source-title {
   display: block;
   font: var(--font-section-title);
@@ -1915,6 +1895,10 @@ textarea:not([class]):focus {
   color: var(--muted);
   letter-spacing: 0.02em;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
@@ -1927,15 +1911,31 @@ textarea:not([class]):focus {
 }
 
 .source-kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 8px;
+  border-radius: 999px;
   font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .source-kind--internal {
-  color: var(--accent-strong);
+  color: #ffffff;
+  background: #245b97;
+  border: 1px solid #2f6fb5;
 }
 
 .source-kind--external {
-  color: var(--highlight);
+  color: #ffffff;
+  background: #873166;
+  border: 1px solid #9a3a78;
+}
+
+.dark .source-kind--internal,
+.dark .source-kind--external {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .source-block .form-grid {

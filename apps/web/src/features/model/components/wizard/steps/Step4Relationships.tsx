@@ -10,12 +10,14 @@ type Props = {
   control: Control<WizardFormValues>;
   modelEntities: ModelEntity[];
   zones: { name: string; displayName: string; localFolderName: string; targetName: string }[];
+  dataSources: Array<Record<string, any> & { name: string }>;
+  solutionPath: string;
   errors: any;
   watch: any;
   setValue: any;
 };
 
-export function Step4Relationships({ control, modelEntities, zones, errors, watch, setValue }: Props) {
+export function Step4Relationships({ control, modelEntities, zones, dataSources, solutionPath, errors, watch, setValue }: Props) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "relationships",
@@ -32,6 +34,7 @@ export function Step4Relationships({ control, modelEntities, zones, errors, watc
           size="sm"
           onClick={() =>
             append({
+              type: "internal",
               targetZone: "",
               targetRelPath: "",
               sourceAttribute: "",
@@ -54,6 +57,8 @@ export function Step4Relationships({ control, modelEntities, zones, errors, watc
             removeRelationship={remove}
             modelEntities={modelEntities}
             zones={zones}
+            dataSources={dataSources}
+            solutionPath={solutionPath}
             watchedAttributes={watchedAttributes}
             errors={errors}
             watch={watch}

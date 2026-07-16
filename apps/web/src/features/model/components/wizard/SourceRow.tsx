@@ -4,12 +4,13 @@ import { Badge, Button, Card, CardContent, Checkbox, FormSelect, Input, Label } 
 import { Trash2, Loader2 } from "lucide-react";
 import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
+import { ensureLoaded, useConnectorCatalog } from "../../../../shared/connectors/connectorCatalog";
 import type { PropertyAssignment } from "@datam8/types";
 import type { ModelEntity, SourceOverride, TableMetadata } from "../../model-types";
 import type { PropertyReference } from "../../generated-schema-types.ts";
 import type { WizardFormValues } from "./schema";
 import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
-import type { SourcePreviewTableRef } from "./sourcePreview";
+import { canPreviewDataSource, type SourcePreviewTableRef } from "./sourcePreview";
 import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
 
 const AUTH_FAILURE_MESSAGE =
@@ -45,6 +46,23 @@ function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined
       return value === undefined ? { property } : { property, value };
     })
     .filter((entry): entry is PropertyAssignment => entry !== null);
+  return mapped.length > 0 ? mapped : undefined;
+}
+
+function toColumnRelationships(input: unknown): TableMetadata["columns"][number]["relationships"] {
+  if (!Array.isArray(input)) return undefined;
+  const mapped = input
+    .map((entry): NonNullable<TableMetadata["columns"][number]["relationships"]>[number] | null => {
+      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
+      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
+      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
+      const sourceName = typeof rec?.sourceName === "string" ? rec.sourceName.trim() : "";
+      const targetName = typeof rec?.targetName === "string" ? rec.targetName.trim() : "";
+      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
+      const alias = typeof rec?.alias === "string" && rec.alias.trim() ? rec.alias.trim() : undefined;
+      return alias ? { dataSource, targetLocation, sourceName, targetName, alias } : { dataSource, targetLocation, sourceName, targetName };
+    })
+    .filter((entry): entry is NonNullable<TableMetadata["columns"][number]["relationships"]>[number] => entry !== null);
   return mapped.length > 0 ? mapped : undefined;
 }
 
@@ -86,9 +104,15 @@ export const ExternalSourceConfigurator = ({
     dataSourceObject?.connectorId ||
     dataSourceObject?.connector?.id ||
     "";
+  const connector = useConnectorCatalog((s) => s.connectors.find((entry) => entry.id === connectorId) || null);
   const isHttpApi = connectorId === "http-api";
   const supportsMetadata = !!connectorId && !isHttpApi;
   const isUnsupportedType = useMemo(() => !!dataSource && !connectorId, [connectorId, dataSource]);
+  const supportsPreview = canPreviewDataSource(dataSourceObject, connector);
+
+  useEffect(() => {
+    void ensureLoaded();
+  }, []);
 
   useEffect(() => {
     setTables([]);
@@ -179,6 +203,7 @@ export const ExternalSourceConfigurator = ({
           isPrimaryKey: Boolean(col?.isPrimaryKey),
           description: typeof col?.description === "string" ? col.description : undefined,
           properties: toPropertyAssignments(col?.properties),
+          relationships: toColumnRelationships(col?.relationships),
         })),
       };
       if (metadataValue.columns.length > 0) {
@@ -230,6 +255,7 @@ export const ExternalSourceConfigurator = ({
           isPrimaryKey: Boolean(col?.isPrimaryKey),
           description: typeof col?.description === "string" ? col.description : undefined,
           properties: toPropertyAssignments(col?.properties),
+          relationships: toColumnRelationships(col?.relationships),
         })),
       };
       if (metadataValue) {
@@ -333,6 +359,7 @@ export const ExternalSourceConfigurator = ({
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={!supportsPreview}
                           onClick={() => {
                             setPreviewTable({ schema: t.schema, name: t.name });
                           setPreviewOpen(true);

@@ -17,7 +17,7 @@ describe("connectorCatalog", () => {
               id: "sqlserver",
               displayName: "SQL Server",
               version: "0.1.0",
-              capabilities: ["uiSchema", "validationConnection", "metadata"],
+              capabilities: ["uiSchema", "validationConnection", "metadata", "previewData"],
               dataTypeMapping: [
                 { sourceType: "int", targetType: "int" },
                 { sourceType: "INT", targetType: "long" },
@@ -39,6 +39,7 @@ describe("connectorCatalog", () => {
         capabilities: {
           uiSchema: true,
           validateConnection: true,
+          previewData: true,
           metadata: { listTables: true, getTableMetadata: true },
         },
         dataTypeMapping: [

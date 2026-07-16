@@ -47,9 +47,10 @@ import { apiBase } from "../../../config";
 import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
 import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 import { SourceTablePreviewDialog } from "./wizard/SourceTablePreviewDialog";
-import type { SourcePreviewTableRef } from "./wizard/sourcePreview";
+import { canPreviewDataSource, type SourcePreviewTableRef } from "./wizard/sourcePreview";
 import { toSourceOverride } from "./wizard/sourceOverride";
 import type { SourceOverride } from "../model-types";
+import { ensureLoaded, useConnectorCatalog } from "../../../shared/connectors/connectorCatalog";
 
 // --- Main Component ---
 
@@ -245,6 +246,18 @@ export function CreateModelEntityWizard({
     () => new Set((propertyOptions || []).map((entry) => `${entry?.name || ""}`.trim()).filter(Boolean)),
     [propertyOptions],
   );
+  const selectedSourceObj = useMemo(
+    () => dataSourcesResolved.find((entry) => entry.name === selectedSource) || null,
+    [dataSourcesResolved, selectedSource],
+  );
+  const selectedConnector = useConnectorCatalog((s) =>
+    s.connectors.find((entry) => entry.id === selectedSourceObj?.connectorId) || null,
+  );
+  const supportsSelectedSourcePreview = canPreviewDataSource(selectedSourceObj, selectedConnector);
+
+  useEffect(() => {
+    void ensureLoaded();
+  }, []);
   const duplicates = useMemo(() => {
     if (creationMode !== "from-source" || !watchedFolderPath) return new Set<string>();
 
@@ -678,6 +691,7 @@ export function CreateModelEntityWizard({
                                                         <Button
                                                           variant="ghost"
                                                           size="sm"
+                                                          disabled={!supportsSelectedSourcePreview}
                                                           onClick={() => {
                                                             setPreviewTable({ schema: table.schema, name: table.name });
                                                             setPreviewOpen(true);

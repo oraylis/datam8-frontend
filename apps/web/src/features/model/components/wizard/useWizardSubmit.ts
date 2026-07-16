@@ -179,6 +179,46 @@ function toMappedSourceColumns(metadata: TableMetadata): MappedSourceMapping[] {
   });
 }
 
+function toColumnRelationships(input: unknown): TableMetadata["columns"][number]["relationships"] {
+  if (!Array.isArray(input)) return undefined;
+  const mapped = input
+    .map((entry): NonNullable<TableMetadata["columns"][number]["relationships"]>[number] | null => {
+      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
+      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
+      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
+      const sourceName = typeof rec?.sourceName === "string" ? rec.sourceName.trim() : "";
+      const targetName = typeof rec?.targetName === "string" ? rec.targetName.trim() : "";
+      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
+      const alias = typeof rec?.alias === "string" && rec.alias.trim() ? rec.alias.trim() : undefined;
+      return alias ? { dataSource, targetLocation, sourceName, targetName, alias } : { dataSource, targetLocation, sourceName, targetName };
+    })
+    .filter((entry): entry is NonNullable<TableMetadata["columns"][number]["relationships"]>[number] => entry !== null);
+  return mapped.length > 0 ? mapped : undefined;
+}
+
+function toMappedRelationshipsFromMetadata(metadata: TableMetadata): MappedRelationship[] {
+  const grouped = new Map<string, MappedRelationship>();
+  metadata.columns.forEach((column) => {
+    (column.relationships || []).forEach((relationship) => {
+      const key = `${relationship.dataSource}\n${relationship.targetLocation}\n${relationship.alias || ""}`;
+      const current =
+        grouped.get(key) ||
+        {
+          dataSource: relationship.dataSource,
+          targetLocation: relationship.targetLocation,
+          ...(relationship.alias ? { alias: relationship.alias } : {}),
+          attributes: [],
+        };
+      current.attributes.push({
+        sourceName: relationship.sourceName || column.name,
+        targetName: relationship.targetName,
+      });
+      grouped.set(key, current);
+    });
+  });
+  return Array.from(grouped.values()).filter((relationship) => relationship.attributes.length > 0);
+}
+
 function mapAttribute(attr: WizardAttribute, idx: number, nowIso: string): MappedAttribute {
   const mapped: MappedAttribute = {
     ordinalNumber: idx + 1,
@@ -295,6 +335,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
           isPrimaryKey: Boolean(col?.isPrimaryKey),
           description: typeof col?.description === "string" ? col.description : undefined,
           properties: toPropertyAssignments(col?.properties),
+          relationships: toColumnRelationships(col?.relationships),
         })),
       };
     },
@@ -531,7 +572,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 sourceLocation: formattedLocation,
                 mapping,
               };
-
+              const relationships = toMappedRelationshipsFromMetadata(metadata);
               createdEntities.push({
                 locator,
                 relPath,
@@ -550,7 +591,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
                       : (metadata.properties ?? []),
                   attributes,
                   sources: [source],
-                  relationships: [],
+                  relationships,
                   transformations: [],
                 },
               });

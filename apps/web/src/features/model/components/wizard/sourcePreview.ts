@@ -13,6 +13,27 @@ export type SourcePreviewResult = {
   columns: string[];
 };
 
+const SQLSERVER_ODCS_AUTH_MODES = new Set([
+  "bitbucket_app_password",
+  "bitbucket_bearer_token",
+  "bitbucket_server_bearer_token",
+]);
+
+export function canPreviewDataSource(
+  dataSource: {
+    connectorId?: string | null;
+    connector?: { id?: string | null } | null;
+    extendedProperties?: Record<string, unknown>;
+  } | null | undefined,
+  connector: { capabilities?: { previewData?: boolean } | null } | null | undefined,
+): boolean {
+  if (connector?.capabilities?.previewData !== true) return false;
+  const connectorId = `${dataSource?.connectorId || dataSource?.connector?.id || ""}`.trim().toLowerCase();
+  const authMode = `${dataSource?.extendedProperties?.authMode || ""}`.trim();
+  if (connectorId === "sqlserver" && SQLSERVER_ODCS_AUTH_MODES.has(authMode)) return false;
+  return true;
+}
+
 type MultiItemResponse = {
   items?: unknown;
 };

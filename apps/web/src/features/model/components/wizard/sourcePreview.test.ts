@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSourcePreviewEndpoint, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
+import { buildSourcePreviewEndpoint, canPreviewDataSource, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
 
 describe("sourcePreview helpers", () => {
   it("builds preview endpoint for table without schema", () => {
@@ -28,5 +28,23 @@ describe("sourcePreview helpers", () => {
       { id: 2, createdAt: "2026-04-20" },
     ]);
     expect(columns).toEqual(["id", "name", "createdAt"]);
+  });
+
+  it("disables preview for SQL Server ODCS auth modes", () => {
+    expect(
+      canPreviewDataSource(
+        { connectorId: "sqlserver", extendedProperties: { authMode: "bitbucket_server_bearer_token" } },
+        { capabilities: { previewData: true } },
+      ),
+    ).toBe(false);
+  });
+
+  it("enables preview when the connector exposes previewData", () => {
+    expect(
+      canPreviewDataSource(
+        { connectorId: "sqlserver", extendedProperties: { authMode: "databricks_pat" } },
+        { capabilities: { previewData: true } },
+      ),
+    ).toBe(true);
   });
 });

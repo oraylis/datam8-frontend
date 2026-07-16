@@ -9,6 +9,7 @@ export type ConnectorSummary = {
   capabilities?: {
     uiSchema?: boolean;
     validateConnection?: boolean;
+    previewData?: boolean;
     metadata?: { listTables?: boolean; getTableMetadata?: boolean };
     runtimeQuery?: { sql?: boolean; dataFrame?: boolean };
   } | null;
@@ -75,6 +76,7 @@ function parseCapabilities(raw: unknown): ConnectorSummary["capabilities"] {
     return {
       uiSchema: caps.has("uiSchema"),
       validateConnection: caps.has("validationConnection") || caps.has("validateConnection"),
+      previewData: caps.has("previewData"),
       metadata: caps.has("metadata")
         ? {
             listTables: true,

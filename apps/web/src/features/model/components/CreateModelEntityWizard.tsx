@@ -256,8 +256,9 @@ export function CreateModelEntityWizard({
   const supportsSelectedSourcePreview = canPreviewDataSource(selectedSourceObj, selectedConnector);
 
   useEffect(() => {
+    if (!open) return;
     void ensureLoaded();
-  }, []);
+  }, [open]);
   const duplicates = useMemo(() => {
     if (creationMode !== "from-source" || !watchedFolderPath) return new Set<string>();
 

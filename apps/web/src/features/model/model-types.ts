@@ -144,13 +144,22 @@ export type ColumnMetadata = {
   isPrimaryKey: boolean;
   description?: string;
   properties?: PropertyAssignment[];
-  relationships?: Array<{
-    dataSource: string;
-    targetLocation: string;
-    sourceName: string;
-    targetName: string;
-    alias?: string;
-  }>;
+  relationships?: Array<
+    | {
+        dataSource: string;
+        targetLocation: string;
+        sourceName: string;
+        targetName: string;
+        alias?: string;
+      }
+    | {
+        relationshipType: "internal";
+        targetEntityName: string;
+        sourceName: string;
+        targetName: string;
+        alias?: string;
+      }
+  >;
 };
 
 export type SourceOverride = {

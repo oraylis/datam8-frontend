@@ -78,6 +78,14 @@ type MappedCreatedAttribute = {
   properties: PropertyAssignment[];
 };
 
+type MetadataRelationship = NonNullable<TableMetadata["columns"][number]["relationships"]>[number];
+
+function isInternalMetadataRelationship(
+  relationship: MetadataRelationship,
+): relationship is Extract<MetadataRelationship, { relationshipType: "internal" }> {
+  return "relationshipType" in relationship && relationship.relationshipType === "internal";
+}
+
 export function mapInternalAttributesFromEntity(params: {
   attributes: unknown;
   nowIso: string;
@@ -184,24 +192,52 @@ function toColumnRelationships(input: unknown): TableMetadata["columns"][number]
   const mapped = input
     .map((entry): NonNullable<TableMetadata["columns"][number]["relationships"]>[number] | null => {
       const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
-      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
-      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
       const sourceName = typeof rec?.sourceName === "string" ? rec.sourceName.trim() : "";
       const targetName = typeof rec?.targetName === "string" ? rec.targetName.trim() : "";
-      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
       const alias = typeof rec?.alias === "string" && rec.alias.trim() ? rec.alias.trim() : undefined;
+      if (rec?.relationshipType === "internal") {
+        const targetEntityName = typeof rec?.targetEntityName === "string" ? rec.targetEntityName.trim() : "";
+        if (!targetEntityName || !sourceName || !targetName) return null;
+        return alias
+          ? { relationshipType: "internal", targetEntityName, sourceName, targetName, alias }
+          : { relationshipType: "internal", targetEntityName, sourceName, targetName };
+      }
+      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
+      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
+      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
       return alias ? { dataSource, targetLocation, sourceName, targetName, alias } : { dataSource, targetLocation, sourceName, targetName };
     })
     .filter((entry): entry is NonNullable<TableMetadata["columns"][number]["relationships"]>[number] => entry !== null);
   return mapped.length > 0 ? mapped : undefined;
 }
 
-function toMappedRelationshipsFromMetadata(metadata: TableMetadata): MappedRelationship[] {
+export function toMappedRelationshipsFromMetadata(
+  metadata: TableMetadata,
+  resolveInternalTarget?: (targetEntityName: string) => string | number | undefined,
+): MappedRelationship[] {
   const grouped = new Map<string, MappedRelationship>();
   metadata.columns.forEach((column) => {
     (column.relationships || []).forEach((relationship) => {
+      if (isInternalMetadataRelationship(relationship)) {
+        const targetLocation = resolveInternalTarget?.(relationship.targetEntityName);
+        if (targetLocation === undefined) return;
+        const key = `internal\n${targetLocation}\n${relationship.alias || ""}`;
+        const current: MappedRelationship =
+          grouped.get(key) ||
+          {
+            targetLocation,
+            ...(relationship.alias ? { alias: relationship.alias } : {}),
+            attributes: [],
+          };
+        current.attributes.push({
+          sourceName: relationship.sourceName || column.name,
+          targetName: relationship.targetName,
+        });
+        grouped.set(key, current);
+        return;
+      }
       const key = `${relationship.dataSource}\n${relationship.targetLocation}\n${relationship.alias || ""}`;
-      const current =
+      const current: MappedRelationship =
         grouped.get(key) ||
         {
           dataSource: relationship.dataSource,
@@ -217,6 +253,31 @@ function toMappedRelationshipsFromMetadata(metadata: TableMetadata): MappedRelat
     });
   });
   return Array.from(grouped.values()).filter((relationship) => relationship.attributes.length > 0);
+}
+
+function entityNameCandidates(entity: ModelEntity): string[] {
+  const names = new Set<string>();
+  [entity.name, entity.content?.name, entity.content?.displayName].forEach((name) => {
+    const normalized = typeof name === "string" ? name.trim().toLowerCase() : "";
+    if (normalized) names.add(normalized);
+  });
+  return Array.from(names);
+}
+
+export function buildEntityNameResolver(entities: ModelEntity[]): (targetEntityName: string) => string | number | undefined {
+  const byName = new Map<string, Array<string | number | undefined>>();
+  entities.forEach((entity) => {
+    entityNameCandidates(entity).forEach((name) => {
+      const ids = byName.get(name) || [];
+      ids.push(entity.content?.id);
+      byName.set(name, ids);
+    });
+  });
+  return (targetEntityName: string) => {
+    const matches = byName.get(targetEntityName.trim().toLowerCase()) || [];
+    if (matches.length !== 1) return undefined;
+    return matches[0];
+  };
 }
 
 function mapAttribute(attr: WizardAttribute, idx: number, nowIso: string): MappedAttribute {
@@ -347,6 +408,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
       setIsSubmitting(true);
       try {
         const createdEntities: ModelEntity[] = [];
+        const metadataByRelPath = new Map<string, TableMetadata>();
         let firstRelPath = "";
 
         if (values.creationMode === "manual") {
@@ -572,7 +634,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 sourceLocation: formattedLocation,
                 mapping,
               };
-              const relationships = toMappedRelationshipsFromMetadata(metadata);
               createdEntities.push({
                 locator,
                 relPath,
@@ -591,12 +652,22 @@ export function useWizardSubmit(deps: SubmitDeps) {
                       : (metadata.properties ?? []),
                   attributes,
                   sources: [source],
-                  relationships,
+                  relationships: [],
                   transformations: [],
                 },
               });
+              metadataByRelPath.set(relPath, metadata);
             }
           }
+        }
+
+        if (metadataByRelPath.size > 0) {
+          const resolveInternalTarget = buildEntityNameResolver([...modelEntities, ...createdEntities]);
+          createdEntities.forEach((entity) => {
+            const metadata = metadataByRelPath.get(entity.relPath);
+            if (!metadata) return;
+            entity.content.relationships = toMappedRelationshipsFromMetadata(metadata, resolveInternalTarget);
+          });
         }
 
         for (const entity of createdEntities) {

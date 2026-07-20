@@ -54,12 +54,19 @@ function toColumnRelationships(input: unknown): TableMetadata["columns"][number]
   const mapped = input
     .map((entry): NonNullable<TableMetadata["columns"][number]["relationships"]>[number] | null => {
       const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
-      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
-      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
       const sourceName = typeof rec?.sourceName === "string" ? rec.sourceName.trim() : "";
       const targetName = typeof rec?.targetName === "string" ? rec.targetName.trim() : "";
-      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
       const alias = typeof rec?.alias === "string" && rec.alias.trim() ? rec.alias.trim() : undefined;
+      if (rec?.relationshipType === "internal") {
+        const targetEntityName = typeof rec?.targetEntityName === "string" ? rec.targetEntityName.trim() : "";
+        if (!targetEntityName || !sourceName || !targetName) return null;
+        return alias
+          ? { relationshipType: "internal", targetEntityName, sourceName, targetName, alias }
+          : { relationshipType: "internal", targetEntityName, sourceName, targetName };
+      }
+      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
+      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
+      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
       return alias ? { dataSource, targetLocation, sourceName, targetName, alias } : { dataSource, targetLocation, sourceName, targetName };
     })
     .filter((entry): entry is NonNullable<TableMetadata["columns"][number]["relationships"]>[number] => entry !== null);

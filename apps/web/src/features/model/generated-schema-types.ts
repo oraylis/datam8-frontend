@@ -566,6 +566,7 @@ export interface UiField {
   type: string;
   required: boolean;
   default?: string | boolean | number | null;
+  enum?: string[];
   [k: string]: unknown;
 }
 

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { PropertyAssignment } from "@datam8/types";
-import { mapInternalAttributesFromEntity, mapMetadataColumnToCreatedAttribute } from "./useWizardSubmit";
+import {
+  buildEntityNameResolver,
+  mapInternalAttributesFromEntity,
+  mapMetadataColumnToCreatedAttribute,
+  toMappedRelationshipsFromMetadata,
+} from "./useWizardSubmit";
 
 describe("mapMetadataColumnToCreatedAttribute", () => {
   it("maps optional column description and properties to created attributes", () => {
@@ -68,5 +73,71 @@ describe("mapInternalAttributesFromEntity", () => {
       attributeType: "Regular",
       dateAdded: nowIso,
     });
+  });
+});
+
+describe("toMappedRelationshipsFromMetadata", () => {
+  it("resolves internal relationship candidates only for unique entity names", () => {
+    const resolver = buildEntityNameResolver([
+      { name: "provider", content: { id: 10, name: "provider", displayName: "Provider" } },
+      { name: "contract_instance", content: { id: 20, name: "contract_instance" } },
+      { name: "contract_instance_copy", content: { id: 21, name: "contract_instance" } },
+    ] as any);
+
+    const result = toMappedRelationshipsFromMetadata(
+      {
+        schema: "dm_dom_mobile_access",
+        name: "mobile_number_porting",
+        type: "BASE TABLE",
+        columns: [
+          {
+            name: "receiving_internal_provider_id",
+            ordinal: 1,
+            dataType: "integer",
+            maxLength: null,
+            numericPrecision: null,
+            numericScale: null,
+            isNullable: false,
+            isPrimaryKey: false,
+            relationships: [
+              {
+                relationshipType: "internal",
+                targetEntityName: "provider",
+                sourceName: "receiving_internal_provider_id",
+                targetName: "provider_id",
+                alias: "provider",
+              },
+            ],
+          },
+          {
+            name: "receiving_subscriber_id",
+            ordinal: 2,
+            dataType: "integer",
+            maxLength: null,
+            numericPrecision: null,
+            numericScale: null,
+            isNullable: false,
+            isPrimaryKey: false,
+            relationships: [
+              {
+                relationshipType: "internal",
+                targetEntityName: "contract_instance",
+                sourceName: "receiving_subscriber_id",
+                targetName: "subscriber_id",
+              },
+            ],
+          },
+        ],
+      },
+      resolver,
+    );
+
+    expect(result).toEqual([
+      {
+        targetLocation: 10,
+        alias: "provider",
+        attributes: [{ sourceName: "receiving_internal_provider_id", targetName: "provider_id" }],
+      },
+    ]);
   });
 });

@@ -29,6 +29,15 @@ import { saveModelEntityByRelPath } from "../../../../../shared/api/v2Client";
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
 import { MultiItemResponse } from "../../../model-types";
 import { SourceField, SourceObject } from "../../../generated-schema-types";
+import {
+  applyRelationshipChange,
+  buildRefreshEntityNameResolver,
+  diffRelationships,
+  relationshipSummary,
+  relationshipsFromSourceFields,
+  type RelationshipChange,
+  type RelationshipChangeType,
+} from "./relationshipRefresh";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -62,7 +71,7 @@ type ExternalSourceUsage = {
   sourceLocation: string;
 };
 
-type SchemaChangeType =
+type ColumnSchemaChangeType =
   | "NEW_COLUMN"
   | "REMOVED_COLUMN"
   | "TYPE_CHANGED"
@@ -71,14 +80,16 @@ type SchemaChangeType =
   | "DESCRIPTION_CHANGED"
   | "PROPERTIES_CHANGED";
 
+type SchemaChangeType = ColumnSchemaChangeType | RelationshipChangeType;
+
 type ColumnChange = {
-  changeType: SchemaChangeType;
+  changeType: ColumnSchemaChangeType;
   columnName: string;
   sourceBefore?: any;
   sourceAfter?: any;
   entityAttributeName?: string;
   applyToEntitySuggested: boolean;
-};
+} | RelationshipChange;
 
 type ExternalSourceSchemaDiff = {
   entityRelPath: string;
@@ -96,6 +107,7 @@ type ExternalSourceSchemaDiff = {
     nullableChanges: number;
     descriptionChanges: number;
     propertiesChanges: number;
+    relationshipChanges: number;
   };
 };
 
@@ -124,6 +136,11 @@ const STEPS = {
   APPLYING: 2,
   RESULT: 3,
 };
+
+const isRelationshipChange = (change: ColumnChange): change is RelationshipChange =>
+  change.changeType === "RELATIONSHIP_ADDED" ||
+  change.changeType === "RELATIONSHIP_REMOVED" ||
+  change.changeType === "RELATIONSHIP_MAPPING_CHANGED";
 
 export const RefreshSchemasDialog = ({
   dataSourceName,
@@ -408,6 +425,13 @@ export const RefreshSchemasDialog = ({
       }
     }
 
+    const resolveInternalTarget = buildRefreshEntityNameResolver(modelEntities);
+    const relationshipChanges = diffRelationships(
+      entity.content?.relationships,
+      relationshipsFromSourceFields(fields as any, resolveInternalTarget),
+    );
+    changes.push(...relationshipChanges);
+
     return {
       entityRelPath: usage.entityRelPath,
       entityName: usage.entityName,
@@ -424,6 +448,7 @@ export const RefreshSchemasDialog = ({
         nullableChanges: changes.filter((c) => c.changeType === "NULLABILITY_CHANGED").length,
         descriptionChanges: changes.filter((c) => c.changeType === "DESCRIPTION_CHANGED").length,
         propertiesChanges: changes.filter((c) => c.changeType === "PROPERTIES_CHANGED").length,
+        relationshipChanges: changes.filter((c) => isRelationshipChange(c)).length,
       },
     } as ExternalSourceSchemaDiff;
   };
@@ -645,6 +670,24 @@ export const RefreshSchemasDialog = ({
 
   const renderChangeBadge = (type: SchemaChangeType) => {
     switch (type) {
+      case "RELATIONSHIP_ADDED":
+        return (
+          <Badge variant="outline" className="border-primary/35 bg-primary/12 text-foreground">
+            Rel +
+          </Badge>
+        );
+      case "RELATIONSHIP_REMOVED":
+        return (
+          <Badge variant="outline" className="border-destructive/38 bg-destructive/14 text-destructive">
+            Rel -
+          </Badge>
+        );
+      case "RELATIONSHIP_MAPPING_CHANGED":
+        return (
+          <Badge variant="outline" className="border-border/70 bg-card/72 text-foreground">
+            Rel map
+          </Badge>
+        );
       case "NEW_COLUMN":
         return (
           <Badge variant="outline" className="border-primary/35 bg-primary/12 text-foreground">
@@ -684,6 +727,19 @@ export const RefreshSchemasDialog = ({
     const before = change.sourceBefore;
     const after = change.sourceAfter;
     switch (change.changeType) {
+      case "RELATIONSHIP_ADDED":
+        return <span>New relationship: {relationshipSummary(after)}</span>;
+      case "RELATIONSHIP_REMOVED":
+        return <span>Removed relationship: {relationshipSummary(before)}</span>;
+      case "RELATIONSHIP_MAPPING_CHANGED":
+        return (
+          <span>
+            Relationship mapping:{" "}
+            <span className="line-through text-muted-foreground mr-2">{relationshipSummary(before)}</span>
+            <ArrowRight className="inline w-3 h-3 mr-2 text-muted-foreground" />
+            <span>{relationshipSummary(after)}</span>
+          </span>
+        );
       case "NEW_COLUMN":
         return (
           <span>
@@ -791,6 +847,10 @@ export const RefreshSchemasDialog = ({
         for (const change of diff.changes) {
           const marker = `${change.columnName}::${change.changeType}`;
           if (!selectedKeys.has(marker)) continue;
+          if (isRelationshipChange(change)) {
+            nextContent.relationships = applyRelationshipChange(nextContent.relationships, change);
+            continue;
+          }
           if (change.changeType === "TYPE_CHANGED" || change.changeType === "NULLABILITY_CHANGED") {
             const mappingIndex = findSourceMappingIndex(change.columnName);
             if (mappingIndex >= 0) {
@@ -1103,6 +1163,7 @@ export const RefreshSchemasDialog = ({
                       {diff.summary?.newColumns ? <Badge variant="secondary">+{diff.summary.newColumns}</Badge> : null}
                       {diff.summary?.removedColumns ? <Badge variant="secondary">-{diff.summary.removedColumns}</Badge> : null}
                       {changedCount ? <Badge variant="secondary">~{changedCount}</Badge> : null}
+                      {diff.summary?.relationshipChanges ? <Badge variant="secondary">rel {diff.summary.relationshipChanges}</Badge> : null}
                       <Badge variant="outline">
                         {diffSelected}/{diffTotal} selected
                       </Badge>
@@ -1209,7 +1270,7 @@ export const RefreshSchemasDialog = ({
                                               <div className="min-w-0">
                                                 <div className="flex items-center gap-2">
                                                   {renderChangeBadge(c.changeType)}
-                                                  {c.entityAttributeName ? (
+                                                  {!isRelationshipChange(c) && c.entityAttributeName ? (
                                                     <span className="text-xs text-muted-foreground">-&gt; {c.entityAttributeName}</span>
                                                   ) : null}
                                                 </div>

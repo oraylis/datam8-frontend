@@ -41,6 +41,54 @@ const BACKEND_HOST = "127.0.0.1";
 const BACKEND_PORT = 4318;
 const BACKEND_OUTPUT_PREVIEW_LIMIT = 8192;
 
+function cleanBackendOutputLine(line: string): string {
+  return `${line || ""}`
+    .replace(/^\s*[|│]\s?/, "")
+    .replace(/\s?[|│]\s*$/, "")
+    .trim();
+}
+
+function isBackendOutputNoise(line: string): boolean {
+  if (!line) return true;
+  if (/^[+\-─━═╭╮╰╯┌┐└┘│| ]+$/.test(line)) return true;
+  if (/^-+$/.test(line)) return true;
+  if (/^Traceback \(most recent call last\)/i.test(line)) return true;
+  if (/^in [_a-zA-Z0-9]+:\d+$/i.test(line)) return true;
+  if (/^\d+\s*$/.test(line)) return true;
+  if (/^\d+\s+/.test(line)) return true;
+  if (/^[> ]*\d+\s+/.test(line)) return true;
+  if (/^[A-Z]:\\.*(?:\.py|site-packages|Lib\\)/i.test(line)) return true;
+  return false;
+}
+
+function stripPythonContainerSyntax(message: string): string {
+  let next = message.trim();
+  next = next.replace(/^HTTPException:\s*\d+:\s*/i, "");
+  next = next.replace(/^Error:\s*/i, "");
+  const listMatch = next.match(/^\[\s*(['"])([\s\S]*)\1\s*\]$/);
+  if (listMatch) next = listMatch[2];
+  const quoteMatch = next.match(/^(['"])([\s\S]*)\1$/);
+  if (quoteMatch) next = quoteMatch[2];
+  return next.replace(/\\n/g, "\n").trim();
+}
+
+function simplifyBackendErrorMessage(message: string, output?: string): string {
+  const fallback = `${message || ""}`.trim() || "Backend failed to open the solution.";
+  const candidates = `${output || ""}`
+    .split(/\r?\n/)
+    .map(cleanBackendOutputLine)
+    .filter((line) => !isBackendOutputNoise(line));
+  const selected = candidates.at(-1) || fallback;
+  return stripPythonContainerSyntax(selected) || fallback;
+}
+
+function withOpenSolutionPrefix(message: string): string {
+  const cleaned = `${message || ""}`.trim();
+  if (!cleaned) return "Failed to open solution.";
+  if (/^Failed to open solution\b/i.test(cleaned)) return cleaned;
+  return `Failed to open solution: ${cleaned}`;
+}
+
 function cleanupStaleBackendOnPort(port: number): void {
   if (process.platform !== "win32") return;
   try {
@@ -402,14 +450,21 @@ async function stopBackend() {
 function normalizeExistingFilePath(value: string): string {
   const candidate = `${value || ""}`.trim();
   if (!candidate) {
-    throw new Error("Solution path is required.");
+    throw new Error("Select a DataM8 solution file.");
   }
   const absolute = path.resolve(candidate);
-  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) {
+  if (!fs.existsSync(absolute)) {
     throw new Error(`Solution file not found: ${absolute}`);
   }
+  const stat = fs.statSync(absolute);
+  if (stat.isDirectory()) {
+    throw new Error(`Selected path is a folder. Select the .dm8s solution file inside it: ${absolute}`);
+  }
+  if (!stat.isFile()) {
+    throw new Error(`Selected path is not a file: ${absolute}`);
+  }
   if (!absolute.toLowerCase().endsWith(".dm8s")) {
-    throw new Error("Expected a .dm8s solution file.");
+    throw new Error("Selected file is not a DataM8 solution. Expected a .dm8s file.");
   }
   return absolute;
 }
@@ -1151,7 +1206,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       backendSolutionPath = null;
       const msg = err instanceof Error ? err.message : String(err);
       const output = backendOutputPreview.value.trim();
-      throw new Error(`Failed to open solution: ${msg}${output ? `\n\nBackend output (preview):\n${output}` : ""}`);
+      throw new Error(withOpenSolutionPrefix(simplifyBackendErrorMessage(msg, output)));
     }
   })();
 

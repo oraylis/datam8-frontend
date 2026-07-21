@@ -3,6 +3,7 @@ import type { BaseEntity, FolderEntity, ModelEntity } from "../model/model-types
 import type { Solution } from "./solution-types";
 import { loadSolution as loadSolutionFromSource, type SolutionSource } from "./solutionLoader";
 import { V1SolutionDetectedError } from "./errors";
+import { compactErrorMessage } from "../../shared/api/errorMessage";
 
 type LoadSolutionResult = {
   solution: Solution;
@@ -87,7 +88,7 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
           openMigration(err.sourceSolutionPath);
           return;
         }
-        const message = (err as Error).message;
+        const message = compactErrorMessage((err as Error).message, "Failed to load solution.");
         setError(message);
         setPickerError(message);
         if (source.kind === "server-path") {

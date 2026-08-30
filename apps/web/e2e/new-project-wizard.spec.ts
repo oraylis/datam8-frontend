@@ -139,6 +139,22 @@ test("new project wizard hides unsupported base/model/targets inputs", async ({ 
   await expect(page.getByLabel("Template ZIP (optional)")).toHaveCount(0);
 });
 
+test("dialogs ignore outside clicks and still close via cancel", async ({ page }) => {
+  await initDesktopBridge(page);
+  await mockSharedApi(page);
+  await loadSolutionFromDialogElectron(page);
+
+  await page.locator("button:has-text('New')").first().click();
+  const dialog = page.getByRole("dialog", { name: "Create New Project" });
+  await expect(dialog).toBeVisible();
+
+  await page.mouse.click(10, 10);
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+});
+
 test("new project keeps create button disabled until required fields are filled", async ({ page }) => {
   await initDesktopBridge(page);
   await mockSharedApi(page);

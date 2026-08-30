@@ -38,6 +38,11 @@ import {
   type RelationshipChange,
   type RelationshipChangeType,
 } from "./relationshipRefresh";
+import {
+  applyColumnSchemaChangesToEntityContent,
+  type ColumnSchemaChange,
+  type ColumnSchemaChangeType,
+} from "./schemaRefreshApply";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -71,25 +76,9 @@ type ExternalSourceUsage = {
   sourceLocation: string;
 };
 
-type ColumnSchemaChangeType =
-  | "NEW_COLUMN"
-  | "REMOVED_COLUMN"
-  | "TYPE_CHANGED"
-  | "NULLABILITY_CHANGED"
-  | "PK_CHANGED"
-  | "DESCRIPTION_CHANGED"
-  | "PROPERTIES_CHANGED";
-
 type SchemaChangeType = ColumnSchemaChangeType | RelationshipChangeType;
 
-type ColumnChange = {
-  changeType: ColumnSchemaChangeType;
-  columnName: string;
-  sourceBefore?: any;
-  sourceAfter?: any;
-  entityAttributeName?: string;
-  applyToEntitySuggested: boolean;
-} | RelationshipChange;
+type ColumnChange = ColumnSchemaChange | RelationshipChange;
 
 type ExternalSourceSchemaDiff = {
   entityRelPath: string;
@@ -831,18 +820,7 @@ export const RefreshSchemasDialog = ({
         const current = modelEntities.find((entity) => entity.relPath === diff.entityRelPath);
         if (!current) continue;
         const nextContent = structuredClone(current.content || {});
-        const attrs = Array.isArray(nextContent.attributes) ? nextContent.attributes : [];
-        const sources = Array.isArray(nextContent.sources) ? nextContent.sources : [];
-        const sourceEntry = sources[diff.sourceIndex];
-        const sourceMappings = Array.isArray(sourceEntry?.mapping) ? sourceEntry.mapping : [];
-        const byName = new Map<string, any>();
-        attrs.forEach((attr: any, index: number) => byName.set(`${attr?.name || ""}`, { attr, index }));
-
-        const findSourceMappingIndex = (columnName: string) =>
-          sourceMappings.findIndex((m: any) => {
-            const sourceName = `${m?.sourceName || ""}`.trim();
-            return sourceName === columnName;
-          });
+        const columnChanges: ColumnSchemaChange[] = [];
 
         for (const change of diff.changes) {
           const marker = `${change.columnName}::${change.changeType}`;
@@ -851,92 +829,10 @@ export const RefreshSchemasDialog = ({
             nextContent.relationships = applyRelationshipChange(nextContent.relationships, change);
             continue;
           }
-          if (change.changeType === "TYPE_CHANGED" || change.changeType === "NULLABILITY_CHANGED") {
-            const mappingIndex = findSourceMappingIndex(change.columnName);
-            if (mappingIndex >= 0) {
-              const mappingItem = sourceMappings[mappingIndex] || {};
-              const currentSourceDataType = normalizeDataTypeForSave(mappingItem?.sourceDataType) || {};
-              const nextSourceDataType = normalizeDataTypeForSave(
-                change.sourceAfter?.sourceDataType || {
-                  type: change.sourceAfter?.dataType,
-                  nullable: change.sourceAfter?.isNullable,
-                  charLen: change.sourceAfter?.maxLength,
-                  precision: change.sourceAfter?.numericPrecision,
-                  scale: change.sourceAfter?.numericScale,
-                },
-              );
-              if (nextSourceDataType) {
-                sourceMappings[mappingIndex] = {
-                  ...mappingItem,
-                  sourceDataType: {
-                    ...currentSourceDataType,
-                    ...nextSourceDataType,
-                  },
-                };
-              }
-            }
-            continue;
-          }
-          const attrKey = `${change.entityAttributeName || change.columnName || ""}`.trim();
-          const existing = attrKey ? byName.get(attrKey) : undefined;
-          if (change.changeType === "NEW_COLUMN" && !existing) {
-            attrs.push({
-              ordinalNumber: attrs.length + 1,
-              name: change.columnName,
-              attributeType: "Regular",
-              dataType: {
-                type: `${change.sourceAfter?.dataType || "string"}`,
-                nullable: Boolean(change.sourceAfter?.isNullable ?? true),
-              },
-              isBusinessKey: Boolean(change.sourceAfter?.isPrimaryKey),
-              properties: [],
-            });
-            continue;
-          }
-          if (change.changeType === "REMOVED_COLUMN" && existing) {
-            attrs.splice(existing.index, 1);
-            continue;
-          }
-          if (!existing) continue;
-          const targetAttr = existing.attr;
-          if (!targetAttr.dataType || typeof targetAttr.dataType !== "object") {
-            targetAttr.dataType = {};
-          }
-          if (change.changeType === "PK_CHANGED") {
-            targetAttr.isBusinessKey = Boolean(change.sourceAfter?.isPrimaryKey);
-          }
-          if (change.changeType === "DESCRIPTION_CHANGED") {
-            // Only set description if the attribute does not already have one
-            const existingDesc = typeof targetAttr.description === "string" ? targetAttr.description.trim() : "";
-            if (!existingDesc) {
-              targetAttr.description = change.sourceAfter?.description ?? undefined;
-            }
-          }
-          if (change.changeType === "PROPERTIES_CHANGED") {
-            // Additive only: add new properties from source, never remove or overwrite existing ones
-            const existing: any[] = Array.isArray(targetAttr.properties) ? targetAttr.properties : [];
-            const existingKeys = new Set(existing.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
-            const incoming: any[] = Array.isArray(change.sourceAfter?.properties) ? change.sourceAfter.properties : [];
-            const toAdd = incoming.filter((p: any) => {
-              const key = `${p?.property}`.trim();
-              return key && !existingKeys.has(key);
-            });
-            if (toAdd.length > 0) {
-              targetAttr.properties = [...existing, ...toAdd];
-            }
-          }
+          columnChanges.push(change);
         }
 
-        if (sourceEntry) {
-          sourceEntry.mapping = sourceMappings;
-          sources[diff.sourceIndex] = sourceEntry;
-          nextContent.sources = sources;
-        }
-
-        nextContent.attributes = attrs.map((attr: any, index: number) => ({
-          ...attr,
-          ordinalNumber: index + 1,
-        }));
+        applyColumnSchemaChangesToEntityContent(nextContent, diff.sourceIndex, columnChanges, selectedKeys);
         await saveModelEntityByRelPath(diff.entityRelPath, nextContent);
         updatedEntities.push({ entityRelPath: diff.entityRelPath, content: nextContent });
       }

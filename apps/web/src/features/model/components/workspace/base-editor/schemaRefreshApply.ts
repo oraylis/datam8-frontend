@@ -82,6 +82,7 @@ export function applyColumnSchemaChangesToEntityContent(
   changes: ColumnSchemaChange[],
   selectedKeys: Set<string>,
 ) {
+  const dateAdded = new Date().toISOString();
   const attrs = Array.isArray(nextContent.attributes) ? nextContent.attributes : [];
   const sources = Array.isArray(nextContent.sources) ? nextContent.sources : [];
   const sourceEntry = sources[sourceIndex];
@@ -138,6 +139,7 @@ export function applyColumnSchemaChangesToEntityContent(
             nullable: Boolean(change.sourceAfter?.isNullable ?? true),
           },
           isBusinessKey: Boolean(change.sourceAfter?.isPrimaryKey),
+          dateAdded,
           properties: [],
         });
       }

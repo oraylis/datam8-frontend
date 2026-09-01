@@ -158,6 +158,27 @@ test("entity draft survives switching", async ({ page }) => {
   await expect(page.getByPlaceholder("Display name")).toHaveValue("Customer Draft");
 });
 
+test("saved attribute survives switching without reload", async ({ page }) => {
+  const api = await mockApi(page);
+  await loadSolutionFromDialog(page);
+
+  await openEntity(page, "Customer");
+  await page.getByRole("button", { name: "Attributes", exact: true }).click();
+  await page.getByRole("button", { name: "Add Attribute", exact: true }).click();
+  await expect.poll(api.getEntityWrites).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+
+  await openEntity(page, "Order");
+  await openEntity(page, "Customer");
+  await page.getByRole("button", { name: "Attributes", exact: true }).click();
+
+  const rows = page.locator(".entity-attributes-table .value-row");
+  await expect(rows).toHaveCount(3);
+  await expect
+    .poll(() => rows.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value)))
+    .toContain("new_column");
+});
+
 test("base draft survives switching", async ({ page }) => {
   await mockApi(page);
   await loadSolutionFromDialog(page);

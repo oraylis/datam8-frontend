@@ -51,7 +51,10 @@ describe("applyColumnSchemaChangesToEntityContent", () => {
       ordinalNumber: 2,
       name: "new_col",
       dataType: { type: "decimal", nullable: false },
+      dateAdded: expect.any(String),
     }));
+    const addedAttribute: any = (content.attributes as any[]).find((attribute) => attribute.name === "new_col");
+    expect(Number.isNaN(Date.parse(addedAttribute?.dateAdded))).toBe(false);
     expect(content.sources[0].mapping).toContainEqual({
       sourceName: "new_col",
       targetName: "new_col",

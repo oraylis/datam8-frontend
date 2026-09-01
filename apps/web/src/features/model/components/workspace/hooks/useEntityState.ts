@@ -566,7 +566,6 @@ export const useEntityState = ({
     }
 
     const relChanged = selectedEntity.relPath !== originalRelRef.current;
-    baselineReadyRef.current = false;
     const { content } = selectedEntity;
     const normalizedAttributes = normalizeAttributes(content?.attributes || [], { forSave: false });
     const withIds = normalizedAttributes.map((a: any) => ({
@@ -628,6 +627,7 @@ export const useEntityState = ({
       hydratingRef.current = false;
       return;
     }
+    baselineReadyRef.current = false;
     originalRef.current = cloneDeep(canonical);
     originalRelRef.current = selectedEntity.relPath;
     const canonicalJson = JSON.stringify(canonical, null, 2);

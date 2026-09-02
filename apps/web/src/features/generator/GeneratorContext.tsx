@@ -2,6 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useSolution } from "../solution/SolutionContext";
 import { apiBase } from "../../config";
 import { useErrorSurface } from "../../shared/ui/ErrorSurface";
+import {
+  buildValidateUrl,
+  readValidateErrorMessage,
+  readValidateMessages,
+  type ValidateResponse,
+} from "../validator/validatorApi";
 
 type GeneratorLogLevel = "debug" | "info" | "warning" | "error" | "critical";
 
@@ -17,6 +23,7 @@ type GeneratorContextValue = {
   setGeneratorTarget: (value: string) => void;
   setGeneratorLogLevel: (value: GeneratorLogLevel) => void;
   runGenerator: (targetOverride?: string) => Promise<void>;
+  runValidation: () => Promise<void>;
 };
 
 type GenerateResponse = {
@@ -211,6 +218,75 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
     [generatorLogLevel, generatorTarget, generatorTargets, showError, solutionPath],
   );
 
+  const runValidation = useCallback(async () => {
+    if (runInFlightRef.current) return;
+    if (!solutionPath) {
+      showError("app", {
+        title: "No solution loaded",
+        description: "Cannot run validation without a loaded solution.",
+      });
+      return;
+    }
+
+    runInFlightRef.current = true;
+    setGeneratorRunning(true);
+    setGeneratorLog("Validation\n");
+    setGeneratorStderr(null);
+    setGeneratorError(null);
+    setGeneratorExit(null);
+
+    try {
+      const runValidateRequest = async (logLevel: string) => {
+        const desktopValidate = window.desktop?.solution?.validate;
+        if (desktopValidate) {
+          const result = await desktopValidate({ solutionPath, logLevel });
+          const payload = {
+            messages: Array.isArray(result?.messages) ? result.messages : result?.message ? [result.message] : [],
+            solutionPath,
+          } as Record<string, unknown>;
+          return {
+            response: new Response(JSON.stringify(payload), { status: result?.success === false ? 500 : 200 }),
+            payload,
+            messages: readValidateMessages(payload),
+          };
+        }
+
+        const response = await fetch(buildValidateUrl(apiBase, solutionPath, logLevel), { method: "POST" });
+        const payload = (await response.json().catch(() => ({}))) as ValidateResponse | Record<string, unknown>;
+        return { response, payload, messages: readValidateMessages(payload) };
+      };
+
+      let result = await runValidateRequest(generatorLogLevel);
+      if (result.response.ok && result.messages.length === 0 && generatorLogLevel !== "info") {
+        const infoResult = await runValidateRequest("info");
+        if (infoResult.response.ok && infoResult.messages.length > 0) result = infoResult;
+      }
+
+      if (!result.response.ok) {
+        const fallback = result.response.status === 404
+          ? "The Validate endpoint was not found. Check that the backend is up to date."
+          : result.response.status === 401 || result.response.status === 403
+            ? "Access denied. Check your authentication settings."
+            : readValidateErrorMessage(result.payload, "Validation failed.");
+        if (result.messages.length) setGeneratorLog(`Validation\n${result.messages.join("\n")}`);
+        throw new Error(fallback);
+      }
+
+      setGeneratorLog(
+        `Validation\n${result.messages.length ? result.messages.join("\n") : "Validation completed successfully."}`,
+      );
+      setGeneratorExit(0);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
+      setGeneratorError(message);
+      setGeneratorLog((prev) => `${prev.trim()}\n\nError: ${message}`);
+      setGeneratorExit(1);
+    } finally {
+      runInFlightRef.current = false;
+      setGeneratorRunning(false);
+    }
+  }, [generatorLogLevel, showError, solutionPath]);
+
   return (
     <GeneratorContext.Provider
       value={{
@@ -225,6 +301,7 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
         setGeneratorTarget,
         setGeneratorLogLevel,
         runGenerator,
+        runValidation,
       }}
     >
       {children}

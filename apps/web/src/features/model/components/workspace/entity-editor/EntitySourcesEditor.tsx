@@ -12,14 +12,14 @@ import {
   FormSelect,
   Input,
 } from "@datam8/ui";
-import { ArrowRight, ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, ExternalLink, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import type { ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
 import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
-import { ExternalSourceConfigurator } from "../../wizard/SourceRow";
 import { resolveSourceOverride } from "../../wizard/sourceOverride";
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
+import { RefreshSchemasDialog } from "../base-editor/RefreshSchemasDialog";
 
 export type EntitySourcesEditorHandle = {
   addInternalSource: () => void;
@@ -36,18 +36,13 @@ type EntitySourcesEditorProps = {
   setOpenMappingDetails: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   zones: string[];
   modelEntities: ModelEntity[];
+  currentEntityRelPath: string;
   resolveEntityMetaById: (id: any) => any;
   onJumpToEntity: (relPath: string) => void;
-  onJumpToDataSource: (name: string) => void;
   markEntityDirty: () => void;
   dataSourceOptions: string[];
   dataSourceDetails: Record<string, any>;
-  solutionPath: string;
   currentEntityAttributeNames: string[];
-  onPatchBaseEntity: (relPath: string, updater: (content: any) => any) => void;
-  dataSourcesRelPath: string | null;
-  onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
-  adoptingExternalSchemaIndex?: number | null;
   onDeleteSource?: () => void;
   onSourceChange?: () => void;
   onMappingChange?: () => void;
@@ -65,8 +60,6 @@ type SourceMappingsProps = {
   isExternal: boolean;
   sourceAttributeNames: string[];
   currentEntityAttributeNames: string[];
-  onAdoptExternalSchema?: () => void;
-  isAdoptingExternalSchema?: boolean;
 };
 
 type SourcePropertiesProps = {
@@ -99,12 +92,10 @@ type InternalSourceCardProps = {
 type ExternalSourceCardProps = {
   source: any;
   index: number;
-  dataSourceOptions: string[];
   propertyOptions: PropertyOption[];
   collapsedMappings: Record<number, boolean>;
   setCollapsedMappings: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-  onJumpToEntity: (relPath: string) => void;
-  onJumpToDataSource: (name: string) => void;
+  onRefreshSchema: (sourceIndex: number) => void;
   updateSource: (idx: number, updater: (src: any) => any) => void;
   onMappingChange?: () => void;
   onSourcePropertyChange?: () => void;
@@ -112,8 +103,6 @@ type ExternalSourceCardProps = {
   onEditSource: (idx: number, kind: "internal" | "external") => void;
   cardRef?: (el: HTMLDivElement | null) => void;
   currentEntityAttributeNames: string[];
-  onAdoptExternalSourceSchema?: (sourceIndex: number) => void;
-  isAdoptingExternalSchema?: boolean;
 };
 
 type SourceDialogState = {
@@ -197,8 +186,6 @@ const SourceMappings = ({
   isExternal,
   sourceAttributeNames,
   currentEntityAttributeNames,
-  onAdoptExternalSchema,
-  isAdoptingExternalSchema,
 }: SourceMappingsProps) => {
   const mappings = source.mapping || [];
   const isCollapsed = collapsedMappings[sourceIdx] ?? true;
@@ -237,18 +224,6 @@ const SourceMappings = ({
           <ActionButton variant="ghost" onClick={toggleCollapsed}>
             {isCollapsed ? `Show mappings (${mappings.length})` : "Hide mappings"}
           </ActionButton>
-          {isExternal && onAdoptExternalSchema ? (
-            <ActionButton variant="ghost" onClick={onAdoptExternalSchema} disabled={!mappings.length || isAdoptingExternalSchema}>
-              {isAdoptingExternalSchema ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  Adopting…
-                </>
-              ) : (
-                "Adopt Schema"
-              )}
-            </ActionButton>
-          ) : null}
           <ActionButton
             variant="ghost"
             onClick={addMapping}
@@ -582,12 +557,10 @@ const InternalSourceCard = ({
 const ExternalSourceCard = ({
   source,
   index,
-  dataSourceOptions,
   propertyOptions,
   collapsedMappings,
   setCollapsedMappings,
-  onJumpToEntity,
-  onJumpToDataSource,
+  onRefreshSchema,
   updateSource,
   onMappingChange,
   onSourcePropertyChange,
@@ -595,8 +568,6 @@ const ExternalSourceCard = ({
   onEditSource,
   cardRef,
   currentEntityAttributeNames,
-  onAdoptExternalSourceSchema,
-  isAdoptingExternalSchema,
 }: ExternalSourceCardProps) => {
   const title = source.sourceAlias || source.sourceLocation || "External source";
   const eyebrowText = `External - Data source: ${source.dataSource || "Select data source"} - Location: ${source.sourceLocation || "Set location"}`;
@@ -621,12 +592,12 @@ const ExternalSourceCard = ({
         </div>
         <div className="actions actions--tight">
           <IconBtn
-            title="Open data source"
-            aria-label="Open data source"
+            title="Refresh schema"
+            aria-label="Refresh schema"
             disabled={!source.dataSource}
-            onClick={() => source.dataSource && onJumpToDataSource(source.dataSource)}
+            onClick={() => onRefreshSchema(index)}
           >
-            <ExternalLink className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" />
           </IconBtn>
           <IconBtn
             title="Open details"
@@ -654,12 +625,6 @@ const ExternalSourceCard = ({
         isExternal={true}
         sourceAttributeNames={[]}
         currentEntityAttributeNames={currentEntityAttributeNames}
-        onAdoptExternalSchema={
-          onAdoptExternalSourceSchema
-            ? () => onAdoptExternalSourceSchema(index)
-            : undefined
-        }
-        isAdoptingExternalSchema={isAdoptingExternalSchema}
       />
     </div>
   );
@@ -675,18 +640,13 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     setOpenMappingDetails,
     zones,
     modelEntities,
+    currentEntityRelPath,
     resolveEntityMetaById,
     onJumpToEntity,
-    onJumpToDataSource,
     markEntityDirty,
     dataSourceOptions,
     dataSourceDetails,
-    solutionPath,
     currentEntityAttributeNames,
-    onPatchBaseEntity,
-    dataSourcesRelPath,
-    onAdoptExternalSourceSchema,
-    adoptingExternalSchemaIndex,
     onDeleteSource,
     onSourceChange,
     onMappingChange,
@@ -698,6 +658,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
   const pendingSourceIndexRef = useRef<number | null>(null);
   const [sourceDialog, setSourceDialog] = useState<SourceDialogState | null>(null);
   const [showExternalBrowser, setShowExternalBrowser] = useState(false);
+  const [refreshSourceIndex, setRefreshSourceIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (pendingSourceIndexRef.current !== null) {
@@ -843,20 +804,16 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
             key={`source-${idx}`}
             source={src}
             index={idx}
-            dataSourceOptions={dataSourceOptions}
             propertyOptions={propertyOptions}
             collapsedMappings={collapsedMappings}
             setCollapsedMappings={setCollapsedMappings}
-            onJumpToEntity={onJumpToEntity}
-            onJumpToDataSource={onJumpToDataSource}
+            onRefreshSchema={setRefreshSourceIndex}
             updateSource={updateSource}
             onMappingChange={onMappingChange}
             onSourcePropertyChange={onSourcePropertyChange}
             removeSource={removeSource}
             onEditSource={openSourceDialog}
             currentEntityAttributeNames={currentEntityAttributeNames}
-            onAdoptExternalSourceSchema={onAdoptExternalSourceSchema}
-            isAdoptingExternalSchema={adoptingExternalSchemaIndex === idx}
             cardRef={(el) => {
               sourceCardRefs.current[idx] = el;
             }}
@@ -884,6 +841,18 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
           />
         );
       })}
+      {refreshSourceIndex !== null && sources[refreshSourceIndex]?.dataSource ? (
+        <RefreshSchemasDialog
+          scope={{
+            kind: "entitySource",
+            dataSourceName: `${sources[refreshSourceIndex].dataSource}`,
+            entityRelPath: currentEntityRelPath,
+            sourceIndex: refreshSourceIndex,
+          }}
+          isOpen={true}
+          onClose={() => setRefreshSourceIndex(null)}
+        />
+      ) : null}
       <Dialog open={!!sourceDialog} onOpenChange={(open) => {
         if (!open) {
           setSourceDialog(null);
@@ -968,20 +937,18 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={!!sourceDialog && sourceDialog.kind === "external" && showExternalBrowser} onOpenChange={setShowExternalBrowser}>
-        <DialogContent className="entity-wizard max-h-[84vh] max-w-4xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Change entity</DialogTitle>
-          </DialogHeader>
-          {sourceDialog?.kind === "external" ? (
-            <ExternalSourceConfigurator
-              dataSource={sourceDialog.dataSource}
-              dataSourceObject={sourceDialogDataSourceObject}
-              solutionPath={solutionPath}
-              selectedTable={`${sourceDialog.sourceLocation ?? ""}`}
-              mode="wizard-single"
-              onCancel={() => setShowExternalBrowser(false)}
-              onTableSelected={(table, meta) => {
+      {sourceDialog?.kind === "external" && showExternalBrowser ? (
+        <RefreshSchemasDialog
+          scope={{
+            kind: "browseSource",
+            dataSourceName: sourceDialog.dataSource,
+            sourceLocation: `${sourceDialog.sourceLocation ?? ""}`,
+          }}
+          isOpen={showExternalBrowser}
+          onClose={() => setShowExternalBrowser(false)}
+          browseDataSourceObject={sourceDialogDataSourceObject}
+          browseExistingMappings={sourceDialog.mapping || []}
+          onBrowseApply={(table, meta) => {
                 setSourceDialog((draft) => {
                   if (!draft || draft.kind !== "external") return draft;
                   const resolved = resolveSourceOverride({
@@ -990,8 +957,9 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
                     fallbackLocation: table,
                     dataSources: dataSourceOptions,
                   });
-                  const mapping =
+                  const selectedMappings =
                     meta?.columns?.map((col: any) => {
+                      const existingMapping = (draft.mapping || []).find((mapping: any) => mapping?.sourceName === col.name) || {};
                       const sourceDataType = normalizeDataTypeForSave({
                         type: col.dataType,
                         nullable: col.isNullable,
@@ -1000,9 +968,14 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
                         scale: col.numericScale,
                       });
                       return sourceDataType
-                        ? { targetName: col.name, sourceName: col.name, sourceDataType }
-                        : { targetName: col.name, sourceName: col.name };
-                    }) || draft.mapping;
+                        ? { ...existingMapping, targetName: existingMapping.targetName || col.name, sourceName: col.name, sourceDataType }
+                        : { ...existingMapping, targetName: existingMapping.targetName || col.name, sourceName: col.name };
+                    }) || [];
+                  const selectedNames = new Set(selectedMappings.map((mapping: any) => mapping.sourceName));
+                  const retainedMappings = meta?.removeInvalidMappings
+                    ? []
+                    : (draft.mapping || []).filter((mapping: any) => !selectedNames.has(mapping.sourceName));
+                  const mapping = [...selectedMappings, ...retainedMappings];
                   return {
                     ...draft,
                     dataSource: resolved.dataSource || draft.dataSource,
@@ -1012,11 +985,9 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
                   };
                 });
                 setShowExternalBrowser(false);
-              }}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+          }}
+        />
+      ) : null}
     </div>
   );
 });

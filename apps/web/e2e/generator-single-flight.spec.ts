@@ -91,11 +91,14 @@ async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
 }
 
-test("Run starts only one generate request even with immediate double click", async ({ page }) => {
+test("Generate stays single-flight when the panel is closed and reopened while running", async ({ page }) => {
   const { getGenerateCalls, releaseGenerate } = await mockApi(page);
   await loadSolutionFromDialog(page);
 
-  const runButton = page.getByRole("button", { name: /^Run$/ }).first();
+  const generatorToggle = page.getByRole("button", { name: "Toggle generator" });
+  await generatorToggle.click();
+  const panel = page.locator(".generator-panel");
+  const runButton = panel.getByRole("button", { name: "Generate" });
   await expect(runButton).toBeVisible();
   await expect(runButton).toBeEnabled();
 
@@ -109,9 +112,17 @@ test("Run starts only one generate request even with immediate double click", as
   });
 
   await expect.poll(getGenerateCalls, { timeout: 5_000 }).toBe(1);
+  await expect(panel.getByRole("button", { name: "Running" })).toBeVisible();
+
+  await panel.getByRole("button", { name: "Close generator panel" }).click();
+  await expect(page.locator(".run-panel-shell")).not.toHaveClass(/run-panel-shell--active/);
+  await expect(generatorToggle).not.toHaveClass(/icon-btn--active/);
+  expect(getGenerateCalls()).toBe(1);
+
+  await generatorToggle.click();
+  await expect(panel.getByRole("button", { name: "Running" })).toBeVisible();
 
   releaseGenerate();
-  await expect(page.getByText("OK", { exact: true })).toBeVisible();
-  await expect(page.getByText("[INFO] datam8.generate | Generation finished", { exact: true })).toBeVisible();
+  await expect(panel.getByText("[INFO] datam8.generate | Generation finished", { exact: true })).toBeVisible();
 });
 

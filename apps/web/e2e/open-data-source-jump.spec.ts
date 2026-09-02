@@ -18,6 +18,7 @@ function createMockSolutionPayload() {
             {
               name: "SqlType",
               displayName: "SQL",
+              pluginId: "builtin:SQLServer",
               dataTypeMapping: [{ sourceType: "string", targetType: "string" }],
             },
           ],
@@ -56,6 +57,22 @@ function createMockSolutionPayload() {
           ],
         },
       },
+      {
+        locator: "/Model/010-Stage/Sales/Orders/Product",
+        name: "Product",
+        relPath: "Model/010-Stage/Sales/Orders/Product.json",
+        content: {
+          id: 1002,
+          name: "Product",
+          sources: [
+            {
+              dataSource: "SalesDwh",
+              sourceLocation: "dbo.Product",
+              sourceAlias: "srcProduct",
+            },
+          ],
+        },
+      },
     ],
     folderEntities: [],
   };
@@ -84,7 +101,13 @@ async function mockApi(page: import("@playwright/test").Page) {
   });
 
   await page.route("**/plugins/**", async (route) => {
-    await route.fulfill({ json: { items: [] } });
+    await route.fulfill({ json: { items: [{
+      id: "builtin:SQLServer",
+      displayName: "SQL Server",
+      version: "1",
+      capabilities: { metadata: { listTables: true, getTableMetadata: true } },
+      dataTypeMapping: [],
+    }] } });
   });
 
   await page.route("**/connectors", async (route) => {
@@ -107,17 +130,41 @@ async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
 }
 
-test("Open data source jumps to Data Sources and selects the referenced source", async ({ page }) => {
+test("External source refresh opens the shared dialog with only the clicked source selected", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("datam8-ui-theme-v2", "light"));
   await mockApi(page);
   await loadSolutionFromDialog(page);
 
   await page.getByRole("textbox", { name: "Filter model entities" }).fill("Customer");
   await page.getByRole("button", { name: "Customer" }).first().click();
   await page.getByRole("button", { name: "Sources", exact: true }).click();
-  await page.getByRole("button", { name: "Open data source" }).click();
+  await expect(page.getByRole("button", { name: "Open data source" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Adopt Schema" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Refresh schema", exact: true }).click();
 
-  const activeDataSourceItem = page.getByRole("table", { name: "Base items" }).getByRole("button").filter({ hasText: "SalesDwh" }).first();
-  await expect(activeDataSourceItem).toBeVisible();
-  await expect(page.locator(".item-title").first()).toHaveText("SalesDwh");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Refresh schemas" })).toBeVisible();
+  const customerRow = dialog.getByRole("row").filter({ hasText: "Customer" });
+  const productRow = dialog.getByRole("row").filter({ hasText: "Product" });
+  await expect(customerRow).toBeVisible();
+  await expect(productRow).toBeVisible();
+  await expect(customerRow.getByRole("checkbox")).toBeChecked();
+  await expect(productRow.getByRole("checkbox")).not.toBeChecked();
+
+  const groupToggle = dialog.getByRole("button", { name: /Collapse data source SalesDwh/ });
+  await expect(groupToggle).toHaveAttribute("aria-expanded", "true");
+  await dialog.screenshot({ path: "output/playwright/external-schema-grouping-light.png" });
+  await groupToggle.click();
+  await expect(customerRow).toBeHidden();
+  await expect(productRow).toBeHidden();
+  await dialog.getByRole("button", { name: /Expand data source SalesDwh/ }).click();
+  await expect(customerRow.getByRole("checkbox")).toBeChecked();
+  await expect(productRow.getByRole("checkbox")).not.toBeChecked();
+
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.getByRole("button", { name: "Refresh schema", exact: true }).click();
+  await dialog.screenshot({ path: "output/playwright/external-schema-grouping-dark.png" });
 });
 

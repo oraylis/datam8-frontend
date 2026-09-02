@@ -548,6 +548,7 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
 
       {showRefreshDialog ? (
         <RefreshSchemasDialog
+          scope={{ kind: "dataSource", dataSourceName: current.name }}
           dataSourceName={current.name}
           dataSource={current}
           dataSourceType={resolvedType}

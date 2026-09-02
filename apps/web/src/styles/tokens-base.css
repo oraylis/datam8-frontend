@@ -88,8 +88,8 @@
   --panel-bg: rgba(255, 255, 255, 0.9);
   --panel-border-color: color-mix(in srgb, var(--border) 70%, transparent);
   --panel-shadow: 0 10px 26px rgba(0, 12, 46, 0.08);
-  --editor-form-surface: #fcfbfc;
-  --editor-form-surface-subtle: #fcfbfc;
+  --editor-form-surface: #ffffff;
+  --editor-form-surface-subtle: #ffffff;
   --editor-form-border: color-mix(in srgb, hsl(var(--ui-border)) 72%, transparent);
   --editor-form-border-strong: color-mix(in srgb, hsl(var(--ui-border-strong)) 64%, hsl(var(--ui-border)));
 }

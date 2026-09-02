@@ -14,9 +14,6 @@ import { EntityRelationshipsEditor, type EntityRelationshipsEditorHandle } from 
 import { derivePySourcePath, EntityTransformationsEditor } from "./EntityTransformationsEditor";
 import { EntitySourcesEditor, type EntitySourcesEditorHandle } from "./EntitySourcesEditor";
 import { applyBulkAttributeEditRules, getAttributeIdsInRange, type BulkAttributeEditRule } from "./bulkAttributeEdit";
-import { buildAttributesFromExternalSourceSchema } from "./externalSchemaAdoption";
-import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
-import { apiBase } from "../../../../../config";
 import type {
   EntityAttribute,
   EntityPropertyRow,
@@ -86,8 +83,6 @@ type EntityEditorProps = {
   dataSourceDetails: Record<string, unknown>;
   attributeTypeOptions: { value: string; label: string }[];
   dataTypeDefinitions: Record<string, { hasCharLen?: boolean; hasPrecision?: boolean; hasScale?: boolean }>;
-  onPatchBaseEntity: (relPath: string, updater: (content: unknown) => unknown) => void;
-  dataSourcesRelPath: string | null;
   persistNow: (
     reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item" | "delete-item" | "undo-delete",
   ) => Promise<boolean>;
@@ -97,7 +92,7 @@ type EntityEditorProps = {
 };
 
 export const EntityEditor = (props: EntityEditorProps) => {
-  const { selectedEntity, mode, setMode, entitySection, setEntitySection, formState, setFormState, jsonText, setJsonText, setSaveError, attributes, setAttributes, sources, setSources, relationships, setRelationships, transformations, setTransformations, properties, setProperties, openAttributeDetails, setOpenAttributeDetails, openMappingDetails, setOpenMappingDetails, collapsedMappings, setCollapsedMappings, relationshipZones, setRelationshipZones, openTransformSources, setOpenTransformSources, transformSourceCache, setTransformSourceCache, transformSourceDirty, setTransformSourceDirty, markEntityDirty, propertyOptions, dataSourceOptions, dataSourceDetails, entityPropertyRows, entityInheritedProps, effectiveDataProduct, effectiveDataModule, zones, zoneFromRelPath, modelEntities, resolveEntityMetaById, resolveEntityNameById, transformKinds, normalizeTransformations, updateTransformation, reorderTransformations, dragTransformIndex, onJumpToEntity, onJumpToDataSource, dataTypes, solutionPath, attributeTypeOptions, dataTypeDefinitions, onPatchBaseEntity, dataSourcesRelPath, persistNow, persistAfterStateFlush } = props;
+  const { selectedEntity, mode, setMode, entitySection, setEntitySection, formState, setFormState, jsonText, setJsonText, setSaveError, attributes, setAttributes, sources, setSources, relationships, setRelationships, transformations, setTransformations, properties, setProperties, openAttributeDetails, setOpenAttributeDetails, openMappingDetails, setOpenMappingDetails, collapsedMappings, setCollapsedMappings, relationshipZones, setRelationshipZones, openTransformSources, setOpenTransformSources, transformSourceCache, setTransformSourceCache, transformSourceDirty, setTransformSourceDirty, markEntityDirty, propertyOptions, dataSourceOptions, dataSourceDetails, entityPropertyRows, entityInheritedProps, effectiveDataProduct, effectiveDataModule, zones, zoneFromRelPath, modelEntities, resolveEntityMetaById, resolveEntityNameById, transformKinds, normalizeTransformations, updateTransformation, reorderTransformations, dragTransformIndex, onJumpToEntity, onJumpToDataSource, dataTypes, solutionPath, attributeTypeOptions, dataTypeDefinitions, persistNow, persistAfterStateFlush } = props;
 
   const inheritedFolderSet = useMemo(
     () => new Set((entityInheritedProps?.folderProps || []).map((p) => `${p?.property || ""}`).filter(Boolean)),
@@ -349,223 +344,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
   const clearPendingFocus = useCallback(() => setPendingFocusName(null), []);
   const sourcesEditorRef = useRef<EntitySourcesEditorHandle | null>(null);
   const relationshipsEditorRef = useRef<EntityRelationshipsEditorHandle | null>(null);
-  const [adoptingSchemaIndex, setAdoptingSchemaIndex] = useState<number | null>(null);
-
-  const adoptExternalSourceSchema = useCallback(
-    (sourceIndex: number) => {
-      const source = sources[sourceIndex];
-      if (!source) return;
-
-      const dataSourceName = typeof source?.dataSource === "string" ? source.dataSource : "";
-      if (!dataSourceName) {
-        window.alert("No data source configured on this source.");
-        return;
-      }
-
-      const parseSourceLocation = (raw: string): { schema?: string; table: string } => {
-        const value = `${raw || ""}`.trim();
-        const bracket = value.match(/^\[(.+?)\]\.\[(.+?)\]$/);
-        if (bracket) return { schema: bracket[1], table: bracket[2] };
-        const dotParts = value.split(".");
-        if (dotParts.length === 2) return { schema: dotParts[0].replace(/^\[|\]$/g, ""), table: dotParts[1].replace(/^\[|\]$/g, "") };
-        return { table: value };
-      };
-
-      const applyColumns = (metaColumns: any[]) => {
-        if (!metaColumns.length) {
-          window.alert("No columns returned from the data source.");
-          return;
-        }
-
-        const currentMapping: any[] = Array.isArray(source.mapping) ? source.mapping : [];
-        const currentSourceNames = new Set(
-          currentMapping
-            .map((m: any) => (typeof m?.sourceName === "string" ? m.sourceName.toLowerCase() : ""))
-            .filter(Boolean),
-        );
-
-        // Columns that have no mapping entry yet — need to be added.
-        const missingColumns = metaColumns.filter(
-          (col: any) => typeof col?.name === "string" && !currentSourceNames.has(col.name.toLowerCase()),
-        );
-
-        // Existing mapping entries where the source now carries properties the mapping
-        // does not have yet — additive-only merge (never remove existing properties).
-        const sourceByName = new Map<string, any>(
-          metaColumns
-            .filter((col: any) => typeof col?.name === "string")
-            .map((col: any) => [col.name.toLowerCase(), col]),
-        );
-        const mappingsNeedingPropertyUpdate = currentMapping
-          .map((m: any, idx: number) => {
-            const sourceName = typeof m?.sourceName === "string" ? m.sourceName.toLowerCase() : "";
-            if (!sourceName) return null;
-            const sourceCol = sourceByName.get(sourceName);
-            if (!sourceCol) return null;
-            const incomingProps: any[] = Array.isArray(sourceCol.properties) ? sourceCol.properties : [];
-            if (!incomingProps.length) return null;
-            const existingProps: any[] = Array.isArray(m.properties) ? m.properties : [];
-            const existingKeys = new Set(existingProps.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
-            const newProps = incomingProps.filter((p: any) => {
-              const key = `${p?.property}`.trim();
-              return key && !existingKeys.has(key);
-            });
-            if (!newProps.length) return null;
-            return { idx, newProps };
-          })
-          .filter((entry): entry is { idx: number; newProps: any[] } => entry !== null);
-
-        if (!missingColumns.length && !mappingsNeedingPropertyUpdate.length) {
-          window.alert("All source columns already have a mapping \u2014 nothing to restore.");
-          return;
-        }
-
-        const parts: string[] = [];
-        if (missingColumns.length) parts.push(`${missingColumns.length} missing mapping(s)`);
-        if (mappingsNeedingPropertyUpdate.length) parts.push(`${mappingsNeedingPropertyUpdate.length} mapping(s) with new properties`);
-        if (!window.confirm(`Restore ${parts.join(" and ")} from the source schema?`)) return;
-
-        setSources((prev) =>
-          prev.map((s, i) => {
-            if (i !== sourceIndex) return s;
-            // 1. Apply additive property updates to existing mappings.
-            const updatedMapping: any[] = (Array.isArray(s.mapping) ? (s.mapping as any[]) : []).map((m: any, idx: number) => {
-              const update = mappingsNeedingPropertyUpdate.find((u) => u.idx === idx);
-              if (!update) return m;
-              const existingProps: any[] = Array.isArray(m.properties) ? m.properties : [];
-              return { ...m, properties: [...existingProps, ...update.newProps] };
-            });
-            // 2. Append new mappings for missing columns.
-            const newMappings = missingColumns.map((col: any) => {
-              const sourceDataType = normalizeDataTypeForSave({
-                type: col.dataType,
-                nullable: col.isNullable,
-                charLen: col.maxLength,
-                precision: col.numericPrecision,
-                scale: col.numericScale,
-              });
-              const mapping: Record<string, unknown> = { targetName: col.name, sourceName: col.name };
-              if (sourceDataType) mapping.sourceDataType = sourceDataType;
-              if (Array.isArray(col.properties) && col.properties.length > 0) mapping.properties = col.properties;
-              return mapping;
-            });
-            return { ...s, mapping: [...updatedMapping, ...newMappings] };
-          }),
-        );
-
-        // Apply additive property updates to existing attributes for mapping rows
-        // that received new properties above. Uses the same source-name-to-attribute
-        // name correspondence that the rest of the mapping logic relies on.
-        if (mappingsNeedingPropertyUpdate.length) {
-          const updatesByAttrName = new Map<string, any[]>();
-          for (const update of mappingsNeedingPropertyUpdate) {
-            const mappingRow = currentMapping[update.idx];
-            const attrName = typeof mappingRow?.targetName === "string"
-              ? mappingRow.targetName.toLowerCase()
-              : typeof mappingRow?.sourceName === "string"
-                ? mappingRow.sourceName.toLowerCase()
-                : null;
-            if (attrName) updatesByAttrName.set(attrName, update.newProps);
-          }
-          updateAttributesStructural((list) =>
-            list.map((attr) => {
-              const key = (attr.name || "").toLowerCase();
-              const newProps = updatesByAttrName.get(key);
-              if (!newProps || !newProps.length) return attr;
-              const existingProps: any[] = Array.isArray(attr.properties) ? attr.properties : [];
-              const existingKeys = new Set(existingProps.map((p: any) => `${p?.property}`.trim()).filter(Boolean));
-              const propsToAdd = newProps.filter((p: any) => {
-                const k = `${p?.property}`.trim();
-                return k && !existingKeys.has(k);
-              });
-              if (!propsToAdd.length) return attr;
-              return { ...attr, properties: [...existingProps, ...propsToAdd] };
-            }),
-          );
-        }
-
-        const dataSourceDetail = dataSourceName ? dataSourceDetails[dataSourceName] : undefined;
-        const defaultAttributeType = attributeTypeOptions[0]?.value || "";
-        const adoptedAttributes = buildAttributesFromExternalSourceSchema({
-          source: { ...source, __uiExternalMeta: { columns: metaColumns } } as any,
-          dataSourceDetail,
-          canonicalDataTypes: dataTypes,
-          defaultAttributeType,
-        });
-        const existingAttrNames = new Set(attributes.map((a) => (a.name || "").toLowerCase()));
-        const missingColNames = new Set(missingColumns.map((c: any) => (c.name || "").toLowerCase()));
-        const newAttributes = adoptedAttributes.filter(
-          (a) => missingColNames.has((a.name || "").toLowerCase()) && !existingAttrNames.has((a.name || "").toLowerCase()),
-        );
-        if (newAttributes.length) {
-          updateAttributesStructural((list) => [...list, ...newAttributes]);
-        }
-
-        markEntityDirty();
-        persistAfterStateFlush("add-item");
-      };
-
-      // Always fetch live from the backend so the latest plugin-injected
-      // properties are included. The __uiExternalMeta cache is only used by
-      // the wizard creation flow and must not short-circuit adopt schema.
-      const rawLocation = typeof source.sourceLocation === "string" ? source.sourceLocation : "";
-      if (!rawLocation) {
-        window.alert("No source location configured. Set the data source and table location first.");
-        return;
-      }
-      const { schema, table } = parseSourceLocation(rawLocation);
-      if (!table) {
-        window.alert("Could not parse source location. Set the data source and table location first.");
-        return;
-      }
-      const endpoint = schema
-        ? `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(table)}`
-        : `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/tables/${encodeURIComponent(table)}`;
-
-      setAdoptingSchemaIndex(sourceIndex);
-      fetch(endpoint)
-        .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-        .then(({ ok, data }) => {
-          if (!ok) {
-            const msg = typeof data?.message === "string" ? data.message : "Failed to fetch schema from data source.";
-            window.alert(msg);
-            return;
-          }
-          const rawColumns = Array.isArray(data?.items) ? data.items : [];
-          const metaColumns = rawColumns.map((col: any) => ({
-            name: `${col?.name || ""}`,
-            ordinal: Number(col?.ordinal || 0),
-            dataType: `${col?.dataType || ""}`,
-            maxLength: typeof col?.maxLength === "number" ? col.maxLength : null,
-            numericPrecision: typeof col?.numericPrecision === "number" ? col.numericPrecision : null,
-            numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
-            isNullable: Boolean(col?.isNullable),
-            isPrimaryKey: Boolean(col?.isPrimaryKey),
-            description: typeof col?.description === "string" ? col.description : undefined,
-            properties: Array.isArray(col?.properties) ? col.properties : [],
-          }));
-          applyColumns(metaColumns);
-        })
-        .catch((err) => {
-          window.alert(`Failed to fetch schema: ${err?.message || err}`);
-        })
-        .finally(() => {
-          setAdoptingSchemaIndex(null);
-        });
-    },
-    [
-      sources,
-      setSources,
-      dataSourceDetails,
-      attributeTypeOptions,
-      dataTypes,
-      attributes,
-      updateAttributesStructural,
-      markEntityDirty,
-      persistAfterStateFlush,
-    ],
-  );
-
   const handleTextFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
       const target = event.target;
@@ -1053,18 +831,13 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   setOpenMappingDetails={setOpenMappingDetails}
                   zones={zones}
                   modelEntities={modelEntities}
+                  currentEntityRelPath={selectedEntity.relPath}
                   resolveEntityMetaById={resolveEntityMetaById}
                   onJumpToEntity={onJumpToEntity}
-                  onJumpToDataSource={onJumpToDataSource}
                   markEntityDirty={markEntityDirty}
                   dataSourceOptions={dataSourceOptions}
                   dataSourceDetails={dataSourceDetails}
-                  adoptingExternalSchemaIndex={adoptingSchemaIndex}
-                  solutionPath={solutionPath}
-                  onPatchBaseEntity={onPatchBaseEntity}
-                  dataSourcesRelPath={dataSourcesRelPath}
                   currentEntityAttributeNames={currentEntityAttributeNames}
-                  onAdoptExternalSourceSchema={adoptExternalSourceSchema}
                   onDeleteSource={() => persistAfterStateFlush("delete-item")}
                   onSourceChange={() => persistAfterStateFlush("dropdown-change")}
                   onMappingChange={() => persistAfterStateFlush("dropdown-change")}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,15 +20,17 @@ import {
   AlertTitle,
   AlertDescription
 } from "@datam8/ui";
-import { Loader2, AlertTriangle, ArrowRight, FileText, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowRight, FileText, CheckCircle2, ChevronDown, ChevronRight, Database } from "lucide-react";
 import { useSolution } from "../../../../solution/SolutionContext";
 import { apiBase } from "../../../../../config";
 import { useModelEditor } from "../../../ModelEditorContext";
 import { readBackendErrorMessage } from "../../../../../shared/api/errorMessage";
 import { saveModelEntityByRelPath } from "../../../../../shared/api/v2Client";
+import { ensureLoaded as ensureConnectorCatalogLoaded, useConnectorCatalog } from "../../../../../shared/connectors/connectorCatalog";
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
 import { MultiItemResponse } from "../../../model-types";
 import { SourceField, SourceObject } from "../../../generated-schema-types";
+import { ExternalSourceConfigurator } from "../../wizard/SourceRow";
 import {
   applyRelationshipChange,
   buildRefreshEntityNameResolver,
@@ -43,12 +45,20 @@ import {
   type ColumnSchemaChange,
   type ColumnSchemaChangeType,
 } from "./schemaRefreshApply";
+import {
+  groupExternalSchemaUsages,
+  isSchemaChangeSuggested,
+  isUsageInitiallySelected,
+  isUsageInExternalSchemaScope,
+  type ExternalSchemaScope,
+} from "./externalSchemaScope";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
 
 type RefreshSchemasDialogProps = {
-  dataSourceName: string;
+  scope?: ExternalSchemaScope;
+  dataSourceName?: string;
   dataSource?: {
     name?: string;
     type?: string;
@@ -64,6 +74,9 @@ type RefreshSchemasDialogProps = {
   } | null;
   isOpen: boolean;
   onClose: () => void;
+  browseDataSourceObject?: any;
+  browseExistingMappings?: Array<{ source?: string; sourceName?: string; target?: string; targetName?: string }>;
+  onBrowseApply?: (table: string, metadata: any) => void;
 };
 
 type ExternalSourceUsage = {
@@ -74,6 +87,7 @@ type ExternalSourceUsage = {
   dataSource: string;
   sourceAlias?: string;
   sourceLocation: string;
+  connectorId?: string;
 };
 
 type SchemaChangeType = ColumnSchemaChangeType | RelationshipChangeType;
@@ -132,14 +146,25 @@ const isRelationshipChange = (change: ColumnChange): change is RelationshipChang
   change.changeType === "RELATIONSHIP_MAPPING_CHANGED";
 
 export const RefreshSchemasDialog = ({
+  scope,
   dataSourceName,
   dataSource,
   dataSourceType,
   isOpen,
   onClose,
+  browseDataSourceObject,
+  browseExistingMappings = [],
+  onBrowseApply,
 }: RefreshSchemasDialogProps) => {
   const { solutionPath } = useSolution();
-  const { setModelEntities, modelTabs, modelEntities } = useModelEditor();
+  const {
+    baseEntities,
+    setModelEntities,
+    modelTabs,
+    modelEntities,
+    setEntityDraft,
+    setTabDirty,
+  } = useModelEditor();
   const [step, setStep] = useState(STEPS.SELECT);
   const [isLoading, setIsLoading] = useState(false);
   const [usages, setUsages] = useState<ExternalSourceUsage[]>([]);
@@ -153,14 +178,90 @@ export const RefreshSchemasDialog = ({
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set());
   const [authErrorHint, setAuthErrorHint] = useState<string | null>(null);
-  const [knownSchemas, setKnownSchemas] = useState<string[]>([]);
+  const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 });
+  const [scanErrors, setScanErrors] = useState<Record<string, string>>({});
+  const [browseSelection, setBrowseSelection] = useState<{
+    table: string;
+    metadata: any;
+    selectedColumns: Set<string>;
+  } | null>(null);
+  const [removeInvalidMappings, setRemoveInvalidMappings] = useState(false);
+  const [collapsedDataSources, setCollapsedDataSources] = useState<Set<string>>(new Set());
+  const abortRef = useRef<AbortController | null>(null);
+  const initializedScopeRef = useRef<string | null>(null);
+  const connectorCatalog = useConnectorCatalog((state) => state.connectors);
+  const connectorCatalogKey = connectorCatalog
+    .map((connector) => `${connector.id}:${connector.capabilities?.metadata?.getTableMetadata === true}`)
+    .sort()
+    .join("|");
 
-  const dataSourceTypeName = useMemo(
-    () => dataSource?.type || dataSource?.dataSourceType || dataSourceType?.name || "",
-    [dataSource?.dataSourceType, dataSource?.type, dataSourceType?.name],
+  const requestedScopeKind = scope?.kind;
+  const requestedDataSourceName = scope && scope.kind !== "all" ? scope.dataSourceName : dataSourceName || "";
+  const requestedSourceLocation = scope && "sourceLocation" in scope ? scope.sourceLocation : "";
+  const requestedEntityRelPath = scope?.kind === "entitySource" ? scope.entityRelPath : "";
+  const requestedSourceIndex = scope?.kind === "entitySource" ? scope.sourceIndex : -1;
+  const effectiveScope = useMemo<ExternalSchemaScope>(
+    () => {
+      if (requestedScopeKind === "browseSource" || requestedScopeKind === "browseRelationship") {
+        return { kind: requestedScopeKind, dataSourceName: requestedDataSourceName, sourceLocation: requestedSourceLocation };
+      }
+      if (requestedScopeKind === "dataSource" || (!requestedScopeKind && requestedDataSourceName)) {
+        return { kind: "dataSource", dataSourceName: requestedDataSourceName };
+      }
+      if (requestedScopeKind === "entitySource") {
+        return {
+          kind: "entitySource",
+          dataSourceName: requestedDataSourceName,
+          entityRelPath: requestedEntityRelPath,
+          sourceIndex: requestedSourceIndex,
+        };
+      }
+      return { kind: "all" };
+    },
+    [requestedDataSourceName, requestedEntityRelPath, requestedScopeKind, requestedSourceIndex, requestedSourceLocation],
   );
 
-  const boundConnectorId = `${dataSourceType?.pluginId || ""}`.trim();
+  const configuredDataSources = useMemo(() => {
+    const map = new Map<string, any>();
+    baseEntities.forEach((entry) => {
+      (entry.content?.dataSources || []).forEach((item: any) => {
+        const name = `${item?.name || ""}`.trim();
+        if (name) map.set(name, item);
+      });
+    });
+    return map;
+  }, [baseEntities]);
+
+  const configuredDataSourceTypes = useMemo(() => {
+    const map = new Map<string, any>();
+    baseEntities.forEach((entry) => {
+      (entry.content?.dataSourceTypes || []).forEach((item: any) => {
+        const name = `${item?.name || ""}`.trim();
+        if (name) map.set(name, item);
+      });
+    });
+    return map;
+  }, [baseEntities]);
+
+  const connectorIdFor = useCallback((name: string) => {
+    const direct = name === dataSourceName && dataSourceType?.pluginId ? `${dataSourceType.pluginId}`.trim() : "";
+    const configured = configuredDataSources.get(name);
+    const typeName = `${configured?.type || configured?.dataSourceType || ""}`.trim();
+    const connectorId = direct || `${configuredDataSourceTypes.get(typeName)?.pluginId || ""}`.trim();
+    const installed = connectorCatalog.find((connector) => connector.id === connectorId);
+    return installed?.capabilities?.metadata?.getTableMetadata === true ? connectorId : "";
+  }, [configuredDataSourceTypes, configuredDataSources, connectorCatalog, dataSourceName, dataSourceType?.pluginId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setBrowseSelection(null);
+      setRemoveInvalidMappings(false);
+    }
+  }, [isOpen, requestedScopeKind, requestedSourceLocation]);
+
+  useEffect(() => {
+    if (isOpen) void ensureConnectorCatalogLoaded();
+  }, [isOpen]);
 
   const isAuthFailure = (status?: number, message?: string) => {
     if (status === 401 || status === 403) return true;
@@ -177,9 +278,9 @@ export const RefreshSchemasDialog = ({
     return { table: value };
   };
 
-  const loadSchemas = async (): Promise<string[]> => {
-    const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas`;
-    const response = await fetch(endpoint);
+  const loadSchemas = async (sourceName: string, signal?: AbortSignal): Promise<string[]> => {
+    const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/schemas`;
+    const response = await fetch(endpoint, { signal });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
       const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
@@ -193,9 +294,9 @@ export const RefreshSchemasDialog = ({
     return payload.items;
   };
 
-  const listTablesForSchema = async (schemaName: string): Promise<SourceObject[]> => {
-    const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schemaName)}/tables`;
-    const response = await fetch(endpoint);
+  const listTablesForSchema = async (sourceName: string, schemaName: string, signal?: AbortSignal): Promise<SourceObject[]> => {
+    const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/schemas/${encodeURIComponent(schemaName)}/tables`;
+    const response = await fetch(endpoint, { signal });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
       const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
@@ -209,12 +310,12 @@ export const RefreshSchemasDialog = ({
     return payload.items;
   };
 
-  const loadSourceFields = async (sourceLocation: string): Promise<SourceField[]> => {
+  const loadSourceFields = async (sourceName: string, sourceLocation: string, signal?: AbortSignal): Promise<SourceField[]> => {
     const parsed = parseSourceLocation(sourceLocation);
 
     const loadViaSchema = async (schemaName: string): Promise<SourceField[]> => {
-      const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/schemas/${encodeURIComponent(schemaName)}/tables/${encodeURIComponent(parsed.table)}`;
-      const response = await fetch(endpoint);
+      const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/schemas/${encodeURIComponent(schemaName)}/tables/${encodeURIComponent(parsed.table)}`;
+      const response = await fetch(endpoint, { signal });
       if (!response.ok) {
         const errPayload = await response.json().catch(() => ({}));
         throw toHttpError(
@@ -229,8 +330,8 @@ export const RefreshSchemasDialog = ({
     };
 
     const loadWithoutSchema = async (): Promise<SourceField[]> => {
-      const endpoint = `${apiBase}/sources/${encodeURIComponent(dataSourceName)}/tables/${encodeURIComponent(parsed.table)}`;
-      const response = await fetch(endpoint);
+      const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/tables/${encodeURIComponent(parsed.table)}`;
+      const response = await fetch(endpoint, { signal });
       if (!response.ok) {
         const errPayload = await response.json().catch(() => ({}));
         throw toHttpError(
@@ -248,18 +349,14 @@ export const RefreshSchemasDialog = ({
       return await loadViaSchema(parsed.schema);
     }
 
-    const schemas = await loadSchemas();
+    const schemas = await loadSchemas(sourceName, signal);
     if (schemas.length > 0) {
-      setKnownSchemas(schemas);
-
       for (const schemaName of schemas) {
-        const schemaTables = await listTablesForSchema(schemaName);
+        const schemaTables = await listTablesForSchema(sourceName, schemaName, signal);
         const table = schemaTables.find((t) => t.name.toLowerCase() === parsed.table.toLowerCase());
         if (!table) continue;
         return await loadViaSchema(schemaName);
       }
-    } else {
-      setKnownSchemas([]);
     }
 
     return await loadWithoutSchema();
@@ -444,20 +541,32 @@ export const RefreshSchemasDialog = ({
 
   // Load Usages on Open
   useEffect(() => {
-    if (isOpen && dataSourceName) {
+    if (!isOpen) {
+      initializedScopeRef.current = null;
+      return;
+    }
+    const initializationKey = `${effectiveScope.kind}:${effectiveScope.kind === "all" ? "" : effectiveScope.dataSourceName}:${"sourceLocation" in effectiveScope ? effectiveScope.sourceLocation : ""}:${effectiveScope.kind === "entitySource" ? `${effectiveScope.entityRelPath}:${effectiveScope.sourceIndex}` : ""}:${connectorCatalogKey}`;
+    if (initializedScopeRef.current === initializationKey) return;
+    initializedScopeRef.current = initializationKey;
+    if (isOpen) {
       setStep(STEPS.SELECT);
       setIsLoading(true);
       setError(null);
       setAuthErrorHint(null);
       setDirtyWarning(null);
-      setKnownSchemas([]);
+      setCollapsedDataSources(new Set());
       try {
         const nextUsages: ExternalSourceUsage[] = [];
         modelEntities.forEach((entity) => {
           const sources = Array.isArray(entity.content?.sources) ? entity.content.sources : [];
           sources.forEach((source: any, sourceIndex: number) => {
             const ds = `${source?.dataSource || ""}`.trim();
-            if (!ds || ds !== dataSourceName) return;
+            if (!ds) return;
+            if (!isUsageInExternalSchemaScope(effectiveScope, {
+              dataSource: ds,
+              entityRelPath: entity.relPath,
+              sourceIndex,
+            })) return;
             nextUsages.push({
               entityRelPath: entity.relPath,
               entityName: entity.name,
@@ -465,11 +574,16 @@ export const RefreshSchemasDialog = ({
               dataSource: ds,
               sourceAlias: typeof source?.sourceAlias === "string" ? source.sourceAlias : undefined,
               sourceLocation: `${source?.sourceLocation || ""}`,
+              connectorId: connectorIdFor(ds),
             });
           });
         });
         setUsages(nextUsages);
-        setSelectedUsages(new Set(nextUsages.map((u) => `${u.entityRelPath}:${u.sourceIndex}`)));
+        setSelectedUsages(new Set(
+          nextUsages
+            .filter((usage) => usage.connectorId && isUsageInitiallySelected(effectiveScope, usage))
+            .map((u) => `${u.entityRelPath}:${u.sourceIndex}`),
+        ));
       } catch (err: any) {
         console.error("[DataM8] Failed to inspect source usages:", err);
         setError(err?.message || "Failed to inspect source usages");
@@ -477,7 +591,7 @@ export const RefreshSchemasDialog = ({
         setIsLoading(false);
       }
     }
-  }, [isOpen, dataSourceName, modelEntities, solutionPath]);
+  }, [connectorCatalogKey, connectorIdFor, effectiveScope, isOpen, modelEntities, solutionPath]);
 
   const toggleUsage = (key: string) => {
     const next = new Set(selectedUsages);
@@ -505,28 +619,45 @@ export const RefreshSchemasDialog = ({
     setDirtyWarning(null);
 
     // Check for dirty entities among selected
-    const usagesToScan = usages
-      .filter((u) => selectedUsages.has(`${u.entityRelPath}:${u.sourceIndex}`))
-      .map((u) => ({ entityRelPath: u.entityRelPath, sourceIndex: u.sourceIndex }));
+    const usagesToScan = usages.filter((u) => selectedUsages.has(`${u.entityRelPath}:${u.sourceIndex}`));
 
     const dirtyEntities = usagesToScan.filter(u =>
       modelTabs.some(t => t.relPath === u.entityRelPath && t.dirty)
     );
 
     if (dirtyEntities.length > 0) {
-      setDirtyWarning(`Warning: ${dirtyEntities.length} selected entity(s) have unsaved changes. Proceeding will overwrite them. Save them first or proceed with caution.`);
+      setDirtyWarning(`${dirtyEntities.length} selected entity(s) have unsaved changes and will be locked during apply. Save them or exclude them before applying.`);
     }
 
     try {
-      const usageMap = new Map(usages.map((u) => [`${u.entityRelPath}:${u.sourceIndex}`, u] as const));
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setScanProgress({ completed: 0, total: usagesToScan.length });
+      setScanErrors({});
       const fetchedDiffs: ExternalSourceSchemaDiff[] = [];
-      for (const usageRef of usagesToScan) {
-        const usage = usageMap.get(`${usageRef.entityRelPath}:${usageRef.sourceIndex}`);
-        if (!usage) continue;
-        const fields = await loadSourceFields(usage.sourceLocation);
-        const diff = computeUsageDiff(usage, fields);
-        if (diff) fetchedDiffs.push(diff);
+      const metadataCache = new Map<string, Promise<SourceField[]>>();
+      const failures: Record<string, string> = {};
+      for (const usage of usagesToScan) {
+        const usageKey = `${usage.entityRelPath}:${usage.sourceIndex}`;
+        const metadataKey = `${usage.dataSource}\n${usage.sourceLocation}`;
+        try {
+          let request = metadataCache.get(metadataKey);
+          if (!request) {
+            request = loadSourceFields(usage.dataSource, usage.sourceLocation, controller.signal);
+            metadataCache.set(metadataKey, request);
+          }
+          const fields = await request;
+          const diff = computeUsageDiff(usage, fields);
+          if (diff) fetchedDiffs.push(diff);
+        } catch (err: any) {
+          if (err?.name === "AbortError") throw err;
+          failures[usageKey] = err?.message || "Failed to scan source metadata";
+        } finally {
+          setScanProgress((previous) => ({ ...previous, completed: previous.completed + 1 }));
+        }
       }
+      setScanErrors(failures);
       setDiffs(fetchedDiffs);
 
       const initialSelections: DiffSelection[] = fetchedDiffs.map((diff) => ({
@@ -535,7 +666,7 @@ export const RefreshSchemasDialog = ({
         changes: diff.changes.map((c) => ({
           columnName: c.columnName,
           changeType: c.changeType,
-          applyToEntity: false,
+          applyToEntity: isSchemaChangeSuggested(c.changeType),
         })),
       }));
       setSelections(initialSelections);
@@ -549,6 +680,7 @@ export const RefreshSchemasDialog = ({
 
       setStep(STEPS.PREVIEW);
     } catch (err: any) {
+      if (err?.name === "AbortError") return;
       console.error("[DataM8] Schema scan failed:", err);
       const status = err?.status;
       const message = err?.message || "Failed to scan schemas";
@@ -556,6 +688,7 @@ export const RefreshSchemasDialog = ({
         setError(message);
       }
     } finally {
+      abortRef.current = null;
       setIsLoading(false);
     }
   };
@@ -796,7 +929,12 @@ export const RefreshSchemasDialog = ({
       .sort((a, b) => a.columnName.localeCompare(b.columnName));
   };
 
-  const handleApply = async () => {
+  const handleApply = async (applyAll = false, onlyRelPaths?: Set<string>) => {
+    const hasDestructiveChanges = diffs.some((diff) => diff.changes.some((change) =>
+      change.changeType === "REMOVED_COLUMN" || change.changeType === "RELATIONSHIP_REMOVED",
+    ));
+    if (applyAll && hasDestructiveChanges && !window.confirm("Apply all changes, including removals?")) return;
+
     setIsLoading(true);
     setError(null);
     setAuthErrorHint(null);
@@ -804,22 +942,23 @@ export const RefreshSchemasDialog = ({
       const selectionMap = new Map<string, DiffSelection>(
         selections.map((sel) => [`${sel.entityRelPath}:${sel.sourceIndex}`, sel] as const),
       );
-      const updatedEntities: Array<{ entityRelPath: string; content: any }> = [];
+      const nextByEntity = new Map<string, any>();
 
       for (const diff of diffs) {
+        if (onlyRelPaths && !onlyRelPaths.has(diff.entityRelPath)) continue;
         const key = `${diff.entityRelPath}:${diff.sourceIndex}`;
         const selection = selectionMap.get(key);
         if (!selection) continue;
         const selectedKeys = new Set(
           selection.changes
-            .filter((entry) => entry.applyToEntity)
+            .filter((entry) => applyAll || entry.applyToEntity)
             .map((entry) => `${entry.columnName}::${entry.changeType}`),
         );
         if (!selectedKeys.size) continue;
 
         const current = modelEntities.find((entity) => entity.relPath === diff.entityRelPath);
         if (!current) continue;
-        const nextContent = structuredClone(current.content || {});
+        const nextContent = nextByEntity.get(diff.entityRelPath) || structuredClone(current.content || {});
         const columnChanges: ColumnSchemaChange[] = [];
 
         for (const change of diff.changes) {
@@ -833,8 +972,27 @@ export const RefreshSchemasDialog = ({
         }
 
         applyColumnSchemaChangesToEntityContent(nextContent, diff.sourceIndex, columnChanges, selectedKeys);
-        await saveModelEntityByRelPath(diff.entityRelPath, nextContent);
-        updatedEntities.push({ entityRelPath: diff.entityRelPath, content: nextContent });
+        nextByEntity.set(diff.entityRelPath, nextContent);
+      }
+
+      const dirtyRelPaths = new Set(modelTabs.filter((tab) => tab.dirty).map((tab) => tab.relPath));
+      const blocked = Array.from(nextByEntity.keys()).filter((relPath) => dirtyRelPaths.has(relPath));
+      if (blocked.length) {
+        setError(`${blocked.length} selected entity(s) have unsaved changes. Save them or exclude them before applying.`);
+        return;
+      }
+
+      const updatedEntities: Array<{ entityRelPath: string; content: any }> = [];
+      const failures: Array<{ entityRelPath: string; message: string }> = [];
+      for (const [entityRelPath, content] of nextByEntity) {
+        try {
+          await saveModelEntityByRelPath(entityRelPath, content);
+          updatedEntities.push({ entityRelPath, content });
+          setEntityDraft(entityRelPath, null);
+          setTabDirty(entityRelPath, "entity", false);
+        } catch (err) {
+          failures.push({ entityRelPath, message: err instanceof Error ? err.message : "Save failed" });
+        }
       }
 
       if (updatedEntities.length) {
@@ -846,8 +1004,8 @@ export const RefreshSchemasDialog = ({
         );
       }
 
-      setApplyResult(updatedEntities);
-      onClose();
+      setApplyResult({ updatedEntities, failures });
+      setStep(STEPS.RESULT);
     } catch (err: any) {
       console.error("[DataM8] Failed to apply schema changes:", err);
       const status = err?.status;
@@ -860,26 +1018,15 @@ export const RefreshSchemasDialog = ({
     }
   };
 
+  const usageGroups = useMemo(() => {
+    return groupExternalSchemaUsages(usages);
+  }, [usages]);
+
   const renderSelectStep = () => (
     <div className="flex flex-col gap-4 h-[400px]">
       <div className="text-sm text-muted-foreground">
-        Select which external sources referencing this Data Source should be scanned for schema changes.
+        Select the external sources to scan. Sources are grouped by Data Source; exclusions apply only to this run.
       </div>
-
-      {!boundConnectorId ? (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>No connector linked</AlertTitle>
-          <AlertDescription>
-            Link a connector on <b>{dataSourceTypeName || "this Data Source Type"}</b> before refreshing schemas.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <div className="text-sm text-muted-foreground">
-          Connector: <b>{boundConnectorId}</b>. Uses the saved Data Source configuration and secret references.
-          {knownSchemas.length > 0 ? <> Detected schemas: <b>{knownSchemas.length}</b>.</> : null}
-        </div>
-      )}
 
       {dirtyWarning && (
         <Alert variant="destructive">
@@ -895,9 +1042,9 @@ export const RefreshSchemasDialog = ({
             <TableRow>
               <TableHead className="w-[50px]">
                 <Checkbox
-                  checked={selectedUsages.size === usages.length && usages.length > 0}
+                  checked={selectedUsages.size === usages.filter((usage) => usage.connectorId).length && selectedUsages.size > 0}
                   onCheckedChange={(checked) => {
-                    if (checked) setSelectedUsages(new Set(usages.map(u => `${u.entityRelPath}:${u.sourceIndex}`)));
+                    if (checked) setSelectedUsages(new Set(usages.filter((u) => u.connectorId).map(u => `${u.entityRelPath}:${u.sourceIndex}`)));
                     else setSelectedUsages(new Set());
                   }}
                 />
@@ -907,23 +1054,76 @@ export const RefreshSchemasDialog = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {usages.map((u) => {
-              const key = `${u.entityRelPath}:${u.sourceIndex}`;
-              const isDirty = modelTabs.some(t => t.relPath === u.entityRelPath && t.dirty);
+            {usageGroups.map(([sourceName, sourceUsages]) => {
+              const eligible = sourceUsages.filter((usage) => usage.connectorId);
+              const selected = eligible.filter((usage) => selectedUsages.has(`${usage.entityRelPath}:${usage.sourceIndex}`));
+              const state: TriState = selected.length === 0 ? false : selected.length === eligible.length ? true : "indeterminate";
+              const isExpanded = !collapsedDataSources.has(sourceName);
+              const groupLabel = `${sourceName}, ${sourceUsages.length} source${sourceUsages.length === 1 ? "" : "s"}`;
               return (
-                <TableRow key={key}>
-                  <TableCell>
-                    <Checkbox checked={selectedUsages.has(key)} onCheckedChange={() => toggleUsage(key)} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium flex items-center gap-2">
-                      {u.entityName}
-                      {isDirty && <Badge variant="secondary" className="text-[10px] h-4">Dirty</Badge>}
-                    </div>
-                    <div className="text-xs text-muted-foreground">{u.layer || u.entityRelPath}</div>
-                  </TableCell>
-                  <TableCell className="text-sm font-mono">{u.sourceLocation}</TableCell>
-                </TableRow>
+                <React.Fragment key={sourceName}>
+                  <TableRow className="border-y border-primary/20 bg-primary/[0.07] hover:bg-primary/[0.11] dark:bg-primary/[0.10] dark:hover:bg-primary/[0.15]">
+                    <TableCell colSpan={3} className="p-0">
+                      <div className="flex min-h-11 items-center gap-3 px-4">
+                      <Checkbox
+                        checked={state}
+                        disabled={!eligible.length}
+                        aria-label={`Select all sources for ${sourceName}`}
+                        onCheckedChange={(checked) => setSelectedUsages((previous) => {
+                          const next = new Set(previous);
+                          eligible.forEach((usage) => {
+                            const key = `${usage.entityRelPath}:${usage.sourceIndex}`;
+                            if (checked === true) next.add(key); else next.delete(key);
+                          });
+                          return next;
+                        })}
+                      />
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "Collapse" : "Expand"} data source ${groupLabel}`}
+                        onClick={() => setCollapsedDataSources((previous) => {
+                          const next = new Set(previous);
+                          if (next.has(sourceName)) next.delete(sourceName); else next.add(sourceName);
+                          return next;
+                        })}
+                      >
+                        {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                        <Database className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                        <span className="truncate">{sourceName}</span>
+                        <Badge variant="outline" className="bg-background/60 font-normal">
+                          {sourceUsages.length} source{sourceUsages.length === 1 ? "" : "s"}
+                        </Badge>
+                        {!eligible.length ? <Badge variant="destructive">No connector linked</Badge> : null}
+                      </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && sourceUsages.map((usage) => {
+                    const key = `${usage.entityRelPath}:${usage.sourceIndex}`;
+                    const isDirty = modelTabs.some((tab) => tab.relPath === usage.entityRelPath && tab.dirty);
+                    return (
+                      <TableRow key={key}>
+                        <TableCell className="pl-8">
+                          <Checkbox
+                            checked={selectedUsages.has(key)}
+                            disabled={!usage.connectorId}
+                            onCheckedChange={() => toggleUsage(key)}
+                          />
+                        </TableCell>
+                        <TableCell className="pl-2">
+                          <div className="font-medium flex items-center gap-2">
+                            {usage.entityName}
+                            {isDirty ? <Badge variant="secondary" className="text-[10px] h-4">Dirty</Badge> : null}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{usage.layer || usage.entityRelPath}</div>
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">{usage.sourceLocation}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </React.Fragment>
               );
             })}
             {usages.length === 0 && !isLoading && (
@@ -939,17 +1139,26 @@ export const RefreshSchemasDialog = ({
 
   const filteredDiffs = useMemo(() => {
     const needle = previewFilter.trim().toLowerCase();
-    if (!needle) return diffs;
-    return diffs.filter((diff) => {
+    const filtered = needle ? diffs.filter((diff) => {
       const header = `${diff.entityName} ${diff.sourceAlias || ""} ${diff.sourceLocation}`.toLowerCase();
       if (header.includes(needle)) return true;
       return diff.changes.some((c) => (c.columnName || "").toLowerCase().includes(needle));
-    });
+    }) : diffs;
+    return [...filtered].sort((left, right) =>
+      left.dataSource.localeCompare(right.dataSource) || left.entityName.localeCompare(right.entityName),
+    );
   }, [diffs, previewFilter]);
 
   const renderPreviewStep = () => (
     <div className="flex flex-col gap-4 h-[520px]">
       <div className="flex flex-col gap-2">
+        {Object.keys(scanErrors).length ? (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>{Object.keys(scanErrors).length} source scan(s) failed</AlertTitle>
+            <AlertDescription>Successful results remain available. Go back and scan again to retry failed sources.</AlertDescription>
+          </Alert>
+        ) : null}
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-medium">
             Changes detected: {diffs.reduce((acc, d) => acc + d.changes.length, 0)} | Selected: {selectionStats.selected}/{selectionStats.total}
@@ -1049,6 +1258,7 @@ export const RefreshSchemasDialog = ({
                           <span className="font-semibold truncate">
                             {diff.sourceAlias || diff.sourceLocation || diff.entityName}
                           </span>
+                          <Badge variant="outline">{diff.dataSource}</Badge>
                           <span className="text-xs text-muted-foreground mono truncate">{diff.sourceLocation}</span>
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{diff.entityName}</div>
@@ -1202,17 +1412,134 @@ export const RefreshSchemasDialog = ({
       </div>
       <h3 className="text-lg font-semibold">Update Complete</h3>
       <div className="text-center text-muted-foreground max-w-md">
-        Updated {applyResult?.length || 0} entities.
-        Mappings have been synchronized with the external source.
+        Updated {applyResult?.updatedEntities?.length || 0} entities.
+        {applyResult?.failures?.length ? ` ${applyResult.failures.length} entities failed and can be retried.` : " Mappings have been synchronized with the external source."}
       </div>
     </div>
   );
+
+  if (effectiveScope.kind === "browseSource" || effectiveScope.kind === "browseRelationship") {
+    const columns = Array.isArray(browseSelection?.metadata?.columns) ? browseSelection.metadata.columns : [];
+    const selectedColumnNames = browseSelection?.selectedColumns || new Set<string>();
+    const invalidMappings = browseExistingMappings.filter((mapping) => {
+      const mappedName = effectiveScope.kind === "browseRelationship"
+        ? `${mapping.target ?? mapping.targetName ?? ""}`
+        : `${mapping.sourceName ?? mapping.source ?? ""}`;
+      return !!mappedName && !selectedColumnNames.has(mappedName);
+    });
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="refresh-schemas-dialog max-h-[90vh] max-w-5xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>
+              {effectiveScope.kind === "browseSource" ? "Select external source" : "Select relationship target"}
+            </DialogTitle>
+          </DialogHeader>
+          {!browseSelection ? (
+            <ExternalSourceConfigurator
+              dataSource={effectiveScope.dataSourceName}
+              dataSourceObject={browseDataSourceObject || configuredDataSources.get(effectiveScope.dataSourceName) || {}}
+              solutionPath={solutionPath || ""}
+              selectedTable={effectiveScope.sourceLocation}
+              mode="wizard-single"
+              onCancel={onClose}
+              onTableSelected={(table, metadata) => {
+                const selectedColumns = new Set<string>(
+                  (Array.isArray(metadata?.columns) ? metadata.columns : [])
+                    .map((column: any) => `${column?.name || ""}`)
+                    .filter(Boolean),
+                );
+                setBrowseSelection({ table, metadata, selectedColumns });
+              }}
+            />
+          ) : (
+            <div className="flex min-h-0 flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-border/70 pb-3">
+                <div>
+                  <div className="text-sm font-semibold">Review schema</div>
+                  <div className="text-xs text-muted-foreground">
+                    {effectiveScope.dataSourceName} / {browseSelection.table}
+                  </div>
+                </div>
+                <Badge variant="outline">{columns.length} columns</Badge>
+              </div>
+              <ScrollArea className="max-h-[50vh]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[52px]">Apply</TableHead>
+                      <TableHead>Column</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Nullable</TableHead>
+                      <TableHead>Key</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {columns.map((column: any) => (
+                      <TableRow key={column.name}>
+                        <TableCell>
+                          <Checkbox
+                            checked={browseSelection.selectedColumns.has(column.name)}
+                            onCheckedChange={(checked) => setBrowseSelection((previous) => {
+                              if (!previous) return previous;
+                              const selectedColumns = new Set(previous.selectedColumns);
+                              if (checked === true) selectedColumns.add(column.name); else selectedColumns.delete(column.name);
+                              return { ...previous, selectedColumns };
+                            })}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{column.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{formatType(column.dataType)}</TableCell>
+                        <TableCell>{column.isNullable ? "Yes" : "No"}</TableCell>
+                        <TableCell>{column.isPrimaryKey ? "PK" : ""}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+              {invalidMappings.length ? (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>{invalidMappings.length} mapping(s) are not present in the selected schema</AlertTitle>
+                  <AlertDescription>
+                    <label className="mt-2 flex items-center gap-2">
+                      <Checkbox
+                        checked={removeInvalidMappings}
+                        onCheckedChange={(checked) => setRemoveInvalidMappings(checked === true)}
+                      />
+                      Remove invalid mappings when applying
+                    </label>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <DialogFooter className="border-t border-border/70 pt-4">
+                <Button variant="outline" onClick={() => setBrowseSelection(null)}>Back</Button>
+                <Button onClick={() => {
+                  const metadata = {
+                    ...browseSelection.metadata,
+                    columns: columns.filter((column: any) => browseSelection.selectedColumns.has(column.name)),
+                    removeInvalidMappings,
+                  };
+                  onBrowseApply?.(browseSelection.table, metadata);
+                  onClose();
+                }} disabled={browseSelection.selectedColumns.size === 0}>
+                  Apply selection ({browseSelection.selectedColumns.size})
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="refresh-schemas-dialog max-h-[90vh] max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Refresh Schemas: {dataSourceName}</DialogTitle>
+          <DialogTitle>
+            {effectiveScope.kind === "all" ? "Refresh schemas" : `Refresh schemas: ${effectiveScope.dataSourceName}`}
+          </DialogTitle>
         </DialogHeader>
 
         {errorMessage && (
@@ -1229,24 +1556,44 @@ export const RefreshSchemasDialog = ({
         <DialogFooter className="border-t border-border/70 pt-4">
           {step === STEPS.SELECT && (
             <>
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={handleScan} disabled={isLoading || selectedUsages.size === 0 || !boundConnectorId}>
+              <Button variant="outline" onClick={() => {
+                if (isLoading) abortRef.current?.abort();
+                else onClose();
+              }}>{isLoading ? "Stop" : "Cancel"}</Button>
+              <Button onClick={handleScan} disabled={isLoading || selectedUsages.size === 0}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Scan selected sources
+                {isLoading ? `Scanning ${scanProgress.completed}/${scanProgress.total}` : "Scan selected sources"}
               </Button>
             </>
           )}
           {step === STEPS.PREVIEW && (
             <>
               <Button variant="outline" onClick={() => setStep(STEPS.SELECT)}>Back</Button>
-              <Button onClick={handleApply} disabled={isLoading || selectionStats.selected === 0}>
+              <Button variant="secondary" onClick={() => void handleApply(true)} disabled={isLoading || selectionStats.total === 0}>
+                Apply all changes
+              </Button>
+              <Button onClick={() => void handleApply(false)} disabled={isLoading || selectionStats.selected === 0}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Apply Changes
+                Apply selection ({selectionStats.selected})
               </Button>
             </>
           )}
           {step === STEPS.RESULT && (
-            <Button onClick={onClose}>Close</Button>
+            <>
+              {applyResult?.failures?.length ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => void handleApply(
+                    false,
+                    new Set<string>(applyResult.failures.map((failure: { entityRelPath: string }) => failure.entityRelPath)),
+                  )}
+                  disabled={isLoading}
+                >
+                  Retry failed
+                </Button>
+              ) : null}
+              <Button onClick={onClose}>Close</Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

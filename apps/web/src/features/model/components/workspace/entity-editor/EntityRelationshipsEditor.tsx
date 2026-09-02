@@ -5,8 +5,9 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import type { ModelEntity } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { IconBtn } from "../common/IconBtn";
-import { ExternalSourceConfigurator } from "../../wizard/SourceRow";
 import { resolveSourceOverride } from "../../wizard/sourceOverride";
+import { RefreshSchemasDialog } from "../base-editor/RefreshSchemasDialog";
+import { keepRelationshipMappingsForColumns } from "../base-editor/externalSchemaScope";
 
 export type EntityRelationshipsEditorHandle = {
   addInternalRelationship: () => void;
@@ -63,7 +64,6 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
   markEntityDirty,
   dataSourceOptions,
   dataSourceDetails,
-  solutionPath,
   onRelationshipChange,
   onDeleteRelationship,
 }: EntityRelationshipsEditorProps, ref) {
@@ -651,20 +651,18 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={!!relationshipDialog && relationshipDialog.kind === "external" && showExternalBrowser} onOpenChange={setShowExternalBrowser}>
-        <DialogContent className="entity-wizard max-h-[84vh] max-w-4xl overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Select target</DialogTitle>
-          </DialogHeader>
-          {relationshipDialog?.kind === "external" ? (
-            <ExternalSourceConfigurator
-              dataSource={relationshipDialog.dataSource}
-              dataSourceObject={(dataSourceDetails[relationshipDialog.dataSource] || {}) as any}
-              solutionPath={solutionPath}
-              selectedTable={relationshipDialog.targetLocation}
-              mode="wizard-single"
-              onCancel={() => setShowExternalBrowser(false)}
-              onTableSelected={(table, meta) => {
+      {relationshipDialog?.kind === "external" && showExternalBrowser ? (
+        <RefreshSchemasDialog
+          scope={{
+            kind: "browseRelationship",
+            dataSourceName: relationshipDialog.dataSource,
+            sourceLocation: relationshipDialog.targetLocation,
+          }}
+          isOpen={showExternalBrowser}
+          onClose={() => setShowExternalBrowser(false)}
+          browseDataSourceObject={(dataSourceDetails[relationshipDialog.dataSource] || {}) as any}
+          browseExistingMappings={relationshipDialog.mappings}
+          onBrowseApply={(table, meta) => {
                 setRelationshipDialog((draft) => {
                   if (!draft || draft.kind !== "external") return draft;
                   const resolved = resolveSourceOverride({
@@ -678,15 +676,18 @@ export const EntityRelationshipsEditor = forwardRef<EntityRelationshipsEditorHan
                     dataSource: resolved.dataSource || draft.dataSource,
                     targetLocation: `${resolved.sourceLocation ?? table}`,
                     externalMeta: meta,
-                    mappings: [],
+                    mappings: meta?.removeInvalidMappings
+                      ? keepRelationshipMappingsForColumns(
+                          draft.mappings,
+                          Array.isArray(meta?.columns) ? meta.columns : [],
+                        )
+                      : draft.mappings,
                   };
                 });
                 setShowExternalBrowser(false);
-              }}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+          }}
+        />
+      ) : null}
     </div>
   );
 });

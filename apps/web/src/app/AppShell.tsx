@@ -12,13 +12,13 @@ import {
   WorkTabs,
 } from "@datam8/ui";
 import { useTheme } from "@datam8/ui/theme";
-import { Bot, ShieldCheck } from "lucide-react";
+import { Bot, RefreshCw } from "lucide-react";
 import type { PropertyRefactorPayload } from "@datam8/types";
 import { Sidebar } from "../features/model/components/Sidebar";
 import { Workspace } from "../features/model/components/Workspace";
 import { FolderEditor } from "../features/model/components/workspace/folder-editor/FolderEditor";
 import { GeneratorPanel } from "../features/generator/GeneratorPanel";
-import { ValidatorPanel } from "../features/validator/ValidatorPanel";
+import { RefreshSchemasDialog } from "../features/model/components/workspace/base-editor/RefreshSchemasDialog";
 import { SolutionDialog } from "./SolutionDialog";
 import { CreateModelEntityWizard } from "../features/model/components/CreateModelEntityWizard";
 import { MoveEntitiesDialog } from "../features/model/components/MoveEntitiesDialog";
@@ -54,7 +54,6 @@ import { apiBase } from "../config";
 import { deepEqual } from "../shared/utils/deepEqual";
 import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
-import { buildValidateUrl, readValidateErrorMessage, readValidateMessages, type ValidateResponse } from "../features/validator/validatorApi";
 import { createEntity, deleteEntity, moveEntities, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 import { subscribeAppErrors } from "../shared/ui/appErrorBridge";
@@ -348,22 +347,18 @@ export function AppShell() {
     generatorTargets,
     generatorLog,
     generatorStderr,
-    generatorExit,
     generatorError,
     generatorRunning,
     generatorLogLevel,
     setGeneratorTarget,
     setGeneratorLogLevel,
     runGenerator,
+    runValidation,
   } = useGenerator();
-  const [activeRunPanel, setActiveRunPanel] = useState<"generator" | "validator" | null>(null);
+  const [activeRunPanel, setActiveRunPanel] = useState<"generator" | null>(null);
+  const [globalRefreshOpen, setGlobalRefreshOpen] = useState(false);
   const [windowTitle, setWindowTitle] = useState("DataM8");
   const [windowMenuLabels, setWindowMenuLabels] = useState<string[]>([]);
-  const [validatorRunning, setValidatorRunning] = useState(false);
-  const [validatorMessages, setValidatorMessages] = useState<string[]>([]);
-  const [validatorResolvedPath, setValidatorResolvedPath] = useState<string | null>(null);
-  const [validatorError, setValidatorError] = useState<string | null>(null);
-  const validatorRunInFlightRef = useRef(false);
   const { showError } = useErrorSurface();
   const confirm = useConfirm();
   const { width: sidebarSize, setWidth: setSidebarSize, startResize } = useResizablePane({
@@ -1935,92 +1930,6 @@ export function AppShell() {
     [deleteModelEntities, selectedRelPaths, solutionPath],
   );
 
-  const runValidator = useCallback(async () => {
-    if (validatorRunInFlightRef.current) return;
-
-    if (!solutionPath) {
-      showAppError("No solution loaded", "Cannot run validator without a loaded solution.");
-      return;
-    }
-
-    validatorRunInFlightRef.current = true;
-    setValidatorRunning(true);
-    setValidatorError(null);
-    setValidatorMessages([]);
-    setValidatorResolvedPath(null);
-
-    try {
-      const runValidateRequest = async (logLevel: string) => {
-        const desktopValidate = window.desktop?.solution?.validate;
-        if (desktopValidate) {
-          const result = await desktopValidate({ solutionPath, logLevel });
-          const payload = {
-            messages: Array.isArray(result?.messages) ? result?.messages : result?.message ? [result.message] : [],
-            solutionPath,
-          } as Record<string, unknown>;
-          return {
-            response: new Response(JSON.stringify(payload), { status: result?.success === false ? 500 : 200 }),
-            payload,
-            messages: readValidateMessages(payload),
-          };
-        }
-
-        const validateUrl = buildValidateUrl(apiBase, solutionPath, logLevel);
-        const response = await fetch(validateUrl, { method: "POST" }).catch(() => null);
-        if (response) {
-          const payload = (await response.json().catch(() => ({}))) as ValidateResponse | Record<string, unknown>;
-          const messages = readValidateMessages(payload);
-          return { response, payload, messages };
-        }
-
-        throw new Error("Validate endpoint is not available.");
-      };
-
-      let { response, payload, messages } = await runValidateRequest(generatorLogLevel);
-
-      if (
-        response.ok &&
-        messages.length === 0 &&
-        generatorLogLevel !== "info"
-      ) {
-        const fallback = await runValidateRequest("info");
-        if (fallback.response.ok && fallback.messages.length > 0) {
-          response = fallback.response;
-          payload = fallback.payload;
-          messages = fallback.messages;
-        }
-      }
-
-      if (!response.ok) {
-        setValidatorMessages(messages);
-        const validatorErrorMsg = (() => {
-          // Check status first — FastAPI's own 404 for a missing route always
-          // returns generic {"detail":"Not Found"} with no useful context.
-          if (response.status === 404) return "The Validate endpoint was not found. This feature may not be available in the current backend version. Check that the backend is up to date.";
-          if (response.status === 401 || response.status === 403) return "Access denied. Check your authentication settings.";
-          if (response.status >= 500) return "The backend encountered an internal error during validation. Please try again.";
-          const fromPayload = readValidateErrorMessage(payload, "");
-          if (fromPayload) return fromPayload;
-          return "Validation failed unexpectedly. Please try again.";
-        })();
-        throw new Error(validatorErrorMsg);
-      }
-
-      const resolvedPath = (payload as { solutionPath?: unknown }).solutionPath;
-      setValidatorMessages(messages);
-      setValidatorResolvedPath(
-        typeof resolvedPath === "string" && resolvedPath.trim() ? resolvedPath.trim() : null,
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "An unknown error occurred";
-      console.error("[DataM8] Validator run failed:", err);
-      setValidatorError(message);
-    } finally {
-      validatorRunInFlightRef.current = false;
-      setValidatorRunning(false);
-    }
-  }, [generatorLogLevel, showAppError, solutionPath]);
-
   const handleToggleTheme = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   }, [resolvedTheme, setTheme]);
@@ -2075,12 +1984,6 @@ export function AppShell() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [handleDuplicate, handleDelete]);
-
-  useEffect(() => {
-    setValidatorMessages([]);
-    setValidatorResolvedPath(null);
-    setValidatorError(null);
-  }, [solutionPath]);
 
   const dialogOpen = serverDialog && (pickerOpen || (!solution && !newProjectOpen));
 
@@ -2316,6 +2219,15 @@ export function AppShell() {
               <div className="workspace-header__run-actions" aria-label="Run actions">
                 <button
                   type="button"
+                  className="icon-btn workspace-header__run-toggle"
+                  onClick={() => setGlobalRefreshOpen(true)}
+                  aria-label="Refresh schemas"
+                  title="Refresh schemas"
+                >
+                  <RefreshCw className="workspace-header__run-icon h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   className={`icon-btn workspace-header__run-toggle ${activeRunPanel === "generator" ? "icon-btn--active" : ""}`}
                   onClick={() => {
                     setActiveRunPanel((prev) => (prev === "generator" ? null : "generator"));
@@ -2324,17 +2236,6 @@ export function AppShell() {
                   title="Generator"
                 >
                   <Bot className={`workspace-header__run-icon h-4 w-4 ${activeRunPanel === "generator" ? "workspace-header__run-icon--active" : ""}`} />
-                </button>
-                <button
-                  type="button"
-                  className={`icon-btn workspace-header__run-toggle ${activeRunPanel === "validator" ? "icon-btn--active" : ""}`}
-                  onClick={() => {
-                    setActiveRunPanel((prev) => (prev === "validator" ? null : "validator"));
-                  }}
-                  aria-label="Toggle validator"
-                  title="Validator"
-                >
-                  <ShieldCheck className={`workspace-header__run-icon h-4 w-4 ${activeRunPanel === "validator" ? "workspace-header__run-icon--active" : ""}`} />
                 </button>
               </div>
             </div>
@@ -2442,27 +2343,23 @@ export function AppShell() {
                 selectedLogLevel={generatorLogLevel}
                 onSelectLogLevel={setGeneratorLogLevel}
                 onRun={runGenerator}
+                onValidate={runValidation}
+                onClose={() => setActiveRunPanel(null)}
                 running={generatorRunning}
                 log={generatorLog}
                 stderr={generatorStderr}
-                exitCode={generatorExit}
                 error={generatorError}
               />
             </div>
           </div>
 
-          <div className={`run-panel-shell ${activeRunPanel === "validator" ? "run-panel-shell--active" : ""}`}>
-            <div className="validator-panel">
-              <ValidatorPanel
-                running={validatorRunning}
-                messages={validatorMessages}
-                resolvedSolutionPath={validatorResolvedPath}
-                error={validatorError}
-                canRun={!!solutionPath}
-                onRun={runValidator}
-              />
-            </div>
-          </div>
+          {globalRefreshOpen ? (
+            <RefreshSchemasDialog
+              scope={{ kind: "all" }}
+              isOpen={globalRefreshOpen}
+              onClose={() => setGlobalRefreshOpen(false)}
+            />
+          ) : null}
           <div className="error-surface-slot">
             <InfoSurfaceHost scope="app" />
           </div>

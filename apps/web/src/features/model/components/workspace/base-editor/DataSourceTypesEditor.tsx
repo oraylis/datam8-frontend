@@ -157,10 +157,17 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
         })(),
       ]);
       const nextDataTypeMapping = dataTypeMapping.length ? dataTypeMapping : DEFAULT_CONNECTOR_TYPE_MAPPING;
-      updateField("pluginId", pluginId);
-      updateField("connectionProperties", connectionProperties);
-      updateField("authModes", authModes);
-      updateField("dataTypeMapping", nextDataTypeMapping);
+      markBaseDirty();
+      setBaseDraft((prev: any) => {
+        const base = prev || baseDraft || selectedBase.content || {};
+        const types = Array.isArray(base?.dataSourceTypes) ? base.dataSourceTypes : currentList;
+        const nextTypes = types.map((t: any, idx: number) =>
+          idx === currentIndex
+            ? { ...t, pluginId, connectionProperties, authModes, dataTypeMapping: nextDataTypeMapping }
+            : t,
+        );
+        return { ...(base || {}), dataSourceTypes: nextTypes };
+      });
       onCommit("dropdown-change");
 
       onPatchBaseEntity(selectedBase.relPath, (content) => {
@@ -196,7 +203,19 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
         });
       }
     },
-    [current, currentIndex, dataSourcesRelPath, onCommit, onPatchBaseEntity, selectedBase.relPath, updateField],
+    [
+      baseDraft,
+      current,
+      currentIndex,
+      currentList,
+      dataSourcesRelPath,
+      markBaseDirty,
+      onCommit,
+      onPatchBaseEntity,
+      selectedBase.content,
+      selectedBase.relPath,
+      setBaseDraft,
+    ],
   );
 
   if (!current) return <div className="muted">Select a Data Source Type.</div>;

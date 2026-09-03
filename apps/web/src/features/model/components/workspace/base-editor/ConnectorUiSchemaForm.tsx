@@ -21,16 +21,6 @@ function asString(v: unknown): string {
   return typeof v === "string" ? v : String(v);
 }
 
-function shallowEqualObject(a: Record<string, any>, b: Record<string, any>): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const key of aKeys) {
-    if (a[key] !== b[key]) return false;
-  }
-  return true;
-}
-
 function readAuthMode(value: Record<string, any> | undefined): string {
   const direct = asString(value?.authMode);
   if (direct) return direct;
@@ -55,8 +45,8 @@ function resolveFieldLabel(field: UiField): string {
   return fieldLabelFromKey(field.key);
 }
 
-async function fetchUiSchema(connectorId: string): Promise<ConnectorUiSchema> {
-  const res = await fetch(`${apiBase}/plugins/${encodeURIComponent(connectorId)}/ui-schema`);
+async function fetchUiSchema(connectorId: string, signal?: AbortSignal): Promise<ConnectorUiSchema> {
+  const res = await fetch(`${apiBase}/plugins/${encodeURIComponent(connectorId)}/ui-schema`, { signal });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(readBackendErrorMessage(data, `Failed to load schema (${res.status})`));
   return ((data as any)?.item || data) as ConnectorUiSchema;
@@ -119,8 +109,12 @@ export function ConnectorUiSchemaForm(props: {
   value: Record<string, any>;
   onChange: (next: Record<string, any>) => void;
 }) {
-  const { connectorId, dataSourceName, onRegisterValidate, showSchemaTitle = true, value, onChange } = props;
-  const [schema, setSchema] = useState<ConnectorUiSchema | null>(null);
+  const { connectorId, solutionPath, dataSourceName, onRegisterValidate, showSchemaTitle = true, value, onChange } = props;
+  const schemaRequestKey = useMemo(() => `${solutionPath || ""}::${connectorId || ""}`, [connectorId, solutionPath]);
+  const [schemaState, setSchemaState] = useState<{ key: string; schema: ConnectorUiSchema | null }>({
+    key: schemaRequestKey,
+    schema: null,
+  });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [validationSummary, setValidationSummary] = useState<string | null>(null);
@@ -130,18 +124,30 @@ export function ConnectorUiSchemaForm(props: {
   const [secretError, setSecretError] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
+    const requestKey = schemaRequestKey;
+    const controller = new AbortController();
+    let active = true;
+    setSchemaState({ key: requestKey, schema: null });
     setStatus("loading");
     setError(null);
-    void fetchUiSchema(connectorId)
+    void fetchUiSchema(connectorId, controller.signal)
       .then((next) => {
-        setSchema(next);
+        if (!active) return;
+        setSchemaState((current) => (current.key === requestKey ? { key: requestKey, schema: next } : current));
         setStatus("ready");
       })
       .catch((err: any) => {
+        if (!active || controller.signal.aborted) return;
         setError(err?.message || "Failed to load schema");
         setStatus("error");
       });
-  }, [connectorId]);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [connectorId, schemaRequestKey]);
+
+  const schema = schemaState.key === schemaRequestKey ? schemaState.schema : null;
 
   const selectedMode = useMemo(() => {
     if (!schema?.authModes?.length) return "";
@@ -154,7 +160,7 @@ export function ConnectorUiSchemaForm(props: {
     [schema?.authModes, selectedMode],
   );
 
-  const normalizeValueForMode = useCallback(
+  const valueForExplicitModeChange = useCallback(
     (modeId: string, sourceValue: Record<string, any> | undefined): Record<string, any> => {
       if (!schema?.authModes?.length) return { ...(sourceValue || {}) };
       const mode = schema.authModes.find((m) => m.id === modeId) || schema.authModes[0];
@@ -179,15 +185,6 @@ export function ConnectorUiSchemaForm(props: {
     },
     [schema],
   );
-
-  useEffect(() => {
-    if (!schema?.authModes?.length) return;
-    if (!isSelectedModeValid) return;
-    const current = value || {};
-    const normalized = normalizeValueForMode(selectedMode, current);
-    if (shallowEqualObject(normalized, current)) return;
-    onChange(normalized);
-  }, [schema, selectedMode, isSelectedModeValid, value, onChange, normalizeValueForMode]);
 
   const modeFields = useMemo(() => {
     if (!schema?.authModes?.length) return [];
@@ -252,15 +249,18 @@ export function ConnectorUiSchemaForm(props: {
   const setValueKey = useCallback(
     (key: string, nextValue: unknown) => {
       setValidationSummary(null);
+      const current = value || {};
+      const existingMode = readAuthMode(current);
+      const modePatch = !existingMode && selectedMode ? { authMode: selectedMode } : {};
       const raw = asString(nextValue);
       if (!raw.trim()) {
-        const { [key]: _removed, ...rest } = value || {};
-        onChange(rest);
+        const { [key]: _removed, ...rest } = current;
+        onChange({ ...rest, ...modePatch });
         return;
       }
-      onChange({ ...(value || {}), [key]: raw });
+      onChange({ ...current, ...modePatch, [key]: raw });
     },
-    [onChange, value],
+    [onChange, selectedMode, value],
   );
 
   const doValidate = useCallback(async () => {
@@ -323,7 +323,8 @@ export function ConnectorUiSchemaForm(props: {
           value={selectedMode}
           onChange={(modeId) => {
             setValidationSummary(null);
-            onChange(normalizeValueForMode(modeId, value));
+            if (modeId === selectedMode) return;
+            onChange(valueForExplicitModeChange(modeId, value));
           }}
           options={(schema.authModes || []).map((m) => ({ value: m.id, label: m.label || m.id }))}
           allowUnknownValue

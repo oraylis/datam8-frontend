@@ -144,6 +144,7 @@ async function mockApi(
     solutionPayload: unknown;
     connectors: MockConnector[];
     uiSchemasById?: Record<string, UiSchema>;
+    uiSchemaDelayById?: Record<string, number>;
     validateHandler?: (connectorId: string, body: JsonObject) => ValidateResult;
   },
 ) {
@@ -203,6 +204,8 @@ async function mockApi(
     const connectorId = parts[parts.length - 2] || "";
     const connector = args.connectors.find((c) => c.id === connectorId) || args.connectors[0]!;
     const schema = args.uiSchemasById?.[connectorId] || { title: `${connector.displayName} connection`, authModes: [] };
+    const delay = args.uiSchemaDelayById?.[connectorId] || 0;
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
     await route.fulfill({ json: { item: schema } });
   });
 
@@ -333,7 +336,7 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
   });
 
   let validateCalls = 0;
-  const { secretPuts } = await mockApi(page, counters, {
+  const { entityWrites, secretPuts } = await mockApi(page, counters, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } } }],
     uiSchemasById: {
@@ -383,6 +386,7 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
 
   await page.getByRole("button", { name: "Validate connection" }).click();
   await expect(page.getByText("Host is required")).toBeVisible();
+  expect(entityWrites).toHaveLength(0);
 
   await page.locator('label:has-text("Host")').locator("..").locator("input").fill("db.local");
   await page.getByRole("button", { name: "Validate connection" }).click();
@@ -492,6 +496,187 @@ test("switching auth modes updates auth.mode and clears fields not in the select
   await page.getByRole("option", { name: "Username/Password" }).click();
   await expect(page.getByText("Username *")).toBeVisible();
   await expect(page.locator('label:has-text("Username")').locator("..").locator("input")).toHaveValue("");
+});
+
+test("switching data sources with the same auth mode does not rewrite connector-specific fields", async ({ page }) => {
+  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
+  const solutionPayload = createMockSolutionPayload({
+    dataSources: [
+      {
+        name: "UnityDb",
+        type: "UnityType",
+        extendedProperties: { authMode: "bitbucket_server_bearer_token", uc_name: "dbr-mobilfunk-ingest" },
+      },
+      {
+        name: "SqlDb",
+        type: "SqlType",
+        extendedProperties: {
+          authMode: "bitbucket_server_bearer_token",
+          uc_connection_name: "dbr-mobilfunk-ingest",
+          database: "mavenir",
+        },
+      },
+    ],
+  }) as any;
+  solutionPayload.baseEntities[0].content.dataSourceTypes = [
+    {
+      name: "UnityType",
+      displayName: "Unity Catalog",
+      pluginId: "unity_catalog",
+      connectionProperties: bindingConnectionProperties("unity_catalog", null),
+      dataTypeMapping: [],
+    },
+    {
+      name: "SqlType",
+      displayName: "SQL Server",
+      pluginId: "sqlserver",
+      connectionProperties: bindingConnectionProperties("sqlserver", null),
+      dataTypeMapping: [],
+    },
+  ];
+
+  const { entityWrites } = await mockApi(page, counters, {
+    solutionPayload,
+    connectors: [
+      { id: "unity_catalog", displayName: "Unity Catalog", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
+      { id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
+    ],
+    uiSchemasById: {
+      unity_catalog: {
+        title: "Unity Catalog connection",
+        authModes: [
+          {
+            id: "bitbucket_server_bearer_token",
+            label: "Bitbucket Server Bearer Token",
+            fields: [
+              { key: "auth.mode", label: "Authentication", type: "hidden", required: true, default: "bitbucket_server_bearer_token" },
+              { key: "uc_name", label: "UC Name", type: "string", required: true },
+            ],
+          },
+        ],
+      },
+      sqlserver: {
+        title: "SQL Server connection",
+        authModes: [
+          {
+            id: "bitbucket_server_bearer_token",
+            label: "Bitbucket Server Bearer Token",
+            fields: [
+              { key: "auth.mode", label: "Authentication", type: "hidden", required: true, default: "bitbucket_server_bearer_token" },
+              { key: "uc_connection_name", label: "UC Connection Name", type: "string", required: true },
+              { key: "database", label: "Database", type: "string", required: true },
+            ],
+          },
+        ],
+      },
+    },
+  });
+
+  await loadSolutionFromDialog(page);
+
+  await page.getByRole("button", { name: "Data Sources" }).click();
+  await clickBaseItem(page, "UnityDb");
+  await expect(page.getByText("UC Name *")).toBeVisible();
+  await expect(page.locator('label:has-text("UC Name")').locator("..").locator("input")).toHaveValue("dbr-mobilfunk-ingest");
+
+  await clickBaseItem(page, "SqlDb");
+  await expect(page.getByText("UC Connection Name *")).toBeVisible();
+  await expect(page.locator('label:has-text("UC Connection Name")').locator("..").locator("input")).toHaveValue("dbr-mobilfunk-ingest");
+  await expect(page.locator('label:has-text("Database")').locator("..").locator("input")).toHaveValue("mavenir");
+
+  await clickBaseItem(page, "UnityDb");
+  await expect(page.getByText("UC Name *")).toBeVisible();
+  await expect(page.locator('label:has-text("UC Name")').locator("..").locator("input")).toHaveValue("dbr-mobilfunk-ingest");
+  await page.waitForTimeout(250);
+
+  expect(entityWrites).toHaveLength(0);
+});
+
+test("late connector ui schema responses are ignored after selecting another data source", async ({ page }) => {
+  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
+  const solutionPayload = createMockSolutionPayload({
+    dataSources: [
+      {
+        name: "SqlDb",
+        type: "SqlType",
+        extendedProperties: { authMode: "bitbucket_server_bearer_token", uc_connection_name: "sql-old" },
+      },
+      {
+        name: "UnityDb",
+        type: "UnityType",
+        extendedProperties: { authMode: "bitbucket_server_bearer_token", uc_name: "unity-current" },
+      },
+    ],
+  }) as any;
+  solutionPayload.baseEntities[0].content.dataSourceTypes = [
+    {
+      name: "SqlType",
+      displayName: "SQL Server",
+      pluginId: "sqlserver",
+      connectionProperties: bindingConnectionProperties("sqlserver", null),
+      dataTypeMapping: [],
+    },
+    {
+      name: "UnityType",
+      displayName: "Unity Catalog",
+      pluginId: "unity_catalog",
+      connectionProperties: bindingConnectionProperties("unity_catalog", null),
+      dataTypeMapping: [],
+    },
+  ];
+
+  const { entityWrites } = await mockApi(page, counters, {
+    solutionPayload,
+    connectors: [
+      { id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
+      { id: "unity_catalog", displayName: "Unity Catalog", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
+    ],
+    uiSchemaDelayById: { sqlserver: 300 },
+    uiSchemasById: {
+      sqlserver: {
+        title: "SQL Server connection",
+        authModes: [
+          {
+            id: "bitbucket_server_bearer_token",
+            label: "Bitbucket Server Bearer Token",
+            fields: [
+              { key: "auth.mode", label: "Authentication", type: "hidden", required: true, default: "bitbucket_server_bearer_token" },
+              { key: "uc_connection_name", label: "UC Connection Name", type: "string", required: true },
+            ],
+          },
+        ],
+      },
+      unity_catalog: {
+        title: "Unity Catalog connection",
+        authModes: [
+          {
+            id: "bitbucket_server_bearer_token",
+            label: "Bitbucket Server Bearer Token",
+            fields: [
+              { key: "auth.mode", label: "Authentication", type: "hidden", required: true, default: "bitbucket_server_bearer_token" },
+              { key: "uc_name", label: "UC Name", type: "string", required: true },
+            ],
+          },
+        ],
+      },
+    },
+  });
+
+  await loadSolutionFromDialog(page);
+
+  await page.getByRole("button", { name: "Data Sources" }).click();
+  await clickBaseItem(page, "SqlDb");
+  await expect(page.getByText("Loading connector schema...")).toBeVisible();
+  await clickBaseItem(page, "UnityDb");
+
+  await expect(page.getByText("UC Name *")).toBeVisible();
+  await expect(page.getByText("UC Connection Name")).toBeHidden();
+  await expect(page.locator('label:has-text("UC Name")').locator("..").locator("input")).toHaveValue("unity-current");
+  await page.waitForTimeout(400);
+
+  await expect(page.getByText("UC Name *")).toBeVisible();
+  await expect(page.getByText("UC Connection Name")).toBeHidden();
+  expect(entityWrites).toHaveLength(0);
 });
 
 test("missing connector shows warning + read-only values", async ({ page }) => {

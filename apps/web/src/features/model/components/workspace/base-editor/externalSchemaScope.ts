@@ -10,6 +10,8 @@ export type ExternalSchemaUsage = {
   sourceIndex: number;
 };
 
+export type ExternalSchemaTriState = boolean | "indeterminate";
+
 export function isUsageInExternalSchemaScope(scope: ExternalSchemaScope, usage: ExternalSchemaUsage): boolean {
   return scope.kind === "all" || usage.dataSource === scope.dataSourceName;
 }
@@ -25,6 +27,20 @@ export function groupExternalSchemaUsages<T extends ExternalSchemaUsage>(usages:
   const groups = new Map<string, T[]>();
   usages.forEach((usage) => groups.set(usage.dataSource, [...(groups.get(usage.dataSource) || []), usage]));
   return Array.from(groups.entries()).sort(([left], [right]) => left.localeCompare(right));
+}
+
+export function externalSchemaTriState(values: boolean[]): ExternalSchemaTriState {
+  if (!values.length) return false;
+  const selected = values.filter(Boolean).length;
+  if (selected === 0) return false;
+  return selected === values.length ? true : "indeterminate";
+}
+
+export function needsExternalSchemaSourceContext<T extends ExternalSchemaUsage>(
+  usage: T,
+  siblings: T[],
+): boolean {
+  return siblings.filter((candidate) => candidate.entityRelPath === usage.entityRelPath).length > 1;
 }
 
 export function isSchemaChangeSuggested(changeType: string): boolean {

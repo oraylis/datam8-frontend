@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  externalSchemaTriState,
   groupExternalSchemaUsages,
   isSchemaChangeSuggested,
   isUsageInitiallySelected,
   isUsageInExternalSchemaScope,
   keepRelationshipMappingsForColumns,
+  needsExternalSchemaSourceContext,
 } from "./externalSchemaScope";
 
 const usage = (dataSource: string, entityRelPath: string, sourceIndex = 0) => ({ dataSource, entityRelPath, sourceIndex });
@@ -38,6 +40,24 @@ describe("external schema scopes", () => {
   it("groups usages deterministically by data source", () => {
     const groups = groupExternalSchemaUsages([usage("ERP", "B"), usage("CRM", "A"), usage("CRM", "C", 1)]);
     expect(groups.map(([name, items]) => [name, items.length])).toEqual([["CRM", 2], ["ERP", 1]]);
+  });
+
+  it("derives group selection state from all contained changes", () => {
+    expect(externalSchemaTriState([])).toBe(false);
+    expect(externalSchemaTriState([false, false])).toBe(false);
+    expect(externalSchemaTriState([true, true])).toBe(true);
+    expect(externalSchemaTriState([true, false])).toBe("indeterminate");
+  });
+
+  it("shows source context only when an entity has multiple sources in the group", () => {
+    const first = usage("CRM", "Model/Customer.json", 0);
+    const second = usage("CRM", "Model/Customer.json", 1);
+    const product = usage("CRM", "Model/Product.json", 0);
+    const siblings = [first, second, product];
+
+    expect(needsExternalSchemaSourceContext(first, siblings)).toBe(true);
+    expect(needsExternalSchemaSourceContext(second, siblings)).toBe(true);
+    expect(needsExternalSchemaSourceContext(product, siblings)).toBe(false);
   });
 });
 

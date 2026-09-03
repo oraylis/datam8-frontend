@@ -46,10 +46,12 @@ import {
   type ColumnSchemaChangeType,
 } from "./schemaRefreshApply";
 import {
+  externalSchemaTriState,
   groupExternalSchemaUsages,
   isSchemaChangeSuggested,
   isUsageInitiallySelected,
   isUsageInExternalSchemaScope,
+  needsExternalSchemaSourceContext,
   type ExternalSchemaScope,
 } from "./externalSchemaScope";
 
@@ -187,6 +189,7 @@ export const RefreshSchemasDialog = ({
   } | null>(null);
   const [removeInvalidMappings, setRemoveInvalidMappings] = useState(false);
   const [collapsedDataSources, setCollapsedDataSources] = useState<Set<string>>(new Set());
+  const [collapsedPreviewDataSources, setCollapsedPreviewDataSources] = useState<Set<string>>(new Set());
   const abortRef = useRef<AbortController | null>(null);
   const initializedScopeRef = useRef<string | null>(null);
   const connectorCatalog = useConnectorCatalog((state) => state.connectors);
@@ -256,6 +259,7 @@ export const RefreshSchemasDialog = ({
     if (isOpen) {
       setBrowseSelection(null);
       setRemoveInvalidMappings(false);
+      setCollapsedPreviewDataSources(new Set());
     }
   }, [isOpen, requestedScopeKind, requestedSourceLocation]);
 
@@ -677,6 +681,7 @@ export const RefreshSchemasDialog = ({
       );
       setExpandedTables(initialExpanded);
       setExpandedColumns(new Set());
+      setCollapsedPreviewDataSources(new Set());
 
       setStep(STEPS.PREVIEW);
     } catch (err: any) {
@@ -700,14 +705,6 @@ export const RefreshSchemasDialog = ({
     selections.forEach((s) => map.set(diffKey(s.entityRelPath, s.sourceIndex), s));
     return map;
   }, [selections]);
-
-  const triStateFrom = (values: boolean[]): TriState => {
-    if (!values.length) return false;
-    const anyTrue = values.some(Boolean);
-    const anyFalse = values.some((v) => !v);
-    if (anyTrue && anyFalse) return "indeterminate";
-    return anyTrue ? true : false;
-  };
 
   const selectionStats = useMemo(() => {
     let total = 0;
@@ -760,6 +757,15 @@ export const RefreshSchemasDialog = ({
       ...sel,
       changes: sel.changes.map((c) => ({ ...c, applyToEntity: checked })),
     }));
+  };
+
+  const toggleDataSourceSelection = (sourceDiffs: ExternalSourceSchemaDiff[], checked: boolean) => {
+    const keys = new Set(sourceDiffs.map((diff) => diffKey(diff.entityRelPath, diff.sourceIndex)));
+    setSelections((prev) => prev.map((sel) => (
+      keys.has(diffKey(sel.entityRelPath, sel.sourceIndex))
+        ? { ...sel, changes: sel.changes.map((change) => ({ ...change, applyToEntity: checked })) }
+        : sel
+    )));
   };
 
   const setAllSelected = (checked: boolean) => {
@@ -1149,9 +1155,15 @@ export const RefreshSchemasDialog = ({
     );
   }, [diffs, previewFilter]);
 
+  const filteredDiffGroups = useMemo(() => groupExternalSchemaUsages(filteredDiffs), [filteredDiffs]);
+
+  const allDiffsByDataSource = useMemo(() => {
+    return new Map(groupExternalSchemaUsages(diffs));
+  }, [diffs]);
+
   const renderPreviewStep = () => (
-    <div className="flex flex-col gap-4 h-[520px]">
-      <div className="flex flex-col gap-2">
+    <div className="schema-review flex min-w-0 flex-col gap-3 h-[520px] max-h-[calc(90vh-10rem)] overflow-hidden">
+      <div className="flex min-w-0 flex-col gap-2">
         {Object.keys(scanErrors).length ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -1159,16 +1171,17 @@ export const RefreshSchemasDialog = ({
             <AlertDescription>Successful results remain available. Go back and scan again to retry failed sources.</AlertDescription>
           </Alert>
         ) : null}
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-medium">
-            Changes detected: {diffs.reduce((acc, d) => acc + d.changes.length, 0)} | Selected: {selectionStats.selected}/{selectionStats.total}
+        <div className="schema-review__toolbar flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            <Badge variant="outline">{diffs.reduce((acc, d) => acc + d.changes.length, 0)} changes</Badge>
+            <Badge variant="outline">{selectionStats.selected}/{selectionStats.total} selected</Badge>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
             <Input
               value={previewFilter}
               onChange={(e) => setPreviewFilter(e.target.value)}
               placeholder="Filter tables / columns..."
-              className="h-8 w-64"
+              className="h-8 min-w-[12rem] max-w-64 flex-1 sm:flex-none"
             />
             <Button size="sm" variant="ghost" onClick={() => setAllSelected(true)} disabled={!selectionStats.total}>
               Select all
@@ -1178,12 +1191,15 @@ export const RefreshSchemasDialog = ({
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
           <Button
             size="sm"
             variant="ghost"
             className="h-7 px-2"
-            onClick={() => setExpandedTables(new Set(filteredDiffs.map((d) => diffKey(d.entityRelPath, d.sourceIndex))))}
+            onClick={() => {
+              setCollapsedPreviewDataSources(new Set());
+              setExpandedTables(new Set(filteredDiffs.map((d) => diffKey(d.entityRelPath, d.sourceIndex))));
+            }}
             disabled={!filteredDiffs.length}
           >
             Expand all
@@ -1192,7 +1208,10 @@ export const RefreshSchemasDialog = ({
             size="sm"
             variant="ghost"
             className="h-7 px-2"
-            onClick={() => setExpandedTables(new Set())}
+            onClick={() => {
+              setCollapsedPreviewDataSources(new Set(filteredDiffGroups.map(([sourceName]) => sourceName)));
+              setExpandedTables(new Set());
+            }}
             disabled={!filteredDiffs.length}
           >
             Collapse all
@@ -1200,7 +1219,7 @@ export const RefreshSchemasDialog = ({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 pr-4">
+      <ScrollArea className="schema-review__scroll min-w-0 flex-1 pr-3">
         {filteredDiffs.length === 0 ? (
           diffs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -1214,76 +1233,130 @@ export const RefreshSchemasDialog = ({
             </div>
           )
         ) : (
-          <div className="flex flex-col gap-3">
-            {filteredDiffs.map((diff) => {
-              const key = diffKey(diff.entityRelPath, diff.sourceIndex);
-              const isExpanded = expandedTables.has(key);
-              const sel = selectionByKey.get(key);
-              const diffApplyState = triStateFrom(sel?.changes.map((c) => c.applyToEntity) || []);
-              const diffSelected = sel?.changes.filter((c) => c.applyToEntity).length || 0;
-              const diffTotal = sel?.changes.length || 0;
-              const changedCount =
-                (diff.summary?.typeChanges || 0) +
-                (diff.summary?.nullableChanges || 0) +
-                (diff.summary?.pkChanges || 0);
-              const columnGroups = getColumnGroups(diff);
+          <div className="flex min-w-0 flex-col gap-3">
+            {filteredDiffGroups.map(([sourceName, visibleSourceDiffs]) => {
+              const sourceDiffs = allDiffsByDataSource.get(sourceName) || visibleSourceDiffs;
+              const groupFlags = sourceDiffs.flatMap((diff) =>
+                selectionByKey.get(diffKey(diff.entityRelPath, diff.sourceIndex))?.changes.map((change) => change.applyToEntity) || [],
+              );
+              const groupSelected = groupFlags.filter(Boolean).length;
+              const groupState = externalSchemaTriState(groupFlags);
+              const isGroupExpanded = !collapsedPreviewDataSources.has(sourceName);
+              const groupLabel = `${sourceName}, ${sourceDiffs.length} source${sourceDiffs.length === 1 ? "" : "s"}`;
 
               return (
-                <div key={key} className="codex-popup-section">
-                  <div className="flex items-center gap-3 border-b border-border/65 px-3 py-2">
+                <section
+                  key={sourceName}
+                  className="schema-review__group min-w-0 overflow-hidden rounded-xl border border-border/80"
+                  data-testid="schema-review-group"
+                >
+                  <div className="flex min-w-0 items-center gap-3 border-y border-primary/20 bg-primary/[0.07] px-4 py-2.5 dark:bg-primary/[0.10]">
                     <Checkbox
-                      checked={diffApplyState}
-                      onCheckedChange={(checked) => toggleTableSelection(diff.entityRelPath, diff.sourceIndex, checked === true)}
+                      checked={groupState}
+                      aria-label={`Select all changes for ${sourceName}`}
+                      onCheckedChange={(checked) => toggleDataSourceSelection(sourceDiffs, checked === true)}
                     />
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                      onClick={() => {
-                        setExpandedTables((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(key)) next.delete(key);
-                          else next.add(key);
-                          return next;
-                        });
-                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-expanded={isGroupExpanded}
+                      aria-label={`${isGroupExpanded ? "Collapse" : "Expand"} review group ${groupLabel}`}
+                      onClick={() => setCollapsedPreviewDataSources((previous) => {
+                        const next = new Set(previous);
+                        if (next.has(sourceName)) next.delete(sourceName); else next.add(sourceName);
+                        return next;
+                      })}
                     >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                          <span className="font-semibold truncate">
-                            {diff.sourceAlias || diff.sourceLocation || diff.entityName}
-                          </span>
-                          <Badge variant="outline">{diff.dataSource}</Badge>
-                          <span className="text-xs text-muted-foreground mono truncate">{diff.sourceLocation}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">{diff.entityName}</div>
-                      </div>
-                    </button>
-
-                    <div className="ml-auto flex items-center gap-2 shrink-0">
-                      {diff.summary?.newColumns ? <Badge variant="secondary">+{diff.summary.newColumns}</Badge> : null}
-                      {diff.summary?.removedColumns ? <Badge variant="secondary">-{diff.summary.removedColumns}</Badge> : null}
-                      {changedCount ? <Badge variant="secondary">~{changedCount}</Badge> : null}
-                      {diff.summary?.relationshipChanges ? <Badge variant="secondary">rel {diff.summary.relationshipChanges}</Badge> : null}
-                      <Badge variant="outline">
-                        {diffSelected}/{diffTotal} selected
+                      {isGroupExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                      <Database className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="truncate">{sourceName}</span>
+                      <Badge variant="outline" className="shrink-0 bg-background/60 font-normal">
+                        {sourceDiffs.length} source{sourceDiffs.length === 1 ? "" : "s"}
                       </Badge>
-                    </div>
+                      <Badge variant="outline" className="ml-auto shrink-0 bg-background/60 font-normal">
+                        {groupSelected}/{groupFlags.length} selected
+                      </Badge>
+                    </button>
                   </div>
 
-                  {isExpanded ? (
-                    <div className="p-3">
-                      <Table>
+                  {isGroupExpanded ? (
+                    <div className="min-w-0 divide-y divide-border/70">
+                      {visibleSourceDiffs.map((diff) => {
+                        const key = diffKey(diff.entityRelPath, diff.sourceIndex);
+                        const isExpanded = expandedTables.has(key);
+                        const sel = selectionByKey.get(key);
+                        const diffApplyState = externalSchemaTriState(sel?.changes.map((c) => c.applyToEntity) || []);
+                        const diffSelected = sel?.changes.filter((c) => c.applyToEntity).length || 0;
+                        const diffTotal = sel?.changes.length || 0;
+                        const changedCount =
+                          (diff.summary?.typeChanges || 0) +
+                          (diff.summary?.nullableChanges || 0) +
+                          (diff.summary?.pkChanges || 0);
+                        const columnGroups = getColumnGroups(diff);
+                        const showSourceContextInHeader = needsExternalSchemaSourceContext(diff, sourceDiffs);
+                        const sourceContext = `${diff.sourceAlias || diff.sourceLocation || ""}`.trim();
+
+                        return (
+                          <div key={key} className="schema-review__entity min-w-0 overflow-hidden" data-testid="schema-review-entity">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2 px-4 py-2.5 pl-8 hover:bg-foreground/[0.03]">
+                              <Checkbox
+                                checked={diffApplyState}
+                                aria-label={`Select all changes for ${diff.entityName}`}
+                                onCheckedChange={(checked) => toggleTableSelection(diff.entityRelPath, diff.sourceIndex, checked === true)}
+                              />
+                              <button
+                                type="button"
+                                className="flex min-w-0 basis-64 flex-1 items-center gap-2 text-left"
+                                aria-expanded={isExpanded}
+                                aria-label={`${isExpanded ? "Collapse" : "Expand"} changes for ${diff.entityName}`}
+                                onClick={() => {
+                                  setExpandedTables((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(key)) next.delete(key);
+                                    else next.add(key);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                )}
+                                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span className="min-w-0">
+                                  <span className="block truncate font-semibold">{diff.entityName}</span>
+                                  {showSourceContextInHeader && sourceContext ? (
+                                    <span className="block truncate text-xs font-normal text-muted-foreground" title={diff.sourceLocation}>
+                                      {sourceContext}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </button>
+
+                              <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5 text-xs">
+                                {diff.summary?.newColumns ? <Badge variant="secondary" title="New columns">+{diff.summary.newColumns}</Badge> : null}
+                                {diff.summary?.removedColumns ? <Badge variant="secondary" title="Removed columns">-{diff.summary.removedColumns}</Badge> : null}
+                                {changedCount ? <Badge variant="secondary" title="Changed columns">~{changedCount}</Badge> : null}
+                                {diff.summary?.relationshipChanges ? <Badge variant="secondary">rel {diff.summary.relationshipChanges}</Badge> : null}
+                                <Badge variant="outline">{diffSelected}/{diffTotal} selected</Badge>
+                              </div>
+                            </div>
+
+                            {isExpanded ? (
+                              <div className="min-w-0 border-t border-border/60 px-4 py-3 pl-8">
+                                {!showSourceContextInHeader && diff.sourceLocation ? (
+                                  <div className="mb-3 flex min-w-0 items-baseline gap-2 text-xs text-muted-foreground">
+                                    <span className="shrink-0 font-medium">Source</span>
+                                    <span className="min-w-0 break-all font-mono">{diff.sourceLocation}</span>
+                                  </div>
+                                ) : null}
+                                <Table className="table-fixed">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[60px]">Apply</TableHead>
-                            <TableHead className="w-[220px]">Column</TableHead>
-                            <TableHead className="w-[190px]">Changes</TableHead>
+                            <TableHead className="w-[56px]">Apply</TableHead>
+                            <TableHead className="w-[28%]">Column</TableHead>
+                            <TableHead className="w-[24%]">Changes</TableHead>
                             <TableHead>Details</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1293,7 +1366,7 @@ export const RefreshSchemasDialog = ({
                             const isColExpanded = expandedColumns.has(colKey);
                             const flags =
                               sel?.changes.filter((c) => c.columnName === columnName).map((c) => c.applyToEntity) || [];
-                            const colState = triStateFrom(flags);
+                            const colState = externalSchemaTriState(flags);
                             const selectedByType = new Map<SchemaChangeType, boolean>();
                             sel?.changes
                               .filter((c) => c.columnName === columnName)
@@ -1310,8 +1383,8 @@ export const RefreshSchemasDialog = ({
                                       }
                                     />
                                   </TableCell>
-                                  <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
+                                  <TableCell className="min-w-0 font-medium">
+                                    <div className="flex min-w-0 items-center gap-2">
                                       <button
                                         type="button"
                                         className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
@@ -1341,8 +1414,8 @@ export const RefreshSchemasDialog = ({
                                       ))}
                                     </div>
                                   </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground">
-                                    <div className="flex flex-col gap-1">
+                                  <TableCell className="break-words text-xs text-muted-foreground">
+                                    <div className="flex min-w-0 flex-col gap-1">
                                       {changes.slice(0, 2).map((c) => (
                                         <div key={c.changeType}>{renderChangeSummary(c)}</div>
                                       ))}
@@ -1380,7 +1453,7 @@ export const RefreshSchemasDialog = ({
                                                     <span className="text-xs text-muted-foreground">-&gt; {c.entityAttributeName}</span>
                                                   ) : null}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground">{renderChangeSummary(c)}</div>
+                                                <div className="break-words text-xs text-muted-foreground">{renderChangeSummary(c)}</div>
                                               </div>
                                             </div>
                                           );
@@ -1393,10 +1466,15 @@ export const RefreshSchemasDialog = ({
                             );
                           })}
                         </TableBody>
-                      </Table>
+                                </Table>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : null}
-                </div>
+                </section>
               );
             })}
           </div>
@@ -1535,7 +1613,7 @@ export const RefreshSchemasDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="refresh-schemas-dialog max-h-[90vh] max-w-5xl">
+      <DialogContent className="refresh-schemas-dialog w-[calc(100vw-2rem)] min-w-0 max-h-[90vh] max-w-5xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {effectiveScope.kind === "all" ? "Refresh schemas" : `Refresh schemas: ${effectiveScope.dataSourceName}`}
@@ -1553,7 +1631,7 @@ export const RefreshSchemasDialog = ({
         {step === STEPS.PREVIEW && renderPreviewStep()}
         {step === STEPS.RESULT && renderResultStep()}
 
-        <DialogFooter className="border-t border-border/70 pt-4">
+        <DialogFooter className="min-w-0 flex-wrap border-t border-border/70 pt-4" data-testid="schema-review-footer">
           {step === STEPS.SELECT && (
             <>
               <Button variant="outline" onClick={() => {

@@ -125,7 +125,7 @@ export function NewProjectDialog({
               placeholder="MySolution"
             />
             <p className="text-xs text-muted-foreground">
-              Creates <code>{solutionName.trim() || "SolutionName"}.dm8s</code> inside <code>{solutionName.trim() || "SolutionName"}</code>.
+              Creates <code>{solutionName.trim() || "SolutionName"}.dm8s</code> inside the selected save path.
             </p>
           </div>
 
@@ -157,7 +157,7 @@ export function NewProjectDialog({
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              Creates <code>{savePath.trim() || "<save-path>"}/{solutionName.trim() || "SolutionName"}/{solutionName.trim() || "SolutionName"}.dm8s</code>.
+              Creates <code>{savePath.trim() || "<save-path>"}/{solutionName.trim() || "SolutionName"}.dm8s</code>.
             </p>
           </div>
 

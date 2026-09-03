@@ -76,7 +76,7 @@ async function initDesktopBridge(page: import("@playwright/test").Page) {
         load: async () => ({ payload: testWindow.__mockSolutionPayload || null }),
         createNew: async (payload: unknown) => {
           testWindow.__createNewCalls.push(payload);
-          return { solutionPath: "/tmp/projects/NewProject/NewProject.dm8s", payload: testWindow.__mockSolutionPayload || null };
+          return { solutionPath: "/tmp/projects/NewProject.dm8s", payload: testWindow.__mockSolutionPayload || null };
         },
       },
       theme: {
@@ -114,6 +114,8 @@ test("new project uses desktop createNew bridge with required fields only", asyn
   await page.locator("button:has-text('New')").first().click();
   await page.getByLabel("Solution Name").fill("NewProject");
   await page.getByRole("button", { name: "Browse" }).click();
+  await expect(page.getByText("Creates /tmp/projects/NewProject.dm8s.")).toBeVisible();
+  await expect(page.getByText("/tmp/projects/NewProject/NewProject.dm8s")).toHaveCount(0);
   await page.getByRole("button", { name: "Create Solution" }).click();
 
   const calls = await page.evaluate(() => (window as unknown as TestWindow).__createNewCalls);

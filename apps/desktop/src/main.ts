@@ -564,7 +564,7 @@ async function createSolutionViaCli(params: {
   const solutionName = `${params.solutionName || ""}`.trim();
   if (!solutionName) throw new Error("Solution name is required.");
 
-  const solutionDir = path.join(saveDir, solutionName);
+  const solutionDir = saveDir;
   const solutionFile = path.join(solutionDir, `${solutionName}.dm8s`);
   fs.mkdirSync(solutionDir, { recursive: true });
 

@@ -283,6 +283,14 @@ async function main() {
   console.log(`[smoke-python-runtime] Python: ${python}`);
 
   runChecked(python, ["-m", "datam8", "--help"], { env });
+  runChecked(
+    python,
+    [
+      "-c",
+      "import keyring; from keyring.backends.fail import Keyring as Failed; assert not isinstance(keyring.get_keyring(), Failed), 'No available secret backend'",
+    ],
+    { env },
+  );
 
   const port = Number(args.port || process.env.DATAM8_RUNTIME_SMOKE_PORT || await findFreePort());
   const token = `smoke-${Date.now().toString(36)}`;

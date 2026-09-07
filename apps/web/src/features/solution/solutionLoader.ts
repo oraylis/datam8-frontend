@@ -40,6 +40,12 @@ declare global {
         onTitleChanged?: (callback: (title: string) => void) => () => void;
       };
       solution?: {
+        requestFunctionApi?: (payload: {
+          path: string;
+          method?: "GET" | "POST";
+          body?: unknown;
+          legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
+        }) => Promise<unknown>;
         pickOpenPath?: () => Promise<string | null>;
         pickSavePath?: () => Promise<string | null>;
         pickDirectory?: () => Promise<string | null>;

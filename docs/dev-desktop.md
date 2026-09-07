@@ -14,7 +14,7 @@ Readiness line:
 {"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}
 ```
 
-Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/generate`, ...), no `/api/*` and no `/jobs`.
+Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/generate`, ...), no `/api/*` and no `/jobs`.
 
 ## Runtime configuration
 

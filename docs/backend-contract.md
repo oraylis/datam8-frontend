@@ -1,6 +1,9 @@
 # Backend Contract (Frontend Consumer View)
 
 Canonical source of truth is maintained in `submodules/datam8-generator/docs/backend-contract.md`.
+For the v2 beta port migration the frontend is pinned to Generator commit
+`1ebe33bb7341856559352497606d07841af1f0e9`; the implemented routes in that
+commit are authoritative when the generator document differs.
 
 ## Startup
 
@@ -29,18 +32,29 @@ Frontend uses root endpoints (no `/api/*` namespace):
 - `GET /solution/inspect`, `GET /solution/full`, `POST /solution/new-project`
   - `POST /solution/new-project` requires at least one generator target and supports ZIP template upload either as multipart (`payload` + target zip fields) or as JSON `targetArchives` (`{ "<targetIndex>": "<base64ZipBytes>" }`) per the canonical generator contract.
 - `GET /fs/list`
-- `POST /generate` (synchronous, returns `messages` log lines)
-- `POST /validate` (synchronous, returns `messages` log lines)
+- `POST /model/generate` (synchronous)
 - editor/model/base/index/refactor/connectors/plugins/secrets routes under root paths
-  - Base entity rename uses `POST /entities/rename` for single Base-list items in collection files; model entity and folder moves continue to use `POST /entities/move`.
+  - Single entity rename/move uses `POST /entities/move-single`.
+  - Folder and subtree moves use `POST /entities/move`.
+  - Entity deletion uses `DELETE /entities/{locator}`. A locator with an entity
+    name deletes that item; a folder locator without entity name deletes the
+    subtree. For model folder deletion the frontend sends
+    `DELETE /entities/modelEntities/Raw/Sales/` for model children and
+    `DELETE /entities/folders/Raw/Sales` for the root folder metadata, then
+    saves once.
+  - Property value deletion uses `DELETE /entities/propertyValues/<property>/<value>`;
+    dependent usage cleanup is orchestrated by the frontend through follow-up
+    entity patches before saving the model.
   - Model relationships may target an internal model entity (`targetLocation: number`) or an external data source (`dataSource` + string `targetLocation`); see canonical contract for the exact wire shape.
   - Secrets API: `POST /secrets/check`, `PUT /secrets/set`
   - Secret references are stored as `ref://<path>`
-  - Plugin install is wheel-only via `POST /plugins/install`
-    - Binary upload: `Content-Type: application/octet-stream` + `x-file-name: <name>.whl`
-    - URL install: JSON `{ "url": "https://...whl", "sha256": "<64-hex>" }`
+  - `POST /entities/rename` expects `{ "from": "<locator>", "to": "<new-name>" }` and updates the references supported by the Generator contract. Property Value locator changes are handled explicitly by the frontend where required.
+  - Plugin list is `GET /plugins` without a trailing slash.
   - Plugin endpoints expect canonical `plugin_id` values (e.g. `builtin:SQLServer`); legacy short names are rejected by backend.
-  - `GET /connectors` includes `dataTypeMapping` on connector summaries.
+  - Functions are read/updated/moved through `GET|POST /functions/{modelEntityId}/{stepNo|name}` and `POST /functions/{modelEntityId}/{stepNo|name}/move`.
+    Function responses use snake_case fields such as `source_code` and
+    `source_file_path`; update/move requests accept camelCase aliases
+    `sourceCode` and `newPath`.
 
 ## Response contract
 
@@ -49,22 +63,35 @@ Frontend uses root endpoints (no `/api/*` namespace):
 
 ### Connector capability object
 
-Connector/plugin payloads use normalized capability objects (no `string[]`):
+Connector/plugin payloads from `GET /plugins` use the generator's manifest shape:
 
 ```json
 {
-  "uiSchema": true,
-  "validateConnection": true,
-  "metadata": { "listTables": true, "getTableMetadata": true },
-  "runtimeQuery": { "sql": false, "dataFrame": false }
+  "id": "builtin:SQLServer",
+  "displayName": "SQL Server",
+  "version": "0.0.1",
+  "entryPoint": "datam8.plugins.builtins.sql_server:SqlServer",
+  "capabilities": ["uiSchema", "validationConnection", "metadata", "previewData"]
 }
 ```
 
 ### Source metadata additions
 
 Frontend may receive optional metadata fields from source/plugin endpoints:
-- Table list (`GET /sources/.../tables`): `description?: string`, `properties?: Array<{ property: string; value: string }>`, `sourceOverride?: { dataSource?: string; sourceLocation?: string }`
-- Table columns (`GET /sources/.../tables/{table}`): `description?: string`, `properties?: Array<{ property: string; value: string }>`
+- Location list (`GET /sources/{id}/locations`): plugin-specific objects for schemas, tables, directories, containers, or blobs.
+- Location metadata (`GET /sources/{id}/locations/metadata?source_location=...`): `items: SourceField[]`
+- Location preview (`GET /sources/{id}/locations/preview?source_location=...&limit=...`): `items: Record<string, unknown>[]`
+- The frontend treats `sourceLocation` as the canonical identifier across browsing, selection, metadata, preview, and schema refresh.
+- The Brokerage SQL Server plugin implements the v2 locations and metadata
+  contract directly; the Generator does not adapt legacy plugin signatures.
+
+## Known API Gaps
+
+- Validate: no `/validate` route is registered in the pinned Generator API.
+- Function create: no server route exists; Electron creates the initial empty
+  source file through its constrained solution file bridge.
+- Function delete: no server route exists; Electron deletes the source file
+  through the same constrained bridge.
 
 ### Typing policy
 

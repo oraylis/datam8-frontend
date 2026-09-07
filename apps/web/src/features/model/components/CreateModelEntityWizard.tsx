@@ -43,11 +43,10 @@ import { SourceRow } from "./wizard/SourceRow";
 import { FolderHierarchyPicker, type FolderHierarchyItem } from "./wizard/FolderHierarchyPicker";
 import { useWizardSubmit } from "./wizard/useWizardSubmit";
 import { useWizardBaseData } from "./wizard/useWizardBaseData";
-import { apiBase } from "../../../config";
 import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
 import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 import { SourceTablePreviewDialog } from "./wizard/SourceTablePreviewDialog";
-import { canPreviewDataSource, type SourcePreviewTableRef } from "./wizard/sourcePreview";
+import { buildSourceLocationsEndpoint, canPreviewDataSource, type SourcePreviewTableRef } from "./wizard/sourcePreview";
 import { toSourceOverride } from "./wizard/sourceOverride";
 import type { SourceOverride } from "../model-types";
 import { ensureLoaded, useConnectorCatalog } from "../../../shared/connectors/connectorCatalog";
@@ -67,10 +66,52 @@ type TablePropertyAssignment = { property: string; value: string };
 type AvailableSourceTable = {
   name: string;
   schema?: string;
+  sourceLocation: string;
+  type?: string;
   description?: string;
   properties?: TablePropertyAssignment[];
   sourceOverride?: SourceOverride;
 };
+
+function normalizeLocationItem(item: Record<string, unknown>): AvailableSourceTable | null {
+  const schema = typeof item.schema === "string" ? item.schema : undefined;
+  const container = typeof item.container === "string" ? item.container : undefined;
+  const rawName =
+    typeof item.name === "string"
+      ? item.name
+      : typeof item.object === "string"
+        ? item.object
+        : schema || container || "";
+  const name = rawName.trim();
+  if (!name) return null;
+  const type = typeof item.type === "string" ? item.type : undefined;
+  const isSchema = type?.toUpperCase() === "SCHEMA" || (!!schema && !item.name);
+  const isContainer = type?.toUpperCase() === "CONTAINER" || (!!container && !item.name);
+  const advertisedLocation = typeof item.sourceLocation === "string" ? item.sourceLocation.trim() : "";
+  const sourceLocation = advertisedLocation || (isSchema
+    ? schema || name
+    : isContainer
+      ? container || name
+      : container
+        ? `${container}@${name}`
+        : schema
+          ? `${schema}.${name}`
+          : name);
+  return {
+    name,
+    schema: isSchema ? undefined : schema,
+    sourceLocation,
+    type: type || (isSchema ? "SCHEMA" : isContainer ? "CONTAINER" : undefined),
+    description: typeof item.description === "string" ? item.description : undefined,
+    properties: toPropertyAssignments(item.properties),
+    sourceOverride: toSourceOverride(item.sourceOverride),
+  };
+}
+
+function isBrowsableLocation(item: AvailableSourceTable): boolean {
+  const type = `${(item as AvailableSourceTable & { type?: string }).type || ""}`.toUpperCase();
+  return type === "SCHEMA" || type === "CONTAINER" || type === "DIRECTORY";
+}
 
 function toPropertyAssignments(input: unknown): TablePropertyAssignment[] {
   if (!Array.isArray(input)) return [];
@@ -304,25 +345,33 @@ export function CreateModelEntityWizard({
         if (!selectedSource) return;
         setIsLoadingTables(true);
         try {
-            const res = await fetch(`${apiBase}/sources/${selectedSource}/tables`, { method: "GET" });
+            const loadLocations = async (sourceLocation?: string): Promise<AvailableSourceTable[]> => {
+              const res = await fetch(buildSourceLocationsEndpoint(selectedSource, sourceLocation), { method: "GET" });
 
-            if (!res.ok) {
-                 const data = await res.json().catch(() => ({}));
-                 const msg = readBackendErrorMessage(data, "Failed to load tables");
-                 throw new Error(msg);
-            }
-            
-            const data = await res.json();
-            const items = Array.isArray(data?.items) ? data.items : [];
-            setAvailableTables(
-              items.map((item: any) => ({
-                name: `${item?.name || ""}`,
-                schema: typeof item?.schema === "string" ? item.schema : undefined,
-                description: typeof item?.description === "string" ? item.description : undefined,
-                properties: toPropertyAssignments(item?.properties),
-                sourceOverride: toSourceOverride(item?.sourceOverride),
-              })),
+              if (!res.ok) {
+                   const data = await res.json().catch(() => ({}));
+                   const msg = readBackendErrorMessage(data, "Failed to load tables");
+                   throw new Error(msg);
+              }
+
+              const data = await res.json();
+              const items: unknown[] = Array.isArray(data?.items) ? data.items : [];
+              return items
+                .map((item) => normalizeLocationItem((item || {}) as Record<string, unknown>))
+                .filter((item: AvailableSourceTable | null): item is AvailableSourceTable => item !== null);
+            };
+
+            const rootItems = await loadLocations();
+            const children = await Promise.all(
+              rootItems
+                .filter(isBrowsableLocation)
+                .map((item) => loadLocations(item.sourceLocation).catch(() => [])),
             );
+            const selectable = [
+              ...rootItems.filter((item) => !isBrowsableLocation(item)),
+              ...children.flat().filter((item) => !isBrowsableLocation(item)),
+            ];
+            setAvailableTables(selectable);
         } catch (err) {
             showError("dialog:create-entity-wizard", { title: "Error loading tables", description: (err as Error).message });
         } finally {
@@ -643,7 +692,7 @@ export function CreateModelEntityWizard({
                                                 <div className="p-4 text-center text-sm text-muted-foreground">No tables found.</div>
                                             ) : (
                                                 filteredTables.map(table => {
-                                                    const uniqueName = table.schema ? `[${table.schema}].[${table.name}]` : table.name;
+                                                    const uniqueName = table.sourceLocation;
                                                     return (
                                                     <div key={uniqueName} className="flex items-center space-x-2 rounded-md p-2 transition-colors hover:bg-foreground/6">
                                                         <Checkbox 
@@ -694,7 +743,7 @@ export function CreateModelEntityWizard({
                                                           size="sm"
                                                           disabled={!supportsSelectedSourcePreview}
                                                           onClick={() => {
-                                                            setPreviewTable({ schema: table.schema, name: table.name });
+                                                            setPreviewTable({ schema: table.schema, name: table.name, sourceLocation: table.sourceLocation });
                                                             setPreviewOpen(true);
                                                           }}
                                                         >

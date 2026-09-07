@@ -6,6 +6,7 @@ type JsonRecord = Record<string, unknown>;
 export type SourcePreviewTableRef = {
   schema?: string;
   name: string;
+  sourceLocation?: string;
 };
 
 export type SourcePreviewResult = {
@@ -44,12 +45,24 @@ function isJsonRecord(value: unknown): value is JsonRecord {
 
 export function buildSourcePreviewEndpoint(dataSource: string, table: SourcePreviewTableRef, limit = 10): string {
   const encodedDataSource = encodeURIComponent(dataSource);
-  const encodedTable = encodeURIComponent(table.name);
-  const limitPart = `?limit=${encodeURIComponent(String(limit))}`;
-  if (table.schema?.trim()) {
-    return `${apiBase}/sources/${encodedDataSource}/schemas/${encodeURIComponent(table.schema)}/tables/${encodedTable}/preview${limitPart}`;
-  }
-  return `${apiBase}/sources/${encodedDataSource}/tables/${encodedTable}/preview${limitPart}`;
+  const params = new URLSearchParams();
+  params.set("source_location", table.sourceLocation || (table.schema?.trim() ? `${table.schema}.${table.name}` : table.name));
+  params.set("limit", String(limit));
+  return `${apiBase}/sources/${encodedDataSource}/locations/preview?${params.toString()}`;
+}
+
+export function buildSourceMetadataEndpoint(dataSource: string, sourceLocation: string): string {
+  const params = new URLSearchParams();
+  params.set("source_location", sourceLocation);
+  return `${apiBase}/sources/${encodeURIComponent(dataSource)}/locations/metadata?${params.toString()}`;
+}
+
+export function buildSourceLocationsEndpoint(dataSource: string, sourceLocation?: string): string {
+  const params = new URLSearchParams();
+  const trimmed = `${sourceLocation || ""}`.trim();
+  if (trimmed) params.set("source_location", trimmed);
+  const query = params.toString();
+  return `${apiBase}/sources/${encodeURIComponent(dataSource)}/locations${query ? `?${query}` : ""}`;
 }
 
 export function normalizePreviewRows(payload: unknown): JsonRecord[] {

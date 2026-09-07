@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue, type UseFormWatch } from "react-hook-form";
 import { Badge, Button, Card, CardContent, Checkbox, FormSelect, Input, Label } from "@datam8/ui";
 import { Trash2, Loader2 } from "lucide-react";
-import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import { ensureLoaded, useConnectorCatalog } from "../../../../shared/connectors/connectorCatalog";
 import type { PropertyAssignment } from "@datam8/types";
@@ -10,7 +9,7 @@ import type { ModelEntity, SourceOverride, TableMetadata } from "../../model-typ
 import type { PropertyReference } from "../../generated-schema-types.ts";
 import type { WizardFormValues } from "./schema";
 import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
-import { canPreviewDataSource, type SourcePreviewTableRef } from "./sourcePreview";
+import { buildSourceLocationsEndpoint, buildSourceMetadataEndpoint, canPreviewDataSource, type SourcePreviewTableRef } from "./sourcePreview";
 import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
 
 const AUTH_FAILURE_MESSAGE =
@@ -33,7 +32,47 @@ type SourceTableListItem = SourcePreviewTableRef & {
   sourceOverride?: SourceOverride;
   description?: string;
   properties?: PropertyAssignment[];
+  type?: string;
+  parentLocation?: string;
 };
+
+function normalizeListedLocation(item: Record<string, unknown>, parentLocation?: string): SourceTableListItem | null {
+  const schema = typeof item.schema === "string" ? item.schema : undefined;
+  const container = typeof item.container === "string" ? item.container : undefined;
+  const rawName =
+    typeof item.name === "string"
+      ? item.name
+      : typeof item.object === "string"
+        ? item.object
+        : schema || container || "";
+  const name = rawName.trim();
+  if (!name) return null;
+  const type = typeof item.type === "string" ? item.type : undefined;
+  const isContainer = type?.toUpperCase() === "CONTAINER" || (!item.name && !!container);
+  const isSchema = type?.toUpperCase() === "SCHEMA" || (!item.name && !!schema);
+  const advertisedLocation = typeof item.sourceLocation === "string" ? item.sourceLocation.trim() : "";
+  const sourceLocation = advertisedLocation || (isContainer
+    ? container || name
+    : isSchema
+      ? schema || name
+      : container
+        ? `${container}@${name}`
+        : schema
+          ? `${schema}.${name}`
+          : parentLocation
+            ? `${parentLocation.replace(/[\\/]$/, "")}/${name}`
+            : name);
+  return {
+    schema: isSchema ? undefined : schema,
+    name,
+    sourceLocation,
+    parentLocation,
+    type: type || (isSchema ? "SCHEMA" : isContainer ? "CONTAINER" : undefined),
+    description: typeof item.description === "string" ? item.description : undefined,
+    properties: toPropertyAssignments(item.properties),
+    sourceOverride: toSourceOverride(item.sourceOverride),
+  };
+}
 
 function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined {
   if (!Array.isArray(input)) return undefined;
@@ -106,6 +145,7 @@ export const ExternalSourceConfigurator = ({
   const [selectedTableRef, setSelectedTableRef] = useState<SourceTableListItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
+  const [locationStack, setLocationStack] = useState<Array<{ label: string; sourceLocation: string }>>([]);
 
   const connectorId =
     dataSourceObject?.connectorId ||
@@ -128,6 +168,7 @@ export const ExternalSourceConfigurator = ({
     setSelectedTableRef(null);
     setPreviewOpen(false);
     setPreviewTable(null);
+    setLocationStack([]);
     if (isHttpApi) {
       setHttpSourceLocation(selectedTable || "");
     }
@@ -141,12 +182,12 @@ export const ExternalSourceConfigurator = ({
     return false;
   }, []);
 
-  const fetchTables = useCallback(async () => {
+  const fetchTables = useCallback(async (parent?: { label: string; sourceLocation: string }, updateStack = true) => {
     if (!dataSource) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/sources/${dataSource}/tables`);
+      const res = await fetch(buildSourceLocationsEndpoint(dataSource, parent?.sourceLocation));
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const err: HttpError = new Error(readBackendErrorMessage(data, "Failed to list tables"));
@@ -155,14 +196,13 @@ export const ExternalSourceConfigurator = ({
       }
       const items = Array.isArray((data as { items?: unknown[] }).items) ? (data as { items: Array<any> }).items : [];
       setTables(
-        items.map((item) => ({
-          schema: typeof item?.schema === "string" ? item.schema : undefined,
-          name: `${item?.name || ""}`,
-          description: typeof item?.description === "string" ? item.description : undefined,
-          properties: toPropertyAssignments(item?.properties),
-          sourceOverride: toSourceOverride(item?.sourceOverride),
-        })),
+        items
+          .map((item) => normalizeListedLocation((item || {}) as Record<string, unknown>))
+          .filter((item): item is SourceTableListItem => item !== null),
       );
+      if (parent && updateStack) {
+        setLocationStack((prev) => [...prev, parent]);
+      }
     } catch (err) {
       console.error("[DataM8] Failed to list tables:", err);
       const typedError = err as HttpError;
@@ -176,14 +216,25 @@ export const ExternalSourceConfigurator = ({
     }
   }, [dataSource, handleAuthFailure]);
 
+  const openParentLocation = useCallback((item: SourceTableListItem) => {
+    const sourceLocation = item.sourceLocation || item.name;
+    void fetchTables({ label: sourceLocation, sourceLocation });
+  }, [fetchTables]);
+
+  const goBackLocation = useCallback(() => {
+    const nextStack = locationStack.slice(0, -1);
+    setLocationStack(nextStack);
+    const parent = nextStack[nextStack.length - 1];
+    void fetchTables(parent, false);
+  }, [fetchTables, locationStack]);
+
   const fetchMetadata = useCallback(async (tableRef: SourceTableListItem) => {
     if (!dataSource) return;
     setLoading(true);
     setError(null);
     try {
-      const endpoint = tableRef.schema
-        ? `${apiBase}/sources/${dataSource}/schemas/${encodeURIComponent(tableRef.schema)}/tables/${encodeURIComponent(tableRef.name)}`
-        : `${apiBase}/sources/${dataSource}/tables/${encodeURIComponent(tableRef.name)}`;
+      const sourceLocation = tableRef.sourceLocation || (tableRef.schema ? `${tableRef.schema}.${tableRef.name}` : tableRef.name);
+      const endpoint = buildSourceMetadataEndpoint(dataSource, sourceLocation);
       const response = await fetch(endpoint);
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -215,8 +266,7 @@ export const ExternalSourceConfigurator = ({
       };
       if (metadataValue.columns.length > 0) {
         setMetadata(metadataValue);
-        const full = tableRef.schema ? `${tableRef.schema}.${tableRef.name}` : tableRef.name;
-        onTableSelected(full, metadataValue);
+        onTableSelected(sourceLocation, metadataValue);
       }
     } catch (err) {
       console.error("[DataM8] Failed to fetch table metadata:", err);
@@ -236,7 +286,7 @@ export const ExternalSourceConfigurator = ({
     setLoading(true);
     setError(null);
     try {
-      const endpoint = `${apiBase}/sources/${dataSource}/tables/${encodeURIComponent(httpSourceLocation)}`;
+      const endpoint = buildSourceMetadataEndpoint(dataSource, httpSourceLocation);
       const res = await fetch(endpoint);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -326,13 +376,21 @@ export const ExternalSourceConfigurator = ({
                 />
               </div>
               {!isWizardSingleMode ? (
-                <Button size="sm" variant="secondary" onClick={fetchTables} disabled={loading || !dataSource}>
+                <Button size="sm" variant="secondary" onClick={() => { setLocationStack([]); void fetchTables(); }} disabled={loading || !dataSource}>
                   {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                  Load Tables
+                  Load Locations
                 </Button>
               ) : null}
             </div>
           </div>
+          {locationStack.length > 0 ? (
+            <div className="flex items-center justify-between rounded-md border border-border/70 px-2 py-1.5 text-xs text-muted-foreground">
+              <span className="min-w-0 truncate">{locationStack.map((entry) => entry.label).join(" / ")}</span>
+              <Button size="sm" variant="ghost" onClick={goBackLocation} disabled={loading}>
+                Back
+              </Button>
+            </div>
+          ) : null}
           {tables.length > 0 ? (
             <div className="space-y-2">
               <div className="codex-popup-scroll h-[260px] overflow-auto rounded-md border border-border/70">
@@ -340,11 +398,12 @@ export const ExternalSourceConfigurator = ({
                   {filteredTables.length === 0 ? (
                     <div className="p-4 text-center text-sm text-muted-foreground">No tables found.</div>
                   ) : (
-                    filteredTables.map((t) => {
-                  const full = t.schema ? `${t.schema}.${t.name}` : t.name;
-                  const key = `${t.schema || ""}::${t.name}`;
-                  const selectedKey = selectedTableRef ? `${selectedTableRef.schema || ""}::${selectedTableRef.name}` : "";
+                  filteredTables.map((t) => {
+                  const full = t.sourceLocation || (t.schema ? `${t.schema}.${t.name}` : t.name);
+                  const key = t.sourceLocation || `${t.schema || ""}::${t.name}`;
+                  const selectedKey = selectedTableRef ? selectedTableRef.sourceLocation || `${selectedTableRef.schema || ""}::${selectedTableRef.name}` : "";
                   const isSelected = key === selectedKey;
+                  const isBrowsable = ["SCHEMA", "CONTAINER", "DIRECTORY"].includes(`${t.type || ""}`.toUpperCase());
                   return (
                     <div
                       key={key}
@@ -354,21 +413,32 @@ export const ExternalSourceConfigurator = ({
                         {isWizardSingleMode ? (
                           <Checkbox
                             checked={isSelected}
+                            disabled={isBrowsable}
                             onCheckedChange={(checked) => {
-                              if (checked) setSelectedTableRef({ schema: t.schema, name: t.name });
+                              if (checked) setSelectedTableRef(t);
                               else setSelectedTableRef(null);
                             }}
                           />
                         ) : null}
                         <span>{full}</span>
+                        {t.type ? <Badge variant="outline">{t.type}</Badge> : null}
                       </div>
                       <div className="flex items-center gap-2">
+                        {isBrowsable ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openParentLocation(t)}
+                          >
+                            Open
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={!supportsPreview}
+                          disabled={!supportsPreview || isBrowsable}
                           onClick={() => {
-                            setPreviewTable({ schema: t.schema, name: t.name });
+                            setPreviewTable(t);
                           setPreviewOpen(true);
                           }}
                         >
@@ -379,8 +449,9 @@ export const ExternalSourceConfigurator = ({
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              fetchMetadata({ schema: t.schema, name: t.name });
+                              fetchMetadata(t);
                             }}
+                            disabled={isBrowsable}
                           >
                             Select
                           </Button>

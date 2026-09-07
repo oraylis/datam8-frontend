@@ -96,7 +96,7 @@ function parseCapabilities(raw: unknown): ConnectorSummary["capabilities"] {
 async function fetchConnectors(): Promise<void> {
   setState({ status: "loading", connectors: state.connectors });
   try {
-    const res = await fetch(`${apiBase}/plugins/`);
+    const res = await fetch(`${apiBase}/plugins`);
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
       throw new Error(readBackendErrorMessage(payload, `Failed to load connectors (${res.status})`));

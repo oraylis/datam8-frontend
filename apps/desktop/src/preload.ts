@@ -32,6 +32,13 @@ contextBridge.exposeInMainWorld("desktop", {
     },
   },
   solution: {
+    requestFunctionApi: (payload: {
+      path: string;
+      method?: "GET" | "POST";
+      body?: unknown;
+      legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
+    }) =>
+      ipcRenderer.invoke("backend:function-request", payload),
     pickOpenPath: () => ipcRenderer.invoke("solution:pick-open-path"),
     pickSavePath: () => ipcRenderer.invoke("solution:pick-save-path"),
     pickDirectory: () => ipcRenderer.invoke("solution:pick-directory"),

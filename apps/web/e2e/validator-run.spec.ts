@@ -15,17 +15,8 @@ function createMockSolutionPayload() {
 }
 
 async function mockApi(page: import("@playwright/test").Page) {
-  return mockApiWithOptions(page, {});
-}
-
-type MockApiOptions = {
-  validateResponse?: (callCount: number) => Record<string, unknown>;
-};
-
-async function mockApiWithOptions(page: import("@playwright/test").Page, options: MockApiOptions) {
   const payload = createMockSolutionPayload();
   let validateCalls = 0;
-  let lastValidateRequest: { method: string; path: string | null; logLevel: string | null } | null = null;
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -67,35 +58,13 @@ async function mockApiWithOptions(page: import("@playwright/test").Page, options
     await route.fulfill({ json: {} });
   });
 
-  const handleValidateRoute = async (route: import("@playwright/test").Route) => {
+  await page.route("**/validate**", async (route) => {
     validateCalls += 1;
-    const request = route.request();
-    const url = new URL(request.url());
-    lastValidateRequest = {
-      method: request.method(),
-      path: url.searchParams.get("path"),
-      logLevel: url.searchParams.get("logLevel"),
-    };
-    const responsePayload =
-      options.validateResponse?.(validateCalls) ?? {
-        status: "ok",
-        solutionPath: "/tmp/mock.dm8s",
-        messages: [
-          "[INFO] datam8.parser | Parsed all files in solution",
-          "[INFO] datam8.parser | Parsed model entities: 0",
-        ],
-      };
-    await route.fulfill({
-      json: responsePayload,
-    });
-  };
-
-  await page.route("**/validate?*", handleValidateRoute);
-  await page.route("**/validate", handleValidateRoute);
+    await route.fulfill({ status: 404, json: { detail: "Not Found" } });
+  });
 
   return {
     getValidateCalls: () => validateCalls,
-    getLastValidateRequest: () => lastValidateRequest,
   };
 }
 
@@ -106,40 +75,18 @@ async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
 }
 
-test("Validator Run calls /validate with solution path and generator log level", async ({ page }) => {
-  const { getValidateCalls, getLastValidateRequest } = await mockApi(page);
+test("Validator Run reports the pinned Generator API gap without a /validate request", async ({ page }) => {
+  const { getValidateCalls } = await mockApi(page);
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Validator" }).click();
-
-  const validatorPanel = page.locator(".validator-drawer").first();
-  const validatorRunButton = validatorPanel.getByRole("button", { name: /^Run$/ }).first();
+  const validatorPanel = page.locator(".generator-drawer").first();
+  const validatorRunButton = validatorPanel.getByRole("button", { name: "More generator actions" }).first();
   await expect(validatorRunButton).toBeVisible();
   await expect(validatorRunButton).toBeEnabled();
 
-  await validatorRunButton.click();
+  await validatorRunButton.evaluate((element) => (element as HTMLButtonElement).click());
+  await page.getByRole("menuitem", { name: "Validate only" }).click();
 
-  await expect.poll(getValidateCalls, { timeout: 5_000 }).toBe(1);
-  await expect.poll(() => getLastValidateRequest()?.method).toBe("POST");
-  await expect.poll(() => getLastValidateRequest()?.path).toBe("/tmp/mock.dm8s");
-  await expect.poll(() => getLastValidateRequest()?.logLevel).toBe("info");
-
-  await expect(page.getByText("[INFO] datam8.parser | Parsed all files in solution")).toBeVisible();
-});
-
-test("Validator Run shows backend message fallback when messages[] is absent", async ({ page }) => {
-  await mockApiWithOptions(page, {
-    validateResponse: () => ({
-      status: "ok",
-      solutionPath: "/tmp/mock.dm8s",
-      message: "[INFO] datam8.validator | Validation completed successfully.",
-    }),
-  });
-  await loadSolutionFromDialog(page);
-
-  await page.getByRole("button", { name: "Validator" }).click();
-  const validatorPanel = page.locator(".validator-drawer").first();
-  await validatorPanel.getByRole("button", { name: /^Run$/ }).first().click();
-
-  await expect(page.getByText("[INFO] datam8.validator | Validation completed successfully.").first()).toBeVisible();
+  await expect.poll(getValidateCalls, { timeout: 5_000 }).toBe(0);
+  await expect(page.getByText("Validate is not available in the pinned Generator API.")).toBeVisible();
 });

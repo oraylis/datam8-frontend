@@ -9,7 +9,7 @@ Minimum runtime checks:
 - Backend startup/readiness line parsing
 - `GET /health`
 - authenticated `GET /config`
-- synchronous `POST /generate`
+- synchronous `POST /model/generate`
 
 Packaged desktop artifacts must also pass the bundled runtime smoke check:
 

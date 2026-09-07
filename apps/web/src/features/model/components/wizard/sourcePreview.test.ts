@@ -1,15 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { buildSourcePreviewEndpoint, canPreviewDataSource, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
+import { buildSourceMetadataEndpoint, buildSourcePreviewEndpoint, canPreviewDataSource, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
 
 describe("sourcePreview helpers", () => {
   it("builds preview endpoint for table without schema", () => {
     const endpoint = buildSourcePreviewEndpoint("SalesDwh", { name: "Orders" });
-    expect(endpoint).toContain("/sources/SalesDwh/tables/Orders/preview?limit=10");
+    expect(endpoint).toContain("/sources/SalesDwh/locations/preview?");
+    expect(endpoint).toContain("source_location=Orders");
+    expect(endpoint).toContain("limit=10");
   });
 
   it("builds preview endpoint for schema table", () => {
     const endpoint = buildSourcePreviewEndpoint("SalesDwh", { schema: "dbo", name: "Orders" }, 25);
-    expect(endpoint).toContain("/sources/SalesDwh/schemas/dbo/tables/Orders/preview?limit=25");
+    expect(endpoint).toContain("/sources/SalesDwh/locations/preview?");
+    expect(endpoint).toContain("source_location=dbo.Orders");
+    expect(endpoint).toContain("limit=25");
+  });
+
+  it("builds metadata endpoint with URLSearchParams encoding", () => {
+    const endpoint = buildSourceMetadataEndpoint("Lake", "container@folder/file ä.csv");
+    expect(endpoint).toContain("/sources/Lake/locations/metadata?");
+    expect(endpoint).toContain("source_location=container%40folder%2Ffile+%C3%A4.csv");
   });
 
   it("normalizes rows from multi-item response", () => {

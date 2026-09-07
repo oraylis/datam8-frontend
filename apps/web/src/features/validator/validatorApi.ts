@@ -4,18 +4,6 @@ export type ValidateResponse = {
   messages?: string[];
 };
 
-export function buildValidateUrl(apiBase: string, solutionPath: string, logLevel?: string): string {
-  const params = new URLSearchParams();
-  params.set("path", solutionPath);
-
-  const normalizedLogLevel = (logLevel || "").trim();
-  if (normalizedLogLevel) {
-    params.set("logLevel", normalizedLogLevel);
-  }
-
-  return `${apiBase}/validate?${params.toString()}`;
-}
-
 export function readValidateErrorMessage(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object") {
     const message = (payload as { message?: unknown }).message;

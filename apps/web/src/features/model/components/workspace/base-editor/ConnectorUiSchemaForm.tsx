@@ -76,7 +76,8 @@ function secretPathFromRef(value: string): string | null {
 }
 
 async function setSecret(path: string, value: string): Promise<void> {
-  const response = await fetch(`${apiBase}/secrets/set`, {
+  const params = new URLSearchParams({ force: "true" });
+  const response = await fetch(`${apiBase}/secrets/set?${params.toString()}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path, value }),
@@ -96,7 +97,9 @@ async function checkSecret(path: string): Promise<boolean> {
   if (response.ok) return true;
   if (response.status === 404) return false;
   const payload = await response.json().catch(() => ({}));
-  throw new Error((payload as any)?.message || (payload as any)?.detail || `Failed to check secret (${response.status})`);
+  const message = readBackendErrorMessage(payload, "");
+  if (/no available secret backend/i.test(message)) return false;
+  throw new Error(message || `Failed to check secret (${response.status})`);
 }
 
 export function ConnectorUiSchemaForm(props: {

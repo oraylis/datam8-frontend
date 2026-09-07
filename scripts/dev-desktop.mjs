@@ -113,6 +113,9 @@ console.log("[dev-desktop] Web UI URL is fixed to http://localhost:4320 (strict 
 const env = {
   ...process.env,
   VITE_APP_MODE: "electron",
+  ...(process.platform === "win32"
+    ? { PYTHON_KEYRING_BACKEND: "keyring.backends.Windows.WinVaultKeyring" }
+    : {}),
 };
 
 const run = spawnSync("npm", ["run", "dev:desktop:source"], {

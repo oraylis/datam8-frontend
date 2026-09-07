@@ -86,6 +86,7 @@ export type BaseEntityContent = LooseObject & {
   dataSources?: BaseDataSource[];
   dataSourceTypes?: BaseDataSourceType[];
   dataProducts?: BaseDataProduct[];
+  dataModules?: BaseDataModule[];
   zones?: BaseZone[];
   properties?: BaseProperty[];
   propertyValues?: BasePropertyValue[];

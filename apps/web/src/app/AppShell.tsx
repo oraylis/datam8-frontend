@@ -33,8 +33,20 @@ import { useConfirm } from "../shared/hooks/useConfirm";
 import { useModelActions } from "../features/model/hooks/useModelActions";
 import { useResizablePane } from "../features/layout/useResizablePane";
 import { buildTree, detectBaseType, getFolderMeta, indexFolderEntities, normalizeFolderPath, resolveFolderInheritance } from "../features/model/model-utils";
-import { folderLocatorFromFolderPath, modelLocatorFromRelPath } from "../features/model/locator-utils";
+import {
+  folderLocatorFromFolderPath,
+  modelFolderPathFromRelPath,
+  modelFolderLocatorFromFolderPath,
+  modelLocatorFromRelPath,
+  rebaseModelRelPath,
+} from "../features/model/locator-utils";
 import { collectZoneFolderDeletes, collectZoneFolderRenames } from "../features/model/refactor/baseSaveEffects";
+import {
+  applyBaseNameRenamesToBaseEntities,
+  applyBaseNameRenamesToFolderEntities,
+  applyBaseNameRenamesToModelEntities,
+  diffDataModuleRenames,
+} from "../features/model/refactor/applyBaseRenameRefs";
 import {
   applyPropertyRefactorToBaseEntities,
   applyPropertyRefactorToFolderEntities,
@@ -43,6 +55,7 @@ import {
 } from "../features/model/refactor/applyPropertyRefactor";
 import { createPropertyRefactorPayload, diffPropertyChanges, diffPropertyValueChanges } from "../features/model/refactor/propertyRefactor";
 import {
+  collectAvailableBaseScopeTargets,
   buildPropertyScopeTargetIndex,
   type PropertyRefactorScopeTarget,
   type SupportedBaseScopeTarget,
@@ -54,7 +67,7 @@ import { apiBase } from "../config";
 import { deepEqual } from "../shared/utils/deepEqual";
 import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
-import { createEntity, deleteEntity, moveEntities, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
+import { createEntity, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 import { subscribeAppErrors } from "../shared/ui/appErrorBridge";
 import { refresh as refreshConnectorCatalog } from "../shared/connectors/connectorCatalog";
@@ -80,6 +93,7 @@ type PendingBaseAction =
     targets: PropertyRefactorScopeTarget[];
     sourceRelPath: string;
     preview?: string;
+    persist?: boolean;
   };
 
 type SaveNotificationStatus = "saved" | "bulk-saved" | "failed";
@@ -174,7 +188,13 @@ const persistBaseListItems = async (
     const indexedPrevious = prevItems.length === nextItems.length ? (prevItems[index] as Record<string, unknown> | undefined) : undefined;
     const previousLocator = indexedPrevious ? buildBaseEntityLocator(baseType, indexedPrevious) : null;
     if (previousLocator && previousLocator !== locator && previousByKey.has(previousLocator)) {
-      await renameEntity(previousLocator, locator, nextItem, opts);
+      const previousParent = previousLocator.split("/").slice(0, -1).join("/");
+      const nextParent = locator.split("/").slice(0, -1).join("/");
+      if (previousParent === nextParent) {
+        await renameEntity(previousLocator, locator.split("/").pop() || "", opts);
+      } else {
+        await moveSingleEntity(previousLocator, locator, opts);
+      }
       previousByKey.delete(previousLocator);
       hadMutation = true;
       continue;
@@ -214,6 +234,19 @@ const buildTopLevelEntityPatch = (
     }
   }
   return patch;
+};
+
+const diffBaseNameRenames = (prevItems: unknown[], nextItems: unknown[]): Array<{ oldName: string; newName: string }> => {
+  if (prevItems.length !== nextItems.length) return [];
+  const renames: Array<{ oldName: string; newName: string }> = [];
+  for (let index = 0; index < prevItems.length; index += 1) {
+    const oldName = `${(prevItems[index] as Record<string, unknown> | undefined)?.name ?? ""}`.trim();
+    const newName = `${(nextItems[index] as Record<string, unknown> | undefined)?.name ?? ""}`.trim();
+    if (oldName && newName && oldName !== newName) {
+      renames.push({ oldName, newName });
+    }
+  }
+  return renames;
 };
 
 const uniqueScopeTargets = (targets: PropertyRefactorScopeTarget[]): PropertyRefactorScopeTarget[] =>
@@ -470,6 +503,7 @@ export function AppShell() {
     if (normalized.includes("datasources")) return "Data Sources";
     if (normalized.includes("datasourcetypes")) return "Data Source Types";
     if (normalized.includes("dataproducts")) return "Data Products";
+    if (normalized.includes("datamodules")) return "Data Modules";
     if (normalized.includes("propertyvalues")) return "Property Values";
     return humanize(baseName);
   }, []);
@@ -670,6 +704,10 @@ export function AppShell() {
     () => buildPropertyScopeTargetIndex(propertiesEntry?.content || {}),
     [propertiesEntry?.content],
   );
+  const allPropertyRefactorTargets = useMemo<PropertyRefactorScopeTarget[]>(
+    () => uniqueScopeTargets(["entity", "folder", "propertyValues", ...collectAvailableBaseScopeTargets(baseEntities)]),
+    [baseEntities],
+  );
 
   const productOptions = useMemo(() => {
     if (!dataProductsBase) return [];
@@ -857,9 +895,23 @@ export function AppShell() {
         ? [...relPathParts.slice(0, -1), `${nextEntityName}${extension}`].join("/")
         : fromRelPath;
       try {
-        await patchEntity(modelLocatorFromRelPath(fromRelPath), updated.content as Record<string, unknown>);
         if (renameRequested) {
-          await moveEntities(modelLocatorFromRelPath(fromRelPath), modelLocatorFromRelPath(toRelPath));
+          await renameEntity(modelLocatorFromRelPath(fromRelPath), updated.name);
+          const nextNonLocatorContent = { ...(updated.content as Record<string, unknown>) };
+          delete nextNonLocatorContent.name;
+          const previousNonLocatorContent = {
+            ...((modelEntities.find((entity) => entity.relPath === fromRelPath)?.content || {}) as Record<string, unknown>),
+          };
+          delete previousNonLocatorContent.name;
+          const hasNonIdentityPatch = !deepEqual(
+            nextNonLocatorContent,
+            previousNonLocatorContent,
+          );
+          if (hasNonIdentityPatch) {
+            await patchEntity(modelLocatorFromRelPath(toRelPath), nextNonLocatorContent);
+          }
+        } else {
+          await patchEntity(modelLocatorFromRelPath(fromRelPath), updated.content as Record<string, unknown>);
         }
         const persisted: ModelEntity = {
           ...updated,
@@ -901,6 +953,7 @@ export function AppShell() {
     },
     [
       activeWorkTab,
+      modelEntities,
       selectedRelPath,
       setActiveWorkTab,
       setModelEntities,
@@ -914,18 +967,22 @@ export function AppShell() {
   const renameModelFolder = useCallback(
     async (fromFolder: string, toFolder: string) => {
       if (!fromFolder || !toFolder || fromFolder === toFolder) return;
-      const fromFolderPath = normalizeFolderPath(fromFolder.replace(/^Model\/?/, ""));
-      const toFolderPath = normalizeFolderPath(toFolder.replace(/^Model\/?/, ""));
+      const fromFolderPath = normalizeFolderPath(fromFolder.replace(/^Model\/?/i, ""));
+      const toFolderPath = normalizeFolderPath(toFolder.replace(/^Model\/?/i, ""));
+      const modelRoot = normalizeFolderPath(solution?.modelPath || "Model") || "Model";
 
-      await moveEntities(folderLocatorFromFolderPath(fromFolderPath), folderLocatorFromFolderPath(toFolderPath));
+      await moveEntities(modelFolderLocatorFromFolderPath(fromFolderPath), modelFolderLocatorFromFolderPath(toFolderPath));
       setModelEntities((prev) =>
         prev.map((m) => {
-          if (!m.relPath.startsWith(fromFolder)) return m;
-          const relPath = m.relPath.replace(fromFolder, toFolder);
+          const relPath = rebaseModelRelPath(m.relPath, fromFolderPath, toFolderPath);
+          if (relPath === m.relPath) return m;
           return { ...m, relPath, locator: modelLocatorFromRelPath(relPath) };
         }),
       );
-      setModelTabs((prev) => prev.map((t) => (t.relPath.startsWith(fromFolder) ? { ...t, relPath: t.relPath.replace(fromFolder, toFolder) } : t)));
+      setModelTabs((prev) => prev.map((t) => {
+        const relPath = rebaseModelRelPath(t.relPath, fromFolderPath, toFolderPath);
+        return relPath === t.relPath ? t : { ...t, relPath };
+      }));
       setFolderEntities((prev) =>
         prev.map((entry) => {
           const currentPath = normalizeFolderPath(entry.folderPath || "");
@@ -933,10 +990,11 @@ export function AppShell() {
           const nextFolderPath = currentPath === fromFolderPath
             ? toFolderPath
             : `${toFolderPath}/${currentPath.slice(fromFolderPath.length + 1)}`;
-          const nextRelPath = `Model/${nextFolderPath}/.properties.json`;
+          const nextRelPath = `${modelRoot}/${nextFolderPath}/.properties.json`;
           const nextName = nextFolderPath.split("/").filter(Boolean).pop() || entry.name;
           return {
             ...entry,
+            locator: folderLocatorFromFolderPath(nextFolderPath),
             folderPath: nextFolderPath,
             relPath: nextRelPath,
             name: currentPath === fromFolderPath ? nextName : entry.name,
@@ -973,24 +1031,26 @@ export function AppShell() {
         }
       }
       const currentSelectedRelPath = selectedRelPathRef.current;
-      setSelectedRelPath(
-        currentSelectedRelPath && currentSelectedRelPath.startsWith(fromFolder)
-          ? currentSelectedRelPath.replace(fromFolder, toFolder)
-          : currentSelectedRelPath,
-      );
+      setSelectedRelPath(currentSelectedRelPath
+        ? rebaseModelRelPath(currentSelectedRelPath, fromFolderPath, toFolderPath)
+        : currentSelectedRelPath);
       setSelectedRelPaths((prev) => {
         const next = new Set<string>();
-        prev.forEach((p) => next.add(p.startsWith(fromFolder) ? p.replace(fromFolder, toFolder) : p));
+        prev.forEach((p) => next.add(rebaseModelRelPath(p, fromFolderPath, toFolderPath)));
         return next;
       });
       setActiveWorkTab((prev) => {
-        if (prev?.startsWith(`entity:${fromFolder}`)) return prev.replace(fromFolder, toFolder);
+        if (prev?.startsWith("entity:")) {
+          const relPath = prev.slice("entity:".length);
+          return `entity:${rebaseModelRelPath(relPath, fromFolderPath, toFolderPath)}`;
+        }
         if (prev?.startsWith(`folder:${fromFolderPath}`)) return prev.replace(`folder:${fromFolderPath}`, `folder:${toFolderPath}`);
         return prev;
       });
     },
     [
       selectedFolderPath,
+      solution?.modelPath,
       setActiveWorkTab,
       setDirtyFolderPaths,
       setFolderEntities,
@@ -1003,7 +1063,11 @@ export function AppShell() {
   );
 
   const runPropertyRefactor = useCallback(
-    async (changes: Partial<PropertyRefactorPayload>, targets: PropertyRefactorScopeTarget[]): Promise<PropertyRefactorRunResult> => {
+    async (
+      changes: Partial<PropertyRefactorPayload>,
+      targets: PropertyRefactorScopeTarget[],
+      options?: { skipPersistBaseRelPaths?: string[]; persist?: boolean },
+    ): Promise<PropertyRefactorRunResult> => {
       const payload = createPropertyRefactorPayload(changes);
       if (!payload || targets.length === 0) {
         return {
@@ -1030,6 +1094,7 @@ export function AppShell() {
       const baseResult = baseTargets.length
         ? applyPropertyRefactorToBaseEntities(baseEntities, payload, baseTargets)
         : { updatedEntities: [] as BaseEntity[], changeCount: 0 };
+      const skipPersistBaseRelPaths = new Set(options?.skipPersistBaseRelPaths || []);
 
       if (
         modelResult.updatedEntities.length === 0 &&
@@ -1047,43 +1112,46 @@ export function AppShell() {
         };
       }
 
-      const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
-      for (const entity of modelResult.updatedEntities) {
-        const previous = currentByRelPath.get(entity.relPath);
-        const patch = buildTopLevelEntityPatch(
-          (previous?.content || {}) as Record<string, unknown>,
-          (entity.content || {}) as Record<string, unknown>,
+      if (options?.persist !== false) {
+        const currentByRelPath = new Map(modelEntities.map((entity) => [entity.relPath, entity]));
+        for (const entity of modelResult.updatedEntities) {
+          const previous = currentByRelPath.get(entity.relPath);
+          const patch = buildTopLevelEntityPatch(
+            (previous?.content || {}) as Record<string, unknown>,
+            (entity.content || {}) as Record<string, unknown>,
+          );
+          if (Object.keys(patch).length === 0) continue;
+          await patchEntity(modelLocatorFromRelPath(entity.relPath), patch);
+        }
+
+        const currentFoldersByPath = new Map(
+          folderEntities.map((entry) => [normalizeFolderPath(entry.folderPath || ""), entry]),
         );
-        if (Object.keys(patch).length === 0) continue;
-        await patchEntity(modelLocatorFromRelPath(entity.relPath), patch);
-      }
+        for (const entry of folderResult.updatedEntities) {
+          const folderPath = normalizeFolderPath(entry.folderPath || "");
+          const previous = currentFoldersByPath.get(folderPath);
+          const patch = buildTopLevelEntityPatch(
+            (previous?.content || {}) as Record<string, unknown>,
+            (entry.content || {}) as Record<string, unknown>,
+          );
+          if (Object.keys(patch).length === 0) continue;
+          await patchEntity(folderLocatorFromFolderPath(folderPath), patch);
+        }
 
-      const currentFoldersByPath = new Map(
-        folderEntities.map((entry) => [normalizeFolderPath(entry.folderPath || ""), entry]),
-      );
-      for (const entry of folderResult.updatedEntities) {
-        const folderPath = normalizeFolderPath(entry.folderPath || "");
-        const previous = currentFoldersByPath.get(folderPath);
-        const patch = buildTopLevelEntityPatch(
-          (previous?.content || {}) as Record<string, unknown>,
-          (entry.content || {}) as Record<string, unknown>,
-        );
-        if (Object.keys(patch).length === 0) continue;
-        await patchEntity(folderLocatorFromFolderPath(folderPath), patch);
-      }
+        for (const updatedBase of baseResult.updatedEntities) {
+          if (skipPersistBaseRelPaths.has(updatedBase.relPath)) continue;
+          const previousBase = baseEntities.find((entry) => entry.relPath === updatedBase.relPath);
+          if (!previousBase) continue;
+          const detectedUpdated = detectBaseType(updatedBase.content, updatedBase.relPath);
+          const detectedPrevious = detectBaseType(previousBase.content || {}, previousBase.relPath);
+          const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
+          if (!baseType || baseType === "unknown") continue;
 
-      for (const updatedBase of baseResult.updatedEntities) {
-        const previousBase = baseEntities.find((entry) => entry.relPath === updatedBase.relPath);
-        if (!previousBase) continue;
-        const detectedUpdated = detectBaseType(updatedBase.content, updatedBase.relPath);
-        const detectedPrevious = detectBaseType(previousBase.content || {}, previousBase.relPath);
-        const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
-        if (!baseType || baseType === "unknown") continue;
-
-        const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
-        const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
-        assertNoDuplicateBaseKeys(baseType, nextItems);
-        await persistBaseListItems(baseType, prevItems, nextItems);
+          const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
+          const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
+          assertNoDuplicateBaseKeys(baseType, nextItems);
+          await persistBaseListItems(baseType, prevItems, nextItems);
+        }
       }
 
       const updatedModelByRelPath = new Map(modelResult.updatedEntities.map((entity) => [entity.relPath, entity]));
@@ -1129,7 +1197,7 @@ export function AppShell() {
       const inFolder = (path: string) => path === normalized || path.startsWith(`${normalized}/`);
 
       const entitiesToDelete = modelEntities.filter((entity) => {
-        const rel = normalizeFolderPath(entity.relPath.replace(/^Model\//, "").replace(/\/[^/]+\.json$/i, ""));
+        const rel = normalizeFolderPath(modelFolderPathFromRelPath(entity.relPath));
         return inFolder(rel);
       });
       const folderMetadataToDelete = folderEntities.filter((entry) => inFolder(normalizeFolderPath(entry.folderPath || "")));
@@ -1145,21 +1213,18 @@ export function AppShell() {
       }
 
       try {
-        for (const entity of entitiesToDelete) {
-          await deleteEntity(modelLocatorFromRelPath(entity.relPath));
+        if (entitiesToDelete.length > 0) {
+          await deleteEntity(modelFolderLocatorFromFolderPath(normalized), { save: false });
         }
-
-        const folderMetaSorted = [...folderMetadataToDelete].sort(
-          (a, b) => normalizeFolderPath(b.folderPath || "").length - normalizeFolderPath(a.folderPath || "").length,
-        );
-        for (const folderMeta of folderMetaSorted) {
-          await deleteEntity(folderLocatorFromFolderPath(folderMeta.folderPath || ""));
+        if (folderMetadataToDelete.some((entry) => normalizeFolderPath(entry.folderPath || "") === normalized)) {
+          await deleteEntity(folderLocatorFromFolderPath(normalized), { save: false });
         }
+        await saveModel();
 
         const deletedRelPaths = new Set(entitiesToDelete.map((entity) => entity.relPath));
         setModelEntities((prev) =>
           prev.filter((entity) => {
-            const rel = normalizeFolderPath(entity.relPath.replace(/^Model\//, "").replace(/\/[^/]+\.json$/i, ""));
+            const rel = normalizeFolderPath(modelFolderPathFromRelPath(entity.relPath));
             return !inFolder(rel);
           }),
         );
@@ -1231,7 +1296,7 @@ export function AppShell() {
     if (action.kind === "deleteFolderTree") {
       return `${action.kind}:${action.folderPath}:${action.reason}`;
     }
-    return `${action.kind}:${JSON.stringify(createPropertyRefactorPayload(action.payload) || {})}:${action.targets.join(",")}`;
+    return `${action.kind}:${JSON.stringify(createPropertyRefactorPayload(action.payload) || {})}:${action.targets.join(",")}:${action.persist !== false}`;
   }, []);
 
   const executePendingBaseActions = useCallback(async (actions: PendingBaseAction[], options?: { notify?: boolean }) => {
@@ -1253,7 +1318,7 @@ export function AppShell() {
           const normalized = normalizeFolderPath(action.folderPath.replace(/^Model\/?/i, ""));
           modelEntities
             .filter((entity) => {
-              const rel = normalizeFolderPath(entity.relPath.replace(/^Model\//, "").replace(/\/[^/]+\.json$/i, ""));
+              const rel = normalizeFolderPath(modelFolderPathFromRelPath(entity.relPath));
               return rel === normalized || rel.startsWith(`${normalized}/`);
             })
             .forEach((entity) => updatedModelRelPaths.add(entity.relPath));
@@ -1346,7 +1411,7 @@ export function AppShell() {
             const normalizedFolder = normalizeFolderPath(folderRelPath.replace(/^Model\//, ""));
             if (!normalizedFolder) return false;
             const hasEntities = modelEntities.some((entity) => {
-              const entityFolder = normalizeFolderPath(entity.relPath.replace(/^Model\//, "").replace(/\/[^/]+\.json$/i, ""));
+              const entityFolder = normalizeFolderPath(modelFolderPathFromRelPath(entity.relPath));
               return entityFolder === normalizedFolder || entityFolder.startsWith(`${normalizedFolder}/`);
             });
             if (hasEntities) return true;
@@ -1360,12 +1425,18 @@ export function AppShell() {
           const pushScopedRefactorAction = (
             payload: Partial<PropertyRefactorPayload>,
             propertyName: string,
-            options?: { includePropertyValuesTarget?: boolean },
+            options?: {
+              includePropertyValuesTarget?: boolean;
+              fallbackTargets?: PropertyRefactorScopeTarget[];
+              persist?: boolean;
+            },
             scopeTargetsByName: Map<string, PropertyRefactorScopeTarget[]> = propertyScopeTargetsByName,
           ) => {
+            const scopedTargets = scopeTargetsByName.get(propertyName) || [];
             const targets = uniqueScopeTargets([
-              ...(scopeTargetsByName.get(propertyName) || []),
+              ...scopedTargets,
               ...(options?.includePropertyValuesTarget ? (["propertyValues"] as PropertyRefactorScopeTarget[]) : []),
+              ...(scopedTargets.length === 0 ? (options?.fallbackTargets || []) : []),
             ]);
             if (targets.length === 0) return;
             nextActions.push({
@@ -1373,6 +1444,7 @@ export function AppShell() {
               payload,
               targets,
               sourceRelPath: updated.relPath,
+              persist: options?.persist,
             });
           };
           if (detected === "zones") {
@@ -1404,25 +1476,82 @@ export function AppShell() {
             propDiff.propertyRenames.forEach((rename) => {
               pushScopedRefactorAction({ propertyRenames: [rename] }, rename.oldName, {
                 includePropertyValuesTarget: true,
+                fallbackTargets: allPropertyRefactorTargets,
+                persist: false,
               }, previousPropertyScopeTargetsByName);
             });
             propDiff.deletedProperties.forEach((name) => {
               pushScopedRefactorAction({ deletedProperties: [name] }, name, {
                 includePropertyValuesTarget: true,
+                fallbackTargets: allPropertyRefactorTargets,
               }, previousPropertyScopeTargetsByName);
             });
           }
           if (detected === "propertyValues") {
             const valueDiff = diffPropertyValueChanges(refactorPreviousContent, updated.content);
             valueDiff.valueRenames.forEach((rename) => {
-              pushScopedRefactorAction({ valueRenames: [rename] }, rename.property);
+              pushScopedRefactorAction({ valueRenames: [rename] }, rename.property, { persist: false });
             });
             valueDiff.deletedValues.forEach((deletedValue) => {
-              pushScopedRefactorAction({ deletedValues: [deletedValue] }, deletedValue.property);
+              pushScopedRefactorAction({ deletedValues: [deletedValue] }, deletedValue.property, {
+                fallbackTargets: allPropertyRefactorTargets,
+              });
             });
             valueDiff.valueMoves.forEach((move) => {
               pushScopedRefactorAction({ valueMoves: [move] }, move.oldProperty);
             });
+          }
+          if (["attributeTypes", "dataTypes", "dataSources", "dataSourceTypes", "dataProducts"].includes(detected)) {
+            const renames = diffBaseNameRenames(prevItems, nextItems);
+            const moduleRenames = detected === "dataProducts" ? diffDataModuleRenames(prevItems, nextItems) : [];
+            const modelResult = applyBaseNameRenamesToModelEntities(modelEntities, detected, renames);
+            const baseResult = applyBaseNameRenamesToBaseEntities(baseEntities, detected, renames);
+            const folderResult = applyBaseNameRenamesToFolderEntities(folderEntities, detected, renames, moduleRenames);
+
+            if (moduleRenames.length > 0) {
+              for (const entry of folderResult.updatedEntities) {
+                const previousFolder = folderEntities.find(
+                  (candidate) => normalizeFolderPath(candidate.folderPath || "") === normalizeFolderPath(entry.folderPath || ""),
+                );
+                const patch = buildTopLevelEntityPatch(
+                  (previousFolder?.content || {}) as Record<string, unknown>,
+                  (entry.content || {}) as Record<string, unknown>,
+                );
+                if (Object.keys(patch).length > 0) {
+                  await patchEntity(folderLocatorFromFolderPath(entry.folderPath), patch, { save: false });
+                  hadMutation = true;
+                }
+              }
+            }
+
+            if (modelResult.updatedEntities.length > 0) {
+              const updatedByRelPath = new Map(modelResult.updatedEntities.map((entry) => [entry.relPath, entry]));
+              setModelEntities((prev) => prev.map((entry) => updatedByRelPath.get(entry.relPath) || entry));
+            }
+            if (baseResult.updatedEntities.length > 0) {
+              const updatedByRelPath = new Map(baseResult.updatedEntities.map((entry) => [entry.relPath, entry]));
+              setBaseEntities((prev) => prev.map((entry) => updatedByRelPath.get(entry.relPath) || entry));
+            }
+            if (folderResult.updatedEntities.length > 0) {
+              const updatedByPath = new Map(
+                folderResult.updatedEntities.map((entry) => [normalizeFolderPath(entry.folderPath || ""), entry]),
+              );
+              setFolderEntities((prev) =>
+                prev.map((entry) => updatedByPath.get(normalizeFolderPath(entry.folderPath || "")) || entry),
+              );
+            }
+            clearDraftsForBulkSave({
+              baseRelPaths: baseResult.updatedEntities.map((entry) => entry.relPath),
+              entityRelPaths: modelResult.updatedEntities.map((entry) => entry.relPath),
+              sourceBaseRelPath: updated.relPath,
+            });
+            if (
+              modelResult.changeCount > 0 ||
+              baseResult.changeCount > 0 ||
+              folderResult.changeCount > 0
+            ) {
+              notificationStatus = "bulk-saved";
+            }
           }
           if (nextActions.length > 0) {
             const uniqueActions: PendingBaseAction[] = [];
@@ -1440,7 +1569,10 @@ export function AppShell() {
 
             if (refactorActions.length > 0) {
               for (const action of refactorActions) {
-                const result = await runPropertyRefactor(action.payload, action.targets);
+                const result = await runPropertyRefactor(action.payload, action.targets, {
+                  skipPersistBaseRelPaths: action.sourceRelPath === updated.relPath ? [updated.relPath] : [],
+                  persist: action.persist,
+                });
                 result.updatedBaseRelPaths.forEach((relPath) => bulkUpdatedBaseRelPaths.add(relPath));
                 result.updatedModelRelPaths.forEach((relPath) => bulkUpdatedModelRelPaths.add(relPath));
               }
@@ -1481,6 +1613,7 @@ export function AppShell() {
     },
     [
       baseEntities,
+      allPropertyRefactorTargets,
       baseActionKey,
       folderEntities,
       formatBaseTitle,
@@ -1492,6 +1625,8 @@ export function AppShell() {
       clearDraftsForBulkSave,
       setBaseEntities,
       setBaseTabs,
+      setFolderEntities,
+      setModelEntities,
       setTabDirty,
     ],
   );
@@ -1612,7 +1747,7 @@ export function AppShell() {
     }
 
     // Rescan plugins on the backend, then refresh the frontend catalog.
-    // Must be sequential: the GET /plugins/ fetch must not start until
+    // Must be sequential: the GET /plugins fetch must not start until
     // POST /plugins/reload has finished updating the backend registry.
     try {
       const pluginReloadResponse = await fetch(`${apiBase}/plugins/reload`, { method: "POST" });
@@ -1680,9 +1815,7 @@ export function AppShell() {
       }
     };
     modelEntities.forEach((entity) => {
-      const normalized = entity.relPath.split(/[\\/]/).join("/");
-      const parts = normalized.split("/").filter(Boolean);
-      const rel = normalizeFolderPath((parts[0] === "Model" ? parts.slice(1) : parts).slice(0, -1).join("/"));
+      const rel = normalizeFolderPath(modelFolderPathFromRelPath(entity.relPath));
       addWithAncestors(rel);
     });
     folderEntities.forEach((entry) => {

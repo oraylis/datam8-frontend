@@ -229,7 +229,6 @@ export interface SourceObject {
 export interface SourceOverride {
   dataSource?: string;
   sourceLocation?: string;
-  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `DataSource`'s JSON-Schema
@@ -375,32 +374,6 @@ export type SourceAttributeMapping = ModelAttributeMapping & {
  */
 
 export type TransformationKind = "builtin" | "function";
-/**
- * Maps attributes to an internal or external target location.
- *
- * This interface was referenced by `ModelEntity`'s JSON-Schema
- * via the `definition` "ModelRelationship".
- */
-
-export type ModelRelationship = {
-  dataSource?: string;
-  targetLocation: number | string;
-  alias?: string;
-  /**
-   * @minItems 1
-   */
-  attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
-} & ModelRelationship1;
-
-export type ModelRelationship1 =
-  | {
-      targetLocation: number;
-      [k: string]: unknown;
-    }
-  | {
-      targetLocation: string;
-      [k: string]: unknown;
-    };
 
 /**
  * Describes a single entity within datam8. Most commonly a database table.
@@ -501,6 +474,22 @@ export interface ModelTransformation {
 
 export interface TransformationFunction {
   source: string;
+}
+/**
+ * Maps attributes to an internal or external target location.
+ *
+ * This interface was referenced by `ModelEntity`'s JSON-Schema
+ * via the `definition` "ModelRelationship".
+ */
+
+export interface ModelRelationship {
+  dataSource?: string;
+  targetLocation: number | string;
+  alias?: string;
+  /**
+   * @minItems 1
+   */
+  attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
  * Describes an abstract way to point to and find entities with datam8.

@@ -22,15 +22,15 @@ import {
 } from "@datam8/ui";
 import { Loader2, AlertTriangle, ArrowRight, FileText, CheckCircle2, ChevronDown, ChevronRight, Database } from "lucide-react";
 import { useSolution } from "../../../../solution/SolutionContext";
-import { apiBase } from "../../../../../config";
 import { useModelEditor } from "../../../ModelEditorContext";
 import { readBackendErrorMessage } from "../../../../../shared/api/errorMessage";
 import { saveModelEntityByRelPath } from "../../../../../shared/api/v2Client";
 import { ensureLoaded as ensureConnectorCatalogLoaded, useConnectorCatalog } from "../../../../../shared/connectors/connectorCatalog";
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
 import { MultiItemResponse } from "../../../model-types";
-import { SourceField, SourceObject } from "../../../generated-schema-types";
+import { SourceField } from "../../../generated-schema-types";
 import { ExternalSourceConfigurator } from "../../wizard/SourceRow";
+import { buildSourceMetadataEndpoint } from "../../wizard/sourcePreview";
 import {
   applyRelationshipChange,
   buildRefreshEntityNameResolver,
@@ -273,97 +273,19 @@ export const RefreshSchemasDialog = ({
     return m.includes("auth_failed") || m.includes("authentication") || m.includes("unauthorized") || m.includes("forbidden");
   };
 
-  const parseSourceLocation = (raw: string): { schema?: string; table: string } => {
-    const value = `${raw || ""}`.trim();
-    const bracket = value.match(/^\[(.*?)\]\.\[(.*?)\]$/);
-    if (bracket) return { schema: bracket[1], table: bracket[2] };
-    const dotParts = value.split(".");
-    if (dotParts.length === 2) return { schema: dotParts[0].replace(/^\[|\]$/g, ""), table: dotParts[1].replace(/^\[|\]$/g, "") };
-    return { table: value };
-  };
-
-  const loadSchemas = async (sourceName: string, signal?: AbortSignal): Promise<string[]> => {
-    const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/schemas`;
-    const response = await fetch(endpoint, { signal });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
-        ? (payload as any).message
-        : `Failed to load schema list from the data source (${response.status}). Check the connection settings.`;
-      throw toHttpError(msg, response.status);
-    }
-    const payload = await response.json().catch((e: Error) => {
-      throw toHttpError(`Schema list response was not valid JSON: ${e.message}`, response.status);
-    }) as MultiItemResponse<string>;
-    return payload.items;
-  };
-
-  const listTablesForSchema = async (sourceName: string, schemaName: string, signal?: AbortSignal): Promise<SourceObject[]> => {
-    const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/schemas/${encodeURIComponent(schemaName)}/tables`;
-    const response = await fetch(endpoint, { signal });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      const msg = typeof (payload as any)?.message === "string" && (payload as any).message.trim()
-        ? (payload as any).message
-        : `Failed to list tables for schema "${schemaName}" (${response.status}). Check the connection settings.`;
-      throw toHttpError(msg, response.status);
-    }
-    const payload = await response.json().catch((e: Error) => {
-      throw toHttpError(`Table list response was not valid JSON: ${e.message}`, response.status);
-    }) as MultiItemResponse<SourceObject>;
-    return payload.items;
-  };
-
   const loadSourceFields = async (sourceName: string, sourceLocation: string, signal?: AbortSignal): Promise<SourceField[]> => {
-    const parsed = parseSourceLocation(sourceLocation);
-
-    const loadViaSchema = async (schemaName: string): Promise<SourceField[]> => {
-      const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/schemas/${encodeURIComponent(schemaName)}/tables/${encodeURIComponent(parsed.table)}`;
-      const response = await fetch(endpoint, { signal });
-      if (!response.ok) {
-        const errPayload = await response.json().catch(() => ({}));
-        throw toHttpError(
-          readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
-          response.status,
-        );
-      }
-      const payload = await response.json().catch((e: Error) => {
-        throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
-      }) as MultiItemResponse<SourceField>;
-      return payload.items;
-    };
-
-    const loadWithoutSchema = async (): Promise<SourceField[]> => {
-      const endpoint = `${apiBase}/sources/${encodeURIComponent(sourceName)}/tables/${encodeURIComponent(parsed.table)}`;
-      const response = await fetch(endpoint, { signal });
-      if (!response.ok) {
-        const errPayload = await response.json().catch(() => ({}));
-        throw toHttpError(
-          readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
-          response.status,
-        );
-      }
-      const payload = await response.json().catch((e: Error) => {
-        throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
-      }) as MultiItemResponse<SourceField>;
-      return payload.items;
-    };
-
-    if (parsed.schema) {
-      return await loadViaSchema(parsed.schema);
+    const response = await fetch(buildSourceMetadataEndpoint(sourceName, sourceLocation), { signal });
+    if (!response.ok) {
+      const errPayload = await response.json().catch(() => ({}));
+      throw toHttpError(
+        readBackendErrorMessage(errPayload, `Failed to load source metadata (${response.status})`),
+        response.status,
+      );
     }
-
-    const schemas = await loadSchemas(sourceName, signal);
-    if (schemas.length > 0) {
-      for (const schemaName of schemas) {
-        const schemaTables = await listTablesForSchema(sourceName, schemaName, signal);
-        const table = schemaTables.find((t) => t.name.toLowerCase() === parsed.table.toLowerCase());
-        if (!table) continue;
-        return await loadViaSchema(schemaName);
-      }
-    }
-
-    return await loadWithoutSchema();
+    const payload = await response.json().catch((e: Error) => {
+      throw toHttpError(`Source metadata response was not valid JSON: ${e.message}`, response.status);
+    }) as MultiItemResponse<SourceField>;
+    return payload.items;
   };
 
   const computeUsageDiff = (usage: ExternalSourceUsage, fields: SourceField[]) => {

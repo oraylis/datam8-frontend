@@ -1,7 +1,6 @@
 import type React from "react";
 import type { PropertyAssignment } from "@datam8/types";
 import { useCallback, useState } from "react";
-import { apiBase } from "../../../../config";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import type { ModelEntity, TableMetadata } from "../../model-types";
 import {
@@ -17,6 +16,7 @@ import type { ResolvedWizardDataSource } from "./useWizardBaseData";
 import { createModelEntityByRelPath } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
 import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
+import { buildSourceLocationsEndpoint, buildSourceMetadataEndpoint } from "./sourcePreview";
 
 type SubmitDeps = {
   modelEntities: ModelEntity[];
@@ -332,6 +332,36 @@ function parseTableRef(table: string): { schema: string; name: string } {
   return { schema, name: tableName };
 }
 
+function normalizeLocationItem(item: Record<string, unknown>): { schema: string; name: string; sourceLocation: string; sourceOverride?: { dataSource?: string; sourceLocation?: string } } | null {
+  const schema = typeof item.schema === "string" ? item.schema : "";
+  const container = typeof item.container === "string" ? item.container : "";
+  const rawName =
+    typeof item.name === "string"
+      ? item.name
+      : typeof item.object === "string"
+        ? item.object
+        : schema || container || "";
+  const name = rawName.trim();
+  if (!name) return null;
+  const isSchema = !!schema && !item.name;
+  const isContainer = !!container && !item.name;
+  const sourceLocation = isSchema
+    ? schema
+    : isContainer
+      ? container
+      : container
+        ? `${container}@${name}`
+        : schema
+          ? `${schema}.${name}`
+          : name;
+  return {
+    schema: isSchema ? "" : schema,
+    name,
+    sourceLocation,
+    sourceOverride: toSourceOverride(item.sourceOverride),
+  };
+}
+
 function sourceOverrideLookupKeys(tableRef: { schema: string; name: string }): string[] {
   const keys = new Set<string>();
   const schema = `${tableRef.schema || ""}`.trim();
@@ -368,9 +398,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
       const schema = parsedRef.schema;
       const tableName = parsedRef.name;
 
-      const endpoint = schema
-        ? `${apiBase}/sources/${dataSource}/schemas/${encodeURIComponent(schema)}/tables/${encodeURIComponent(tableName)}`
-        : `${apiBase}/sources/${dataSource}/tables/${encodeURIComponent(tableName)}`;
+      const endpoint = buildSourceMetadataEndpoint(dataSource, table);
       const sourceRes = await fetch(endpoint);
       if (!sourceRes.ok) {
         const payload = await sourceRes.json().catch(() => ({}));
@@ -561,7 +589,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
 
             const ensureListedOverrides = async (): Promise<Record<string, { dataSource?: string; sourceLocation?: string }>> => {
               if (listedOverridesByKey) return listedOverridesByKey;
-              const res = await fetch(`${apiBase}/sources/${selectedSource}/tables`, { method: "GET" });
+              const res = await fetch(buildSourceLocationsEndpoint(selectedSource), { method: "GET" });
               if (!res.ok) {
                 const payload = await res.json().catch(() => ({}));
                 throw new Error(readBackendErrorMessage(payload, "Failed to load tables"));
@@ -570,13 +598,13 @@ export function useWizardSubmit(deps: SubmitDeps) {
               const items = Array.isArray(payload?.items) ? payload.items : [];
               const byKey: Record<string, { dataSource?: string; sourceLocation?: string }> = {};
               items.forEach((item) => {
-                const override = toSourceOverride(item?.sourceOverride);
-                const schema = typeof item?.schema === "string" ? item.schema : "";
-                const name = typeof item?.name === "string" ? item.name : "";
-                if (!override || !name) return;
-                sourceOverrideLookupKeys({ schema, name }).forEach((key) => {
+                const normalized = normalizeLocationItem((item || {}) as Record<string, unknown>);
+                const override = normalized?.sourceOverride;
+                if (!normalized || !override) return;
+                sourceOverrideLookupKeys({ schema: normalized.schema, name: normalized.name }).forEach((key) => {
                   byKey[key] = override;
                 });
+                byKey[normalized.sourceLocation] = override;
               });
               listedOverridesByKey = byKey;
               return byKey;

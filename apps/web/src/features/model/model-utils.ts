@@ -152,6 +152,7 @@ export const detectBaseType = (content: unknown, relPath: string): BaseTypeDetec
     datasources: "dataSources",
     datasourcetypes: "dataSourceTypes",
     dataproducts: "dataProducts",
+    datamodules: "dataModules",
     zones: "zones",
     properties: "properties",
     propertyvalues: "propertyValues",
@@ -169,6 +170,8 @@ export const detectBaseType = (content: unknown, relPath: string): BaseTypeDetec
         ? "dataSourceTypes"
         : contentObj?.dataProducts
           ? "dataProducts"
+          : contentObj?.dataModules
+            ? "dataModules"
           : contentObj?.zones
             ? "zones"
             : contentObj?.properties
@@ -196,6 +199,8 @@ export const detectBaseType = (content: unknown, relPath: string): BaseTypeDetec
           ? (Array.isArray(contentObj?.dataSourceTypes) ? contentObj.dataSourceTypes : [])
           : detected === "dataProducts"
             ? (Array.isArray(contentObj?.dataProducts) ? contentObj.dataProducts : [])
+            : detected === "dataModules"
+              ? (Array.isArray(contentObj?.dataModules) ? contentObj.dataModules : [])
             : detected === "zones"
               ? (Array.isArray(contentObj?.zones) ? contentObj.zones : [])
               : detected === "properties"

@@ -119,7 +119,7 @@ test("saving renamed property applies refactor flow without apply dialog", async
         entityWrites.find(
           (entry) =>
             entry.method === "POST" &&
-            /\/entities\/rename$/i.test(entry.url) &&
+            /\/entities\/move-single$/i.test(entry.url) &&
             entry.body.from === "/properties/domain" &&
             entry.body.to === "/properties/businessDomain",
         ),
@@ -130,7 +130,7 @@ test("saving renamed property applies refactor flow without apply dialog", async
   const baseWrite = entityWrites.find(
     (entry) =>
       entry.method === "POST" &&
-      /\/entities\/rename$/i.test(entry.url) &&
+      /\/entities\/move-single$/i.test(entry.url) &&
       entry.body.from === "/properties/domain" &&
       entry.body.to === "/properties/businessDomain",
   );

@@ -571,7 +571,7 @@ async function createSolutionViaCli(params: {
   const pythonPath = resolvePythonRuntimePath();
   if (!pythonPath) throw new Error("Python runtime not found.");
   const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
-  runPythonCli(pythonPath, backendModule, ["init", solutionName, "--solution", solutionFile]);
+  runPythonCli(pythonPath, backendModule, ["init", solutionName, "--solution", solutionFile, "--type", "empty"]);
 
   // Optional path overrides (still v2 compliant) if user customized defaults.
   const basePath = `${params.basePath || ""}`.trim();
@@ -850,9 +850,19 @@ function resolveFunctionSourcePaths(params: {
 
   const folderName = deriveFunctionSourceFolderName(relPath, params.entityName);
   const fallbackFolderName = sanitizePathSegment(path.basename(relPath, path.extname(relPath)));
-  const preferredPath = path.resolve(entityDir, folderName, source);
-  const fallbackPath = path.resolve(entityDir, fallbackFolderName, source);
+  // v2 resolves a bare function source relative to the entity file. Keep the
+  // historical per-entity folders as read/delete fallbacks for old solutions.
   const legacyPath = path.resolve(entityDir, source);
+  const preferredPath = legacyPath;
+  const fallbackPath = path.resolve(entityDir, folderName, source);
+  if (fallbackPath === preferredPath && fallbackFolderName !== folderName) {
+    return {
+      preferredPath,
+      fallbackPath: path.resolve(entityDir, fallbackFolderName, source),
+      legacyPath,
+      entityDir,
+    };
+  }
   return { preferredPath, fallbackPath, legacyPath, entityDir };
 }
 
@@ -1101,7 +1111,13 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     const token = (tokenOverride || backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
     cleanupStaleBackendOnPort(BACKEND_PORT);
-    const env: NodeJS.ProcessEnv = { ...process.env, DATAM8_MODE: "electron" };
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      DATAM8_MODE: "electron",
+      ...(process.platform === "win32"
+        ? { PYTHON_KEYRING_BACKEND: "keyring.backends.Windows.WinVaultKeyring" }
+        : {}),
+    };
     const backendOutputPreview = { value: "" };
 
     console.log(`[datam8] resolved python path: '${pythonPath}'`);
@@ -1525,9 +1541,44 @@ ipcMain.handle("solution:import-plugins", async (_event, payload: { solutionPath
   const imported = importPluginArtifacts(payload);
   await ensureBackendForSolution(payload.solutionPath);
   await backendRequestJson("/plugins/reload", { method: "POST" });
-  const plugins = await backendRequestJson("/plugins/");
+  const plugins = await backendRequestJson("/plugins");
   return { imported, plugins };
 });
+
+ipcMain.handle(
+  "backend:function-request",
+  async (_event, payload: {
+    path: string;
+    method?: "GET" | "POST";
+    body?: unknown;
+    legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
+  }) => {
+    const requestPath = `${payload?.path || ""}`;
+    if (!requestPath.startsWith("/functions/")) {
+      throw new Error("Only Function API requests are allowed through this bridge.");
+    }
+    const method = payload?.method || "GET";
+    const init: RequestInit = { method };
+    if (payload?.body !== undefined) {
+      init.headers = { "Content-Type": "application/json" };
+      init.body = JSON.stringify(payload.body);
+    }
+    try {
+      return await backendRequestJson<unknown>(requestPath, init);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const canMigrateLegacySource =
+        method === "POST" &&
+        !requestPath.endsWith("/move") &&
+        payload?.legacySource &&
+        /Response404NotFound|source file|not found/i.test(message);
+      if (!canMigrateLegacySource) throw error;
+
+      writeFunctionSourceToDisk(payload.legacySource!);
+      return await backendRequestJson<unknown>(requestPath, init);
+    }
+  },
+);
 
 ipcMain.handle(
   "solution:read-function-source",

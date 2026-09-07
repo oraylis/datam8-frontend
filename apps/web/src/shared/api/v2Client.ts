@@ -109,16 +109,49 @@ export async function moveEntities(fromLocator: string, toLocator: string): Prom
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
-export async function renameEntity(
+export async function cloneEntity(
   fromLocator: string,
   toLocator: string,
-  content: JsonRecord,
+  opts?: { save?: boolean },
+): Promise<EntityResponseItem | undefined> {
+  const response = await fetch(`${apiBase}/entities/clone`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locator: fromLocator, newLocator: toLocator }),
+  });
+  const payload = await parseResponse(response);
+  if (opts?.save !== false) {
+    await saveModel();
+  }
+  return Array.isArray(payload?.items) ? payload.items[0] : payload?.item;
+}
+
+export async function renameEntity(
+  locator: string,
+  newName: string,
   opts?: { save?: boolean },
 ): Promise<EntityResponseItem | undefined> {
   const response = await fetch(`${apiBase}/entities/rename`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ from: fromLocator, to: toLocator, content }),
+    body: JSON.stringify({ from: locator, to: newName }),
+  });
+  const payload = await parseResponse(response);
+  if (opts?.save !== false) {
+    await saveModel();
+  }
+  return payload?.item;
+}
+
+export async function moveSingleEntity(
+  fromLocator: string,
+  toLocator: string,
+  opts?: { save?: boolean },
+): Promise<EntityResponseItem | undefined> {
+  const response = await fetch(`${apiBase}/entities/move-single`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from: fromLocator, to: toLocator }),
   });
   const payload = await parseResponse(response);
   if (opts?.save !== false) {
@@ -136,12 +169,12 @@ export async function saveModel(locator?: string): Promise<void> {
   await parseResponse(response);
 }
 
-export async function saveModelEntityByRelPath(relPath: string, content: JsonRecord): Promise<void> {
+export async function saveModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<void> {
   const locator = modelLocatorFromRelPath(relPath);
   try {
-    await patchEntity(locator, content);
+    await patchEntity(locator, content, opts);
   } catch {
-    await createEntity(locator, content);
+    await createEntity(locator, content, opts);
   }
 }
 

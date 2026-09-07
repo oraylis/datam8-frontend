@@ -1,17 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildValidateUrl, readValidateErrorMessage, readValidateMessages } from "./validatorApi";
+import { readValidateErrorMessage, readValidateMessages } from "./validatorApi";
 
 describe("validatorApi", () => {
-  it("builds validate URL with path and log level", () => {
-    const url = buildValidateUrl("", "/tmp/mock.dm8s", "info");
-    expect(url).toBe("/validate?path=%2Ftmp%2Fmock.dm8s&logLevel=info");
-  });
-
-  it("omits empty log level", () => {
-    const url = buildValidateUrl("", "/tmp/mock.dm8s", "   ");
-    expect(url).toBe("/validate?path=%2Ftmp%2Fmock.dm8s");
-  });
-
   it("extracts top-level message from error payload", () => {
     const message = readValidateErrorMessage({ message: "Validation failed." }, "fallback");
     expect(message).toBe("Validation failed.");

@@ -45,6 +45,33 @@ export function folderLocatorFromFolderPath(folderPath: string): string {
   return norm ? `/folders/${norm}` : "/folders";
 }
 
+export function modelFolderLocatorFromFolderPath(folderPath: string): string {
+  const norm = normalizePath(folderPath)
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/^Model\//i, "");
+  return norm ? `/modelEntities/${norm}/` : "/modelEntities";
+}
+
+export function modelFolderPathFromRelPath(relPath: string): string {
+  const parts = normalizeSegments(normalizePath(relPath).split("/"));
+  if (parts.length <= 2) return "";
+  return parts.slice(1, -1).join("/");
+}
+
+export function rebaseModelRelPath(relPath: string, fromFolderPath: string, toFolderPath: string): string {
+  const parts = normalizeSegments(normalizePath(relPath).split("/"));
+  if (parts.length < 2) return relPath;
+
+  const currentFolderPath = parts.slice(1, -1).join("/");
+  const from = normalizePath(fromFolderPath).replace(/^\/+|\/+$/g, "").replace(/^Model\//i, "");
+  const to = normalizePath(toFolderPath).replace(/^\/+|\/+$/g, "").replace(/^Model\//i, "");
+  if (!(currentFolderPath === from || currentFolderPath.startsWith(`${from}/`))) return relPath;
+
+  const suffix = currentFolderPath === from ? "" : currentFolderPath.slice(from.length + 1);
+  const nextFolderPath = normalizeSegments([to, suffix]).join("/");
+  return normalizeSegments([parts[0], nextFolderPath, parts[parts.length - 1]]).join("/");
+}
+
 export function folderPathFromRelPath(relPath: string, modelPath: string): string {
   const normRel = normalizePath(relPath).replace(/^\/+/, "");
   const modelRoot = normalizePath(modelPath || "Model").replace(/^\/+|\/+$/g, "");

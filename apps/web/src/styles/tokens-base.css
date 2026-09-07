@@ -163,6 +163,8 @@ body {
 }
 
 .generator-drawer {
+  position: relative;
+  z-index: 10;
   border-radius: var(--panel-radius);
   border-color: var(--panel-border-color);
   background: var(--panel-bg);

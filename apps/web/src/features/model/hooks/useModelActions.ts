@@ -3,9 +3,8 @@ import { useModelEditor } from "../ModelEditorContext";
 import { useConfirm } from "../../../shared/hooks/useConfirm";
 import { ModelEntity } from "../model-types";
 import { findModelEntityDependents } from "../model-deps";
-import { generateModelEntityId } from "../model-utils";
-import { modelLocatorFromRelPath } from "../locator-utils";
-import { createModelEntityByRelPath, deleteModelEntityByRelPath, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
+import { locatorToClientString, modelLocatorFromRelPath } from "../locator-utils";
+import { cloneEntity, deleteModelEntityByRelPath, patchEntity, saveModel, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
 
 export function useModelActions({
   onSaveNotification,
@@ -45,6 +44,7 @@ export function useModelActions({
       const newEntities: ModelEntity[] = [];
       const updates: ModelEntity[] = []; // Other entities updated (deps)
 
+      try {
       // 1. Create duplicates
       for (const ent of selected) {
         const existingNames: Set<string> = new Set(modelEntities.map((m: ModelEntity) => m.name).concat(newEntities.map(n => n.name)));
@@ -69,26 +69,24 @@ export function useModelActions({
         
         const newLocator = modelLocatorFromRelPath(newRelPath);
 
-        const newContent = structuredClone(ent.content);
-        
-        // Generate new unique content ID
-        // Note: we need to pass current + already created newEntities to avoid collision in this batch
-        const newId = generateModelEntityId([...modelEntities, ...newEntities]);
-        // Always assign the new ID
-        newContent.id = newId;
-
-        // Update content.name and content.displayName if they exist
-        newContent.name = newName;
-        if (typeof newContent.displayName === "string") {
-            newContent.displayName = newName;
+        const clonedWrapper = await cloneEntity(ent.locator || modelLocatorFromRelPath(ent.relPath), newLocator, { save: false });
+        const clonedContent = structuredClone((clonedWrapper?.entity as ModelEntity["content"] | undefined) ?? ent.content);
+        clonedContent.name = newName;
+        let shouldPatchClone = false;
+        if (typeof ent.content.displayName === "string") {
+            clonedContent.displayName = newName;
+            shouldPatchClone = true;
+        }
+        if (shouldPatchClone) {
+          await patchEntity(newLocator, clonedContent as Record<string, unknown>, { save: false });
         }
         
         const newEntity: ModelEntity = {
           ...ent,
           name: newName, // This is for relPath, etc.
           relPath: newRelPath,
-          locator: newLocator,
-          content: newContent,
+          locator: locatorToClientString({ locator: clonedWrapper?.locator, relPath: newRelPath }) || newLocator,
+          content: clonedContent,
         };
         newEntities.push(newEntity);
       }
@@ -203,17 +201,13 @@ export function useModelActions({
       }
 
       // 3. Save all new and updated entities
-      try {
-          await Promise.all([
-            ...newEntities.map(e =>
-              createModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
-                .catch((err) => { throw new Error(`Failed to create "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
-            ),
-            ...updates.map(e =>
-              saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>)
+          await Promise.all(
+            updates.map(e =>
+              saveModelEntityByRelPath(e.relPath, e.content as Record<string, unknown>, { save: false })
                 .catch((err) => { throw new Error(`Failed to save "${e.name}": ${err instanceof Error ? err.message : String(err)}`); })
             ),
-          ]);
+          );
+          await saveModel();
 
           // 4. Update state
           setModelEntities((prev: ModelEntity[]) => {

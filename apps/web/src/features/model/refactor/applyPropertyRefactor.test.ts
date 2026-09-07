@@ -111,6 +111,40 @@ describe("applyPropertyRefactorToModelEntities", () => {
     ]);
   });
 
+  it("removes deleted property value assignments recursively", () => {
+    const entities = [
+      modelEntity({
+        content: {
+          properties: [{ property: "domain", value: "sales" }],
+          attributes: [{ name: "Id", properties: [{ property: "domain", value: "sales" }] }],
+          sources: [
+            {
+              dataSource: "CRM",
+              properties: [{ property: "domain", value: "sales" }],
+              mapping: [{ target: "Id", properties: [{ property: "domain", value: "sales" }] }],
+            },
+          ],
+          transformations: [{ step: 1, properties: [{ property: "domain", value: "sales" }] }],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToModelEntities(entities, {
+      propertyRenames: [],
+      valueRenames: [],
+      deletedProperties: [],
+      deletedValues: [{ property: "domain", value: "sales" }],
+      valueMoves: [],
+    });
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).properties).toEqual([]);
+    expect((result.updatedEntities[0].content as any).attributes[0].properties).toEqual([]);
+    expect((result.updatedEntities[0].content as any).sources[0].properties).toEqual([]);
+    expect((result.updatedEntities[0].content as any).sources[0].mapping[0].properties).toEqual([]);
+    expect((result.updatedEntities[0].content as any).transformations[0].properties).toEqual([]);
+  });
+
   it("does not mutate unrelated objects that only have a property key", () => {
     const entities = [
       modelEntity({
@@ -159,6 +193,25 @@ describe("applyPropertyRefactorToFolderEntities", () => {
     expect((result.updatedEntities[0].content as any).properties).toEqual([
       { property: "businessDomain", value: "sales" },
     ]);
+  });
+
+  it("removes deleted property value assignments from folder metadata", () => {
+    const folders = [
+      folderEntity({
+        content: { id: 1, name: "Sales", properties: [{ property: "domain", value: "sales" }] },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToFolderEntities(folders, {
+      propertyRenames: [],
+      valueRenames: [],
+      deletedProperties: [],
+      deletedValues: [{ property: "domain", value: "sales" }],
+      valueMoves: [],
+    });
+
+    expect(result.updatedEntities).toHaveLength(1);
+    expect((result.updatedEntities[0].content as any).properties).toEqual([]);
   });
 });
 
@@ -280,5 +333,47 @@ describe("applyPropertyRefactorToBaseEntities", () => {
         properties: [{ property: "schedules1", value: "daily" }],
       },
     ]);
+  });
+
+  it("removes deleted property value rows and base-list assignments", () => {
+    const bases = [
+      baseEntity({
+        name: "PropertyValues",
+        relPath: "Base/PropertyValues.json",
+        content: {
+          propertyValues: [
+            { property: "domain", name: "sales" },
+            { property: "domain", name: "finance" },
+          ],
+        },
+      }),
+      baseEntity({
+        name: "DataSources",
+        relPath: "Base/DataSources.json",
+        content: {
+          dataSources: [
+            { name: "CRM", type: "Sql", properties: [{ property: "domain", value: "sales" }], extendedProperties: {} },
+          ],
+        },
+      }),
+    ];
+
+    const result = applyPropertyRefactorToBaseEntities(
+      bases,
+      {
+        propertyRenames: [],
+        valueRenames: [],
+        deletedProperties: [],
+        deletedValues: [{ property: "domain", value: "sales" }],
+        valueMoves: [],
+      },
+      ["propertyValues", "dataSource"],
+    );
+
+    expect(result.updatedEntities).toHaveLength(2);
+    expect((result.updatedEntities[0].content as any).propertyValues).toEqual([
+      { property: "domain", name: "finance" },
+    ]);
+    expect((result.updatedEntities[1].content as any).dataSources[0].properties).toEqual([]);
   });
 });

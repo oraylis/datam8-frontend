@@ -5,7 +5,12 @@ import { ChevronDown, GripVertical, Trash2 } from "lucide-react";
 import type { ModelEntity } from "../../../model-types";
 import { IconBtn } from "../common/IconBtn";
 import { reindexRecordAfterRemove } from "../hooks/transformationSourceMaps";
-import { deleteFunctionSource, readFunctionSource, renameFunctionSource } from "../../../../../shared/desktop/functionSourceBridge";
+import {
+  createFunctionSource,
+  deleteFunctionSource,
+  readFunctionSource,
+  renameFunctionSource,
+} from "../../../../../shared/desktop/functionSourceBridge";
 
 const derivePyFilename = (stepName: string): string => {
   const trimmed = (stepName || "").trim();
@@ -90,7 +95,7 @@ export const EntityTransformationsEditor = ({
   const handleFunctionRename = async (index: number) => {
     const tr = transformations[index];
     const prevSource = tr?.__uiPrevFunctionSource;
-    const currentSource = tr?.function?.source;
+    const currentSource = tr?.kind === "function" ? derivePySourcePath(tr.name || "", prevSource) : undefined;
     if (!tr || tr.kind !== "function" || !prevSource || !currentSource || prevSource === currentSource) return;
     if (!selectedEntity?.relPath) return;
     try {
@@ -98,10 +103,18 @@ export const EntityTransformationsEditor = ({
         relPath: selectedEntity.relPath,
         fromSource: prevSource,
         toSource: currentSource,
+        modelEntityId: selectedEntity.content?.id,
+        stepNo: tr.stepNo ?? index + 1,
+        name: tr.name,
         entityName: entityName || undefined,
         solutionPath: solutionPath || undefined,
       });
-      updateTransformation(index, (t: any) => ({ ...t, __uiPrevFunctionSource: currentSource }));
+      updateTransformation(index, (t: any) => ({
+        ...t,
+        function: { ...(t.function || {}), source: currentSource },
+        __uiPrevFunctionSource: currentSource,
+      }));
+      onCommit?.("dropdown-change");
     } catch (err) {
       const message = (err as Error).message || "Failed to rename function source.";
       console.error("[DataM8] Function source rename failed:", err);
@@ -192,12 +205,7 @@ export const EntityTransformationsEditor = ({
                     onChange={(e) => {
                       const nextName = e.target.value;
                       updateTransformation(idx, (t: any) => {
-                        const next: any = { ...t, name: nextName };
-                        if (t.kind === "function") {
-                          const source = derivePySourcePath(nextName, t.function?.source);
-                          next.function = { ...(t.function || {}), source };
-                        }
-                        return next;
+                        return { ...t, name: nextName };
                       });
                     }}
                     onBlur={() => {
@@ -211,18 +219,39 @@ export const EntityTransformationsEditor = ({
                   <FormSelect
                     value={tr.kind || ""}
                     onChange={(kind) => {
+                      const source = derivePySourcePath(tr.name || "", tr.function?.source);
+                      const createsFunction = kind === "function" && tr.kind !== "function";
                       updateTransformation(idx, (t: any) => ({
                         ...t,
                         kind,
                         function:
                           kind === "function"
-                            ? { ...(t.function || {}), source: derivePySourcePath(t.name || "", t.function?.source) }
+                            ? { ...(t.function || {}), source }
                             : undefined,
                         __uiPrevFunctionSource:
                           kind === "function"
-                            ? t.__uiPrevFunctionSource || t.function?.source || derivePySourcePath(t.name || "", t.function?.source)
+                            ? t.__uiPrevFunctionSource || t.function?.source || source
                             : undefined,
                       }));
+                      if (createsFunction && selectedEntity?.relPath) {
+                        setTransformSourceCache((prev) => ({ ...prev, [idx]: "" }));
+                        setTransformSourceDirty((prev) => ({ ...prev, [idx]: false }));
+                        void createFunctionSource({
+                          relPath: selectedEntity.relPath,
+                          source,
+                          modelEntityId: selectedEntity.content?.id,
+                          stepNo: tr.stepNo ?? idx + 1,
+                          name: tr.name,
+                          entityName: entityName || undefined,
+                          solutionPath: solutionPath || undefined,
+                        })
+                          .then(() => onCommit?.("dropdown-change"))
+                          .catch((err) => {
+                            console.error("[DataM8] Function source create failed:", err);
+                            setSaveError((err as Error).message || "Failed to create function source.");
+                          });
+                        return;
+                      }
                       onCommit?.("dropdown-change");
                     }}
                     options={[{ value: "", label: "Select kind" }, ...transformKinds.map((k) => ({ value: k, label: k }))]}
@@ -235,11 +264,18 @@ export const EntityTransformationsEditor = ({
                       active={!!openTransformSources[idx]}
                       title="Toggle code"
                       onClick={async () => {
-                        if (!openTransformSources[idx] && tr.function?.source && !transformSourceCache[idx]) {
+                        if (
+                          !openTransformSources[idx] &&
+                          tr.function?.source &&
+                          !Object.prototype.hasOwnProperty.call(transformSourceCache, idx)
+                        ) {
                           try {
                             const content = await readFunctionSource({
                               relPath: selectedEntity?.relPath || "",
                               source: tr.function.source,
+                              modelEntityId: selectedEntity?.content?.id,
+                              stepNo: tr.stepNo ?? idx + 1,
+                              name: tr.name,
                               entityName: entityName || "",
                               solutionPath: solutionPath || undefined,
                             });

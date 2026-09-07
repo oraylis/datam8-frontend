@@ -869,6 +869,9 @@ export const useEntityState = ({
         await saveFunctionSource({
           relPath: selectedEntity.relPath,
           source: item.t.function?.source,
+          modelEntityId: selectedEntity.content?.id,
+          stepNo: item.t.stepNo ?? item.idx + 1,
+          name: item.t.name,
           entityName: String((newContent as any)?.name || selectedEntity?.content?.name || selectedEntity?.name || ""),
           content: item.code,
           solutionPath: solutionPath || undefined,

@@ -24,9 +24,8 @@ export default defineConfig(({ mode }) => {
     "/http",
     "/secrets",
     "/sources",
-    "/generate",
-    "/validate",
     "/entities",
+    "/functions",
   ];
 
   const proxy = Object.fromEntries(proxyPrefixes.map((prefix) => [prefix, { target: apiTarget, changeOrigin: true }]));

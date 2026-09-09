@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.0.0-beta.6
+
+### Highlights
+
+- Migrated the frontend to the current v2 root API endpoints.
+- Improved source metadata loading, schema refresh, relationships, model CRUD, and editor performance.
+- Improved backend error handling and desktop runtime behavior.
+
+### Breaking change: plugin structure
+
+Plugin discovery now requires a configured `solution.pluginsPath`.
+
+- Connector plugins must be stored below `pluginsPath/connectors/<connector_id>/plugin.json`.
+- The manifest must use the current structure, including the connector `type`, `id`, `displayName`, `version`, `entryPoint`, and `capabilities` fields.
+- The `entryPoint` must use the `<module>:<ClassName>` format.
+- Existing solutions and plugin packages using the previous layout or missing `pluginsPath` must be migrated before they can be used with Beta 6.
+
+### Fixes
+
+- Preserved plugin-defined source properties and descriptions during import and save.
+- Added more reliable caching and bounded concurrency for source locations and metadata.
+- Improved schema refresh progress and error reporting.
+
 ## Unreleased
 
 - Desktop: Windows NSIS installer now allows choosing the installation directory.

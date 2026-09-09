@@ -171,6 +171,9 @@ jobs:
     needs: [package-desktop]
     timeout-minutes: 15
     steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v6
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -237,9 +240,27 @@ jobs:
           console.log(`Wrote ${copied.length} assets + SHA256SUMS.txt to ${outRoot}`);
           NODE
 
+      - name: Extract release notes
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
+          const lines = changelog.split(/\r?\n/);
+          const start = lines.findIndex((line) => line.trim() === "## v2.0.0-beta.6");
+          const end = start < 0 ? -1 : lines.findIndex((line, index) => index > start && /^##\s/.test(line));
+          if (start < 0) {
+            console.error("Missing v2.0.0-beta.6 section in CHANGELOG.md");
+            process.exit(1);
+          }
+          const section = lines.slice(start + 1, end < 0 ? lines.length : end).join("\n").trim();
+          fs.writeFileSync("release-notes.md", section + "\n", "utf8");
+          NODE
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          generate_release_notes: false
+          body_path: release-notes.md
           files: |
             release-assets/*

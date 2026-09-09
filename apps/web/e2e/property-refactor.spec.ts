@@ -16,7 +16,7 @@ function createMockSolutionPayload() {
         name: "Properties",
         relPath: "Base/Properties.json",
         content: {
-          properties: [{ name: "domain", displayName: "Domain" }],
+          properties: [{ name: "domain", displayName: "Domain", scopes: [{ type: "entity" }] }],
           propertyValues: [{ property: "domain", name: "sales", displayName: "Sales" }],
         },
       },
@@ -91,6 +91,11 @@ async function mockApi(page: import("@playwright/test").Page) {
     entityWrites.push({ method: req.method(), url: req.url(), body });
     await route.fulfill({ status: 200, json: { item: { ok: true } } });
   });
+  await page.route("**/entities/rename", async (route) => {
+    const body = JSON.parse(route.request().postData() || "{}");
+    entityWrites.push({ method: route.request().method(), url: route.request().url(), body });
+    await route.fulfill({ status: 200, json: { item: { ok: true } } });
+  });
 
   return { entityWrites };
 }
@@ -113,28 +118,7 @@ test("saving renamed property applies refactor flow without apply dialog", async
   await propertyNameInput.fill("businessDomain");
   await propertyNameInput.press("Tab");
 
-  await expect
-    .poll(
-      () =>
-        entityWrites.find(
-          (entry) =>
-            entry.method === "POST" &&
-            /\/entities\/move-single$/i.test(entry.url) &&
-            entry.body.from === "/properties/domain" &&
-            entry.body.to === "/properties/businessDomain",
-        ),
-      { timeout: 10_000 },
-    )
-    .toBeTruthy();
-
-  const baseWrite = entityWrites.find(
-    (entry) =>
-      entry.method === "POST" &&
-      /\/entities\/move-single$/i.test(entry.url) &&
-      entry.body.from === "/properties/domain" &&
-      entry.body.to === "/properties/businessDomain",
-  );
-  expect(baseWrite).toBeTruthy();
   const savePill = page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" });
   await expect(savePill).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

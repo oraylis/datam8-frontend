@@ -110,8 +110,8 @@ async function mockApi(page: import("@playwright/test").Page) {
     }] } });
   });
 
-  await page.route("**/connectors", async (route) => {
-    await route.fulfill({ json: { connectors: [] } });
+  await page.route("**/plugins", async (route) => {
+    await route.fulfill({ json: { items: [{ id: "builtin:SQLServer", displayName: "SQL Server", version: "1", capabilities: { metadata: { listTables: true, getTableMetadata: true } }, dataTypeMapping: [] }] } });
   });
 
   await page.route("**/secrets/available", async (route) => {

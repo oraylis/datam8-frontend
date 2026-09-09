@@ -168,9 +168,9 @@ async function mockApi(
     await route.fulfill({ json: { entries: [] } });
   });
 
-  await page.route("**/connectors", async (route) => {
+  await page.route("**/plugins", async (route) => {
     counters.connectors += 1;
-    await route.fulfill({ json: { connectors: args.connectors } });
+    await route.fulfill({ json: { items: args.connectors } });
   });
 
   await page.route("**/plugins/**", async (route) => {
@@ -226,7 +226,7 @@ async function mockApi(
     await route.fulfill({ status: 500, json: { message: lines.join("\n") || firstError?.message || "Validation failed" } });
   });
 
-  await page.route("**/secrets/set", async (route) => {
+  await page.route("**/secrets/set**", async (route) => {
     counters.secretsPut += 1;
     const body = JSON.parse(route.request().postData() || "{}");
     secretPuts.push(body);

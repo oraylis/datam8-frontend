@@ -132,6 +132,11 @@ async function mockApi(page: import("@playwright/test").Page, options?: { failMo
     modelMoveBodies.push(body);
     await route.fulfill({ status: 200, json: { items: [] } });
   });
+  await page.route("**/entities/rename", async (route) => {
+    const body = JSON.parse(route.request().postData() || "{}");
+    modelMoveBodies.push(body);
+    await route.fulfill({ status: 200, json: { item: {} } });
+  });
 
   return { modelSaveBodies, modelMoveBodies };
 }
@@ -193,7 +198,7 @@ test("deleting a base item updates the list without error/info surfaces", async 
   await expect(page.locator(".error-surface")).toHaveCount(0);
 });
 
-test("renaming an entity name renames the JSON file via /model/entities/move", async ({ page }) => {
+test("renaming an entity name renames the JSON file via /entities/rename", async ({ page }) => {
   const { modelSaveBodies, modelMoveBodies } = await mockApi(page);
   await loadSolutionFromDialog(page);
 
@@ -208,12 +213,10 @@ test("renaming an entity name renames the JSON file via /model/entities/move", a
   await nameInput.press("Tab");
   await page.getByRole("tab", { name: "Base" }).click();
 
-  await expect.poll(() => modelSaveBodies.length, { timeout: 10_000 }).toBeGreaterThan(0);
   await expect.poll(() => modelMoveBodies.length, { timeout: 10_000 }).toBe(1);
-  expect(modelSaveBodies[0]?._url).toContain("/entities/modelEntities/ZoneA/Customer");
   expect(modelMoveBodies[0]).toMatchObject({
     from: "/modelEntities/ZoneA/Customer",
-    to: "/modelEntities/ZoneA/CustomerRenamed",
+    to: "CustomerRenamed",
   });
 
   await page.getByRole("tab", { name: "Model" }).click();

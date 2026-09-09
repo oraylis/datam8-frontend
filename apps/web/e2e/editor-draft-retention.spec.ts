@@ -99,8 +99,8 @@ async function mockApi(page: import("@playwright/test").Page) {
     await route.fulfill({ json: { items: [] } });
   });
 
-  await page.route("**/connectors", async (route) => {
-    await route.fulfill({ json: { connectors: [] } });
+  await page.route("**/plugins", async (route) => {
+    await route.fulfill({ json: { items: [] } });
   });
 
   await page.route("**/secrets/available", async (route) => {

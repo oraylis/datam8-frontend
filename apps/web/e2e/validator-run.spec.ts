@@ -84,9 +84,9 @@ test("Validator Run reports the pinned Generator API gap without a /validate req
   await expect(validatorRunButton).toBeVisible();
   await expect(validatorRunButton).toBeEnabled();
 
-  await validatorRunButton.evaluate((element) => (element as HTMLButtonElement).click());
+  await validatorRunButton.dispatchEvent("pointerdown", { bubbles: true, button: 0 });
   await page.getByRole("menuitem", { name: "Validate only" }).click();
 
   await expect.poll(getValidateCalls, { timeout: 5_000 }).toBe(0);
-  await expect(page.getByText("Validate is not available in the pinned Generator API.")).toBeVisible();
+  await expect(page.getByText(/Validate is not available in the pinned Generator API\./)).toBeVisible();
 });

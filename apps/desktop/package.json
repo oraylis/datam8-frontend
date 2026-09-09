@@ -2,7 +2,7 @@
   "name": "@datam8/desktop",
   "productName": "DataM8",
   "desktopName": "datam8",
-  "version": "2.0.0-beta.5",
+  "version": "2.0.0-beta.6",
   "private": true,
   "description": "DataM8 Desktop App",
   "homepage": "https://github.com/oraylis/datam8",

@@ -64,10 +64,10 @@ async function mockApi(page: import("@playwright/test").Page) {
     await route.fulfill({ json: { entries: [] } });
   });
 
-  await page.route("**/connectors", async (route) => {
+  await page.route("**/plugins", async (route) => {
     await route.fulfill({
       json: {
-        connectors: [
+        items: [
           {
             id: "sqlserver",
             displayName: "SQL Server",

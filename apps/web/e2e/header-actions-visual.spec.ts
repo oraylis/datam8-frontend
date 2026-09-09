@@ -169,8 +169,8 @@ async function mockApi(
     }] } });
   });
 
-  await page.route("**/connectors", async (route) => {
-    await route.fulfill({ json: { connectors: [] } });
+  await page.route("**/plugins", async (route) => {
+    await route.fulfill({ json: { items: [{ id: "builtin:SQLServer", displayName: "SQL Server", version: "1", capabilities: { metadata: { listTables: true, getTableMetadata: true } }, dataTypeMapping: [] }] } });
   });
 
   await page.route("**/secrets/available", async (route) => {
@@ -181,7 +181,7 @@ async function mockApi(
     await route.fulfill({ status: 204, body: "" });
   });
 
-  await page.route("**/sources/CRM/schemas/dbo/tables/Customer", async (route) => {
+  await page.route("**/sources/CRM/locations/metadata**", async (route) => {
     await route.fulfill({ json: { items: [
       { name: "CustomerId", ordinal: 1, dataType: "string", isNullable: false, isPrimaryKey: true },
       { name: "CustomerName", ordinal: 2, dataType: "string", isNullable: true },
@@ -199,14 +199,15 @@ async function mockApi(
 
 async function mockSchemaReviewMetadata(page: import("@playwright/test").Page) {
   const fulfillMetadata = async (route: import("@playwright/test").Route) => {
-    const tableName = decodeURIComponent(new URL(route.request().url()).pathname.split("/").at(-1) || "table");
+    const sourceLocation = new URL(route.request().url()).searchParams.get("source_location") || "table";
+    const tableName = decodeURIComponent(sourceLocation).split(".").at(-1)?.replace(/[\[\]]/g, "") || "table";
+    const normalizedName = tableName.toLowerCase();
     await route.fulfill({ json: { items: [
-      { name: `${tableName}_identifier_with_a_long_name`, ordinal: 1, dataType: "string", isNullable: false, isPrimaryKey: true },
-      { name: `${tableName}_description_with_a_long_name`, ordinal: 2, dataType: "string", isNullable: true },
+      { name: `${normalizedName}_identifier_with_a_long_name`, ordinal: 1, dataType: "string", isNullable: false, isPrimaryKey: true },
+      { name: `${normalizedName}_description_with_a_long_name`, ordinal: 2, dataType: "string", isNullable: true },
     ] } });
   };
-  await page.route("**/sources/CRM/schemas/dm_dom_termination/tables/*", fulfillMetadata);
-  await page.route("**/sources/ERP/schemas/sales/tables/*", fulfillMetadata);
+  await page.route("**/sources/*/locations/metadata**", fulfillMetadata);
 }
 
 async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
@@ -294,7 +295,7 @@ test("workspace header run buttons stay vertically centered", async ({ page }) =
   await page.screenshot({ path: "output/playwright/header-actions-visual.png" });
 });
 
-test("light editor surfaces are uniformly white while dark surfaces stay unchanged", async ({ page }) => {
+test("light editor surfaces are uniformly white while dark surfaces stay unchanged", async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.setItem("datam8-ui-theme-v2", "light"));
   await mockApi(page);
   await loadSolutionFromDialog(page);
@@ -325,7 +326,7 @@ test("light editor surfaces are uniformly white while dark surfaces stay unchang
   const baseFormSurface = page.locator(".base-editor .toggle-field").first();
   await expectBackground(baseFormSurface, "rgb(255, 255, 255)");
 
-  await page.screenshot({ path: "output/playwright/editor-surfaces-light.png" });
+  await page.screenshot({ path: testInfo.outputPath("editor-surfaces-light.png") });
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expectBackground(baseFormSurface, "rgb(39, 39, 39)");
@@ -453,6 +454,6 @@ test("generator exposes validate only from its split action", async ({ page }) =
   await panel.screenshot({ path: "output/playwright/generator-toolbar-visual.png" });
   await panel.getByRole("button", { name: "More generator actions" }).click();
   await page.getByRole("menuitem", { name: "Validate only" }).click();
-  await expect(panel.getByText("Validation successful", { exact: true })).toBeVisible();
+  await expect(panel.getByText(/Validate is not available in the pinned Generator API\./)).toBeVisible();
 });
 

@@ -1,6 +1,6 @@
 import type React from "react";
 import type { PropertyAssignment } from "@datam8/types";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import type { ModelEntity, TableMetadata } from "../../model-types";
 import {
@@ -13,7 +13,7 @@ import {
 import { modelLocatorFromRelPath } from "../../locator-utils";
 import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
-import { createModelEntityByRelPath } from "../../../../shared/api/v2Client";
+import { createModelEntityByRelPath, saveModel } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
 import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
 import { buildSourceLocationsEndpoint, buildSourceMetadataEndpoint } from "./sourcePreview";
@@ -391,9 +391,13 @@ export function useWizardSubmit(deps: SubmitDeps) {
   const { showError, clearError } = useErrorSurface();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const metadataCacheRef = useRef(new Map<string, TableMetadata>());
 
   const fetchTableMetadata = useCallback(
     async (dataSource: string, table: string): Promise<TableMetadata> => {
+      const cacheKey = `${dataSource}\n${table}`;
+      const cached = metadataCacheRef.current.get(cacheKey);
+      if (cached) return cached;
       const parsedRef = parseTableRef(table);
       const schema = parsedRef.schema;
       const tableName = parsedRef.name;
@@ -406,7 +410,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
       }
       const payload = (await sourceRes.json()) as { items?: Array<any> };
       const items = Array.isArray(payload?.items) ? payload.items : [];
-      return {
+      const metadata: TableMetadata = {
         schema,
         name: tableName,
         type: "BASE TABLE",
@@ -427,6 +431,8 @@ export function useWizardSubmit(deps: SubmitDeps) {
           relationships: toColumnRelationships(col?.relationships),
         })),
       };
+      metadataCacheRef.current.set(cacheKey, metadata);
+      return metadata;
     },
     [],
   );
@@ -699,8 +705,9 @@ export function useWizardSubmit(deps: SubmitDeps) {
         }
 
         for (const entity of createdEntities) {
-          await createModelEntityByRelPath(entity.relPath, entity.content as Record<string, unknown>);
+          await createModelEntityByRelPath(entity.relPath, entity.content as Record<string, unknown>, { save: false });
         }
+        if (createdEntities.length > 0) await saveModel();
 
         setModelEntities((prev) => [...prev, ...createdEntities]);
 

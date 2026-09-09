@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useForm, useFieldArray, Controller, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -164,6 +164,7 @@ export function CreateModelEntityWizard({
   const [tableSearch, setTableSearch] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
+  const locationCacheRef = useRef(new Map<string, Promise<AvailableSourceTable[]>>());
 
   const { zones, dataSources, dataTypes, attributeTypes, propertyOptions, dataSourcesResolved } =
     useWizardBaseData(baseEntities);
@@ -346,6 +347,10 @@ export function CreateModelEntityWizard({
         setIsLoadingTables(true);
         try {
             const loadLocations = async (sourceLocation?: string): Promise<AvailableSourceTable[]> => {
+              const cacheKey = `${selectedSource}\n${sourceLocation || ""}`;
+              const cached = locationCacheRef.current.get(cacheKey);
+              if (cached) return cached;
+              const request = (async () => {
               const res = await fetch(buildSourceLocationsEndpoint(selectedSource, sourceLocation), { method: "GET" });
 
               if (!res.ok) {
@@ -359,19 +364,33 @@ export function CreateModelEntityWizard({
               return items
                 .map((item) => normalizeLocationItem((item || {}) as Record<string, unknown>))
                 .filter((item: AvailableSourceTable | null): item is AvailableSourceTable => item !== null);
+              })();
+              locationCacheRef.current.set(cacheKey, request);
+              try {
+                return await request;
+              } catch (error) {
+                locationCacheRef.current.delete(cacheKey);
+                throw error;
+              }
             };
 
             const rootItems = await loadLocations();
-            const children = await Promise.all(
-              rootItems
-                .filter(isBrowsableLocation)
-                .map((item) => loadLocations(item.sourceLocation).catch(() => [])),
-            );
-            const selectable = [
-              ...rootItems.filter((item) => !isBrowsableLocation(item)),
-              ...children.flat().filter((item) => !isBrowsableLocation(item)),
-            ];
-            setAvailableTables(selectable);
+            const rootSelectable = rootItems.filter((item) => !isBrowsableLocation(item));
+            const browsable = rootItems.filter(isBrowsableLocation);
+            const children: AvailableSourceTable[][] = Array.from({ length: browsable.length }, () => []);
+            setAvailableTables(rootSelectable);
+            let nextIndex = 0;
+            const loadWorker = async () => {
+              while (nextIndex < browsable.length) {
+                const index = nextIndex++;
+                children[index] = await loadLocations(browsable[index].sourceLocation).catch(() => []);
+                setAvailableTables([
+                  ...rootSelectable,
+                  ...children.flat().filter((entry) => !isBrowsableLocation(entry)),
+                ]);
+              }
+            };
+            await Promise.all(Array.from({ length: Math.min(4, browsable.length) }, () => loadWorker()));
         } catch (err) {
             showError("dialog:create-entity-wizard", { title: "Error loading tables", description: (err as Error).message });
         } finally {

@@ -562,26 +562,51 @@ export const RefreshSchemasDialog = ({
       setScanProgress({ completed: 0, total: usagesToScan.length });
       setScanErrors({});
       const fetchedDiffs: ExternalSourceSchemaDiff[] = [];
-      const metadataCache = new Map<string, Promise<SourceField[]>>();
       const failures: Record<string, string> = {};
+      const groups = Array.from(
+        usagesToScan.reduce((map, usage) => {
+          const key = `${usage.dataSource}\n${usage.sourceLocation}`;
+          const group = map.get(key) || { key, usages: [] as ExternalSourceUsage[] };
+          group.usages.push(usage);
+          map.set(key, group);
+          return map;
+        }, new Map<string, { key: string; usages: ExternalSourceUsage[] }>()).values(),
+      );
+      const metadataByKey = new Map<string, SourceField[]>();
+      const metadataFailures = new Map<string, string>();
+      let nextGroup = 0;
+      const scanWorker = async () => {
+        while (nextGroup < groups.length) {
+          const group = groups[nextGroup++];
+          const firstUsage = group.usages[0];
+          if (!firstUsage) continue;
+          try {
+            const fields = await loadSourceFields(firstUsage.dataSource, firstUsage.sourceLocation, controller.signal);
+            metadataByKey.set(group.key, fields);
+          } catch (err: any) {
+            if (err?.name === "AbortError") throw err;
+            metadataFailures.set(group.key, err?.message || "Failed to scan source metadata");
+          } finally {
+            setScanProgress((previous) => ({ ...previous, completed: previous.completed + group.usages.length }));
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, groups.length) }, () => scanWorker()));
       for (const usage of usagesToScan) {
         const usageKey = `${usage.entityRelPath}:${usage.sourceIndex}`;
         const metadataKey = `${usage.dataSource}\n${usage.sourceLocation}`;
-        try {
-          let request = metadataCache.get(metadataKey);
-          if (!request) {
-            request = loadSourceFields(usage.dataSource, usage.sourceLocation, controller.signal);
-            metadataCache.set(metadataKey, request);
-          }
-          const fields = await request;
-          const diff = computeUsageDiff(usage, fields);
-          if (diff) fetchedDiffs.push(diff);
-        } catch (err: any) {
-          if (err?.name === "AbortError") throw err;
-          failures[usageKey] = err?.message || "Failed to scan source metadata";
-        } finally {
-          setScanProgress((previous) => ({ ...previous, completed: previous.completed + 1 }));
+        const metadataError = metadataFailures.get(metadataKey);
+        if (metadataError) {
+          failures[usageKey] = metadataError;
+          continue;
         }
+        const fields = metadataByKey.get(metadataKey);
+        if (!fields) {
+          failures[usageKey] = "Failed to scan source metadata";
+          continue;
+        }
+        const diff = computeUsageDiff(usage, fields);
+        if (diff) fetchedDiffs.push(diff);
       }
       setScanErrors(failures);
       setDiffs(fetchedDiffs);

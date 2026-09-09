@@ -178,9 +178,9 @@ export async function saveModelEntityByRelPath(relPath: string, content: JsonRec
   }
 }
 
-export async function createModelEntityByRelPath(relPath: string, content: JsonRecord): Promise<void> {
+export async function createModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<void> {
   const locator = modelLocatorFromRelPath(relPath);
-  await createEntity(locator, content);
+  await createEntity(locator, content, opts);
 }
 
 export async function deleteModelEntityByRelPath(relPath: string): Promise<void> {

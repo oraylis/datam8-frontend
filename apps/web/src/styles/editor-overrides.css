@@ -80,6 +80,11 @@
   margin-top: 0;
 }
 
+.editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:not(:first-child) {
+  content-visibility: auto;
+  contain-intrinsic-size: 72px;
+}
+
 .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child {
   position: sticky;
   top: var(--entity-nav-sticky-height);

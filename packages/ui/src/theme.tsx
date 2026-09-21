@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system";
 
 type ThemeContextValue = {
   theme: Theme;
@@ -11,7 +11,7 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const prefersDark = () => {
-  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
 export function ThemeProvider({
@@ -28,11 +28,12 @@ export function ThemeProvider({
     const stored = localStorage.getItem(storageKey) as Theme | null;
     return stored || defaultTheme;
   });
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => (prefersDark() ? "dark" : "light"));
 
   const resolvedTheme = useMemo<"light" | "dark">(() => {
-    if (theme === "system") return prefersDark() ? "dark" : "light";
+    if (theme === "system") return systemTheme;
     return theme;
-  }, [theme]);
+  }, [systemTheme, theme]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -45,7 +46,8 @@ export function ThemeProvider({
   useEffect(() => {
     if (theme !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => setTheme("system");
+    const handler = (event: MediaQueryListEvent) => setSystemTheme(event.matches ? "dark" : "light");
+    setSystemTheme(media.matches ? "dark" : "light");
     media.addEventListener("change", handler);
     return () => media.removeEventListener("change", handler);
   }, [theme]);

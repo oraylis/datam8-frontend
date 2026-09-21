@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, ModelTree, cn } from "@datam8/ui";
-import { FolderOpen, Loader2, MoonStar, PanelLeft, Plus, RefreshCw, Search, Sparkles, SunMedium } from "lucide-react";
+import type { Theme } from "@datam8/ui/theme";
+import { FolderOpen, Loader2, Monitor, MoonStar, PanelLeft, Plus, RefreshCw, Search, Sparkles, SunMedium } from "lucide-react";
 import dm8Logo from "../../../assets/dm8_incl_text.png";
 import type { BaseEntity, TreeNode } from "../model-types";
 
@@ -35,7 +36,8 @@ type SidebarProps = {
   canReload?: boolean;
   onAddEntity: () => void;
   canAddEntity?: boolean;
-  onToggleTheme: () => void;
+  onCycleTheme: () => void;
+  theme: Theme;
   resolvedTheme: "light" | "dark";
   saveNotification?: { status: "saved" | "bulk-saved" | "failed"; label: string } | null;
   modelTreeLoading?: boolean;
@@ -74,7 +76,8 @@ export function Sidebar({
   canReload = true,
   onAddEntity,
   canAddEntity = true,
-  onToggleTheme,
+  onCycleTheme,
+  theme,
   resolvedTheme,
   saveNotification,
   modelTreeLoading = false,
@@ -224,11 +227,16 @@ export function Sidebar({
         <button
           type="button"
           className="sidebar__theme-toggle"
-          onClick={onToggleTheme}
-          aria-label={resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          title={resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          onClick={onCycleTheme}
+          aria-label={`Theme: ${theme === "system" ? `System, currently ${resolvedTheme}` : theme}; switch to ${theme === "system" ? "light" : theme === "light" ? "dark" : "system"}`}
+          title={`Theme: ${theme === "system" ? `System (currently ${resolvedTheme})` : theme} · click to switch`}
         >
-          {resolvedTheme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
+          {theme === "system" ? (
+            <span className="sidebar__theme-system-icon" aria-hidden>
+              {resolvedTheme === "dark" ? <MoonStar className="h-4 w-4" /> : <SunMedium className="h-4 w-4" />}
+              <Monitor className="sidebar__theme-system-badge" />
+            </span>
+          ) : theme === "dark" ? <MoonStar className="h-4 w-4" /> : <SunMedium className="h-4 w-4" />}
         </button>
         {saveNotification ? (
           <div

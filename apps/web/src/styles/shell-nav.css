@@ -362,6 +362,27 @@ body {
   background: color-mix(in srgb, hsl(var(--ui-foreground)) 6%, transparent);
 }
 
+.sidebar__theme-system-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar__theme-system-badge {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  width: 14px;
+  height: 14px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--sidebar-surface-bg);
+  stroke-width: 2;
+}
+
 .sidebar__save-pill {
   min-height: 26px;
   max-width: 120px;

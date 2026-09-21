@@ -327,7 +327,7 @@ test("light editor surfaces are uniformly white while dark surfaces stay unchang
   await expectBackground(baseFormSurface, "rgb(255, 255, 255)");
 
   await page.screenshot({ path: testInfo.outputPath("editor-surfaces-light.png") });
-  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.getByRole("button", { name: /switch to dark/i }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expectBackground(baseFormSurface, "rgb(39, 39, 39)");
 });
@@ -401,7 +401,7 @@ test("schema review groups changes without overflowing or repeating source detai
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.getByRole("button", { name: /switch to dark/i }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: "Refresh schemas" }).click();
   const darkDialog = page.getByRole("dialog");

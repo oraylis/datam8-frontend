@@ -162,7 +162,7 @@ test("External source refresh opens the shared dialog with only the clicked sour
   await expect(productRow.getByRole("checkbox")).not.toBeChecked();
 
   await dialog.getByRole("button", { name: "Cancel" }).click();
-  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.getByRole("button", { name: /switch to dark/i }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: "Refresh schema", exact: true }).click();
   await dialog.screenshot({ path: "output/playwright/external-schema-grouping-dark.png" });

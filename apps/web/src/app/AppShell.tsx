@@ -373,7 +373,7 @@ export function AppShell() {
     onSaveNotification: showSaveNotification,
     onBulkDraftCleanup: clearDraftsForBulkSave,
   });
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const isWindowsElectron = window.desktop?.isElectron && window.desktop?.platform === "win32";
   const {
     generatorTarget,
@@ -2063,14 +2063,14 @@ export function AppShell() {
     [deleteModelEntities, selectedRelPaths, solutionPath],
   );
 
-  const handleToggleTheme = useCallback(() => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-  }, [resolvedTheme, setTheme]);
+  const handleCycleTheme = useCallback(() => {
+    setTheme(theme === "system" ? "light" : theme === "light" ? "dark" : "system");
+  }, [setTheme, theme]);
 
   useEffect(() => {
     if (!window.desktop?.isElectron || !window.desktop?.theme?.setCurrent) return;
-    void window.desktop.theme.setCurrent(resolvedTheme);
-  }, [resolvedTheme]);
+    void window.desktop.theme.setCurrent(theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!isWindowsElectron) return;
@@ -2274,7 +2274,8 @@ export function AppShell() {
               setWizardOpen(true);
             }}
             canAddEntity={!!solution && !solutionLoading}
-            onToggleTheme={handleToggleTheme}
+            onCycleTheme={handleCycleTheme}
+            theme={theme}
             resolvedTheme={resolvedTheme}
             saveNotification={saveNotification}
             modelTreeLoading={solutionLoading}

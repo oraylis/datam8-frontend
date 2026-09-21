@@ -35,7 +35,8 @@ let backendToken: string | null = crypto.randomBytes(24).toString("hex");
 let backendVersion: string | null = null;
 let backendStartPromise: Promise<void> | null = null;
 let backendSolutionPath: string | null = null;
-let currentAppTheme: "light" | "dark" = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+type AppTheme = "light" | "dark" | "system";
+let currentAppTheme: AppTheme = "system";
 let applicationMenu: Menu | null = null;
 const BACKEND_HOST = "127.0.0.1";
 const BACKEND_PORT = 4318;
@@ -141,9 +142,13 @@ function getWindowsChromeColors(theme: "light" | "dark") {
   };
 }
 
-function syncWindowsTitleBarTheme(targetWindow: BrowserWindow | null, theme: "light" | "dark" = currentAppTheme) {
+function resolvedAppTheme(theme: AppTheme): "light" | "dark" {
+  return theme === "system" ? (nativeTheme.shouldUseDarkColors ? "dark" : "light") : theme;
+}
+
+function syncWindowsTitleBarTheme(targetWindow: BrowserWindow | null, theme: AppTheme = currentAppTheme) {
   if (!targetWindow || process.platform !== "win32") return;
-  const colors = getWindowsChromeColors(theme);
+  const colors = getWindowsChromeColors(resolvedAppTheme(theme));
   targetWindow.setBackgroundColor(colors.backgroundColor);
   targetWindow.setTitleBarOverlay({
     color: colors.overlayColor,
@@ -1383,12 +1388,12 @@ async function createWindow() {
     ...(process.platform === "win32"
       ? {
         titleBarOverlay: {
-          color: getWindowsChromeColors(currentAppTheme).overlayColor,
-          symbolColor: getWindowsChromeColors(currentAppTheme).symbolColor,
+          color: getWindowsChromeColors(resolvedAppTheme(currentAppTheme)).overlayColor,
+          symbolColor: getWindowsChromeColors(resolvedAppTheme(currentAppTheme)).symbolColor,
           height: 36,
         },
         autoHideMenuBar: true,
-        backgroundColor: getWindowsChromeColors(currentAppTheme).backgroundColor,
+        backgroundColor: getWindowsChromeColors(resolvedAppTheme(currentAppTheme)).backgroundColor,
       }
       : {}),
     trafficLightPosition: undefined,
@@ -1662,10 +1667,10 @@ ipcMain.handle("menu:popup-submenu", (_event, label: string | null | undefined, 
   return true;
 });
 
-ipcMain.handle("theme:get-current", () => (nativeTheme.shouldUseDarkColors ? "dark" : "light"));
+ipcMain.handle("theme:get-current", () => currentAppTheme);
 
 ipcMain.handle("theme:set-current", (_event, theme: string | null | undefined) => {
-  currentAppTheme = theme === "light" ? "light" : "dark";
+  currentAppTheme = theme === "light" || theme === "dark" || theme === "system" ? theme : "system";
   syncWindowsTitleBarTheme(mainWindow, currentAppTheme);
   return true;
 });

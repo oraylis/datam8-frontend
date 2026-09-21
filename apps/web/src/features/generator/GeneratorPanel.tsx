@@ -3,10 +3,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -14,7 +10,7 @@ import {
   SelectValue,
   cn,
 } from "@datam8/ui";
-import { ChevronDown, Loader2, Play, ShieldCheck, X } from "lucide-react";
+import { Loader2, Play, X } from "lucide-react";
 
 type GeneratorLogLevel = "debug" | "info" | "warning" | "error" | "critical";
 
@@ -25,7 +21,6 @@ const stripAnsi = (str: string) =>
 export function GeneratorPanel({
   targets,
   onRun,
-  onValidate,
   onClose,
   running,
   selectedTarget,
@@ -38,7 +33,6 @@ export function GeneratorPanel({
 }: {
   targets: string[];
   onRun: () => void;
-  onValidate: () => void;
   onClose: () => void;
   running: boolean;
   selectedTarget: string;
@@ -87,12 +81,7 @@ export function GeneratorPanel({
               </SelectContent>
             </Select>
             <div className="ml-auto inline-flex shrink-0" data-testid="generator-actions">
-              <Button
-                size="sm"
-                className="min-w-[120px] rounded-r-none"
-                onClick={onRun}
-                disabled={!selectedTarget || running}
-              >
+              <Button size="sm" className="min-w-[120px]" onClick={onRun} disabled={!selectedTarget || running}>
                 {running ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -105,24 +94,6 @@ export function GeneratorPanel({
                   </>
                 )}
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="rounded-l-none border-l border-primary-foreground/20 px-2"
-                    disabled={running}
-                    aria-label="More generator actions"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={onValidate}>
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    Validate only
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
           <Button

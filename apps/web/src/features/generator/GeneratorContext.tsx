@@ -17,7 +17,6 @@ type GeneratorContextValue = {
   setGeneratorTarget: (value: string) => void;
   setGeneratorLogLevel: (value: GeneratorLogLevel) => void;
   runGenerator: (targetOverride?: string) => Promise<void>;
-  runValidation: () => Promise<void>;
 };
 
 type GenerateResponse = {
@@ -212,29 +211,6 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
     [generatorLogLevel, generatorTarget, generatorTargets, showError, solutionPath],
   );
 
-  const runValidation = useCallback(async () => {
-    if (runInFlightRef.current) return;
-
-    runInFlightRef.current = true;
-    setGeneratorRunning(true);
-    setGeneratorLog("Validation\n");
-    setGeneratorStderr(null);
-    setGeneratorError(null);
-    setGeneratorExit(null);
-
-    try {
-      throw new Error("Validate is not available in the pinned Generator API. No frontend fallback is implemented.");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "An unknown error occurred";
-      setGeneratorError(message);
-      setGeneratorLog((prev) => `${prev.trim()}\n\nError: ${message}`);
-      setGeneratorExit(1);
-    } finally {
-      runInFlightRef.current = false;
-      setGeneratorRunning(false);
-    }
-  }, []);
-
   return (
     <GeneratorContext.Provider
       value={{
@@ -249,7 +225,6 @@ export function GeneratorProvider({ children }: { children: React.ReactNode }) {
         setGeneratorTarget,
         setGeneratorLogLevel,
         runGenerator,
-        runValidation,
       }}
     >
       {children}

@@ -627,26 +627,6 @@ async function migrateSolutionViaCli(params: { sourceSolutionPath: string; targe
   return targetSolutionPath;
 }
 
-async function validateSolutionViaCli(params: { solutionPath: string; logLevel?: string }): Promise<{ success: boolean; message: string; messages: string[] }> {
-  const solutionPath = normalizeExistingFilePath(params.solutionPath);
-  const pythonPath = resolvePythonRuntimePath();
-  if (!pythonPath) throw new Error("Python runtime not found.");
-  const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
-
-  const args = ["validate", "--solution", solutionPath];
-  const logLevel = `${params.logLevel || ""}`.trim();
-  if (logLevel) {
-    args.push("--log-level", logLevel);
-  }
-  const result = runPythonCli(pythonPath, backendModule, args);
-  const deduped = parseCliOutputLines(result);
-  return {
-    success: true,
-    message: deduped[0] || "Validation successful.",
-    messages: deduped.length ? deduped : ["Validation successful."],
-  };
-}
-
 function parseCliOutputLines(result: { stdout: string; stderr: string }): string[] {
   const stdout = `${result.stdout || ""}`.trim();
   const stderr = `${result.stderr || ""}`.trim();
@@ -1620,13 +1600,6 @@ ipcMain.handle(
   "solution:rename-folder",
   (_event, payload: { fromFolderPath: string; toFolderPath: string; solutionPath?: string }) => {
     return renameFolderOnDisk(payload);
-  },
-);
-
-ipcMain.handle(
-  "solution:validate",
-  async (_event, payload: { solutionPath: string; logLevel?: string }) => {
-    return await validateSolutionViaCli(payload);
   },
 );
 

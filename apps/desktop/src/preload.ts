@@ -61,8 +61,6 @@ contextBridge.exposeInMainWorld("desktop", {
       ipcRenderer.invoke("solution:delete-function-source", payload),
     renameFolder: (payload: { fromFolderPath: string; toFolderPath: string; solutionPath?: string }) =>
       ipcRenderer.invoke("solution:rename-folder", payload),
-    validate: (payload: { solutionPath: string; logLevel?: string }) =>
-      ipcRenderer.invoke("solution:validate", payload),
     generate: (payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) =>
       ipcRenderer.invoke("solution:generate", payload),
     onOpenPath: (callback: (path: string) => void) => {

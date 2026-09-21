@@ -180,26 +180,6 @@ body {
   height: min(360px, 45vh);
 }
 
-.validator-panel {
-  min-height: 0;
-}
-
-.validator-drawer {
-  border-radius: var(--panel-radius);
-  border-color: var(--panel-border-color);
-  background: var(--panel-bg);
-  box-shadow: var(--panel-shadow);
-  overflow: hidden;
-}
-
-.validator-drawer--collapsed {
-  height: 64px;
-}
-
-.validator-drawer--expanded {
-  height: min(320px, 42vh);
-}
-
 .run-panel-shell {
   max-height: 0;
   opacity: 0;

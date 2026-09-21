@@ -386,7 +386,6 @@ export function AppShell() {
     setGeneratorTarget,
     setGeneratorLogLevel,
     runGenerator,
-    runValidation,
   } = useGenerator();
   const [activeRunPanel, setActiveRunPanel] = useState<"generator" | null>(null);
   const [globalRefreshOpen, setGlobalRefreshOpen] = useState(false);
@@ -2477,7 +2476,6 @@ export function AppShell() {
                 selectedLogLevel={generatorLogLevel}
                 onSelectLogLevel={setGeneratorLogLevel}
                 onRun={runGenerator}
-                onValidate={runValidation}
                 onClose={() => setActiveRunPanel(null)}
                 running={generatorRunning}
                 log={generatorLog}

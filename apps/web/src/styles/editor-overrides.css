@@ -716,14 +716,12 @@
   background: #181818;
 }
 
-.dark .generator-drawer,
-.dark .validator-drawer {
+.dark .generator-drawer {
   background: #181818;
   border-color: #2e2e2e;
 }
 
-.dark .generator-panel__output,
-.dark .validator-panel__output {
+.dark .generator-panel__output {
   background: #212121;
   border-color: #3f3f3f;
 }

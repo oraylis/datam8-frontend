@@ -10,7 +10,7 @@ type Diagnostics = {
   endpointHits: Map<string, number>;
 };
 
-const endpointKeys = ["/solution/full", "/entities/", "/entities/move", "/model/reload", "/validate", "/generate"];
+const endpointKeys = ["/solution/full", "/entities/", "/entities/move", "/model/reload", "/generate"];
 
 function endpointKeyFor(url: string): string | null {
   for (const key of endpointKeys) {
@@ -68,7 +68,7 @@ async function openSolution(page: import("@playwright/test").Page, dm8sPath: str
 test.describe.serial("release suite (real sample, no API mocks)", () => {
   test.skip(!solutionPath, "Set DATAM8_RELEASE_SOLUTION_PATH to run release tests.");
 
-  test("open, rename, move, reload, validate, generate", async ({ page }) => {
+  test("open, rename, move, reload, generate", async ({ page }) => {
     const diagnostics = attachDiagnostics(page);
     await openSolution(page, solutionPath);
 
@@ -101,10 +101,6 @@ test.describe.serial("release suite (real sample, no API mocks)", () => {
 
     await page.getByRole("button", { name: "Reload" }).first().click();
     await expect.poll(() => diagnostics.endpointHits.get("/model/reload") || 0, { timeout: 20_000 }).toBeGreaterThan(0);
-
-    const validatorPanel = page.locator(".panel").filter({ hasText: "Validator" }).first();
-    await validatorPanel.getByRole("button", { name: "Run" }).click();
-    await expect.poll(() => diagnostics.endpointHits.get("/validate") || 0, { timeout: 30_000 }).toBeGreaterThan(0);
 
     const generatorPanel = page.locator(".panel").filter({ hasText: "Generator" }).first();
     await generatorPanel.getByRole("button", { name: "Run" }).click();

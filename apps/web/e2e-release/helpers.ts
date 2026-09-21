@@ -16,7 +16,6 @@ const endpointKeys = [
   "/entities/move",
   "/model/reload",
   "/model/save",
-  "/validate",
   "/generate",
 ];
 

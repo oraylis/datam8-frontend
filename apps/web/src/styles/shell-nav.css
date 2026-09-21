@@ -1364,8 +1364,7 @@ body {
   transform: none;
 }
 
-.generator-drawer,
-.validator-drawer {
+.generator-drawer {
   border-radius: 0;
   border-color: color-mix(in srgb, hsl(var(--ui-border)) 82%, transparent);
   background: color-mix(in srgb, hsl(var(--ui-surface-workspace)) 93%, transparent);

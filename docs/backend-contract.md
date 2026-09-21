@@ -87,7 +87,7 @@ Frontend may receive optional metadata fields from source/plugin endpoints:
 
 ## Known API Gaps
 
-- Validate: no `/validate` route is registered in the pinned Generator API.
+- The frontend does not expose a separate solution-validation flow; validation is performed as part of the synchronous Generate workflow.
 - Function create: no server route exists; Electron creates the initial empty
   source file through its constrained solution file bridge.
 - Function delete: no server route exists; Electron deletes the source file

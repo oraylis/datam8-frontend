@@ -192,9 +192,6 @@ async function mockApi(
     await route.fulfill({ json: { item: {} } });
   });
 
-  await page.route("**/validate**", async (route) => {
-    await route.fulfill({ json: { messages: ["Validation successful"], solutionPath: "/tmp/mock.dm8s" } });
-  });
 }
 
 async function mockSchemaReviewMetadata(page: import("@playwright/test").Page) {
@@ -259,7 +256,7 @@ test("workspace header run buttons stay vertically centered", async ({ page }) =
   await expect(runActions).toBeVisible();
   await expect(generatorButton).toBeVisible();
   await expect(refreshButton).toBeVisible();
-  await expect(page.locator('button[aria-label="Toggle validator"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "More generator actions" })).toHaveCount(0);
 
   const headerBox = await header.boundingBox();
   const tabsBox = await tabs.boundingBox();
@@ -414,7 +411,7 @@ test("schema review groups changes without overflowing or repeating source detai
   await expectReviewInsideDialog(darkDialog);
 });
 
-test("generator exposes validate only from its split action", async ({ page }) => {
+test("generator exposes only the generate action", async ({ page }) => {
   await mockApi(page);
   await loadSolutionFromDialog(page);
 
@@ -452,8 +449,6 @@ test("generator exposes validate only from its split action", async ({ page }) =
     return alignedRightEdges;
   }).toBeLessThanOrEqual(2);
   await panel.screenshot({ path: "output/playwright/generator-toolbar-visual.png" });
-  await panel.getByRole("button", { name: "More generator actions" }).click();
-  await page.getByRole("menuitem", { name: "Validate only" }).click();
-  await expect(panel.getByText(/Validate is not available in the pinned Generator API\./)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "More generator actions" })).toHaveCount(0);
 });
 

@@ -1,0 +1,161 @@
+﻿name: Build Desktop (Artifacts)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install uv
+        run: python -m pip install --upgrade uv
+
+      - name: Install
+        run: npm ci
+
+      - name: Ensure Rollup native deps
+        run: npm run ci:ensure-rollup-native
+
+      - name: Build datam8 backend wheel
+        run: npm run build:datam8-binaries
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: CI gates (backend smoke)
+        run: npm run ci:gates
+
+      - name: Build web (electron mode)
+        run: npm run build:web:electron
+
+      - name: Upload web dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-web-dist
+          path: apps/web/dist
+          if-no-files-found: error
+
+  package-desktop:
+    name: Build desktop (${{ matrix.os }})
+    needs: [quality]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: npm ci
+
+      - name: Ensure Rollup native deps
+        run: npm run ci:ensure-rollup-native
+
+      - name: Build packaged Python runtime
+        run: npm run build:python-runtime
+
+      - name: Download web dist
+        uses: actions/download-artifact@v4
+        with:
+          name: internal-web-dist
+          path: apps/web/dist
+
+      - name: Package desktop (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm --workspace apps/desktop run package:win
+
+      - name: Package desktop (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm --workspace apps/desktop run package:mac
+
+      - name: Package desktop (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm --workspace apps/desktop run package:linux
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+
+          const repoRoot = process.cwd();
+          const releaseDir = path.join(repoRoot, "apps", "desktop", "release");
+          const outDir = path.join(repoRoot, "apps", "desktop", "release-artifacts");
+
+          fs.rmSync(outDir, { recursive: true, force: true });
+          fs.mkdirSync(outDir, { recursive: true });
+
+          if (!fs.existsSync(releaseDir) || !fs.statSync(releaseDir).isDirectory()) {
+            console.error(`Release directory does not exist: ${releaseDir}`);
+            process.exit(1);
+          }
+
+          const entries = fs.readdirSync(releaseDir, { withFileTypes: true });
+          let copied = 0;
+          for (const entry of entries) {
+            if (!entry.isFile()) continue;
+            const src = path.join(releaseDir, entry.name);
+            const dst = path.join(outDir, entry.name);
+            fs.copyFileSync(src, dst);
+            copied += 1;
+          }
+
+          if (!copied) {
+            console.error(`No top-level artifact files found in ${releaseDir}`);
+            process.exit(1);
+          }
+
+          console.log(`Collected ${copied} artifact file(s) into ${outDir}`);
+          NODE
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: apps/desktop/release-artifacts
+          if-no-files-found: error

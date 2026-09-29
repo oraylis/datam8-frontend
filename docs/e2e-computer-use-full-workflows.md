@@ -21,15 +21,15 @@ This is the non-CI acceptance run for the real visible app. It must use Computer
 
 Record `PASS` or `FAIL` for each item and capture screenshots for the main states: opened solution, Base editor, Model editor, wizard, folder editor, and generator.
 
-- Open solution: tree, Base tab, Model tab, Generator panel and global schema refresh action are visible.
+- Open solution: tree, Base tab, Model tab, Generator panel and global data source refresh action are visible.
 - Base CRUD: add, edit, and delete one item in Attribute Types, Data Types, Data Sources, Data Source Types, Data Products, Zones, Properties, and Property Values.
 - Property refactor: rename a Property and confirm assignments update; rename a Property Value; move a Property Value to another Property; delete the temporary Property Value and Property.
 - Folder refactor: rename a Zone folder; create a Model folder; edit folder metadata; rename the folder; delete the temporary folder.
 - Data Product refactor: rename a temporary Data Product and, if a module is present, rename a temporary Data Module.
 - Model CRUD: create an entity with the wizard; add/edit an attribute; rename the entity; move it to another folder; duplicate it; delete the original and duplicate.
-- Source/Connector flow: open Data Sources and Data Source Types; load connector metadata if available; open table/schema/preview UI from the wizard; run Refresh Schemas if the sample backend exposes a compatible source.
+- Source/Connector flow: open Data Sources and Data Source Types; load connector metadata if available; open table/schema/preview UI from the wizard; run Refresh data sources if the sample backend exposes a compatible source.
 - Transformation flow: add or open a function transformation; open source code; edit and save source; rename the transformation; reorder it; delete it and confirm the source file behavior.
-- Global actions: Reload, Generate, and Refresh schemas.
+- Global actions: Reload, Generate, and Refresh data sources.
 
 ## Required Checks
 

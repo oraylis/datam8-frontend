@@ -111,6 +111,7 @@ type SourceDialogState = {
   zone: string;
   entityName: string;
   sourceLocation: string | number;
+  metadataLocation: string;
   dataSource: string;
   sourceAlias: string;
   mapping?: any[];
@@ -592,8 +593,8 @@ const ExternalSourceCard = ({
         </div>
         <div className="actions actions--tight">
           <IconBtn
-            title="Refresh schema"
-            aria-label="Refresh schema"
+            title="Refresh external source"
+            aria-label="Refresh external source"
             disabled={!source.dataSource}
             onClick={() => onRefreshSchema(index)}
           >
@@ -697,6 +698,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
         zone: "",
         entityName: "",
         sourceLocation: "",
+        metadataLocation: "",
         dataSource: "",
         sourceAlias: "",
       });
@@ -710,6 +712,7 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
       zone: source.zone || target?.zone || "",
       entityName: source.name || target?.name || "",
       sourceLocation: source.sourceLocation ?? "",
+      metadataLocation: source.metadataLocation || "",
       dataSource: source.dataSource || "",
       sourceAlias: source.sourceAlias || "",
       mapping: source.mapping,
@@ -744,11 +747,13 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
     } else {
       const dataSource = sourceDialog.dataSource.trim();
       const sourceLocation = typeof sourceDialog.sourceLocation === "string" ? sourceDialog.sourceLocation.trim() : sourceDialog.sourceLocation;
+      const metadataLocation = sourceDialog.metadataLocation.trim();
       if (!dataSource || !sourceLocation) return;
       nextSource = {
         type: "external",
         dataSource,
         sourceLocation,
+        metadataLocation: metadataLocation || undefined,
         ...(sourceDialog.sourceAlias.trim() ? { sourceAlias: sourceDialog.sourceAlias.trim() } : {}),
         ...(sourceDialog.mapping?.length ? { mapping: sourceDialog.mapping } : {}),
         ...(sourceDialog.externalMeta ? { __uiExternalMeta: sourceDialog.externalMeta } : {}),
@@ -915,6 +920,14 @@ export const EntitySourcesEditor = forwardRef<EntitySourcesEditorHandle, EntityS
                   placeholder="crm_db.dbo.orders, file path, etc."
                   value={`${sourceDialog.sourceLocation ?? ""}`}
                   onChange={(event) => setSourceDialog((draft) => draft ? { ...draft, sourceLocation: event.target.value } : draft)}
+                />
+              </div>
+              <div>
+                <label>Metadata location</label>
+                <Input
+                  placeholder="Contract or metadata object"
+                  value={sourceDialog.metadataLocation}
+                  onChange={(event) => setSourceDialog((draft) => draft ? { ...draft, metadataLocation: event.target.value } : draft)}
                 />
               </div>
               <div>

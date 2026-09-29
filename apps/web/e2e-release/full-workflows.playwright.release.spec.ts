@@ -596,7 +596,7 @@ test.describe.serial("full frontend workflow release suite (Playwright only, cop
       await page.getByRole("textbox", { name: "Filter model entities" }).fill("");
       await page.getByRole("tab", { name: "Base" }).click();
       await page.getByRole("button", { name: "Data Sources", exact: true }).click();
-      const refreshButton = page.getByRole("button", { name: /Refresh Schemas|Refresh schemas/ }).first();
+      const refreshButton = page.getByRole("button", { name: "Refresh data sources" }).first();
       if (await refreshButton.isVisible().catch(() => false)) {
         await refreshButton.click();
         await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10_000 });

@@ -31,7 +31,7 @@ Die Werte sind einzelne sichtbare UI-Laeufe und dienen als Baseline, nicht als h
 | Base-Scope | 872 ms | PASS |
 | Base-Kategorien nacheinander oeffnen | 722-1,008 ms | PASS fuer alle 8 Kategorien |
 | Data-Source-Editor `edwh-drillisch-prod` | 1,596 ms | PASS; Secret sichtbar als verfuegbar |
-| Refresh-Schemas-Dialog | 2,659 ms | PASS; 10 Quellen sichtbar |
+| Refresh-Data-Sources-Dialog | 2,659 ms | PASS; 10 Quellen sichtbar |
 | Schema-Scan | 21,352 ms bis Review | PASS; 49 Aenderungen erkannt |
 | Review-Gruppen expandieren | 1,740 ms | PASS |
 | Connection-Validation | 7,413 ms | PASS; `Connection settings are valid.` |
@@ -81,7 +81,7 @@ Dabei wurden Listen mit mehreren Items, expandierte Property-Value-Gruppen, Edit
 - `edwh-drillisch-prod` als SQLServer-Data-Source geoeffnet
 - Secret-Status: `Secret available`
 - Connection-Test erfolgreich
-- Refresh-Schemas-Dialog geoeffnet
+- Refresh-Data-Sources-Dialog geoeffnet
 - 10 Source-Entities ausgewaehlt und gescannt
 - 49 Schema-Aenderungen in Review dargestellt
 - Review-Gruppen expandiert

@@ -1,9 +1,8 @@
 # Backend Contract (Frontend Consumer View)
 
 Canonical source of truth is maintained in `submodules/datam8-generator/docs/backend-contract.md`.
-For the v2 beta port migration the frontend is pinned to Generator commit
-`1ebe33bb7341856559352497606d07841af1f0e9`; the implemented routes in that
-commit are authoritative when the generator document differs.
+The frontend is pinned to the DataM8 Generator `v2.0.0-beta.4` release; the
+canonical generator document is authoritative when this mirror differs.
 
 ## Startup
 
@@ -81,9 +80,35 @@ Frontend may receive optional metadata fields from source/plugin endpoints:
 - Location list (`GET /sources/{id}/locations`): plugin-specific objects for schemas, tables, directories, containers, or blobs.
 - Location metadata (`GET /sources/{id}/locations/metadata?source_location=...`): `items: SourceField[]`
 - Location preview (`GET /sources/{id}/locations/preview?source_location=...&limit=...`): `items: Record<string, unknown>[]`
-- The frontend treats `sourceLocation` as the canonical identifier across browsing, selection, metadata, preview, and schema refresh.
+- Browsing and preview use the connector's selected location. After import, `sourceLocation`
+  identifies the data read location; schema refresh uses `metadataLocation` when present,
+  otherwise `sourceLocation` is also used as the metadata handle.
 - The Brokerage SQL Server plugin implements the v2 locations and metadata
   contract directly; the Generator does not adapt legacy plugin signatures.
+
+### Source import and refresh
+
+- Connector plugins may return authoritative external-source mappings through
+  `get_sources(source_location)` as a list of dictionaries, one per source-column mapping.
+- The returned list may include `sourceProperties` for the external source and
+  `mappingProperties` and `sourceDataType` for the individual source-column mapping.
+  A row may set `metadataLocation` to use a contract-specific metadata handle for its
+  external source; otherwise the selected import handle is used.
+- `sourceProperties` may be supplied on any one row for a source or repeated with the
+  same value on its rows; conflicting values are rejected.
+- Rows form an external source when `sourceLocation`, `sourceAlias`, and
+  `metadataLocation` match. Omitted source columns are not mapped.
+- `ExternalModelSource.metadataLocation` is the optional connector metadata handle;
+  `sourceLocation` remains the data read location. Sources may share one metadata
+  location, which is queried once during refresh. When `metadataLocation` is absent,
+  `sourceLocation` is also used as the metadata handle.
+- The read-only import-description endpoint returns a plugin-generated entity for
+  connector imports; the web wizard saves it after applying user-entered overrides.
+- Complete source refresh remains the default. Source-only refresh is an explicit
+  mode and must not change model attributes or entity-level properties.
+- Refresh selection is entity-wide: all of an entity's metadata locations are
+  queried. The generator contract defines conflict handling and authoritative
+  replacement of external-source properties and mappings.
 
 ## Known API Gaps
 

@@ -141,6 +141,7 @@ export const normalizeSourcesForSave = (list: any[] | undefined) =>
         out.dataSource = dataSource;
         if (src?.sourceAlias) out.sourceAlias = src.sourceAlias;
         out.sourceLocation = sourceLocation;
+        if (asNonEmptyString(src?.metadataLocation)) out.metadataLocation = src.metadataLocation;
         if (properties.length) out.properties = properties;
         if (mapping.length) out.mapping = mapping;
         return out;

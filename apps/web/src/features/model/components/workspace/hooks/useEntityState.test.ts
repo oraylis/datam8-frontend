@@ -118,6 +118,16 @@ describe("normalizeSourcesForSave", () => {
       { dataSource: "crm", sourceLocation: "dbo.Customer", mapping: [{ sourceName: "Id", targetName: "CustomerId" }] },
     ]);
   });
+
+  it("persists optional external metadata locations", () => {
+    expect(normalizeSourcesForSave([
+      { dataSource: "crm", sourceLocation: "dbo.Customer", metadataLocation: "contracts/customer" },
+      { dataSource: "crm", sourceLocation: "dbo.Orders", metadataLocation: "" },
+    ])).toEqual([
+      { dataSource: "crm", sourceLocation: "dbo.Customer", metadataLocation: "contracts/customer" },
+      { dataSource: "crm", sourceLocation: "dbo.Orders" },
+    ]);
+  });
 });
 
 describe("normalizeOptionalStringField", () => {

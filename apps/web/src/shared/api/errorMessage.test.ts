@@ -2,8 +2,21 @@ import { describe, expect, it } from "vitest";
 import { compactErrorMessage, readBackendErrorMessage } from "./errorMessage";
 
 describe("readBackendErrorMessage", () => {
-  it("reads message before detail", () => {
-    expect(readBackendErrorMessage({ message: "Backend failed", detail: "Details" }, "Fallback")).toBe("Backend failed");
+  it("returns the API message unchanged and prefers it over detail", () => {
+    const message = "  Backend failed\nwhile reading the source  ";
+    expect(readBackendErrorMessage({ message, detail: "Details" }, "Fallback")).toBe(message);
+  });
+
+  it("reads detail when message is absent", () => {
+    expect(readBackendErrorMessage({ detail: "FastAPI detail" }, "Fallback")).toBe("FastAPI detail");
+  });
+
+  it("reads error when message and detail are absent", () => {
+    expect(readBackendErrorMessage({ error: "File was not found" }, "Fallback")).toBe("File was not found");
+  });
+
+  it("uses fallback when the response has no recognized message", () => {
+    expect(readBackendErrorMessage({ code: "unexpected" }, "Failed with HTTP 500")).toBe("Failed with HTTP 500");
   });
 });
 

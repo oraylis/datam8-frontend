@@ -1,6 +1,8 @@
 import { normalizeDataTypeForSave } from "../utils/sourceNormalization";
 
 export type ColumnSchemaChangeType =
+  | "SOURCE_CHANGED"
+  | "ENTITY_CHANGED"
   | "NEW_COLUMN"
   | "REMOVED_COLUMN"
   | "TYPE_CHANGED"

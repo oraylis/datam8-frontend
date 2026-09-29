@@ -140,10 +140,10 @@ test("External source refresh opens the shared dialog with only the clicked sour
   await page.getByRole("button", { name: "Sources", exact: true }).click();
   await expect(page.getByRole("button", { name: "Open data source" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Adopt Schema" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Refresh schema", exact: true }).click();
+  await page.getByRole("button", { name: "Refresh external source", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("heading", { name: "Refresh schemas" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Refresh data source: SalesDwh" })).toBeVisible();
   const customerRow = dialog.getByRole("row").filter({ hasText: "Customer" });
   const productRow = dialog.getByRole("row").filter({ hasText: "Product" });
   await expect(customerRow).toBeVisible();
@@ -164,7 +164,7 @@ test("External source refresh opens the shared dialog with only the clicked sour
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("button", { name: /switch to dark/i }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("button", { name: "Refresh schema", exact: true }).click();
+  await page.getByRole("button", { name: "Refresh external source", exact: true }).click();
   await dialog.screenshot({ path: "output/playwright/external-schema-grouping-dark.png" });
 });
 

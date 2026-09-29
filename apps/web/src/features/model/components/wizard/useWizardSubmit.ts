@@ -1,4 +1,5 @@
 import type React from "react";
+import { apiBase } from "../../../../config";
 import type { PropertyAssignment } from "@datam8/types";
 import { useCallback, useRef, useState } from "react";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
@@ -623,6 +624,36 @@ export function useWizardSubmit(deps: SubmitDeps) {
               const relPath = `Model/${folderPath}/${entityName}.json`;
               const locator = modelLocatorFromRelPath(relPath);
               if (!firstRelPath) firstRelPath = relPath;
+
+              const importParams = new URLSearchParams({ source_location: tableName });
+              const importResponse = await fetch(
+                `${apiBase}/sources/${encodeURIComponent(selectedSource)}/locations/import-description?${importParams}`,
+              );
+              if (!importResponse.ok) {
+                const payload = await importResponse.json().catch(() => ({}));
+                throw new Error(readBackendErrorMessage(payload, "Failed to describe imported entity"));
+              }
+              const importDescription = await importResponse.json() as { entity?: Record<string, any> | null };
+              if (importDescription.entity) {
+                const imported = importDescription.entity;
+                createdEntities.push({
+                  locator,
+                  relPath,
+                  name: entityName,
+                  content: {
+                    ...imported,
+                    id: currentMaxId,
+                    name: entityName,
+                    displayName: entityName,
+                    description: values.tableDescriptions?.[tableName] || imported.description || "",
+                    properties: values.tableProperties?.[tableName]?.length
+                      ? values.tableProperties[tableName]
+                      : imported.properties,
+                  },
+                });
+                metadataByRelPath.set(relPath, metadata);
+                continue;
+              }
 
               const nowIso = new Date().toISOString();
               const attributes = metadata.columns.map((col, idx) =>

@@ -477,6 +477,7 @@ export function AppShell() {
       if (!result) return;
       if (options?.resetWorkspace) {
         closeAllTabs();
+        void refreshConnectorCatalog();
       }
       clearAllDrafts();
       setModelEntities(result.modelEntities);
@@ -2354,8 +2355,8 @@ export function AppShell() {
                   type="button"
                   className="icon-btn workspace-header__run-toggle"
                   onClick={() => setGlobalRefreshOpen(true)}
-                  aria-label="Refresh schemas"
-                  title="Refresh schemas"
+                  aria-label="Refresh data sources"
+                  title="Refresh data sources"
                 >
                   <RefreshCw className="workspace-header__run-icon h-4 w-4" />
                 </button>

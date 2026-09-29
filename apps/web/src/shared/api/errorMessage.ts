@@ -2,8 +2,7 @@ type JsonRecord = Record<string, unknown>;
 
 function asNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  return value.trim().length > 0 ? value : null;
 }
 
 function readDetail(detail: unknown): string | null {
@@ -33,6 +32,9 @@ export function readBackendErrorMessage(payload: unknown, fallback: string): str
 
   const detail = readDetail(obj.detail);
   if (detail) return detail;
+
+  const error = asNonEmptyString(obj.error);
+  if (error) return error;
 
   return fallback;
 }

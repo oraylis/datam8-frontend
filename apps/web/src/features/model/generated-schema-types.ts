@@ -451,6 +451,7 @@ export interface ExternalModelSource {
   dataSource: string;
   sourceAlias?: string;
   sourceLocation: string;
+  metadataLocation?: string;
   properties?: PropertyReference[];
   mapping?: SourceAttributeMapping[];
 }

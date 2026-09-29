@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyColumnSchemaChangesToEntityContent } from "./schemaRefreshApply";
+import {
+  applyColumnSchemaChangesToEntityContent,
+} from "./schemaRefreshApply";
 
 describe("applyColumnSchemaChangesToEntityContent", () => {
   it("adds new source columns to attributes and source mapping", () => {

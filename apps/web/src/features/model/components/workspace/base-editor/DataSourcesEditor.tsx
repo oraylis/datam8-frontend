@@ -447,7 +447,7 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
                     style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
                     <RefreshCw className="h-4 w-4" />
-                    Refresh schema
+                    Refresh data source
                   </ActionButton>
                 ) : null}
                 {canValidateConnection ? (

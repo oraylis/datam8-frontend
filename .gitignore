@@ -3,6 +3,8 @@ node_modules
 .pnp.*
 .npm
 .cache
+.playwright-cli/
+output/playwright/
 dist
 artifacts
 

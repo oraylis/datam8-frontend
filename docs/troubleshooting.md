@@ -40,15 +40,19 @@ Fix:
 
 ## Autosave fails or does not trigger
 
-### Symptom: `Save failed` banner is visible
+### Symptom: transient `Save failed` status or dirty tab
 
 Checks:
-- Click `Retry now` in the banner.
-- Expand details (`Show details`) and inspect the validation/API error text.
+- Check backend availability and required fields. The current editor status does
+  not expose full error details or a guaranteed Retry button; inspect backend logs
+  when diagnosing validation failures.
+- After restoring connectivity, switch editor context to attempt persistence again.
+  Confirm the JSON file before Reload. Dismissing a message does not save a draft.
 - Confirm required fields for the current editor are present.
 
 Expected behavior:
-- If the draft becomes clean again (for example by removing an invalid item), the save error banner resets automatically without reloading.
+- Returning to a clean draft resets local save status. Check persisted state;
+  dismissing a scoped error message alone does not clear pending synchronization.
 
 ### Symptom: Changes are not persisted while editing
 
@@ -84,3 +88,10 @@ What to do:
 - If needed, close anyway after confirmation.
 
 For full behavior details, see [`docs/autosave.md`](./autosave.md).
+
+## Browser loads a different solution than the entered path
+
+The current browser loader reads the solution bound to the backend at startup.
+Restart the backend with `--solution <copy.dm8s>` to change workspaces. The path
+input is not a server filesystem selector. See [backend constraints](backend-contract.md)
+and the [user guide](user-guide/getting-started.md).

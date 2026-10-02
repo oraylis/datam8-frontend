@@ -2,6 +2,9 @@
 
 Use this checklist for every Windows desktop release to reduce install/startup friction with Microsoft Defender and SmartScreen.
 
+Confirm signing is configured and available in the selected CI run; this checklist
+does not guarantee that a signing identity or SmartScreen reputation is present.
+
 ## 1) Build + sign in CI
 
 - Run the tag-based `Release` workflow.
@@ -54,4 +57,3 @@ Run install/start tests on a fresh Windows 11 VM with default Defender settings:
 - Re-submit flagged files with the detection details.
 - Track submission case IDs and response status.
 - Publish temporary mitigation guidance for users if needed.
-

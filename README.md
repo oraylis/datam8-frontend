@@ -1,76 +1,78 @@
 # DataM8
 
-DataM8 is the DataM8 2.0 workspace: a React/Vite web app and an Electron shell that starts the DataM8 backend and communicates over HTTP.
+DataM8 2.0 is a metadata editor: a React 19/Vite web app and an Electron desktop
+shell backed by the Python DataM8 Generator.
 
-## Apps and Tech Stack
-- `apps/web` - Vite + React 18 UI with `@datam8/ui`, tabbed workspace, generator panel.
-- `apps/desktop` - Electron main/preload that starts backend and hosts the web app.
-- `packages/ui` - shared UI kit.
-- `packages/types` - shared type package.
+## Start here
 
-## Repository Layout
-- `apps/web/src/features` - solution loading, model/base workspace, generator, filesystem picker.
-- `apps/desktop/src` - Electron process logic and preload bridge.
-- `submodules/datam8-generator` - backend source of truth (`datam8` CLI + FastAPI).
-- `packages/ui`, `packages/types` - shared packages consumed by apps.
+- **Using DataM8:** [illustrated sample-solution guide](docs/user-guide/README.md).
+- **Contributing:** [AGENTS.md](AGENTS.md) and [documentation index](docs/index.md).
+- **System:** [architecture](ARCHITECTURE.md) and [backend integration](docs/backend-contract.md).
 
-Legacy cleanup:
-- `packages/datam8_cli` was removed from this repository. Frontend uses `submodules/datam8-generator` as backend runtime.
+## Local development
 
-## Prerequisites
-- Node.js 24 LTS (repo uses npm workspaces; Node 25+ is unsupported).
-- Python 3.12+ for local desktop dev/backend runs. (handled by `uv sync`)
-- `uv` for preparing `submodules/datam8-generator/.venv`.
+Use Node **24** (25+ unsupported), Python compatible with the pinned Generator,
+and `uv`. Initialize nested submodules and install locked dependencies:
 
-## Development
-Install dependencies once:
-```bash
-npm install
-```
-
-Start web:
-```bash
-npm run dev:web
-```
-
-Start desktop:
-```bash
+```sh
+git submodule update --init --recursive
+npm ci
 cd submodules/datam8-generator
 uv sync --all-extras
 cd ../..
 npm run dev:desktop
 ```
 
-Key runtime env vars:
-- `DATAM8_PYTHON_PATH` - dev-only override; must point to `submodules/datam8-generator/.venv` Python.
-- `DATAM8_BACKEND_MODULE` - optional module override (default `datam8`).
-- `VITE_API_URL`, `VITE_APP_MODE` - web runtime config.
+Desktop starts the backend and UI. See [Desktop development](docs/dev-desktop.md)
+for interpreter overrides. Browser development needs a backend bound to a working
+copy of a solution, then Vite in another terminal:
 
-## Build and Package
-- Web build (electron mode): `npm run build:web:electron`
-- Backend wheel artifacts: `npm run build:datam8-binaries`
-- Packaged Python runtime: `npm run build:python-runtime`
-- Desktop packages:
-  - current OS: `npm run build:desktop`
-  - explicit: `npm run build:desktop:win`, `npm run build:desktop:mac`, `npm run build:desktop:linux`
+```powershell
+# Terminal 1, Windows, repo root
 
-## API Contract
-- Canonical backend contract: `submodules/datam8-generator/docs/backend-contract.md`
-- Frontend mirror: `docs/backend-contract.md`
-- Frontend uses root endpoints (no `/api/*`), for example:
-  - `GET /config`
-  - `GET /solution/inspect`, `GET /solution/full`, `POST /solution/new-project`
-  - `GET /fs/list`
-  - `POST /generate` (synchronous)
+& .\submodules\datam8-generator\.venv\Scripts\python.exe -m datam8 serve --host 127.0.0.1 --port 4318 --solution C:\DataM8\sample\ORAYLISDatabricksSample.dm8s
+# Terminal 2
 
-Removed:
-- `/jobs` and `/jobs/*`
-- `/api/*`
+$env:VITE_API_URL = 'http://127.0.0.1:4318'
+npm run dev:web
+```
 
-## Verification
-- Typecheck: `npm run typecheck`
-- Contract smoke: `npm run ci:gates`
+```sh
+# Terminal 1, macOS/Linux
 
-## Troubleshooting
-See `docs/troubleshooting.md`.
+submodules/datam8-generator/.venv/bin/python -m datam8 serve --host 127.0.0.1 --port 4318 --solution /path/to/copy/ORAYLISDatabricksSample.dm8s
+# Terminal 2
 
+VITE_API_URL=http://127.0.0.1:4318 npm run dev:web
+```
+
+Open `http://localhost:4320`. Vite proxies root API requests to `VITE_API_URL`; its
+fallback is `http://127.0.0.1:51092`. The local browser example binds to loopback
+without a token. Desktop always supplies a token. Browser **Load** reads the bound
+solution; changing the dialog path does not switch backend workspaces.
+
+## Repository layout
+
+| Directory | Responsibility |
+| --- | --- |
+| `apps/web` | Editor, loading, autosave, connectors and generator |
+| `apps/desktop` | Backend lifecycle, native dialogs, IPC and packaging |
+| `packages/ui` | UI primitives and theme |
+| `packages/types` | Hand-written shared types; web schema types are generated separately |
+| `submodules/datam8-generator` | Pinned backend and nested schema submodule |
+| `docs` | Development, consumer references, capture maintenance and links to the central handbook |
+
+## Verification and builds
+
+```sh
+npm run docs:check
+npm run typecheck
+npm --workspace apps/web run test
+npm run test:e2e
+npm run ci:gates
+npm run build:web:electron
+```
+
+Packaging: `npm run build:desktop`, or its `:win`, `:mac`, `:linux` variants.
+See [release checks](docs/release.md), [troubleshooting](docs/troubleshooting.md)
+and [opt-in screenshot maintenance](docs/user-guide/capture.md).

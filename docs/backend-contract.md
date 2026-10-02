@@ -1,130 +1,42 @@
-# Backend Contract (Frontend Consumer View)
+# Backend Integration (Frontend Consumer View)
 
-Canonical source of truth is maintained in `submodules/datam8-generator/docs/backend-contract.md`.
-The frontend is pinned to the DataM8 Generator `v2.0.0-beta.4` release; the
-canonical generator document is authoritative when this mirror differs.
+The [Generator contract](../submodules/datam8-generator/docs/backend-contract.md)
+is authoritative. This page covers frontend consumption and limitations, without
+duplicating payload specifications. Use the Generator revision pinned by this
+frontend checkout; matching version numbers alone do not establish compatibility.
 
-## Startup
+## Runtime and flows
 
-Frontend starts the backend as:
+- Electron starts `python -m datam8 serve` on loopback with a token, parses readiness
+  and exposes connection details through preload.
+- Browser loads the startup-bound workspace through `/solution/full`. The dialog
+  path is retained for UI state but does not select another server workspace.
+- Editor updates use `/entities/*` and `/model/save`; Reload uses `/model/reload`.
+- Browser generation uses synchronous `POST /model/generate`. Desktop delegates
+  generation to the CLI through preload. There is no Jobs/SSE layer.
+- Connector forms/discovery use `/plugins/*`; navigation/import/refresh use `/sources/*`;
+  secrets use `/secrets/check` and `/secrets/set`.
 
-```bash
-python -m datam8 serve --host 127.0.0.1 --port 0 --token <token>
-```
+See the canonical contract for envelopes, locators, source ownership, metadata
+handles, inheritance and function details.
 
-Readiness line on stdout:
+## Compatibility boundaries
 
-```json
-{"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}
-```
+The canonical document includes a **historical Neon parity surface**. Do not treat
+`/generate`, `/fs/list`, `/connectors/*`, `/solution/inspect`, `/solution/new-project`,
+`/validate` or migration parity routes as available based on historical docs.
 
-## Auth
+- `FileSystemContext` still contains a `/fs/list` consumer; the current solution dialog
+  uses a bound-workspace flow instead of that filesystem browser.
+- New Project and migration controls are not guaranteed end-to-end flows against
+  the pinned backend. Start the tutorial from a complete sample copy.
+- Uploading `.dm8s` alone does not supply its referenced Base, Model, Plugins or templates.
+- Function retrieval/update/move use the API; initial file creation/deletion need
+  the constrained Electron file bridge.
+- There is no separate solution-validation UI; Generate surfaces validation errors.
 
-- Unauthenticated: `GET /health`, `GET /version`
-- All other endpoints require `Authorization: Bearer <token>`
+## Change policy
 
-## Endpoint namespaces used by Frontend
-
-Frontend uses root endpoints (no `/api/*` namespace):
-
-- `GET /config`
-- `GET /solution/inspect`, `GET /solution/full`, `POST /solution/new-project`
-  - `POST /solution/new-project` requires at least one generator target and supports ZIP template upload either as multipart (`payload` + target zip fields) or as JSON `targetArchives` (`{ "<targetIndex>": "<base64ZipBytes>" }`) per the canonical generator contract.
-- `GET /fs/list`
-- `POST /model/generate` (synchronous)
-- editor/model/base/index/refactor/connectors/plugins/secrets routes under root paths
-  - Single entity rename/move uses `POST /entities/move-single`.
-  - Folder and subtree moves use `POST /entities/move`.
-  - Entity deletion uses `DELETE /entities/{locator}`. A locator with an entity
-    name deletes that item; a folder locator without entity name deletes the
-    subtree. For model folder deletion the frontend sends
-    `DELETE /entities/modelEntities/Raw/Sales/` for model children and
-    `DELETE /entities/folders/Raw/Sales` for the root folder metadata, then
-    saves once.
-  - Property value deletion uses `DELETE /entities/propertyValues/<property>/<value>`;
-    dependent usage cleanup is orchestrated by the frontend through follow-up
-    entity patches before saving the model.
-  - Model relationships may target an internal model entity (`targetLocation: number`) or an external data source (`dataSource` + string `targetLocation`); see canonical contract for the exact wire shape.
-  - Secrets API: `POST /secrets/check`, `PUT /secrets/set`
-  - Secret references are stored as `ref://<path>`
-  - `POST /entities/rename` expects `{ "from": "<locator>", "to": "<new-name>" }` and updates the references supported by the Generator contract. Property Value locator changes are handled explicitly by the frontend where required.
-  - Plugin list is `GET /plugins` without a trailing slash.
-  - Plugin endpoints expect canonical `plugin_id` values (e.g. `builtin:SQLServer`); legacy short names are rejected by backend.
-  - Functions are read/updated/moved through `GET|POST /functions/{modelEntityId}/{stepNo|name}` and `POST /functions/{modelEntityId}/{stepNo|name}/move`.
-    Function responses use snake_case fields such as `source_code` and
-    `source_file_path`; update/move requests accept camelCase aliases
-    `sourceCode` and `newPath`.
-
-## Response contract
-
-- JSON responses use stable top-level object payloads per endpoint.
-- `204 No Content` is used for operations that intentionally return no body (for example secret upsert/delete).
-
-### Connector capability object
-
-Connector/plugin payloads from `GET /plugins` use the generator's manifest shape:
-
-```json
-{
-  "id": "builtin:SQLServer",
-  "displayName": "SQL Server",
-  "version": "0.0.1",
-  "entryPoint": "datam8.plugins.builtins.sql_server:SqlServer",
-  "capabilities": ["uiSchema", "validationConnection", "metadata", "previewData"]
-}
-```
-
-### Source metadata additions
-
-Frontend may receive optional metadata fields from source/plugin endpoints:
-- Location list (`GET /sources/{id}/locations`): plugin-specific objects for schemas, tables, directories, containers, or blobs.
-- Location metadata (`GET /sources/{id}/locations/metadata?source_location=...`): `items: SourceField[]`
-- Location preview (`GET /sources/{id}/locations/preview?source_location=...&limit=...`): `items: Record<string, unknown>[]`
-- Browsing and preview use the connector's selected location. After import, `sourceLocation`
-  identifies the data read location; schema refresh uses `metadataLocation` when present,
-  otherwise `sourceLocation` is also used as the metadata handle.
-- The Brokerage SQL Server plugin implements the v2 locations and metadata
-  contract directly; the Generator does not adapt legacy plugin signatures.
-
-### Source import and refresh
-
-- Connector plugins may return authoritative external-source mappings through
-  `get_sources(source_location)` as a list of dictionaries, one per source-column mapping.
-- The returned list may include `sourceProperties` for the external source and
-  `mappingProperties` and `sourceDataType` for the individual source-column mapping.
-  A row may set `metadataLocation` to use a contract-specific metadata handle for its
-  external source; otherwise the selected import handle is used.
-- `sourceProperties` may be supplied on any one row for a source or repeated with the
-  same value on its rows; conflicting values are rejected.
-- Rows form an external source when `sourceLocation`, `sourceAlias`, and
-  `metadataLocation` match. Omitted source columns are not mapped.
-- `ExternalModelSource.metadataLocation` is the optional connector metadata handle;
-  `sourceLocation` remains the data read location. Sources may share one metadata
-  location, which is queried once during refresh. When `metadataLocation` is absent,
-  `sourceLocation` is also used as the metadata handle.
-- The read-only import-description endpoint returns a plugin-generated entity for
-  connector imports; the web wizard saves it after applying user-entered overrides.
-- Complete source refresh remains the default. Source-only refresh is an explicit
-  mode and must not change model attributes or entity-level properties.
-- Refresh selection is entity-wide: all of an entity's metadata locations are
-  queried. The generator contract defines conflict handling and authoritative
-  replacement of external-source properties and mappings.
-
-## Known API Gaps
-
-- The frontend does not expose a separate solution-validation flow; validation is performed as part of the synchronous Generate workflow.
-- Function create: no server route exists; Electron creates the initial empty
-  source file through its constrained solution file bridge.
-- Function delete: no server route exists; Electron deletes the source file
-  through the same constrained bridge.
-
-### Typing policy
-
-- Stable and workflow-critical fields are strongly typed on backend responses.
-- Plugin-/connector-driven sections may remain dynamic objects.
-- Dynamic sections are still wrapped in typed top-level endpoint envelopes.
-
-## Removed
-
-- `/jobs` and `/jobs/*`
-- `/api/*`
+Assess contract impact. For HTTP behavior changes, update Generator's canonical
+contract first, coordinate consumers and add real completion/state tests.
+Documentation corrections describing existing behavior do not change the contract.

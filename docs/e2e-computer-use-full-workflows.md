@@ -2,6 +2,10 @@
 
 This is the non-CI acceptance run for the real visible app. It must use Computer Use actions only for UI interaction: click, type, scroll, keyboard, native dialogs, and screenshots. Do not use Playwright locators, DOM inspection, or browser automation APIs during this run.
 
+This requirement applies to this manual acceptance procedure. The separate
+[documentation screenshot runner](user-guide/capture.md) uses Playwright and
+reports its own coverage; do not conflate the two results.
+
 ## Preconditions
 
 - `datam8-sample-solution` is available locally.

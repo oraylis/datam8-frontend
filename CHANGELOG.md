@@ -30,6 +30,10 @@ Plugin discovery now requires a configured `solution.pluginsPath`.
 
 ## beta changes
 
+These older notes describe changes at the time they were written. They are not a
+current support matrix; see [backend constraints](docs/backend-contract.md) and
+[release guidance](docs/release.md) for current behavior.
+
 ### model
 
 * add missing SourceOverride and property fields

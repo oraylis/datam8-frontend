@@ -1,5 +1,8 @@
 # Computer-Use UI-Performancepruefung: Order-Solution
 
+Historical measurements for the recorded setup; not current performance limits.
+See the [documentation index](index.md) for current guidance.
+
 Datum: 2026-09-07
 
 ## Setup

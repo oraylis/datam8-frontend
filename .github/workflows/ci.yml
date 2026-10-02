@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, feature/v2-beta, feature/v2-beta-upgrade]
+    branches: [main, feature/v2-beta, feature/v2-beta-upgrade, feature/external_refresh]
 
 permissions:
   contents: read
@@ -49,6 +49,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Documentation links, images and Markdown checks
+        run: npm run docs:check
 
       - name: Typecheck
         run: npm run typecheck

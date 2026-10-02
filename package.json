@@ -12,6 +12,8 @@
     "packages/types"
   ],
   "scripts": {
+    "docs:check": "node --test scripts/check-docs.test.mjs && node scripts/check-docs.mjs",
+    "docs:capture": "node scripts/capture-user-guide.mjs",
     "dev:web": "npm --workspace apps/web exec vite",
     "dev:desktop": "npm run ci:ensure-rollup-native && node scripts/dev-desktop.mjs",
     "dev:desktop:source": "concurrently \"npm --workspace apps/web exec vite\" \"npm --workspace apps/desktop run dev\"",

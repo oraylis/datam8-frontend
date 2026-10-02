@@ -1,5 +1,8 @@
 # Computer-Use UI Test Matrix
 
+Historical evidence for the environment/commit below. This is not the current
+API contract or acceptance report; see [documentation index](index.md).
+
 Tested against a temporary copy of the Brokerage solution with the frontend on
 the v2 beta API and Generator commit
 `1ebe33bb7341856559352497606d07841af1f0e9`. No Playwright UI tests were used.
@@ -24,11 +27,6 @@ the v2 beta API and Generator commit
 | `PUT /entities/clone` | Duplicate `debitor` from the entity context menu | `debitor_copy` appeared and `Saved` was shown | `debitor_copy.json` was present after reload | PASS |
 | `POST /entities/move` / `POST /entities/move-single` | Entity context menu and `Ctrl+M` | No move dialog/action became available through Computer Use | Route not reached | TEST GAP: UI action unavailable |
 | `DELETE /entities/{locator}` | Delete only base item `DataProduct1` | UI reported `At least one item is required and cannot be removed` | Item remained | BLOCKED by UI invariant |
-| `DELETE /entities/{locator}` | Delete `debitor` from the model tree | `Saved`; the entity disappeared from the tree | `debitor.json` was absent after reload | PASS |
-| `DELETE /entities/{locator}` | Delete Property Value `write_mode/merge` | `Saved`; `merge` disappeared from Property Values | No `merge` value file or usage remained in the temporary copy | PASS |
-| `DELETE /entities/{locator}` | Delete folder `020_gold/edwh_dm_dom_brokerage` with two entities | `Saved`; folder and both entities disappeared from the tree | Entity files and `.properties.json` were absent after reload | PASS after frontend fix |
-| `PUT /entities/clone` | Duplicate `debitor` from the entity context menu | `debitor_copy` appeared and `Saved` was shown | `debitor_copy.json` was present after reload | PASS |
-| `POST /entities/move` / `POST /entities/move-single` | Entity context menu and `Ctrl+M` | No move dialog/action became available through Computer Use | Route not reached | TEST GAP: UI action unavailable |
 | `GET /sources/{source}/test` | Validate `edwh-drillisch-prod` with WinVaultKeyring | `Connection settings are valid` | Secret reference remained available | PASS |
 | `GET /sources/{source}/locations` | Import-from-source wizard, load locations, open `dm_dom_brokerage` | Schema entries and child tables rendered; `debitor` and `distribution_channel_cluster` were selectable | N/A | PASS after frontend fix |
 | `GET /sources/{source}/locations/metadata` | Select `dm_dom_brokerage.debitor` in the import wizard | Metadata loaded and attributes rendered | N/A | PASS |

@@ -1,14 +1,12 @@
-# Plugin Spec (v1)
+# Plugin Documentation
 
-Plugins are loaded by `datam8 serve` from `DATAM8_PLUGIN_DIR`.
+This path is retained for existing links. The old v1 endpoint list is not the
+current API specification.
 
-Frontend uses plugin management endpoints under root paths:
+- [Frontend usage](connectors.md)
+- [Frontend developer notes](connectors_dev.md)
+- [Canonical plugin guide](../submodules/datam8-generator/docs/connectors.md)
+- [Canonical HTTP contract](../submodules/datam8-generator/docs/backend-contract.md)
 
-- `GET /plugins`
-- `POST /plugins/reload`
-- `POST /plugins/install`
-- `POST /plugins/uninstall`
-- `POST /plugins/enable`
-- `POST /plugins/disable`
-
-
+Discovery uses `solution.pluginsPath`; binding uses the manifest ID. Do not infer
+install/enable/disable HTTP support from historical parity lists.

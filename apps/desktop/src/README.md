@@ -3,6 +3,7 @@
 Electron wrapper that ships the built web UI and starts the backend via Python module execution (`python -m datam8 serve`).
 
 ## Processes
+
 - `main.ts` - single-instance lock, spawns `python -m datam8 serve --host 127.0.0.1 --port 0 --token <random>`, parses readiness JSON from stdout, verifies `/health`, loads web UI (`../web/dist/index.html` in prod or `http://localhost:4320` in dev).
 - `preload.ts` - IPC bridge exposing:
   - `desktop.apiBase` / `desktop.token` - backend connection details for the renderer.
@@ -12,9 +13,10 @@ Electron wrapper that ships the built web UI and starts the backend via Python m
 
 ## Runtime resolution
 
-- Preferred override: `DATAM8_PYTHON_PATH=<python-executable>`
+- Development override: `DATAM8_PYTHON_PATH=<submodule-.venv-python>`; the dev launcher validates this path.
 - Optional module override: `DATAM8_BACKEND_MODULE=<module>` (default `datam8`)
-- Dev convenience: if available, `submodules/datam8-generator/src` is added to `PYTHONPATH` automatically.
+- The backend must be importable by the selected interpreter. See
+  [desktop setup](../../../docs/dev-desktop.md) for the supported launcher path.
 
 ## Packaging
 

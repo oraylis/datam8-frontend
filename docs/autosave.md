@@ -95,13 +95,21 @@ This behavior applies to entity, base, and folder editors.
 
 ## Save error UX
 
-All editors render `SaveErrorAlert` when in error state.
+Editor failures currently trigger the sidebar's transient `Save failed` status and
+leave the tab dirty. Other operations use scoped `ErrorSurface` messages. The
+historically named `useSaveFailureToast` helper can report to that system, but it
+is not currently wired into the Entity/Base/Folder editor render paths.
 
 Behavior:
-- Alert title: `Save failed`.
-- Primary action: `Retry now` (calls `persistNow("tab-switch")`).
-- Error details are collapsible (`Show details` / `Hide details`).
-- Default is collapsed.
+- Editor status: `Save failed`, currently cleared after about two seconds.
+- There is no editor `Retry now`, `Show details` or guaranteed explicit Retry button.
+- Restoring backend connectivity and switching editor context invokes persistence
+  again. Check disk state and reload before treating the draft as synchronized.
+- Scoped error surfaces for other operations may expose Retry when a callback is
+  registered; dismissing a message never persists a draft.
+
+The missing persistent editor error detail/retry affordance is a product gap,
+recorded in the [documentation review](documentation-review.md).
 
 ## Base side effects: follow-up actions
 
@@ -176,13 +184,14 @@ When adding a new editable control:
 - `apps/web/src/features/model/components/workspace/hooks/useEntityState.ts`
 - `apps/web/src/features/model/components/workspace/hooks/useBaseEditorState.ts`
 - `apps/web/src/features/model/components/workspace/folder-editor/FolderEditor.tsx`
-- `apps/web/src/features/model/components/workspace/common/SaveErrorAlert.tsx`
+- `apps/web/src/shared/ui/ErrorSurface.tsx`
+- `apps/web/src/shared/ui/useSaveFailureToast.tsx`
 - `apps/web/src/features/model/refactor/baseSaveEffects.ts`
 - `apps/web/src/app/AppShell.tsx`
 
 ## Related tests
 
 - `apps/web/src/features/model/components/workspace/hooks/useEntityState.test.ts`
-- `apps/web/src/features/model/components/workspace/common/SaveErrorAlert.test.ts`
+- `apps/web/src/shared/ui/toast-notification-behavior.test.ts`
 - `apps/web/src/features/model/refactor/baseSaveEffects.test.ts`
 

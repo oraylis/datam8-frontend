@@ -5,7 +5,7 @@ const operation = process.argv[2];
 const fixture = path.resolve('artifacts/manual-fixture');
 if (operation === 'pack') {
   const source = path.resolve('artifacts/manual-old');
-  const relative = process.platform === 'darwin' ? `mac-${process.arch}/datam8.app` : 'linux-unpacked';
+  const relative = process.platform === 'darwin' ? `${process.arch === 'x64' ? 'mac' : 'mac-arm64'}/datam8.app` : 'linux-unpacked';
   if (!fs.existsSync(path.join(source, relative))) throw new Error('Previous app bundle missing');
   fs.mkdirSync(fixture, { recursive: true });
   checked('tar', ['-czf', path.join(fixture, 'previous-app.tar.gz'), '-C', source, relative]);

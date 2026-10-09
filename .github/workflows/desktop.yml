@@ -143,6 +143,8 @@ jobs:
           node scripts/signing-vault.mjs windows artifacts/signing-public
           npm --workspace apps/desktop exec -- electron-builder --config build.config.cjs --win --publish never --config.extraMetadata.version=2.0.0-beta.6-ci.0 --config.directories.output=../../artifacts/update-old
           npm --workspace apps/desktop exec -- electron-builder --config build.config.cjs --win --publish never --config.extraMetadata.version=2.0.0-beta.6-ci.1 --config.directories.output=../../artifacts/update-next
+          npm run test:desktop:signatures -- artifacts/update-old
+          npm run test:desktop:signatures -- artifacts/update-next
           node scripts/desktop-distributions.mjs collect artifacts/update-old artifacts/update-fixtures/old
           node scripts/desktop-distributions.mjs collect artifacts/update-next artifacts/update-fixtures/next
           cp artifacts/signing-public/windows.json artifacts/update-fixtures/
@@ -243,8 +245,8 @@ jobs:
             artifacts/desktop-junit.xml
           retention-days: 30
   deliver:
-    needs: verify
-    if: inputs.signed
+    needs: [build, verify]
+    if: inputs.signed && needs.build.result == 'success' && needs.verify.result == 'success'
     runs-on: ubuntu-24.04
     environment: desktop-signing-v2
     timeout-minutes: 15

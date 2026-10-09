@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { expect, _electron } from '@playwright/test';
 import { desktopFixture } from './desktop-fixture.mjs';
 import { checked, files } from './mac-runtime.mjs';
+import { verifyWindows } from './desktop-verification.mjs';
 const require = createRequire(import.meta.url);
 const yaml = require('js-yaml');
 if (process.platform !== 'win32') throw new Error('Signed auto-update acceptance runs on Windows only');
@@ -71,7 +72,9 @@ try {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   feed = `http://127.0.0.1:${server.address().port}`;
-  const target = path.join(temp, 'Valid update'); install(target); await launch(target, true, solution);
+  const target = path.join(temp, 'Valid update'); install(target);
+  verifyWindows(target, expected.thumbprint);
+  await launch(target, true, solution);
   const oldPage = await app.firstWindow();
   await oldPage.getByText('Customer', { exact: true }).first().click({ timeout: 60_000 });
   const oldDescription = oldPage.getByPlaceholder('Describe this entity');
@@ -91,6 +94,7 @@ try {
   await until(() => {
     try { return JSON.parse(asar.extractFile(path.join(target, 'resources', 'app.asar'), 'package.json')).version === '2.0.0-beta.6-ci.1'; } catch { return false; }
   }, 'signed update installation');
+  verifyWindows(target, expected.thumbprint);
   await launch(target, false, solution);
   const page = await app.firstWindow();
   await until(async () => page.evaluate(async () => {

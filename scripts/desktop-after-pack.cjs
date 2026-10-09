@@ -1,9 +1,7 @@
 module.exports = async context => {
-  if (context.electronPlatformName === 'win32' && process.env.DATAM8_REQUIRE_SIGNING === '1') {
-    const { files } = await import('./mac-runtime.mjs');
-    const sign = require('./sign-windows.cjs');
-    for (const name of files(context.appOutDir).filter(name => /\.(exe|dll|node|pyd)$/i.test(name))) await sign({ path: name });
-  }
+  // Windows signing is handled by electron-builder's signExts and custom
+  // signtool hook, after it edits the main executable's resources. Signing
+  // that executable in afterPack prevents the resource editor from opening it.
   if (context.electronPlatformName !== 'darwin') return;
   const path = require('node:path');
   const { validateMacBinaries, signMacRuntime } = await import('./mac-runtime.mjs');

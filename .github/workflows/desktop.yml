@@ -226,6 +226,8 @@ jobs:
       - name: Runtime smoke for every installed distribution
         shell: bash
         run: node scripts/test-installed-runtimes.mjs artifacts/installed/installed.json
+      - name: Uninstall
+        run: node scripts/desktop-distributions.mjs uninstall artifacts/distributions artifacts/installed
       - uses: actions/download-artifact@v4
         if: inputs.signed && matrix.platform == 'win'
         with:
@@ -234,8 +236,6 @@ jobs:
       - name: Signed Windows updates and negative signature cases
         if: inputs.signed && matrix.platform == 'win'
         run: npm run test:desktop:updates -- artifacts/update-fixtures
-      - name: Uninstall
-        run: node scripts/desktop-distributions.mjs uninstall artifacts/distributions artifacts/installed
       - name: Remove temporary Windows CA trust
         if: always() && inputs.signed && matrix.platform == 'win'
         run: node scripts/windows-test-trust.mjs remove

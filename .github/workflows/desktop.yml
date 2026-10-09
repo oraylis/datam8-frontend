@@ -102,6 +102,9 @@ jobs:
       - name: Validate Windows signing certificate
         if: inputs.signed && matrix.platform == 'win'
         run: node scripts/signing-vault.mjs windows artifacts/signing-public
+      - name: Native embedded-signature regression and negative cases
+        if: inputs.signed && matrix.platform == 'win'
+        run: node scripts/test-windows-signing.mjs
       - run: npm ci
       - run: npm run ci:ensure-rollup-native
       - run: npm run build:web:electron

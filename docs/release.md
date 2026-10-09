@@ -128,6 +128,12 @@ The workflow performs lint, typecheck, workspace unit tests, documentation check
 web Playwright tests and real-backend gates. Fresh verification runners install
 NSIS and DEB packages, mount/copy DMGs, extract ZIPs and launch AppImages.
 
+The Windows signature gate requires Windows SDK SignTool, provided by the
+`windows-2025` image. It uses `/pa /all /tw` to validate embedded signatures and
+timestamps, and reads the embedded PKCS#7 record to check the expected certificate,
+SHA-256 and RFC-3161 timestamp. A Windows catalog signature cannot substitute for
+the DataM8 signature. See [Microsoft's SignTool reference](https://learn.microsoft.com/en-us/windows/win32/seccrypto/signtool).
+
 Packaged Playwright tests exercise real preload, IPC and backend behavior with
 disposable local fixtures in paths containing spaces. They open a solution,
 check health/authenticated config, edit and persist a model value, restart,

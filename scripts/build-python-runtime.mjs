@@ -39,7 +39,7 @@ function fail(message) {
 }
 
 function runChecked(command, args, options = {}) {
-  const result = spawnSync(command, args, { shell: false, stdio: "inherit", ...options });
+  const result = spawnSync(command, args, { shell: false, stdio: "inherit", env: { ...process.env, ...(process.platform === "darwin" ? { OPENSSL_STATIC: "1" } : {}) }, ...options });
   if (result.error?.code === "ENOENT") {
     fail(`Command not found: ${command}`);
   }
@@ -273,6 +273,7 @@ function installRuntimePackages(target, installSpec) {
       "--upgrade",
       "--reinstall",
       "--no-compile-bytecode",
+      ...(process.platform === "darwin" ? ["--no-cache"] : []),
       installSpec,
     ]);
     return;
@@ -364,7 +365,8 @@ const smokeRoot = fs.mkdtempSync(path.join(path.dirname(runtimeRoot), "python-ru
 try {
   const relocatedRuntimeRoot = path.join(smokeRoot, "DataM8.app", "Contents", "Resources", "python-runtime");
   fs.mkdirSync(path.dirname(relocatedRuntimeRoot), { recursive: true });
-  fs.cpSync(runtimeRoot, relocatedRuntimeRoot, { recursive: true, dereference: true });
+  if (process.platform === "darwin") runChecked("ditto", [runtimeRoot, relocatedRuntimeRoot]);
+  else fs.cpSync(runtimeRoot, relocatedRuntimeRoot, { recursive: true, dereference: true });
   runChecked(process.execPath, [smokeScript, "--runtime-root", relocatedRuntimeRoot]);
 } finally {
   fs.rmSync(smokeRoot, { recursive: true, force: true });

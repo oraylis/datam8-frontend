@@ -93,12 +93,16 @@ jobs:
           client-id: ${{ vars.AZURE_V2_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_KEY_VAULT_TENANT }}
           allow-no-subscriptions: true
+      - name: Configure explicit corporate CA trust on disposable Windows runner
+        if: inputs.signed && matrix.platform == 'win'
+        run: node scripts/windows-test-trust.mjs install
       - name: Validate Windows signing certificate
         if: inputs.signed && matrix.platform == 'win'
         run: node scripts/signing-vault.mjs windows artifacts/signing-public
       - run: npm ci
       - run: npm run ci:ensure-rollup-native
       - run: npm run build:web:electron
+      - run: node --test scripts/backend-env.test.mjs scripts/backend-lifecycle.test.mjs scripts/mac-runtime.test.mjs
       - run: npm run build:python-runtime
       - run: npm run build:datam8-binaries
       - run: npm --workspace apps/desktop run package:${{ matrix.platform }}
@@ -114,6 +118,19 @@ jobs:
         with:
           name: internal-platform-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/distributions
+          retention-days: 2
+          if-no-files-found: error
+      - name: Build a previous version for manual macOS/Linux replacement
+        if: matrix.platform != 'win'
+        shell: bash
+        run: |
+          npm --workspace apps/desktop exec -- electron-builder --config build.config.cjs --${{ matrix.platform }} --dir --publish never --config.extraMetadata.version=2.0.0-beta.6-ci.0 --config.directories.output=../../artifacts/manual-old
+          node scripts/desktop-manual-version.mjs pack
+      - uses: actions/upload-artifact@v4
+        if: matrix.platform != 'win'
+        with:
+          name: internal-manual-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/manual-fixture
           retention-days: 2
           if-no-files-found: error
       - name: Build signed update fixtures
@@ -133,12 +150,16 @@ jobs:
           path: artifacts/update-fixtures
           retention-days: 2
           if-no-files-found: error
+      - name: Remove temporary Windows CA trust
+        if: always() && inputs.signed && matrix.platform == 'win'
+        run: node scripts/windows-test-trust.mjs remove
       - name: Remove credentials
         if: always()
         shell: bash
         run: |
           if command -v az >/dev/null; then az account clear; fi
   verify:
+    if: always() && !cancelled() && needs.build.result != 'skipped'
     needs: build
     strategy:
       fail-fast: false
@@ -167,6 +188,9 @@ jobs:
         with:
           name: internal-platform-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/distributions
+      - name: Configure explicit corporate CA trust for signature and update tests
+        if: inputs.signed && matrix.platform == 'win'
+        run: node scripts/windows-test-trust.mjs install
       - name: Read expected Windows identity
         if: inputs.signed && matrix.platform == 'win'
         shell: bash
@@ -175,6 +199,14 @@ jobs:
         if: inputs.signed && matrix.platform == 'win'
         run: npm run test:desktop:signatures -- artifacts/distributions
       - run: node scripts/desktop-distributions.mjs install artifacts/distributions artifacts/installed
+      - uses: actions/download-artifact@v4
+        if: matrix.platform != 'win'
+        with:
+          name: internal-manual-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/manual-fixture
+      - name: Prepare previous version for manual replacement test
+        if: matrix.platform != 'win'
+        run: node scripts/desktop-manual-version.mjs install
       - name: Test installed desktop and runtime
         shell: bash
         run: |
@@ -196,6 +228,9 @@ jobs:
         run: npm run test:desktop:updates -- artifacts/update-fixtures
       - name: Uninstall
         run: node scripts/desktop-distributions.mjs uninstall artifacts/distributions artifacts/installed
+      - name: Remove temporary Windows CA trust
+        if: always() && inputs.signed && matrix.platform == 'win'
+        run: node scripts/windows-test-trust.mjs remove
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

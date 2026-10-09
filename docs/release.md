@@ -64,6 +64,16 @@ The [public key](signing/datam8-release-public.asc) and
 The Windows publisher is `DataM8`, with certificate SHA-256 fingerprint
 `32:F6:17:AD:2E:CC:45:CC:28:AB:0E:3D:E7:EF:2C:7B:C9:51:59:99:1E:C8:95:12:82:42:68:73:81:47:1B:BC`.
 The existing certificate expires on 20 March 2027. Renew it before that date.
+Its issuer is the private ORAYLIS SCEPman CA, not a Windows public trust anchor.
+Windows CI explicitly trusts the pinned [ORAYLIS CA](signing/oraylis-signing-root.cer)
+only on disposable runners, then removes that trust. Thus passing CI proves
+Authenticode integrity, publisher identity, timestamping and updates under corporate
+CA trust. It does not prove public Windows trust. Unmanaged PCs can report an
+unknown publisher and reject automatic updates unless their administrator has
+established this CA trust. The application never installs a root certificate.
+Public distribution without that prerequisite requires a publicly trusted signing
+certificate; SmartScreen reputation remains separate. See
+[Microsoft's Authenticode trust explanation](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/authenticode).
 The vault uses legacy access policies, so the new principal's get/sign and secret
 get permissions apply at vault scope. Resource-scoped permissions require a future
 separate vault or coordinated RBAC migration; this setup preserves the v1 policies.

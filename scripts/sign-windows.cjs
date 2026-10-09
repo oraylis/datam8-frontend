@@ -5,7 +5,7 @@ module.exports = async configuration => {
     if (!process.env[name]) throw new Error(`Required signing configuration missing: ${name}`);
   }
   const args = ['sign', '-kvu', process.env.AZURE_KEY_VAULT_URL, '-kvc', process.env.AZURE_KEY_VAULT_NAME,
-    '-kva', process.env.KEYVAULT_ACCESS_TOKEN, '-fd', 'sha256', '-tr', 'http://timestamp.digicert.com', '-td', 'sha256', configuration.path];
+    '-kva', process.env.KEYVAULT_ACCESS_TOKEN, '-ac', require('node:path').resolve(__dirname, '../docs/signing/oraylis-signing-root.cer'), '-fd', 'sha256', '-tr', 'http://timestamp.digicert.com', '-td', 'sha256', configuration.path];
   const result = spawnSync('AzureSignTool', args, { encoding: 'utf8', shell: false, windowsHide: true });
   if (result.error || result.status !== 0) {
     const output = `${result.stderr || ''}\n${result.stdout || ''}`.split(process.env.KEYVAULT_ACCESS_TOKEN).join('[redacted]');

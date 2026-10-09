@@ -26,8 +26,9 @@ for (const distribution of distributions) {
       if (process.platform === 'darwin') verifyMac(distribution.appRoot);
       if (process.platform === 'win32' && process.env.DATAM8_REQUIRE_SIGNING === '1') verifyWindows(distribution.appRoot, process.env.DATAM8_WINDOWS_THUMBPRINT);
     };
-    async function launch() {
-      app = await _electron.launch({ executablePath: distribution.executable, args: [`--user-data-dir=${path.join(temp, 'Profile')}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+    async function launch(previous = false) {
+      if (previous && distribution.previousAppRoot && process.platform === 'darwin') verifyMac(distribution.previousAppRoot);
+      app = await _electron.launch({ executablePath: previous && distribution.previousExecutable ? distribution.previousExecutable : distribution.executable, args: [`--user-data-dir=${path.join(temp, 'Profile')}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
         env: { ...process.env, DATAM8_DISABLE_AUTO_UPDATES: '1', APPIMAGE_EXTRACT_AND_RUN: '1', PYTHONHOME: '/deliberately/invalid/host-python', PYTHONPATH: '/deliberately/invalid/host-modules' }, timeout: 60_000 });
       app.process().stdout?.on('data', chunk => logs.push(redact(chunk)));
       app.process().stderr?.on('data', chunk => logs.push(redact(chunk)));
@@ -42,15 +43,18 @@ for (const distribution of distributions) {
       await expect(page.getByText('Customer', { exact: true }).first()).toBeVisible();
       await expect(page.getByText('Select solution (.dm8s)', { exact: true })).toBeHidden();
       await expect(page.getByText('Failed to load solution', { exact: true })).toHaveCount(0);
-      const responses = await page.evaluate(async () => {
-        const { apiBase, token } = window.desktop;
-        const headers = { Authorization: `Bearer ${token}` };
-        return Promise.all(['/health', '/config'].map(async route => {
-          const res = await fetch(`${apiBase}${route}`, { headers });
-          return { status: res.status, json: await res.json() };
-        }));
-      });
-      expect(responses.map(response => response.status)).toEqual([200, 200]);
+      await expect.poll(async () => {
+        try {
+          return await page.evaluate(async () => {
+            const { apiBase, token } = window.desktop;
+            const headers = { Authorization: `Bearer ${token}` };
+            const health = await fetch(`${apiBase}/health`, { headers });
+            const config = await fetch(`${apiBase}/config`, { headers });
+            if (config.status === 200) await config.json();
+            return [health.status, config.status];
+          });
+        } catch { return []; }
+      }).toEqual([204, 200]);
       return app.evaluate(() => process._getActiveHandles().filter(handle => handle.constructor.name === 'ChildProcess' && handle.spawnargs?.includes('serve')).map(handle => handle.pid));
     }
     async function editEntity() {
@@ -60,19 +64,26 @@ for (const distribution of distributions) {
       return description;
     }
     try {
-      verify(); await launch();
+      verify(); await launch(Boolean(distribution.previousExecutable));
+      const previousVersion = await app.evaluate(({ app }) => app.getVersion());
+      if (distribution.previousExecutable) expect(previousVersion).toBe(distribution.previousVersion);
+      await page.evaluate(() => localStorage.setItem('desktop-version-regression', 'preserved'));
       const pids = await open(first); expect(pids.length).toBeGreaterThan(0);
       const description = await editEntity();
       await description.fill('Saved by packaged desktop regression'); await description.press('Tab');
       await expect.poll(() => JSON.parse(fs.readFileSync(path.join(path.dirname(first), 'Model', 'Core', 'Customer.json'), 'utf8')).description).toBe('Saved by packaged desktop regression');
       await app.close(); app = null;
       await expect.poll(portClosed).toBe(true);
-      await launch(); await open(first);
+      await launch();
+      if (distribution.previousExecutable) expect(await app.evaluate(({ app }) => app.getVersion())).not.toBe(previousVersion);
+      await expect.poll(() => page.evaluate(() => localStorage.getItem('desktop-version-regression'))).toBe('preserved');
+      await open(first);
       await expect(await editEntity()).toHaveValue('Saved by packaged desktop regression');
       await page.getByRole('button', { name: 'Toggle generator' }).click();
       await page.locator('.generator-panel').getByRole('button', { name: 'Generate', exact: true }).click();
       const generated = path.join(path.dirname(first), 'Output', 'generated', 'hello.txt');
       await expect.poll(() => fs.existsSync(generated) ? fs.readFileSync(generated, 'utf8').trim() : '', { timeout: 60_000 }).toBe('Hello world');
+      await expect(page.locator('.generator-panel').getByRole('button', { name: 'Generate', exact: true })).toBeEnabled();
       const oldPids = await app.evaluate(() => process._getActiveHandles().filter(handle => handle.constructor.name === 'ChildProcess' && handle.spawnargs?.includes('serve')).map(handle => handle.pid));
       const newPids = await open(second); expect(newPids.length).toBeGreaterThan(0);
       expect(newPids.some(pid => !oldPids.includes(pid))).toBe(true);

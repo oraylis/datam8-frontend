@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from "electron";
 import { autoUpdater } from "electron-updater";
+import { terminateChild } from "../resources/backend-lifecycle.cjs";
 import { buildPythonEnv, shouldAutoUpdate } from "../resources/backend-env.cjs";
 import crypto from "crypto";
 import fs from "fs";
@@ -446,11 +447,7 @@ async function stopBackend() {
   backendVersion = null;
   backendSolutionPath = null;
 
-  try {
-    proc.kill();
-  } catch {
-    // ignore
-  }
+  await terminateChild(proc);
 }
 
 function normalizeExistingFilePath(value: string): string {

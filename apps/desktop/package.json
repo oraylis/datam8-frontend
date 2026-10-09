@@ -21,7 +21,7 @@
     "package:linux:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --linux --dir --publish never",
     "package:linux": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --linux --publish never",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test ../../scripts/backend-env.test.mjs"
+    "test": "node --test ../../scripts/backend-env.test.mjs ../../scripts/backend-lifecycle.test.mjs ../../scripts/mac-runtime.test.mjs"
   },
   "build": {
     "appId": "com.datam8",

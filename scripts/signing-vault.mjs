@@ -8,7 +8,9 @@ const output = path.resolve(process.argv[3] || 'artifacts/signing-public');
 const required = name => { const value = process.env[name]; if (!value) throw new Error(`Missing signing configuration: ${name}`); return value; };
 const vault = required('AZURE_KEY_VAULT_URL').replace(/\/$/, '');
 if (!/^https:\/\/[a-zA-Z0-9-]+\.vault\.azure\.net$/.test(vault)) throw new Error('Expected an Azure Key Vault HTTPS endpoint');
-const token = checked('az', ['account', 'get-access-token', '--resource', 'https://vault.azure.net', '--query', 'accessToken', '--output', 'tsv']).trim();
+const tokenArgs = ['account', 'get-access-token', '--resource', 'https://vault.azure.net', '--query', 'accessToken', '--output', 'tsv'];
+// Azure CLI is an az.cmd shim on hosted Windows runners. All arguments here are fixed.
+const token = (process.platform === 'win32' ? checked('cmd.exe', ['/d', '/s', '/c', `az ${tokenArgs.join(' ')}`]) : checked('az', tokenArgs)).trim();
 if (process.env.GITHUB_ACTIONS) console.log(`::add-mask::${token}`);
 async function get(route) {
   const response = await fetch(`${vault}/${route}?api-version=7.4`, { headers: { Authorization: `Bearer ${token}` } });

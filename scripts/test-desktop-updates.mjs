@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { expect, _electron } from '@playwright/test';
 import { desktopFixture } from './desktop-fixture.mjs';
 import { checked, files } from './mac-runtime.mjs';
 import { verifyWindows } from './desktop-verification.mjs';
+import { createUpdateFeed } from './desktop-update-feed.mjs';
 const require = createRequire(import.meta.url);
 const yaml = require('js-yaml');
 if (process.platform !== 'win32') throw new Error('Signed auto-update acceptance runs on Windows only');
@@ -63,13 +63,7 @@ try {
   const solution = desktopFixture(temp, 'Solution with spaces');
   const entityPath = path.join(path.dirname(solution), 'Model', 'Core', 'Customer.json');
   const feedRoot = path.join(temp, 'feed'); fs.mkdirSync(feedRoot, { recursive: true });
-  server = http.createServer((request, response) => {
-    const name = path.basename(new URL(request.url, 'http://127.0.0.1').pathname);
-    const file = path.join(feedRoot, name);
-    if (!fs.existsSync(file)) { response.writeHead(404); response.end(); return; }
-    response.setHeader('Content-Length', fs.statSync(file).size);
-    fs.createReadStream(file).pipe(response);
-  });
+  server = createUpdateFeed(feedRoot);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   feed = `http://127.0.0.1:${server.address().port}`;
   const target = path.join(temp, 'Valid update'); install(target);

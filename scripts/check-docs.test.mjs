@@ -1,6 +1,9 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkMarkdown, headingAnchors, checkCapture, checkTargetDocumentation } from "./check-docs.mjs";
+import { checkMarkdown, headingAnchors, checkCapture, checkTargetDocumentation, documentationFiles } from "./check-docs.mjs";
 
 test("checks local links, images and anchors without reading example code as prose", () => {
   const file = "/docs/guide.md";
@@ -46,4 +49,16 @@ test("target reference detects stale output paths and omitted targets", () => {
   assert.deepEqual(checkTargetDocumentation("| docs | `Generate/docs` | `Output/docs` |\n", solution), []);
   assert.equal(checkTargetDocumentation("| docs | `Generate/docs` | `Output/old` |\n", solution).length, 1);
   assert.equal(checkTargetDocumentation("No target rows\n", solution).length, 2);
+});
+
+test("excludes packaged runtime licences and generated test reports", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "datam8-docs-"));
+  try {
+    fs.writeFileSync(path.join(root, "README.md"), "# Guide\n");
+    for (const directory of ["artifacts", "test-results", "playwright-report"]) {
+      fs.mkdirSync(path.join(root, directory));
+      fs.writeFileSync(path.join(root, directory, "generated.md"), "not authored documentation");
+    }
+    assert.deepEqual(documentationFiles(root), [path.join(root, "README.md")]);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

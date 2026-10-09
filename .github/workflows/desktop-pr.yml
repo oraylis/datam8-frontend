@@ -1,0 +1,11 @@
+name: Packaged desktop PR tests
+on:
+  pull_request:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  desktop:
+    uses: ./.github/workflows/desktop.yml
+    with:
+      signed: false

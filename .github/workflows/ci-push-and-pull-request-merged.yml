@@ -1,0 +1,13 @@
+# This workflow path is already registered on main. Its v1 version stays unchanged there.
+name: DataM8 v2 manual desktop verification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  desktop:
+    uses: ./.github/workflows/desktop.yml
+    with:
+      signed: true
+    secrets: inherit

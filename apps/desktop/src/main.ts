@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from "electron";
 import { autoUpdater } from "electron-updater";
+import { buildPythonEnv, shouldAutoUpdate } from "../resources/backend-env.cjs";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
@@ -176,7 +177,7 @@ function ensureExecutable(filePath: string): boolean {
     if (!stat.isFile()) return false;
 
     if (process.platform !== "win32") {
-      fs.chmodSync(filePath, 0o755);
+      fs.accessSync(filePath, fs.constants.X_OK);
     }
     return true;
   } catch {
@@ -547,6 +548,7 @@ function runPythonCli(
   args: string[],
 ): { stdout: string; stderr: string } {
   const result = spawnSync(pythonPath, ["-m", backendModule, ...args], {
+    env: buildPythonEnv(pythonPath, path.join(process.resourcesPath, "python-runtime")),
     shell: false,
     stdio: "pipe",
     encoding: "utf8",
@@ -1096,13 +1098,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     const token = (tokenOverride || backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
     cleanupStaleBackendOnPort(BACKEND_PORT);
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      DATAM8_MODE: "electron",
-      ...(process.platform === "win32"
-        ? { PYTHON_KEYRING_BACKEND: "keyring.backends.Windows.WinVaultKeyring" }
-        : {}),
-    };
+    const env = buildPythonEnv(pythonPath, path.join(process.resourcesPath, "python-runtime"));
     const backendOutputPreview = { value: "" };
 
     console.log(`[datam8] resolved python path: '${pythonPath}'`);
@@ -1426,8 +1422,16 @@ async function createWindow() {
 }
 
 function wireAutoUpdates() {
-  if (!app.isPackaged) return;
+  if (!shouldAutoUpdate(app.isPackaged)) return;
 
+  const testFeed = process.env.DATAM8_UPDATE_TEST_FEED;
+  if (testFeed) {
+    const url = new URL(testFeed);
+    if (url.protocol !== "http:" || url.hostname !== "127.0.0.1") {
+      throw new Error("DATAM8_UPDATE_TEST_FEED must be an HTTP loopback URL");
+    }
+    autoUpdater.setFeedURL({ provider: "generic", url: url.toString() });
+  }
   autoUpdater.logger = null;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;

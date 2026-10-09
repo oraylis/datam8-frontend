@@ -33,7 +33,10 @@
     "build:desktop:win": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:win",
     "build:desktop:mac": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:mac",
     "build:desktop:linux": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:linux",
-    "version:set": "node scripts/set-version.mjs"
+    "version:set": "node scripts/set-version.mjs",
+    "test:desktop:packaged": "node scripts/test-desktop-packaged.mjs",
+    "test:desktop:signatures": "node scripts/desktop-signatures.mjs verify",
+    "test:desktop:updates": "node scripts/test-desktop-updates.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

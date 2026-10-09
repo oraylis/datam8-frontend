@@ -75,7 +75,7 @@ export function documentationFiles(repoRoot = root) {
   function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory() && entry.name.startsWith(".") && entry.name !== ".github") continue;
-      if (["node_modules", "dist", "release", "output", "Output", ".git", ".venv", ".playwright-cli", "datam8-model", "submodules"].includes(entry.name)) continue;
+      if (["node_modules", "artifacts", "test-results", "playwright-report", "dist", "release", "output", "Output", ".git", ".venv", ".playwright-cli", "datam8-model", "submodules"].includes(entry.name)) continue;
       const name = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(name);
       else if (entry.name.endsWith(".md")) files.push(name);

@@ -1,5 +1,8 @@
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
+import { buildPythonEnv } from "../apps/desktop/resources/backend-env.cjs";
+import { validateMacBinaries } from "./mac-runtime.mjs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -9,8 +12,7 @@ const defaultFixture = path.join(repoRoot, "scripts", "fixtures", "job_solution"
 const outputLimit = 16_384;
 
 function fail(message) {
-  console.error(`[smoke-python-runtime] ${message}`);
-  process.exit(1);
+  throw new Error(`[smoke-python-runtime] ${message}`);
 }
 
 function parseArgs(argv) {
@@ -96,26 +98,7 @@ function resolveRuntimeRoot(args) {
 function resolvePython(runtimeRoot) {
   const python = runtimePythonCandidates(runtimeRoot).find((candidate) => fs.existsSync(candidate));
   if (!python) fail(`Python executable not found in runtime: ${runtimeRoot}`);
-  if (process.platform !== "win32") {
-    try {
-      fs.chmodSync(python, 0o755);
-    } catch {
-      // Let the spawn failure report the real issue.
-    }
-  }
   return python;
-}
-
-function buildPythonEnv(runtimeRoot) {
-  const env = { ...process.env, DATAM8_MODE: "electron" };
-  if (process.env.DATAM8_SMOKE_KEEP_PYTHONPATH !== "1") {
-    delete env.PYTHONPATH;
-  }
-  if (process.platform !== "win32") {
-    env.PYTHONHOME = runtimeRoot;
-    env.PYTHONNOUSERSITE = "1";
-  }
-  return env;
 }
 
 function runChecked(command, args, options) {
@@ -272,12 +255,17 @@ function killProcess(proc) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const fixture = path.resolve(args.fixture || process.env.DATAM8_RUNTIME_SMOKE_SOLUTION || defaultFixture);
+  const sourceFixture = path.resolve(args.fixture || process.env.DATAM8_RUNTIME_SMOKE_SOLUTION || defaultFixture);
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "DataM8 runtime smoke "));
+  fs.cpSync(path.dirname(sourceFixture), path.join(temp, "Solution copy"), { recursive: true });
+  const fixture = path.join(temp, "Solution copy", path.basename(sourceFixture));
   if (!fs.existsSync(fixture)) fail(`Fixture solution not found: ${fixture}`);
 
   const runtimeRoot = resolveRuntimeRoot(args);
   const python = args.python ? path.resolve(args.python) : resolvePython(runtimeRoot);
-  const env = buildPythonEnv(runtimeRoot);
+  const env = buildPythonEnv(python, runtimeRoot);
+  if (process.platform === "darwin") validateMacBinaries(runtimeRoot);
+  runChecked(python, ["-c", "import sys, os, ssl, sqlite3, lzma, decimal, ctypes, encodings; root=os.path.realpath(sys.argv[1]); assert os.path.realpath(sys.prefix)==root; assert os.path.realpath(encodings.__file__).startswith(root+os.sep); print(sys.version)" , runtimeRoot], { env, cwd: temp });
 
   console.log(`[smoke-python-runtime] Runtime: ${runtimeRoot}`);
   console.log(`[smoke-python-runtime] Python: ${python}`);
@@ -320,14 +308,17 @@ async function main() {
     const baseUrl = await waitForReady(backend, fallbackBaseUrl, preview);
     await waitForJson(baseUrl, "/health", token);
     await waitForJson(baseUrl, "/version", token);
+    await waitForJson(baseUrl, "/config", token);
     console.log(`[smoke-python-runtime] OK: ${baseUrl}`);
   } catch (err) {
     fail(`${err instanceof Error ? err.message : String(err)}\nOutput preview:\n${preview.value}`);
   } finally {
     killProcess(backend);
+    fs.rmSync(temp, { recursive: true, force: true });
   }
 }
 
 main().catch((err) => {
-  fail(err?.stack || String(err));
+  console.error(err?.stack || String(err));
+  process.exitCode = 1;
 });

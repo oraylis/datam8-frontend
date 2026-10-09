@@ -144,7 +144,8 @@ async function mockApi(
     solutionPayload: unknown;
     connectors: MockConnector[];
     uiSchemasById?: Record<string, UiSchema>;
-    uiSchemaDelayById?: Record<string, number>;
+    uiSchemaWaitById?: Record<string, Promise<void>>;
+    onUiSchemaCompleted?: (connectorId: string) => void;
     validateHandler?: (connectorId: string, body: JsonObject) => ValidateResult;
   },
 ) {
@@ -204,9 +205,9 @@ async function mockApi(
     const connectorId = parts[parts.length - 2] || "";
     const connector = args.connectors.find((c) => c.id === connectorId) || args.connectors[0]!;
     const schema = args.uiSchemasById?.[connectorId] || { title: `${connector.displayName} connection`, authModes: [] };
-    const delay = args.uiSchemaDelayById?.[connectorId] || 0;
-    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-    await route.fulfill({ json: { item: schema } });
+    await args.uiSchemaWaitById?.[connectorId];
+    try { await route.fulfill({ json: { item: schema } }); }
+    finally { args.onUiSchemaCompleted?.(connectorId); }
   });
 
   await page.route("**/sources/*/test", async (route) => {
@@ -378,7 +379,7 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
 
   await expect(page.getByText("SQL Server connection")).toBeVisible();
@@ -433,7 +434,7 @@ test("surfaces validation errors for hidden fields (e.g. auth.mode)", async ({ p
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
 
   await page.getByRole("button", { name: "Validate connection" }).click();
@@ -480,7 +481,7 @@ test("switching auth modes updates auth.mode and clears fields not in the select
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
 
   await expect(page.getByText("Username *")).toBeVisible();
@@ -574,7 +575,7 @@ test("switching data sources with the same auth mode does not rewrite connector-
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "UnityDb");
   await expect(page.getByText("UC Name *")).toBeVisible();
   await expect(page.locator('label:has-text("UC Name")').locator("..").locator("input")).toHaveValue("dbr-mobilfunk-ingest");
@@ -593,6 +594,10 @@ test("switching data sources with the same auth mode does not rewrite connector-
 });
 
 test("late connector ui schema responses are ignored after selecting another data source", async ({ page }) => {
+  let completeSchema!: () => void;
+  const schemaCompleted = new Promise<void>(resolve => { completeSchema = resolve; });
+  let releaseSchema!: () => void;
+  const schemaWait = new Promise<void>(resolve => { releaseSchema = resolve; });
   const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const solutionPayload = createMockSolutionPayload({
     dataSources: [
@@ -631,7 +636,8 @@ test("late connector ui schema responses are ignored after selecting another dat
       { id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
       { id: "unity_catalog", displayName: "Unity Catalog", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
     ],
-    uiSchemaDelayById: { sqlserver: 300 },
+    uiSchemaWaitById: { sqlserver: schemaWait },
+    onUiSchemaCompleted: id => { if (id === "sqlserver") completeSchema(); },
     uiSchemasById: {
       sqlserver: {
         title: "SQL Server connection",
@@ -664,7 +670,7 @@ test("late connector ui schema responses are ignored after selecting another dat
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "SqlDb");
   await expect(page.getByText("Loading connector schema...")).toBeVisible();
   await clickBaseItem(page, "UnityDb");
@@ -672,7 +678,8 @@ test("late connector ui schema responses are ignored after selecting another dat
   await expect(page.getByText("UC Name *")).toBeVisible();
   await expect(page.getByText("UC Connection Name")).toBeHidden();
   await expect(page.locator('label:has-text("UC Name")').locator("..").locator("input")).toHaveValue("unity-current");
-  await page.waitForTimeout(400);
+  releaseSchema();
+  await schemaCompleted;
 
   await expect(page.getByText("UC Name *")).toBeVisible();
   await expect(page.getByText("UC Connection Name")).toBeHidden();
@@ -693,7 +700,7 @@ test("missing connector shows warning + read-only values", async ({ page }) => {
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
 
   await expect(page.getByText("No connector is installed. You can still edit connection values.")).toBeVisible();
@@ -741,7 +748,7 @@ test("bound connector version requirement does not block rendering when connecto
 
   await loadSolutionFromDialog(page);
 
-  await page.getByRole("button", { name: "Data Sources" }).click();
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
 
   await expect(page.getByText("SQL Server connection")).toBeVisible();

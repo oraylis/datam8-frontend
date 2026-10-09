@@ -5,7 +5,7 @@
   "version": "2.0.0-beta.6",
   "private": true,
   "description": "DataM8 Desktop App",
-  "homepage": "https://github.com/oraylis/datam8",
+  "homepage": "https://github.com/oraylis/datam8-frontend",
   "author": "DataM8",
   "main": "dist/main.js",
   "scripts": {
@@ -13,14 +13,15 @@
     "dev": "tsc && concurrently \"tsc -w\" \"cross-env DATAM8_MODE=electron VITE_APP_MODE=electron electronmon .\"",
     "start": "electron .",
     "lint": "eslint \"src/**/*.ts\"",
-    "prepare:prod-deps": "npm install --install-strategy=nested --include-workspace-root=false",
-    "package:win:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --dir --publish never",
-    "package:win": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish never",
-    "package:mac:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --dir --publish never",
-    "package:mac": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never",
-    "package:linux:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux --dir --publish never",
-    "package:linux": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --linux --publish never",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "prepare:prod-deps": "npm install --install-strategy=nested --include-workspace-root=false --package-lock=false",
+    "package:win:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --win --dir --publish never",
+    "package:win": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --win --publish never",
+    "package:mac:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --mac --dir --publish never",
+    "package:mac": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --mac --publish never",
+    "package:linux:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --linux --dir --publish never",
+    "package:linux": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --linux --publish never",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "node --test ../../scripts/backend-env.test.mjs"
   },
   "build": {
     "appId": "com.datam8",
@@ -63,7 +64,18 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "build/icons/icon.ico"
+      "icon": "build/icons/icon.ico",
+      "signExts": [
+        ".dll",
+        ".node",
+        ".pyd"
+      ],
+      "signtoolOptions": {
+        "sign": "../../scripts/sign-windows.cjs",
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
+      }
     },
     "nsis": {
       "oneClick": false,
@@ -82,7 +94,11 @@
       "extendInfo": {
         "CFBundleDisplayName": "DataM8",
         "CFBundleName": "DataM8"
-      }
+      },
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "DataM8-${version}-mac-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -97,9 +113,10 @@
       {
         "provider": "github",
         "owner": "oraylis",
-        "repo": "datam8"
+        "repo": "datam8-frontend"
       }
-    ]
+    ],
+    "afterPack": "../../scripts/desktop-after-pack.cjs"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

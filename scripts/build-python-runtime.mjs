@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
+import { installStandalone, validateMacBinaries, signMacRuntime } from "./mac-runtime.mjs";
 
 function resolveGeneratorExtras(generatorRoot) {
   const pyprojectPath = path.join(generatorRoot, "pyproject.toml");
@@ -152,48 +153,6 @@ function ensureRuntimePythonAliases() {
   }
 }
 
-function patchMacRuntimeInstallNames() {
-  if (process.platform !== "darwin") return;
-  const frameworkBinary = path.join(runtimeRoot, "Python");
-  if (!fs.existsSync(frameworkBinary)) return;
-
-  const binDir = path.join(runtimeRoot, "bin");
-  if (!fs.existsSync(binDir)) return;
-
-  for (const entry of fs.readdirSync(binDir, { withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.startsWith("python")) continue;
-    const binary = path.join(binDir, entry.name);
-    const deps = spawnSync("otool", ["-L", binary], { shell: false, encoding: "utf8", stdio: "pipe" });
-    if ((deps.status ?? 1) !== 0) continue;
-    const pythonFrameworkDeps = `${deps.stdout || ""}`
-      .split(/\r?\n/)
-      .map((line) => line.trim().split(/\s+/)[0])
-      .filter((dep) => /Python\.framework\/Versions\/[^/]+\/Python$/.test(dep));
-
-    for (const dep of pythonFrameworkDeps) {
-      runChecked("install_name_tool", ["-change", dep, "@executable_path/../Python", binary]);
-    }
-  }
-}
-
-function signMacRuntimeBinaries() {
-  if (process.platform !== "darwin") return;
-  const candidates = [path.join(runtimeRoot, "Python")];
-  const binDir = path.join(runtimeRoot, "bin");
-  if (fs.existsSync(binDir)) {
-    for (const entry of fs.readdirSync(binDir, { withFileTypes: true })) {
-      if (entry.isFile() && entry.name.startsWith("python")) {
-        candidates.push(path.join(binDir, entry.name));
-      }
-    }
-  }
-
-  for (const candidate of candidates) {
-    if (!fs.existsSync(candidate)) continue;
-    runChecked("codesign", ["--force", "--sign", "-", candidate]);
-  }
-}
-
 function normalizeRuntimeSymlinks() {
   const stack = [runtimeRoot];
   while (stack.length) {
@@ -313,6 +272,7 @@ function installRuntimePackages(target, installSpec) {
       target,
       "--upgrade",
       "--reinstall",
+      "--no-compile-bytecode",
       installSpec,
     ]);
     return;
@@ -322,6 +282,7 @@ function installRuntimePackages(target, installSpec) {
     "install",
     "--disable-pip-version-check",
     "--ignore-installed",
+    "--no-compile",
     "--upgrade",
     "--target",
     target,
@@ -336,7 +297,15 @@ if (!fs.existsSync(path.join(generatorRoot, "pyproject.toml"))) {
   fail(`Missing pyproject.toml in ${generatorRoot}`);
 }
 
-const buildPython = resolveBuildPython();
+let buildPython;
+fs.rmSync(runtimeRoot, { recursive: true, force: true });
+fs.mkdirSync(path.dirname(runtimeRoot), { recursive: true });
+if (process.platform === "darwin") {
+  const python = await installStandalone(runtimeRoot);
+  buildPython = { command: python, preArgs: [], info: probePythonInfo(python) };
+} else {
+  buildPython = resolveBuildPython();
+}
 if (!buildPython) {
   fail("Python 3.12/3.13 not found. Install Python 3.12 (recommended) or set DATAM8_RUNTIME_PYTHON.");
 }
@@ -345,15 +314,12 @@ if (!fs.existsSync(sourcePrefix) || !fs.statSync(sourcePrefix).isDirectory()) {
   fail(`Python base prefix directory not found: ${sourcePrefix}`);
 }
 
-fs.rmSync(runtimeRoot, { recursive: true, force: true });
-fs.mkdirSync(path.dirname(runtimeRoot), { recursive: true });
-
-console.log(`[build:python-runtime] Copying Python runtime from ${sourcePrefix}`);
-fs.cpSync(sourcePrefix, runtimeRoot, { recursive: true, dereference: true });
-normalizeRuntimeSymlinks();
+if (process.platform !== "darwin") {
+  console.log(`[build:python-runtime] Copying Python runtime from ${sourcePrefix}`);
+  fs.cpSync(sourcePrefix, runtimeRoot, { recursive: true, dereference: true });
+  normalizeRuntimeSymlinks();
+}
 ensureRuntimePythonAliases();
-patchMacRuntimeInstallNames();
-signMacRuntimeBinaries();
 writeRuntimeSiteCustomize();
 
 if (process.platform === "win32") {
@@ -389,6 +355,10 @@ installRuntimePackages(runtimeSitePackages, generatorInstallSpec);
 // self-contained until the generator metadata is corrected upstream.
 installRuntimePackages(runtimeSitePackages, "deepdiff==8.6.2");
 pruneBuildOnlyPythonPackages();
+if (process.platform === "darwin") {
+  validateMacBinaries(runtimeRoot);
+  signMacRuntime(runtimeRoot);
+}
 
 const smokeRoot = fs.mkdtempSync(path.join(path.dirname(runtimeRoot), "python-runtime-smoke-"));
 try {

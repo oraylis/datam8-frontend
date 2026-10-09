@@ -34,7 +34,8 @@ for (const distribution of distributions) {
       app.process().stderr?.on('data', chunk => logs.push(redact(chunk)));
       page = await app.firstWindow();
       await page.context().tracing.start({ screenshots: true, snapshots: true });
-      expect(await app.evaluate(({ app }) => app.getPath('userData'))).toBe(fs.realpathSync(path.join(temp, 'Profile')));
+      const userData = await app.evaluate(({ app }) => app.getPath('userData'));
+      expect(fs.realpathSync(userData)).toBe(fs.realpathSync(path.join(temp, 'Profile')));
     }
     async function open(solution) {
       await app.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, solution);

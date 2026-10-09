@@ -60,5 +60,11 @@ if (operation === 'collect') {
     const uninstaller = files(installed[0].appRoot).find(name => /uninstall.*\.exe$/i.test(path.basename(name)));
     if (!uninstaller) throw new Error('NSIS uninstaller missing');
     checked(uninstaller, ['/S'], { stdio: 'inherit' });
-  } else if (process.platform === 'linux') checked('sudo', ['apt-get', 'remove', '-y', 'datam8'], { stdio: 'inherit' });
+    for (let attempt = 0; attempt < 60 && fs.existsSync(installed[0].executable); attempt++) await new Promise(resolve => setTimeout(resolve, 500));
+    if (fs.existsSync(installed[0].executable)) throw new Error('NSIS uninstall did not remove the installed application');
+  } else if (process.platform === 'linux') {
+    checked('sudo', ['apt-get', 'remove', '-y', 'datam8'], { stdio: 'inherit' });
+    const deb = installed.find(item => item.format === 'deb');
+    if (fs.existsSync(deb.executable)) throw new Error('DEB uninstall did not remove the installed application');
+  }
 } else throw new Error('Expected collect/install/uninstall');

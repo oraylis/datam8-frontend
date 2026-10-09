@@ -4,7 +4,8 @@ import path from 'node:path';
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { _electron } from '@playwright/test';
+import { expect, _electron } from '@playwright/test';
+import { desktopFixture } from './desktop-fixture.mjs';
 import { checked, files } from './mac-runtime.mjs';
 const require = createRequire(import.meta.url);
 const yaml = require('js-yaml');
@@ -27,7 +28,7 @@ function install(target) {
 }
 async function launch(target, enabled = true, solution) {
   const env = { ...process.env, DATAM8_UPDATE_TEST_FEED: feed, DATAM8_DISABLE_AUTO_UPDATES: enabled ? '0' : '1' };
-  app = await _electron.launch({ executablePath: path.join(target, 'datam8.exe'), args: [`--user-data-dir=${path.join(target, 'Test Profile')}`, ...(solution ? [solution] : [])], env });
+  app = await _electron.launch({ executablePath: path.join(target, 'datam8.exe'), args: [`--user-data-dir=${path.join(temp, 'Profiles', path.basename(target))}`, ...(solution ? [solution] : [])], env });
   await app.firstWindow();
 }
 async function updateEvent() {
@@ -58,10 +59,9 @@ function prepare(candidate) {
   return dir;
 }
 try {
-  const source = path.resolve('scripts/fixtures/job_solution');
-  const solutionDir = path.join(temp, 'Solution with spaces'); fs.cpSync(source, solutionDir, { recursive: true });
-  const solution = path.join(solutionDir, 'TestSolution.dm8s');
-  const feedRoot = prepare(next);
+  const solution = desktopFixture(temp, 'Solution with spaces');
+  const entityPath = path.join(path.dirname(solution), 'Model', 'Core', 'Customer.json');
+  const feedRoot = path.join(temp, 'feed'); fs.mkdirSync(feedRoot, { recursive: true });
   server = http.createServer((request, response) => {
     const name = path.basename(new URL(request.url, 'http://127.0.0.1').pathname);
     const file = path.join(feedRoot, name);
@@ -71,7 +71,14 @@ try {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   feed = `http://127.0.0.1:${server.address().port}`;
-  const target = path.join(temp, 'Valid update'); install(target); await launch(target);
+  const target = path.join(temp, 'Valid update'); install(target); await launch(target, true, solution);
+  const oldPage = await app.firstWindow();
+  await oldPage.getByText('Customer', { exact: true }).first().click({ timeout: 60_000 });
+  const oldDescription = oldPage.getByPlaceholder('Describe this entity');
+  await oldDescription.fill('Preserved through signed update'); await oldDescription.press('Tab');
+  await until(() => JSON.parse(fs.readFileSync(entityPath)).description === 'Preserved through signed update', 'old version saves model');
+  await oldPage.evaluate(() => localStorage.setItem('desktop-update-regression', 'preserved'));
+  prepare(next);
   const downloaded = await updateEvent();
   if (downloaded.kind !== 'downloaded' || downloaded.version !== '2.0.0-beta.6-ci.1') throw new Error(`Valid signed update failed: ${JSON.stringify(downloaded)}`);
   const closed = app.waitForEvent('close');
@@ -89,6 +96,9 @@ try {
   await until(async () => page.evaluate(async () => {
     try { const response = await fetch(`${window.desktop.apiBase}/config`, { headers: { Authorization: `Bearer ${window.desktop.token}` } }); return response.ok; } catch { return false; }
   }), 'updated app loads a solution');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('desktop-update-regression'))).toBe('preserved');
+  await page.getByText('Customer', { exact: true }).first().click({ timeout: 60_000 });
+  await expect(page.getByPlaceholder('Describe this entity')).toHaveValue('Preserved through signed update');
   await app.close(); app = null;
   const unsigned = path.join(temp, 'unsigned.exe');
   const pe = Buffer.from(fs.readFileSync(next)); const header = pe.readUInt32LE(0x3c) + 24;
@@ -98,7 +108,7 @@ try {
   for (const kind of ['unsigned', 'wrong-publisher']) {
     const candidate = path.join(temp, `${kind}.exe`); fs.copyFileSync(unsigned, candidate);
     if (kind === 'wrong-publisher') {
-      const ps = `$ErrorActionPreference='Stop'; $c=New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Disposable DataM8 CI Publisher' -CertStoreLocation Cert:\\CurrentUser\\My; try { $s=Set-AuthenticodeSignature -FilePath $env:DATAM8_WRONG_UPDATE -Certificate $c -HashAlgorithm SHA256; if (!$s.SignerCertificate) { throw 'Disposable signing failed' } } finally { Remove-Item ('Cert:\\CurrentUser\\My\\'+$c.Thumbprint) }`;
+      const ps = `$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security'); $c=New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Disposable DataM8 CI Publisher' -CertStoreLocation Cert:\\CurrentUser\\My; try { $s=Set-AuthenticodeSignature -FilePath $env:DATAM8_WRONG_UPDATE -Certificate $c -HashAlgorithm SHA256; if (!$s.SignerCertificate) { throw 'Disposable signing failed' } } finally { Remove-Item ('Cert:\\CurrentUser\\My\\'+$c.Thumbprint) }`;
       checked('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { env: { ...process.env, DATAM8_WRONG_UPDATE: candidate } });
     }
     prepare(candidate);

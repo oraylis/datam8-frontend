@@ -13,7 +13,7 @@ export const standaloneArchives = {
 };
 export function checked(command, args, options = {}) {
   const result = spawnSync(command, args, { encoding: 'utf8', shell: false, ...options });
-  if (result.error || result.status !== 0) throw new Error(`${command} failed: ${result.error?.message || result.stderr || result.stdout}`);
+  if (result.error || result.status !== 0) throw new Error(`${command} failed: ${result.error?.message || result.stderr || result.stdout || `exit ${result.status}`}`);
   return result.stdout || '';
 }
 export function files(root) {
@@ -44,9 +44,19 @@ export async function installStandalone(runtimeRoot, arch = process.arch) {
   const name = `cpython-${standaloneVersion}+${standaloneRelease}-${spec.triple}-install_only.tar.gz`;
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datam8-python-'));
   try {
-    const response = await fetch(`https://github.com/astral-sh/python-build-standalone/releases/download/${standaloneRelease}/${name}`);
-    if (!response.ok) throw new Error(`Standalone download failed: ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
+    let bytes;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(`https://github.com/astral-sh/python-build-standalone/releases/download/${standaloneRelease}/${name}`, { signal: AbortSignal.timeout(120_000) });
+        if (!response.ok) throw new Error(`Standalone download failed: ${response.status}`);
+        bytes = Buffer.from(await response.arrayBuffer());
+        break;
+      } catch (error) {
+        if (attempt === 2) throw error;
+        console.log(`[mac-runtime] Retrying standalone download (${attempt + 1}/2)`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
     if (createHash('sha256').update(bytes).digest('hex') !== spec.sha256) throw new Error(`Standalone SHA-256 mismatch: ${name}`);
     const archive = path.join(temp, name);
     fs.writeFileSync(archive, bytes);

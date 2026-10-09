@@ -59,7 +59,10 @@ if (operation === 'sign') {
     const unrelated = spawnSync('gpg', ['--batch', '--homedir', home, '--verify', `${corrupt}.asc`, checksum], { stdio: 'ignore' });
     if (unrelated.status === 0 || unrelated.error) throw new Error('Verification accepted an unrelated signing key');
     console.log('GPG signatures, expected identity, checksums and negative cases passed');
-  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+  } finally {
+    for (const dir of [path.join(home, 'wrong'), home]) spawnSync('gpgconf', ['--homedir', dir, '--kill', 'all'], { stdio: 'ignore' });
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 } else if (operation === 'verify') {
   if (process.platform === 'win32') verifyWindows(root, process.env.DATAM8_WINDOWS_THUMBPRINT);
   else if (process.platform === 'darwin') verifyMac(root);

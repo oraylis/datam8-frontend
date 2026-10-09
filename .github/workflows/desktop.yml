@@ -287,5 +287,6 @@ jobs:
       - name: Remove signing key and Azure login
         if: always()
         run: |
+          gpgconf --homedir "$RUNNER_TEMP/datam8-gpg" --kill all || true
           rm -rf "$RUNNER_TEMP/datam8-gpg"
           az account clear

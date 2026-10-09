@@ -278,7 +278,6 @@ jobs:
       - name: Record build identity and installation guidance
         run: |
           node scripts/final-desktop-manifest.mjs artifacts/desktop-final
-          cp docs/release.md artifacts/desktop-final/INSTALL-AND-VERIFY.md
       - name: Sign final distributions
         run: node scripts/desktop-signatures.mjs sign artifacts/desktop-final
       - name: Verify signatures and reject tampering and wrong keys

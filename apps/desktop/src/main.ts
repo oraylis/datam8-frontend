@@ -1685,14 +1685,15 @@ if (gotLock) {
     }
   });
 
-  app.on("before-quit", () => {
+  app.on("before-quit", event => {
+    if (isQuitting) return;
     isQuitting = true;
-    try {
-      backendProcess?.kill();
-    } catch {
-      // ignore
-    }
-    backendProcess = null;
+    if (!backendProcess) return;
+    event.preventDefault();
+    void stopBackend().then(() => app.quit()).catch(error => {
+      console.error("Backend shutdown failed:", error);
+      app.exit(1);
+    });
   });
 
   app.on("window-all-closed", () => {

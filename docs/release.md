@@ -148,6 +148,8 @@ signed updates. The internal `DATAM8_UPDATE_TEST_FEED` override accepts only
 HTTP on `127.0.0.1`. Regular acceptance tests set
 `DATAM8_DISABLE_AUTO_UPDATES=1` and cannot download public updates.
 
+macOS/Linux tests replace a previous private fixture version with the installed
+current version and verify retained profile storage and saved model content.
 macOS signatures must remain valid after repeated use. GPG tests reject modified
 packages and an unrelated signing key. Missing/ambiguous platform outputs prevent
 final delivery. `BUILD-MANIFEST.json` records the commit, workflow URL, public

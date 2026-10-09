@@ -55,6 +55,9 @@ for (const distribution of distributions) {
           });
         } catch { return []; }
       }).toEqual([204, 200]);
+      const apiBase = await page.evaluate(() => window.desktop.apiBase);
+      const unauthorized = await app.evaluate(async (_electron, base) => (await fetch(`${base}/config`)).status, apiBase);
+      expect([401, 403]).toContain(unauthorized);
       return app.evaluate(() => process._getActiveHandles().filter(handle => handle.constructor.name === 'ChildProcess' && handle.spawnargs?.includes('serve')).map(handle => handle.pid));
     }
     async function editEntity() {

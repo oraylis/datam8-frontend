@@ -49,7 +49,7 @@ if (operation === 'collect') {
     const installed = '/opt/DataM8';
     results.push({ format: 'deb', executable: path.join(installed, 'datam8'), appRoot: installed, runtimeRoot: path.join(installed, 'resources', 'python-runtime') });
     fs.chmodSync(images[0], 0o755);
-    checked(images[0], ['--appimage-extract'], { cwd: dest });
+    checked(images[0], ['--appimage-extract'], { cwd: dest, stdio: ['ignore', 'ignore', 'pipe'] });
     const imageRoot = path.join(dest, 'squashfs-root');
     results.push({ format: 'AppImage', executable: images[0], appRoot: imageRoot, runtimeRoot: path.join(imageRoot, 'resources', 'python-runtime') });
   }

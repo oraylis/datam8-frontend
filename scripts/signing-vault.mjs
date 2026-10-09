@@ -25,6 +25,8 @@ if (mode === 'windows') {
   const cert = await get(`certificates/${encodeURIComponent(required('AZURE_KEY_VAULT_NAME'))}`);
   const publicCert = new X509Certificate(Buffer.from(cert.cer, 'base64'));
   if (!cert.attributes?.enabled || Date.parse(publicCert.validFrom) > Date.now() || Date.parse(publicCert.validTo) <= Date.now()) throw new Error('Windows signing certificate is disabled, expired or not yet valid');
+  const issuer = new X509Certificate(fs.readFileSync(path.resolve(import.meta.dirname, '../docs/signing/oraylis-signing-root.cer')));
+  if (!publicCert.checkIssued(issuer) || !publicCert.verify(issuer.publicKey)) throw new Error('Windows certificate is not issued by the pinned ORAYLIS CA');
   if (!publicCert.keyUsage?.includes('1.3.6.1.5.5.7.3.3')) throw new Error('Certificate lacks code-signing extended key usage');
   if (!cert.kid?.startsWith(`${vault}/keys/`)) throw new Error('Certificate has no signing key in this vault');
   const publisher = publicCert.subject.split('\n').find(line => line.startsWith('CN='))?.slice(3);

@@ -49,7 +49,7 @@ async function launch(target, enabled = true, solution) {
 }
 async function updateEvent() {
   return app.evaluate(async ({ app }) => {
-    const { createRequire } = await import('node:module');
+    const { createRequire } = process.getBuiltinModule('module');
     const require = createRequire(`${app.getAppPath()}/package.json`);
     const updater = require('electron-updater').autoUpdater;
     return await new Promise(resolve => {
@@ -98,7 +98,7 @@ try {
   phase('Expected signed update downloaded and accepted by the real updater');
   const closed = app.waitForEvent('close');
   await app.evaluate(async ({ app }) => {
-    const { createRequire } = await import('node:module');
+    const { createRequire } = process.getBuiltinModule('module');
     createRequire(`${app.getAppPath()}/package.json`)('electron-updater').autoUpdater.quitAndInstall(true, false);
   }).catch(() => {});
   await closed; app = null;

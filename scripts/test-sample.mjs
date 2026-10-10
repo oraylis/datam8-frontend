@@ -4,6 +4,11 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+if (process.argv.includes('--help')) {
+  console.log('Usage: DATAM8_SAMPLE_SOLUTION_PATH=/path/to/sample.dm8s npm run test:e2e:sample -- [Playwright options or test filename]\nOptional real-sample acceptance on a disposable copy; not a desktop release gate.');
+  process.exit(0);
+}
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const appsWebRoot = path.join(repoRoot, "apps", "web");
 const releasePort = Number(process.env.DATAM8_RELEASE_PORT || "4318");
@@ -77,7 +82,7 @@ async function main() {
   ensurePathExists(pythonPath, "Python runtime");
 
   const { tempRoot, copiedDm8s } = copySampleToTemp(samplePath);
-  console.log(`[release-e2e] Using temp solution copy: ${copiedDm8s}`);
+  console.log(`[sample-e2e] Using temp solution copy: ${copiedDm8s}`);
 
   const serveArgs = [
     "-m",
@@ -106,20 +111,15 @@ async function main() {
   let exitCode = 0;
   try {
     await waitForHealth();
-    console.log(`[release-e2e] Backend ready at ${releaseApiBase}`);
+    console.log(`[sample-e2e] Backend ready at ${releaseApiBase}`);
 
-    const npmScript = (process.env.DATAM8_RELEASE_NPM_SCRIPT || "e2e:release").trim();
-    const command = process.platform === "win32" ? `npm run ${npmScript}` : `npm run ${npmScript}`;
-    const child = spawn(command, {
+    const child = spawn(process.execPath, [
+      path.join(repoRoot, 'node_modules/@playwright/test/cli.js'),
+      'test', '-c', 'playwright.release.config.ts', ...process.argv.slice(2),
+    ], {
       cwd: appsWebRoot,
-      env: {
-        ...process.env,
-        DATAM8_RELEASE_API_BASE: releaseApiBase,
-        DATAM8_RELEASE_SOLUTION_PATH: copiedDm8s,
-      },
-      stdio: "inherit",
-      windowsHide: true,
-      shell: true,
+      env: { ...process.env, DATAM8_RELEASE_API_BASE: releaseApiBase, DATAM8_RELEASE_SOLUTION_PATH: copiedDm8s },
+      stdio: 'inherit', windowsHide: true,
     });
 
     exitCode = await new Promise((resolve) => {
@@ -135,7 +135,7 @@ async function main() {
         // ignore
       }
     } else {
-      console.log(`[release-e2e] Keeping temp dir: ${tempRoot}`);
+      console.log(`[sample-e2e] Keeping temp dir: ${tempRoot}`);
     }
   }
 

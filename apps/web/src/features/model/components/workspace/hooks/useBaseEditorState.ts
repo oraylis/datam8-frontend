@@ -10,7 +10,7 @@ import {
 import { validateBaseContent } from "../lib/validation";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
 import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
-import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
+import { flushAutosave, resolveQueuedPersistAfterSave } from "./autosaveScheduling";
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 const baseSelectedItemMemory = new Map<string, string | null>();
@@ -114,7 +114,7 @@ export const useBaseEditorState = ({
   const baselineReadyRef = useRef<boolean>(false);
   const skipNextDirtyRef = useRef<boolean>(false);
   const baseDirtyRef = useRef(false);
-  const persistInFlightRef = useRef(false);
+  const persistInFlightRef = useRef<Promise<boolean> | null>(null);
   const persistQueuedRef = useRef(false);
   const pendingPersistReasonRef = useRef<PersistReason | null>(null);
   const pendingPersistRevisionRef = useRef(0);
@@ -701,26 +701,39 @@ export const useBaseEditorState = ({
         persistQueuedRef.current = true;
         return false;
       }
-      persistInFlightRef.current = true;
-      const saveStartedRevision = changeRevisionRef.current;
-      const ok = await onSubmitBase();
-      persistInFlightRef.current = false;
-      const queued = resolveQueuedPersistAfterSave(
-        persistQueuedRef.current,
-        reason,
-        changeRevisionRef.current,
-        saveStartedRevision,
-      );
-      if (queued.shouldReschedule) {
-        persistQueuedRef.current = false;
-        baseDirtyRef.current = queued.dirty;
-        pendingPersistReasonRef.current = queued.reason;
-        pendingPersistRevisionRef.current = queued.revision;
-        setPersistRequestTick((value) => value + 1);
-      }
-      return ok;
+      pendingPersistReasonRef.current = null;
+      pendingPersistRevisionRef.current = 0;
+      const saving = (async () => {
+        const saveStartedRevision = changeRevisionRef.current;
+        const ok = await onSubmitBase();
+        persistInFlightRef.current = null;
+        const queued = resolveQueuedPersistAfterSave(
+          persistQueuedRef.current,
+          reason,
+          changeRevisionRef.current,
+          saveStartedRevision,
+        );
+        if (queued.shouldReschedule) {
+          persistQueuedRef.current = false;
+          baseDirtyRef.current = queued.dirty;
+          pendingPersistReasonRef.current = queued.reason;
+          pendingPersistRevisionRef.current = queued.revision;
+          setPersistRequestTick((value) => value + 1);
+        }
+        return ok;
+      })();
+      persistInFlightRef.current = saving;
+      try { return await saving; }
+      finally { if (persistInFlightRef.current === saving) persistInFlightRef.current = null; }
     },
     [hasIncompleteBaseRequiredDraft, onDirtyBase, onSubmitBase, selectedBase],
+  );
+
+  const persistLatestRef = useRef(persistNow);
+  persistLatestRef.current = persistNow;
+  const saveNow = useCallback(
+    () => flushAutosave(persistInFlightRef, () => persistLatestRef.current("tab-switch"), () => pendingPersistReasonRef.current !== null),
+    [],
   );
 
   const persistAfterStateFlush = useCallback(
@@ -772,6 +785,7 @@ export const useBaseEditorState = ({
     onSubmitBase,
     persistNow,
     persistAfterStateFlush,
+    saveNow,
     propertyOptions,
     generatorTargets,
     dataTypes,

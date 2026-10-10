@@ -1,3 +1,5 @@
+export type { DesktopDeveloperBridge, DeveloperCapabilities, UpdateScenario, SimulationSystem } from "./desktop-developer";
+export type { DesktopUpdateBridge, DesktopUpdateStatus, DesktopUpdatePhase, UpdatePreparation } from "./desktop-updates";
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 export type JsonObject = { [key: string]: JsonValue | undefined };

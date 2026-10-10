@@ -7,6 +7,7 @@ import type { Solution } from "./solution-types";
 import { apiBase } from "../../config";
 import { V1SolutionDetectedError } from "./errors";
 import { readBackendErrorMessage } from "../../shared/api/errorMessage";
+import type { DesktopUpdateBridge, DesktopDeveloperBridge } from "@datam8/types";
 
 export type SolutionSource =
   | { kind: "uploaded-file"; file: File }
@@ -34,6 +35,8 @@ declare global {
       platform?: string | null;
       apiBase?: string | null;
       token?: string | null;
+      updates?: DesktopUpdateBridge;
+      developer?: DesktopDeveloperBridge;
       window?: {
         setSolutionPath?: (solutionPath: string | null) => Promise<boolean> | boolean;
         getTitle?: () => Promise<string | null> | string | null;
@@ -364,4 +367,3 @@ export async function loadSolution(source: SolutionSource): Promise<LoadedSoluti
     }
   }
 }
-

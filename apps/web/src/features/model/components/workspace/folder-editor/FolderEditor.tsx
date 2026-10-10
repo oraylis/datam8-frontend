@@ -6,7 +6,7 @@ import { PropertyChips, type PropertyChipItem } from "../common/PropertyChips";
 import type { FolderEntity, PropertyOption } from "../../../model-types";
 import { mergeInheritedProps } from "../../../model-utils";
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
-import { resolveQueuedPersistAfterSave } from "../hooks/autosaveScheduling";
+import { flushAutosave, resolveQueuedPersistAfterSave } from "../hooks/autosaveScheduling";
 
 type FolderEditorProps = {
   selectedFolderPath: string;
@@ -70,7 +70,7 @@ export function FolderEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const baselineRef = useRef<any>(null);
   const dirtyRef = useRef(false);
-  const persistInFlightRef = useRef(false);
+  const persistInFlightRef = useRef<Promise<boolean> | null>(null);
   const persistQueuedRef = useRef(false);
   const pendingPersistReasonRef = useRef<"text-blur" | "dropdown-change" | "tab-switch" | "add-item" | "delete-item" | null>(null);
   const pendingPersistRevisionRef = useRef(0);
@@ -341,26 +341,39 @@ export function FolderEditor({
         persistQueuedRef.current = true;
         return false;
       }
-      persistInFlightRef.current = true;
-      const saveStartedRevision = changeRevisionRef.current;
-      const ok = await saveFolder();
-      persistInFlightRef.current = false;
-      const queued = resolveQueuedPersistAfterSave(
-        persistQueuedRef.current,
-        reason,
-        changeRevisionRef.current,
-        saveStartedRevision,
-      );
-      if (queued.shouldReschedule) {
-        persistQueuedRef.current = false;
-        dirtyRef.current = queued.dirty;
-        pendingPersistReasonRef.current = queued.reason;
-        pendingPersistRevisionRef.current = queued.revision;
-        setPersistRequestTick((value) => value + 1);
-      }
-      return ok;
+      pendingPersistReasonRef.current = null;
+      pendingPersistRevisionRef.current = 0;
+      const saving = (async () => {
+        const saveStartedRevision = changeRevisionRef.current;
+        const ok = await saveFolder();
+        persistInFlightRef.current = null;
+        const queued = resolveQueuedPersistAfterSave(
+          persistQueuedRef.current,
+          reason,
+          changeRevisionRef.current,
+          saveStartedRevision,
+        );
+        if (queued.shouldReschedule) {
+          persistQueuedRef.current = false;
+          dirtyRef.current = queued.dirty;
+          pendingPersistReasonRef.current = queued.reason;
+          pendingPersistRevisionRef.current = queued.revision;
+          setPersistRequestTick((value) => value + 1);
+        }
+        return ok;
+      })();
+      persistInFlightRef.current = saving;
+      try { return await saving; }
+      finally { if (persistInFlightRef.current === saving) persistInFlightRef.current = null; }
     },
     [saveFolder],
+  );
+
+  const persistLatestRef = useRef(persistNow);
+  persistLatestRef.current = persistNow;
+  const saveNow = useCallback(
+    () => flushAutosave(persistInFlightRef, () => persistLatestRef.current("tab-switch"), () => pendingPersistReasonRef.current !== null),
+    [],
   );
 
   useEffect(() => {
@@ -385,13 +398,13 @@ export function FolderEditor({
   );
 
   useEffect(() => {
-    registerPersist?.(() => persistNow("tab-switch"));
+    registerPersist?.(saveNow);
     return () => {
       registerPersist?.(null);
       pendingPersistReasonRef.current = null;
       pendingPersistRevisionRef.current = 0;
     };
-  }, [persistNow, registerPersist]);
+  }, [saveNow, registerPersist]);
 
   const handleTextFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {

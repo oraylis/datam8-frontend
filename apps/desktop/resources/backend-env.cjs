@@ -15,8 +15,4 @@ function buildPythonEnv(pythonPath, runtimeRoot, inherited = process.env, platfo
   return env;
 }
 
-function shouldAutoUpdate(packaged, platform = process.platform, env = process.env) {
-  return packaged && platform === "win32" && env.DATAM8_DISABLE_AUTO_UPDATES !== "1";
-}
-
-module.exports = { buildPythonEnv, shouldAutoUpdate };
+module.exports = { buildPythonEnv };

@@ -2,17 +2,21 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
+import { createRequire } from 'node:module';
+const { listPackage } = createRequire(new URL('../package.json', import.meta.url))('@electron/asar');
 import { test, expect, _electron } from '@playwright/test';
 import { verifyMac, verifyWindows } from '../../../scripts/desktop-verification.mjs';
 import { desktopFixture as fixture } from '../../../scripts/desktop-fixture.mjs';
-const manifest = process.env.DATAM8_INSTALLED_MANIFEST;
-if (!manifest) throw new Error('DATAM8_INSTALLED_MANIFEST must point at installed distributions');
+import { checked } from '../../../scripts/mac-runtime.mjs';
+import { unusedLoopbackPort } from '../../../scripts/test-port.mjs';
+import { demoReleaseServer } from '../resources/dev-fixtures.cjs';
+const manifest = process.env.DATAM8_INSTALLED_MANIFEST || 'artifacts/installed/installed.json';
 const distributions = JSON.parse(fs.readFileSync(manifest, 'utf8'));
 if (!distributions.length) throw new Error('No installed distributions');
 const redact = text => String(text).replace(/Bearer\s+[^\s"']+/gi, 'Bearer [redacted]').replace(/(--token[\s=]+)[^\s"']+/gi, '$1[redacted]');
-async function portClosed() {
+async function portClosed(port) {
   return new Promise(resolve => {
-    const socket = net.connect(4318, '127.0.0.1');
+    const socket = net.connect(Number(port), '127.0.0.1');
     socket.once('connect', () => { socket.destroy(); resolve(false); });
     socket.once('error', () => resolve(true));
   });
@@ -21,6 +25,7 @@ for (const distribution of distributions) {
   test(`${distribution.format}: solution, persistence, generation, switching and shutdown`, async ({}, testInfo) => {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'DataM8 desktop tests '));
     const first = fixture(temp, 'First solution'); const second = fixture(temp, 'Second solution');
+    const backendPort = await unusedLoopbackPort();
     const logs = []; let app; let page;
     const verify = () => {
       if (process.platform === 'darwin') verifyMac(distribution.appRoot);
@@ -29,7 +34,7 @@ for (const distribution of distributions) {
     async function launch(previous = false) {
       if (previous && distribution.previousAppRoot && process.platform === 'darwin') verifyMac(distribution.previousAppRoot);
       app = await _electron.launch({ executablePath: previous && distribution.previousExecutable ? distribution.previousExecutable : distribution.executable, args: [`--user-data-dir=${path.join(temp, 'Profile')}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
-        env: { ...process.env, DATAM8_DISABLE_AUTO_UPDATES: '1', APPIMAGE_EXTRACT_AND_RUN: '1', PYTHONHOME: '/deliberately/invalid/host-python', PYTHONPATH: '/deliberately/invalid/host-modules' }, timeout: 60_000 });
+        env: { ...process.env, DATAM8_BACKEND_TEST_PORT: backendPort, APPIMAGE_EXTRACT_AND_RUN: '1', PYTHONHOME: '/deliberately/invalid/host-python', PYTHONPATH: '/deliberately/invalid/host-modules' }, timeout: 60_000 });
       app.process().stdout?.on('data', chunk => logs.push(redact(chunk)));
       app.process().stderr?.on('data', chunk => logs.push(redact(chunk)));
       page = await app.firstWindow();
@@ -68,6 +73,9 @@ for (const distribution of distributions) {
       return description;
     }
     try {
+      checked(process.execPath, ['scripts/smoke-python-runtime.mjs', '--runtime-root', distribution.runtimeRoot], { stdio: 'inherit' });
+      const entries = listPackage(path.join(path.dirname(distribution.runtimeRoot), 'app.asar'));
+      expect(entries.some(entry => /developerSimulation|dev-fixtures|cleanup-dev-profile|\/resources\/.*\.d\.cts$/.test(entry))).toBe(false);
       verify(); await launch(Boolean(distribution.previousExecutable));
       const previousVersion = await app.evaluate(({ app }) => app.getVersion());
       if (distribution.previousExecutable) expect(previousVersion).toBe(distribution.previousVersion);
@@ -77,7 +85,7 @@ for (const distribution of distributions) {
       await description.fill('Saved by packaged desktop regression'); await description.press('Tab');
       await expect.poll(() => JSON.parse(fs.readFileSync(path.join(path.dirname(first), 'Model', 'Core', 'Customer.json'), 'utf8')).description).toBe('Saved by packaged desktop regression');
       await app.close(); app = null;
-      await expect.poll(portClosed).toBe(true);
+      await expect.poll(() => portClosed(backendPort)).toBe(true);
       await launch();
       if (distribution.previousExecutable) expect(await app.evaluate(({ app }) => app.getVersion())).not.toBe(previousVersion);
       await expect.poll(() => page.evaluate(() => localStorage.getItem('desktop-version-regression'))).toBe('preserved');
@@ -93,8 +101,9 @@ for (const distribution of distributions) {
       expect(newPids.some(pid => !oldPids.includes(pid))).toBe(true);
       await expect(await editEntity()).toHaveValue('Packaged fixture');
       await page.context().tracing.stop();
+      await app.evaluate(({ app }) => { app.quit(); app.quit(); });
       await app.close(); app = null;
-      await expect.poll(portClosed).toBe(true);
+      await expect.poll(() => portClosed(backendPort)).toBe(true);
       for (const pid of [...pids, ...oldPids, ...newPids]) {
         expect(() => process.kill(pid, 0)).toThrow();
       }
@@ -109,6 +118,57 @@ for (const distribution of distributions) {
       if (app) await app.close().catch(() => {});
       fs.writeFileSync(testInfo.outputPath('app-backend.log'), logs.join('\n'));
       await testInfo.attach('app-backend.log', { body: Buffer.from(logs.join('\n')), contentType: 'text/plain' });
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
+  });
+  if (process.platform !== 'win32') test(`${distribution.format}: packaged manual updates and GitHub release notes`, async () => {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'DataM8 manual updates '));
+    const server = demoReleaseServer(); let app;
+    const releaseRequests = [];
+    server.on('request', request => releaseRequests.push(request.url));
+    try {
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+      app = await _electron.launch({ executablePath: distribution.executable, args: [`--user-data-dir=${temp}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+        env: { ...process.env, DATAM8_UPDATE_DEMO: '1', DATAM8_UPDATE_SANDBOX: '1', DATAM8_DEVELOPER_TEST_DEBUG: '1', DATAM8_UPDATE_TEST_RELEASES: `http://127.0.0.1:${server.address().port}`, APPIMAGE_EXTRACT_AND_RUN: '1' }, timeout: 60_000 });
+      const page = await app.firstWindow();
+      const externalFonts = [];
+      page.on('request', request => { if (/fonts\.(googleapis|gstatic)\.com/.test(request.url())) externalFonts.push(request.url()); });
+      // Packaged UI assets must load without renderer internet access. Release
+      // HTTP runs in the main process against the real local fixture server.
+      await page.context().setOffline(true);
+      await expect(page.getByTitle('Open', { exact: true })).toBeVisible();
+      expect(externalFonts).toEqual([]);
+      const faces = await page.evaluate(async () => (await document.fonts.load('400 14px Manrope')).map(face => face.status));
+      expect(faces.length).toBeGreaterThan(0); expect(faces.every(state => state === 'loaded')).toBe(true);
+      expect(releaseRequests).toEqual([]);
+      expect((await page.evaluate(() => window.desktop.updates.getStatus())).phase).toBe('idle');
+      await app.evaluate(({ dialog, shell }) => {
+        globalThis.__dialogs = []; globalThis.__links = [];
+        dialog.showMessageBox = async (...args) => { const options = args.at(-1); globalThis.__dialogs.push(options); return { response: options.buttons[0] === 'Open Release & Downloads' ? 0 : options.cancelId, checkboxChecked: false }; };
+        shell.openExternal = async url => { globalThis.__links.push(url); };
+      });
+      await page.evaluate(() => window.desktop.updates.check());
+      const state = await page.evaluate(() => window.desktop.updates.getStatus());
+      expect(state.phase).toBe('available'); expect(state.canInstall).toBe(false); expect(state.demo).toBe(false);
+      expect(state.notes).toContain('Safer desktop updates');
+      expect(await page.evaluate(() => window.desktop.developer)).toBeUndefined();
+      const developerDenials = await app.evaluate(async ({ ipcMain, BrowserWindow }) => {
+        const sender = BrowserWindow.getAllWindows()[0].webContents;
+        return Promise.all(['capabilities', 'open-panel', 'open-simulation', 'run-scenario', 'open-example'].map(async action => {
+          try { await ipcMain._invokeHandlers.get(`developer:${action}`)({ sender }); return false; }
+          catch (error) { return error.message === 'Developer tools are unavailable.'; }
+        }));
+      });
+      expect(developerDenials).toEqual([true, true, true, true, true]);
+      await expect(page.getByRole('complementary', { name: 'Developer tools' })).toHaveCount(0);
+      expect(releaseRequests).toHaveLength(2);
+      expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items.some(item => item.label === 'Developer' || item.label === 'Update demo'))).toBe(false);
+      await expect(page.getByRole('complementary', { name: 'Desktop update' })).toHaveCount(0);
+      expect(await app.evaluate(() => globalThis.__links.at(-1))).toBe('https://github.com/oraylis/datam8-frontend/releases/tag/v2.1.0-beta.99');
+      expect(await app.evaluate(() => globalThis.__dialogs.at(-1).buttons)).toEqual(['Open Release & Downloads', 'Later']);
+    } finally {
+      if (app) await app.close();
+      server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
       fs.rmSync(temp, { recursive: true, force: true });
     }
   });

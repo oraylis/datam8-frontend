@@ -74,9 +74,28 @@ runtime/FUSE configuration. Both formats contain the Python runtime.
 
 ## Update and retain your data
 
-Windows supports automatic updates with publisher-signature validation when the
-signing CA is trusted by the device. macOS and Linux use manual downloads: quit
-DataM8, verify the new package and replace/install it. Keep solution directories
-and application user data. Do not modify files inside the signed application.
+Use **Help → Check for Updates…** to check published GitHub releases and read
+their release notes. Checks run only when you choose this menu item; startup
+and background activity do not contact the release server or show update notices.
+Stable versions offer newer stable releases; beta versions offer newer beta or
+stable releases. Downloads from workflow runs are not offered as updates.
+
+On Windows, choose **Download Update**, then **Restart and Install** when ready.
+DataM8 requires the signing CA to be trusted by the device and validates the
+publisher signature before accepting a download. Downloads and installation
+require your choice; ordinary quitting does not install an update. Installation
+saves active drafts and waits for outstanding saves and backend shutdown.
+Download progress appears in the Windows taskbar. If you choose **Later** after
+downloading, **Help → Check for Updates…** offers **Restart and Install** again.
+Unresolved changes, save errors, an open editor dialog, generation or solution
+loading stop installation so you can finish your work first.
+
+On macOS and Linux, **Open Release & Downloads** opens the matching GitHub release
+with packages and verification instructions. Quit DataM8, verify the new package
+and replace/install it. Keep solution directories and application user data. Do
+not modify files inside the signed application. Native dialogs show a plaintext
+excerpt of GitHub release notes; use the release page for the full notes.
 
 Maintainers can find workflow and test details in the repository's `docs/release.md`.
+Update simulations are available only through the Developer panel of the
+development app; installed packages have no developer mode.

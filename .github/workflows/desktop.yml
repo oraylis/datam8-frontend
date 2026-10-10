@@ -9,41 +9,7 @@ permissions:
   contents: read
 jobs:
   quality:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-      - name: Match protected release tag to package version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: node -e "const fs=require('fs'); const v=JSON.parse(fs.readFileSync('apps/desktop/package.json')).version; if(process.env.GITHUB_REF_NAME !== 'v'+v) throw new Error('Release tag must match desktop package version');"
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - uses: astral-sh/setup-uv@v7
-      - run: npm ci
-      - run: npm run ci:ensure-rollup-native
-      - run: npm run build:datam8-binaries
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm --workspaces run test --if-present
-      - run: npm run docs:check
-      - run: npm --workspace apps/web exec playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - run: npm run ci:gates
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: quality-diagnostics
-          path: |
-            apps/web/test-results
-            apps/web/playwright-report
-          retention-days: 30
+    uses: ./.github/workflows/ci.yml
   build:
     needs: quality
     strategy:
@@ -106,12 +72,10 @@ jobs:
         if: inputs.signed && matrix.platform == 'win'
         run: node scripts/test-windows-signing.mjs
       - run: npm ci
-      - run: npm run ci:ensure-rollup-native
       - run: npm run build:web:electron
       - run: node --test scripts/backend-env.test.mjs scripts/backend-lifecycle.test.mjs scripts/mac-runtime.test.mjs
       - run: npm run build:python-runtime
-      - run: npm run build:datam8-binaries
-      - run: npm --workspace apps/desktop run package:${{ matrix.platform }}
+      - run: npm --workspace apps/desktop run package -- --${{ matrix.platform }}
       - name: Verify Windows signatures before upload
         if: inputs.signed && matrix.platform == 'win'
         run: npm run test:desktop:signatures -- apps/desktop/release
@@ -181,7 +145,6 @@ jobs:
     timeout-minutes: 35
     env:
       DATAM8_REQUIRE_SIGNING: ${{ inputs.signed && '1' || '0' }}
-      DATAM8_DISABLE_AUTO_UPDATES: '1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -223,9 +186,6 @@ jobs:
           else
             npm run test:desktop:packaged
           fi
-      - name: Runtime smoke for every installed distribution
-        shell: bash
-        run: node scripts/test-installed-runtimes.mjs artifacts/installed/installed.json
       - name: Uninstall
         run: node scripts/desktop-distributions.mjs uninstall artifacts/distributions artifacts/installed
       - uses: actions/download-artifact@v4

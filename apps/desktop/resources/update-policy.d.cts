@@ -1,0 +1,12 @@
+export type Release = { tag_name: string; draft?: boolean; prerelease?: boolean; body?: string | null; assets: { name: string }[] };
+export const API: string;
+export const REPOSITORY: string;
+export function parseVersion(value: string): { numbers: bigint[]; pre: string[] } | null;
+export function compareVersions(a: string, b: string): number;
+export function releaseUrl(tag: string): string;
+export function hasPackages(release: Release, version: string, platform: string, arch: string): boolean;
+export function selectRelease(releases: Release[], current: string, platform: string, arch: string): Release | null;
+export function plainNotes(markdown: string): string;
+export function notesExcerpt(markdown: string): string;
+export function loopback(value: string): string;
+export function requireWindowsPublisher(config: string): void;

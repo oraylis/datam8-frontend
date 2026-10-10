@@ -27,8 +27,14 @@ or change to `main` is made by manual verification.
 6. Choose one normal manual entry point. The registered
    `ci-push-and-pull-request-merged.yml` wrapper currently also provides the
    `windows_update_fixture_run` diagnostic input. Retain or move that diagnostic
-   explicitly before retiring the wrapper. Both wrappers call the same reusable
+   explicitly before retiring the wrapper. Once `build-desktop.yml` is registered,
+   retire the temporary wrapper and its fixture-reuse diagnostic; this feature
+   branch keeps it to preserve the currently registered manual entry. Both wrappers call the same reusable
    desktop workflow; neither creates a separate build/signing process.
+7. Check required status names in branch protection after the first PR run.
+   Quality now runs through the reusable `ci.yml` job instead of two independent
+   workflows; require its reported status and the four packaged verification
+   statuses, and remove requirements for superseded jobs.
 
 ## Replace installed applications and preserve user data
 

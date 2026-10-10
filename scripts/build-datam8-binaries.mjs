@@ -16,7 +16,7 @@ if (!fs.existsSync(generatorRoot)) {
 }
 
 const uv = process.platform === "win32" ? "uv.exe" : "uv";
-const build = spawnSync(uv, ["build"], {
+const build = spawnSync(uv, ["build", "--wheel"], {
   cwd: generatorRoot,
   stdio: "inherit",
   shell: false,

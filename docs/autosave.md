@@ -65,6 +65,21 @@ Each editor uses the same core pattern:
 
 This avoids overlapping saves while still persisting the latest state.
 
+## Awaiting persistence before desktop updates
+
+The registered `saveNow` callbacks use the existing autosave state to finish an
+in-flight save and any newer revision queued during it. `flushAutosave` in
+`autosaveScheduling` commits pending React state and observes explicit pending
+save reasons; it does not infer completion from a quiet interval. Programmatic
+Base saves likewise return a promise covering their queued newer payloads.
+
+Before a Windows update (or simulated installation), `AppShell` commits the
+focused input, blocks further editing, awaits the active editor and programmatic
+Base saves, and checks dirty state and save results. An unresolved inactive draft,
+failed save, open editor dialog, generation or solution load prevents installation.
+There is no global fetch interception for save tracking or separate `saveActivity`
+registry. Normal autosave triggers and backend contracts remain the same.
+
 ## Validation gates and skip behavior
 
 ### Entity editor (`useEntityState`)

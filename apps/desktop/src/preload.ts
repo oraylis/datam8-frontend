@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import type { DesktopUpdateStatus, UpdatePreparation } from "../../../packages/types/src/desktop-updates";
 
 function getArgValue(prefix: string): string | null {
   const arg = process.argv.find((v) => v.startsWith(prefix));
@@ -22,6 +23,35 @@ contextBridge.exposeInMainWorld("desktop", {
   platform: process.platform,
   apiBase: getApiBaseFromArgs(),
   token: getTokenFromArgs(),
+  ...(getArgValue("--datam8-development=") === "1" ? { developer: {
+    getCapabilities: () => ipcRenderer.invoke("developer:capabilities"),
+    openPanel: () => ipcRenderer.invoke("developer:open-panel"),
+    openUpdateSimulation: () => ipcRenderer.invoke("developer:open-simulation"),
+    runUpdateScenario: (scenario: string, system: string) => ipcRenderer.invoke("developer:run-scenario", scenario, system),
+    openExampleSolution: () => ipcRenderer.invoke("developer:open-example"),
+    onOpenPanel: (callback: () => void) => {
+      const handler = () => callback(); ipcRenderer.on("developer:open-panel", handler);
+      return () => ipcRenderer.off("developer:open-panel", handler);
+    },
+  } } : {}),
+  updates: {
+    getStatus: () => ipcRenderer.invoke("updates:get-status"),
+    check: () => ipcRenderer.invoke("updates:check"),
+    download: () => ipcRenderer.invoke("updates:download"),
+    install: () => ipcRenderer.invoke("updates:install"),
+    openRelease: () => ipcRenderer.invoke("updates:open-release"),
+    completePreparation: (id: string, result: UpdatePreparation) => ipcRenderer.invoke("updates:preparation-complete", id, result),
+    onStatusChanged: (callback: (status: DesktopUpdateStatus) => void) => {
+      const handler = (_event: IpcRendererEvent, status: DesktopUpdateStatus) => callback(status);
+      ipcRenderer.on("updates:status-changed", handler);
+      return () => ipcRenderer.off("updates:status-changed", handler);
+    },
+    onPrepareInstall: (callback: (id: string) => void) => {
+      const handler = (_event: IpcRendererEvent, id: string) => callback(id);
+      ipcRenderer.on("updates:prepare-install", handler);
+      return () => ipcRenderer.off("updates:prepare-install", handler);
+    },
+  },
   window: {
     setSolutionPath: (solutionPath: string | null) => ipcRenderer.invoke("window:set-solution-path", solutionPath),
     getTitle: () => ipcRenderer.invoke("window:get-title"),
@@ -83,4 +113,3 @@ contextBridge.exposeInMainWorld("desktop", {
     },
   },
 });
-

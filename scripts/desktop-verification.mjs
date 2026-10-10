@@ -10,8 +10,5 @@ export function verifyWindows(root, thumbprint) {
 }
 export function verifyMac(root) {
   checked('codesign', ['--verify', '--deep', '--strict', root]);
-  const description = checked('codesign', ['-d', '--verbose=4', root], { stdio: ['ignore', 'pipe', 'pipe'] });
-  // codesign writes its description on stderr; strict verification above is authoritative.
-  void description;
   validateMacBinaries(root);
 }

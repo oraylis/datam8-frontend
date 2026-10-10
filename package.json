@@ -15,34 +15,28 @@
     "docs:check": "node --test scripts/check-docs.test.mjs && node scripts/check-docs.mjs",
     "docs:capture": "node scripts/capture-user-guide.mjs",
     "dev:web": "npm --workspace apps/web exec vite",
-    "dev:desktop": "npm run ci:ensure-rollup-native && node scripts/dev-desktop.mjs",
-    "dev:desktop:source": "concurrently \"npm --workspace apps/web exec vite\" \"npm --workspace apps/desktop run dev\"",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
     "generate:schema-types": "node scripts/generate-schema-types.mjs",
-    "ci:ensure-rollup-native": "node scripts/ensure-rollup-native.mjs",
-    "build:datam8-binaries": "npm run generate:schema-types && node scripts/build-datam8-binaries.mjs",
+    "build:datam8-binaries": "node scripts/build-datam8-binaries.mjs",
     "build:python-runtime": "node scripts/build-python-runtime.mjs",
-    "ci:gates": "node scripts/ci-gates.mjs",
+    "ci:gates": "node --test scripts/ci-gates.test.mjs && node scripts/ci-gates.mjs",
     "lint": "npm --workspaces run lint",
     "typecheck": "npm --workspaces run typecheck",
     "test:runtime:packaged": "node scripts/smoke-python-runtime.mjs",
     "test:e2e": "npm --workspace apps/web run e2e",
-    "test:e2e:release": "node scripts/e2e-release.mjs",
-    "test:e2e:release:full": "cross-env DATAM8_RELEASE_NPM_SCRIPT=e2e:release:full node scripts/e2e-release.mjs",
     "build:web:electron": "cross-env VITE_APP_MODE=electron npm --workspace apps/web run build -- --mode electron",
-    "build:desktop": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && node scripts/package-desktop.mjs",
-    "build:desktop:win": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:win",
-    "build:desktop:mac": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:mac",
-    "build:desktop:linux": "npm run build:web:electron && npm run build:python-runtime && cross-env DATAM8_RELEASE_BUILD=1 npm run build:datam8-binaries && npm --workspace apps/desktop run package:linux",
+    "build:desktop": "npm run build:web:electron && npm run build:python-runtime && npm --workspace apps/desktop run package --",
     "version:set": "node scripts/set-version.mjs",
-    "test:desktop:packaged": "node scripts/test-desktop-packaged.mjs",
+    "test:desktop:packaged": "playwright test --config apps/desktop/playwright.packaged.config.mjs",
     "test:desktop:signatures": "node scripts/desktop-signatures.mjs verify",
-    "test:desktop:updates": "node scripts/test-desktop-updates.mjs"
+    "test:desktop:updates": "node scripts/test-desktop-updates.mjs",
+    "test:desktop:updates:ui": "npm --workspace apps/desktop run build && node scripts/test-desktop-updates-ui.mjs",
+    "test:e2e:sample": "node scripts/test-sample.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "adm-zip": "^0.5.16",
-    "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^9.20.1",
@@ -57,8 +51,5 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "esbuild": "^0.28.1"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.53.3"
   }
 }

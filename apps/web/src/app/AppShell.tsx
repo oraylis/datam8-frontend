@@ -24,6 +24,9 @@ import { CreateModelEntityWizard } from "../features/model/components/CreateMode
 import { MoveEntitiesDialog } from "../features/model/components/MoveEntitiesDialog";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { WindowsTitleBar } from "./WindowsTitleBar";
+import { DeveloperTools } from "../features/developer/DeveloperTools";
+import { useDesktopUpdates } from "../features/updates/useDesktopUpdates";
+import { flushSync } from "react-dom";
 import { useSolution } from "../features/solution/SolutionContext";
 import { MigrateSolutionV1Wizard } from "../features/migration/components/MigrateSolutionV1Wizard";
 import type { ElectronSolutionBridge, SolutionSource } from "../features/solution/solutionLoader";
@@ -286,13 +289,13 @@ export function AppShell() {
   } | null>(null);
   const [projectRootHint, setProjectRootHint] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const appRootRef = useRef<HTMLDivElement | null>(null);
   const entityPersistRef = useRef<(() => Promise<boolean>) | null>(null);
   const basePersistRef = useRef<(() => Promise<boolean>) | null>(null);
   const folderPersistRef = useRef<(() => Promise<boolean>) | null>(null);
   const patchedBasePayloadRef = useRef<Map<string, { next: BaseEntity; previousContent: BaseEntity["content"] }>>(new Map());
   const patchedBaseTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const patchedBaseInFlightRef = useRef<Set<string>>(new Set());
-  const patchedBaseQueuedRef = useRef<Set<string>>(new Set());
+  const patchedBaseInFlightRef = useRef<Map<string, Promise<boolean>>>(new Map());
   const {
     modelEntities,
     baseEntities,
@@ -488,7 +491,6 @@ export function AppShell() {
       patchedBaseTimerRef.current.clear();
       patchedBasePayloadRef.current.clear();
       patchedBaseInFlightRef.current.clear();
-      patchedBaseQueuedRef.current.clear();
       setBaseItemSelectionRequest(null);
       setSelectedFolderPath(null);
     },
@@ -518,66 +520,69 @@ export function AppShell() {
 
   const flushPatchedBaseAutosave = useCallback(
     async (relPath: string) => {
-      const pending = patchedBasePayloadRef.current.get(relPath);
-      if (!pending) return;
-      if (patchedBaseInFlightRef.current.has(relPath)) {
-        patchedBaseQueuedRef.current.add(relPath);
-        return;
-      }
-      patchedBaseInFlightRef.current.add(relPath);
-      try {
-        const nextEntity = pending.next;
-        let hadMutation = false;
-        const detectedUpdated = detectBaseType(nextEntity.content, nextEntity.relPath);
-        const detectedPrevious = detectBaseType(pending.previousContent || {}, nextEntity.relPath);
-        const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
-        const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
-        const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
-
-        if (baseType && baseType !== "unknown") {
-          assertNoDuplicateBaseKeys(baseType, nextItems);
-          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
-        } else {
-          const locator = nextEntity.locator || modelLocatorFromRelPath(nextEntity.relPath);
-          try {
-            await patchEntity(locator, nextEntity.content as Record<string, unknown>, { save: false });
-            hadMutation = true;
-          } catch {
-            await createEntity(locator, nextEntity.content as Record<string, unknown>, { save: false });
-            hadMutation = true;
-          }
-        }
-        if (hadMutation) {
-          await saveModel();
-        }
-        setBaseTabs((tabs) =>
-          tabs.map((t) =>
-            t.relPath === nextEntity.relPath
-              ? { ...t, dirty: false, title: formatBaseTitle(nextEntity.name || nextEntity.relPath.split("/").pop() || nextEntity.relPath) }
-              : t,
-          ),
-        );
-        setTabDirty(nextEntity.relPath, "base", false);
-        console.log(`[DataM8] Base entity autosaved: ${nextEntity.relPath}`);
-        showSaveNotification("saved");
-      } catch (err) {
-        console.error("[DataM8] Base entity autosave failed:", err);
-        setTabDirty(relPath, "base", true);
-        setBaseTabs((tabs) =>
-          tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)),
-        );
-        showSaveNotification("failed");
-      } finally {
-        patchedBaseInFlightRef.current.delete(relPath);
-        if (patchedBaseQueuedRef.current.has(relPath)) {
-          patchedBaseQueuedRef.current.delete(relPath);
+      clearPatchedBaseTimer(relPath);
+      const running = patchedBaseInFlightRef.current.get(relPath);
+      if (running) return running;
+      const saving = (async (): Promise<boolean> => {
+        while (true) {
+          const pending = patchedBasePayloadRef.current.get(relPath);
+          if (!pending) return true;
           clearPatchedBaseTimer(relPath);
-          const timer = setTimeout(() => {
-            void flushPatchedBaseAutosave(relPath);
-          }, 0);
-          patchedBaseTimerRef.current.set(relPath, timer);
+          try {
+            const nextEntity = pending.next;
+            let hadMutation = false;
+            const detectedUpdated = detectBaseType(nextEntity.content, nextEntity.relPath);
+            const detectedPrevious = detectBaseType(pending.previousContent || {}, nextEntity.relPath);
+            const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
+            const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
+            const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
+
+            if (baseType && baseType !== "unknown") {
+              assertNoDuplicateBaseKeys(baseType, nextItems);
+              hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
+            } else {
+              const locator = nextEntity.locator || modelLocatorFromRelPath(nextEntity.relPath);
+              try {
+                await patchEntity(locator, nextEntity.content as Record<string, unknown>, { save: false });
+                hadMutation = true;
+              } catch {
+                await createEntity(locator, nextEntity.content as Record<string, unknown>, { save: false });
+                hadMutation = true;
+              }
+            }
+            if (hadMutation) {
+              await saveModel();
+            }
+            setBaseTabs((tabs) =>
+              tabs.map((t) =>
+                t.relPath === nextEntity.relPath
+                  ? { ...t, dirty: false, title: formatBaseTitle(nextEntity.name || nextEntity.relPath.split("/").pop() || nextEntity.relPath) }
+                  : t,
+              ),
+            );
+            setTabDirty(nextEntity.relPath, "base", false);
+            console.log(`[DataM8] Base entity autosaved: ${nextEntity.relPath}`);
+            showSaveNotification("saved");
+          } catch (err) {
+            console.error("[DataM8] Base entity autosave failed:", err);
+            setTabDirty(relPath, "base", true);
+            setBaseTabs((tabs) =>
+              tabs.map((t) => (t.relPath === relPath ? { ...t, dirty: true } : t)),
+            );
+            showSaveNotification("failed");
+            return false;
+          }
+          if (patchedBasePayloadRef.current.get(relPath) === pending) {
+            patchedBasePayloadRef.current.delete(relPath);
+            return true;
+          }
+          // A newer programmatic edit arrived during this save; persist it
+          // in the same promise instead of scheduling an untracked timer.
         }
-      }
+      })();
+      patchedBaseInFlightRef.current.set(relPath, saving);
+      try { return await saving; }
+      finally { if (patchedBaseInFlightRef.current.get(relPath) === saving) patchedBaseInFlightRef.current.delete(relPath); }
     },
     [clearPatchedBaseTimer, formatBaseTitle, setBaseTabs, setTabDirty, showSaveNotification],
   );
@@ -597,14 +602,12 @@ export function AppShell() {
   useEffect(() => {
     const timerMap = patchedBaseTimerRef.current;
     const payloadMap = patchedBasePayloadRef.current;
-    const inFlightSet = patchedBaseInFlightRef.current;
-    const queuedSet = patchedBaseQueuedRef.current;
+    const inFlightMap = patchedBaseInFlightRef.current;
     return () => {
       timerMap.forEach((timer) => clearTimeout(timer));
       timerMap.clear();
       payloadMap.clear();
-      inFlightSet.clear();
-      queuedSet.clear();
+      inFlightMap.clear();
     };
   }, []);
 
@@ -1715,6 +1718,32 @@ export function AppShell() {
     return true;
   }, [activeWorkTab]);
 
+  const updateSnapshotRef = useRef({ hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch });
+  useEffect(() => {
+    updateSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
+  }, [hasAnyDirty, generatorRunning, solutionLoading, persistActiveEditorBeforeSwitch]);
+  const updateStatus = useDesktopUpdates(async () => {
+    const snapshot = updateSnapshotRef.current;
+    if (snapshot.generatorRunning || snapshot.solutionLoading) return { ok: false, reason: "Wait for generation or solution loading to finish." };
+    if (Array.from(document.querySelectorAll('[role="dialog"]')).some(element => element.getClientRects().length)) return { ok: false, reason: "Finish or cancel the open editor dialog before installing an update." };
+    // Blur commits local input drafts before inert prevents any further editing.
+    flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+    if (appRootRef.current) appRootRef.current.inert = true;
+    const saved = await updateSnapshotRef.current.persist();
+    const baseSaved = await Promise.all(
+      [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])]
+        .map(flushPatchedBaseAutosave),
+    );
+    flushSync(() => {});
+    if (!saved || baseSaved.includes(false) || updateSnapshotRef.current.hasAnyDirty || updateSnapshotRef.current.generatorRunning || updateSnapshotRef.current.solutionLoading) {
+      return { ok: false, reason: "Some changes are still unsaved. Resolve the save errors in the open tabs and try again." };
+    }
+    return { ok: true };
+  });
+  useEffect(() => {
+    if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing";
+  }, [updateStatus?.phase]);
+
   const handleReload = useCallback(async () => {
     if (!solution) return;
     if (hasAnyDirty) {
@@ -2097,6 +2126,7 @@ export function AppShell() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (appRootRef.current?.inert) return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -2122,6 +2152,8 @@ export function AppShell() {
 
   return (
     <div
+      ref={appRootRef}
+      inert={updateStatus?.phase === "preparing"}
       className={`app ${sidebarOpen ? "" : "app--sidebar-collapsed"} ${isWindowsElectron ? "app--windows-titlebar" : ""}`}
       style={{ "--sidebar-size": sidebarOpen ? `${sidebarSize}px` : "68px" } as CSSProperties}
     >
@@ -2133,6 +2165,7 @@ export function AppShell() {
         onChange={handleFileChange}
       />
 
+      {import.meta.env.DEV && <DeveloperTools status={updateStatus} />}
       <SolutionDialog
         open={dialogOpen}
         onLoaded={(model, base, folders) => {

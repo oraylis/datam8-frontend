@@ -1,3 +1,7 @@
+import "@fontsource/manrope/400.css";
+import "@fontsource/manrope/500.css";
+import "@fontsource/manrope/600.css";
+import "@fontsource/manrope/700.css";
 export * from "./components/ui/badge";
 export * from "./components/ui/button";
 export * from "./components/ui/card";

@@ -187,16 +187,16 @@ export function Workspace({
     onSaveNotification,
   });
 
-  const persistEntityNow = entityState.persistNow;
-  const persistBaseNow = baseState.persistNow;
+  const persistEntityNow = entityState.saveNow;
+  const persistBaseNow = baseState.saveNow;
 
   useEffect(() => {
-    registerEntityPersist?.(() => persistEntityNow("tab-switch"));
+    registerEntityPersist?.(persistEntityNow);
     return () => registerEntityPersist?.(null);
   }, [persistEntityNow, registerEntityPersist]);
 
   useEffect(() => {
-    registerBasePersist?.(() => persistBaseNow("tab-switch"));
+    registerBasePersist?.(persistBaseNow);
     return () => registerBasePersist?.(null);
   }, [persistBaseNow, registerBasePersist]);
 

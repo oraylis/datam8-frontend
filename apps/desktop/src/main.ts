@@ -1,7 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { autoUpdater } from "electron-updater";
 import { terminateChild } from "../resources/backend-lifecycle.cjs";
-import { buildPythonEnv, shouldAutoUpdate } from "../resources/backend-env.cjs";
+import { buildPythonEnv } from "../resources/backend-env.cjs";
+import { loopback, parseVersion, REPOSITORY, releaseUrl, requireWindowsPublisher } from "../resources/update-policy.cjs";
+import { DesktopUpdates } from "./updates";
+import type { UpdatePreparation } from "../../../packages/types/src/desktop-updates";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
@@ -25,9 +28,28 @@ try {
 } catch {
   // If path probing fails for any reason, keep Electron defaults.
 }
+// Development helpers are excluded from packaged apps and loaded only here.
+const development: typeof import("./developerSimulation") | null = app.isPackaged ? null : require("./developerSimulation");
+const updateDemo = !app.isPackaged && process.env.DATAM8_UPDATE_SANDBOX === "1" && typeof process.send === "function";
+const developerSimulation = development && !updateDemo ? new development.DeveloperSimulation(app.getAppPath()) : null;
+if (updateDemo && process.env.DATAM8_UPDATE_DEMO_PROFILE) app.setPath("userData", path.resolve(process.env.DATAM8_UPDATE_DEMO_PROFILE));
+// Installer acceptance needs its automatically relaunched copy to retain the
+// same disposable profile. This override requires both loopback test services.
+if (process.env.DATAM8_UPDATE_TEST_PROFILE && process.env.DATAM8_UPDATE_TEST_FEED && process.env.DATAM8_UPDATE_TEST_RELEASES) {
+  loopback(process.env.DATAM8_UPDATE_TEST_FEED); loopback(process.env.DATAM8_UPDATE_TEST_RELEASES);
+  app.setPath("userData", path.resolve(process.env.DATAM8_UPDATE_TEST_PROFILE));
+}
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+let shutdownComplete = false;
+let developmentShutdown = false;
+let backendStopPromise: Promise<void> | null = null;
+let updates: DesktopUpdates | null = null;
+let preparingUpdate = false;
+let installingUpdate = false;
+let solutionOperations = 0;
+let preparation: { id: string; resolve: (result: UpdatePreparation) => void } | null = null;
 let currentSolutionPath: string | null = null;
 let userSettings: UserSettings | null = null;
 
@@ -41,7 +63,8 @@ type AppTheme = "light" | "dark" | "system";
 let currentAppTheme: AppTheme = "system";
 let applicationMenu: Menu | null = null;
 const BACKEND_HOST = "127.0.0.1";
-const BACKEND_PORT = 4318;
+const BACKEND_PORT = Number(process.env.DATAM8_BACKEND_TEST_PORT || "4318");
+if (!Number.isInteger(BACKEND_PORT) || BACKEND_PORT < 1024 || BACKEND_PORT > 65535) throw new Error("DATAM8_BACKEND_TEST_PORT must be a port between 1024 and 65535.");
 const BACKEND_OUTPUT_PREVIEW_LIMIT = 8192;
 
 function cleanBackendOutputLine(line: string): string {
@@ -161,7 +184,8 @@ function syncWindowsTitleBarTheme(targetWindow: BrowserWindow | null, theme: App
 
 function computeWindowTitle(solutionPath?: string | null): string {
   const pathPart = (solutionPath || "").trim();
-  return pathPart ? `${APP_DISPLAY_NAME} (${pathPart})` : APP_DISPLAY_NAME;
+  const name = updateDemo ? `${APP_DISPLAY_NAME} — Update Simulation` : APP_DISPLAY_NAME;
+  return pathPart ? `${name} (${pathPart})` : name;
 }
 
 function syncWindowTitle() {
@@ -440,14 +464,24 @@ async function waitForBackendHealth(baseUrl: string, token: string, timeoutMs = 
 }
 
 async function stopBackend() {
+  if (backendStopPromise) return backendStopPromise;
   if (!backendProcess) return;
   const proc = backendProcess;
+  const previous = { baseUrl: backendBaseUrl, version: backendVersion, solutionPath: backendSolutionPath };
   backendProcess = null;
   backendBaseUrl = null;
   backendVersion = null;
   backendSolutionPath = null;
 
-  await terminateChild(proc);
+  backendStopPromise = terminateChild(proc);
+  try { await backendStopPromise; if (updateDemo && process.connected) process.send?.({ type: "backend-stopped", pid: proc.pid }); }
+  catch (error) {
+    if (proc.exitCode === null && proc.signalCode === null) {
+      backendProcess = proc; backendBaseUrl = previous.baseUrl; backendVersion = previous.version; backendSolutionPath = previous.solutionPath;
+    }
+    throw error;
+  }
+  finally { backendStopPromise = null; }
 }
 
 function normalizeExistingFilePath(value: string): string {
@@ -1125,6 +1159,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     );
     proc.stdin.end();
     backendProcess = proc;
+    if (updateDemo && process.connected) process.send?.({ type: "backend", pid: proc.pid });
     proc.stderr.setEncoding("utf8");
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk) => appendOutputPreview(backendOutputPreview, "stdout", chunk));
@@ -1133,6 +1168,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
 
     let isStartupPhase = true;
     proc.once("exit", (code, signal) => {
+      if (updateDemo && process.connected) process.send?.({ type: "backend-stopped", pid: proc.pid });
       const wasActiveProcess = backendProcess === proc;
       if (wasActiveProcess) {
         backendProcess = null;
@@ -1150,17 +1186,17 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
         `Exit: code=${code ?? "null"}, signal=${signal ?? "null"}`,
         ...(output ? ["", "Backend output (preview):", output] : []),
         "",
-        "Do you want to relaunch the app?",
+        updateDemo ? "Close this simulation and open a fresh one through Developer Tools." : "Do you want to relaunch the app?",
       ].join("\n");
       const result = dialog.showMessageBoxSync({
         type: "error",
         title: "Backend crashed",
         message,
-        buttons: ["Relaunch", "Quit"],
+        buttons: updateDemo ? ["Close Simulation"] : ["Relaunch", "Quit"],
         defaultId: 0,
-        cancelId: 1,
+        cancelId: updateDemo ? 0 : 1,
       });
-      if (result === 0) {
+      if (result === 0 && !updateDemo) {
         app.relaunch();
         app.exit(0);
         return;
@@ -1232,6 +1268,7 @@ function setupMenu() {
       label: "Force Reload",
       accelerator: "CmdOrCtrl+Shift+R",
       click: async () => {
+        if (preparingUpdate) return;
         const savedToken = backendToken ?? undefined;
         const savedPath = currentSolutionPath ?? undefined;
         await stopBackend();
@@ -1298,10 +1335,12 @@ function setupMenu() {
     {
       label: "Help",
       submenu: [
+        { label: "Check for Updates…", click: () => { void updates?.check().catch(reportUpdateError); } },
+        { type: "separator" },
         {
           label: "Learn More",
           click: async () => {
-            await shell.openExternal("https://github.com/oraylis/datam8");
+            await shell.openExternal("https://github.com/oraylis/datam8-frontend");
           },
         },
         { type: "separator" },
@@ -1320,6 +1359,9 @@ function setupMenu() {
       ],
     },
   ];
+  if (!app.isPackaged) template.push({ label: "Developer", submenu: [
+    { label: "Developer Tools…", click: () => mainWindow?.webContents.send("developer:open-panel") },
+  ] });
 
   applicationMenu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(applicationMenu);
@@ -1377,6 +1419,7 @@ async function createWindow() {
       contextIsolation: true,
       devTools: true,
       additionalArguments: [
+        ...(!app.isPackaged ? ["--datam8-development=1"] : []),
         `--datam8-api-base=${backendBaseUrl}`,
         `--datam8-token=${backendToken || ""}`,
         ...(backendVersion ? [`--datam8-backend-version=${backendVersion}`] : []),
@@ -1399,7 +1442,7 @@ async function createWindow() {
       });
     };
     loadDev();
-    if (isDevToolsAllowed()) {
+    if (isDevToolsAllowed() && !updateDemo) {
       mainWindow.webContents.openDevTools();
     }
   } else {
@@ -1418,33 +1461,114 @@ async function createWindow() {
   syncWindowTitle();
 }
 
-function wireAutoUpdates() {
-  if (!shouldAutoUpdate(app.isPackaged)) return;
+function reportUpdateError(error: unknown) { console.warn("[Main] Update operation failed:", error instanceof Error ? error.message : String(error)); }
 
-  const testFeed = process.env.DATAM8_UPDATE_TEST_FEED;
-  if (testFeed) {
-    const url = new URL(testFeed);
-    if (url.protocol !== "http:" || url.hostname !== "127.0.0.1") {
-      throw new Error("DATAM8_UPDATE_TEST_FEED must be an HTTP loopback URL");
-    }
-    autoUpdater.setFeedURL({ provider: "generic", url: url.toString() });
-  }
-  autoUpdater.logger = null;
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  autoUpdater.on("error", (err: unknown) => {
-    console.warn("[Main] autoUpdater error:", (err as Error)?.message || String(err));
+async function prepareUpdate(): Promise<UpdatePreparation> {
+  if (!mainWindow || solutionOperations || backendStartPromise) return { ok: false, reason: "Wait for solution operations or generation to finish, then try again." };
+  preparingUpdate = true;
+  const id = crypto.randomUUID();
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => finish({ ok: false, reason: "The editor did not finish its save checks. Please try again." }), 60_000);
+    const finish = (result: UpdatePreparation) => { clearTimeout(timeout); preparation = null; resolve(result); };
+    preparation = { id, resolve: finish };
+    mainWindow?.webContents.send("updates:prepare-install", id);
   });
+}
 
-  const check = () => {
-    autoUpdater.checkForUpdates().catch((err: unknown) => {
-      console.warn("[Main] checkForUpdates failed:", (err as Error)?.message || String(err));
+function wireUpdates() {
+  if (process.platform === "win32") app.setAppUserModelId("com.datam8");
+  const windows = app.isPackaged && process.platform === "win32";
+  if (windows) {
+    if (process.env.DATAM8_UPDATE_TEST_FEED) autoUpdater.setFeedURL({ provider: "generic", url: loopback(process.env.DATAM8_UPDATE_TEST_FEED) });
+    autoUpdater.logger = null;
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.allowPrerelease = Boolean(parseVersion(app.getVersion())?.pre.length);
+    autoUpdater.allowDowngrade = false;
+    // 'error' must have a listener even though each public operation handles its rejection.
+    autoUpdater.on("error", error => {
+      reportUpdateError(error);
+      if (installingUpdate && !isQuitting) {
+        installingUpdate = false;
+        updates?.installationFailed(error);
+      }
     });
-  };
+    autoUpdater.on("download-progress", progress => updates?.progress(progress.percent));
+  }
+  updates = new DesktopUpdates({
+    currentVersion: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, demo: updateDemo,
+    releasesApi: updateDemo ? process.env.DATAM8_UPDATE_DEMO_API : process.env.DATAM8_UPDATE_TEST_RELEASES,
+    showDialog: async options => {
+      const result = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options);
+      return result.response;
+    },
+    publish: status => mainWindow?.webContents.send("updates:status-changed", status),
+    progress: fraction => { if (process.platform === "win32" || updateDemo) mainWindow?.setProgressBar(fraction); },
+    openExternal: url => shell.openExternal(url),
+    checkWindows: async tag => {
+      requireWindowsPublisher(fs.readFileSync(path.join(process.resourcesPath, "app-update.yml"), "utf8"));
+      releaseUrl(tag); // Validate the tag before constructing its official asset URL.
+      const feed = process.env.DATAM8_UPDATE_TEST_FEED ? loopback(process.env.DATAM8_UPDATE_TEST_FEED) : `${REPOSITORY}/releases/download/${encodeURIComponent(tag)}`;
+      // Bind download metadata to the same tag as the displayed notes. All our
+      // Windows builds emit latest.yml, including beta builds.
+      autoUpdater.setFeedURL({ provider: "generic", url: feed });
+      autoUpdater.channel = "latest";
+      autoUpdater.allowDowngrade = false;
+      const result = await autoUpdater.checkForUpdates(); return result?.updateInfo.version || null;
+    },
+    downloadWindows: async () => { if (!windows) throw new Error("Automatic installation is only available in the installed Windows app."); await autoUpdater.downloadUpdate(); },
+    prepare: prepareUpdate, stopBackend,
+    installWindows: () => { installingUpdate = true; autoUpdater.quitAndInstall(true, true); },
+    releasePreparation: () => { if (!installingUpdate) preparingUpdate = false; },
+  });
+}
 
-  check();
-  setInterval(check, 6 * 60 * 60 * 1000);
+function requireDeveloper(event: IpcMainInvokeEvent, simulation = false) {
+  if (!development) throw new Error("Developer tools are unavailable.");
+  development.assertDeveloperAccess({ packaged: app.isPackaged, simulation: updateDemo, quitting: isQuitting }, event.sender, mainWindow?.webContents, simulation);
+  return development;
+}
+ipcMain.handle("developer:capabilities", event => {
+  const { examplePython, exampleSetup } = requireDeveloper(event);
+  const python = examplePython(path.resolve(app.getAppPath(), "../.."));
+  return { simulation: updateDemo, exampleAvailable: Boolean(python), exampleReason: python ? undefined : exampleSetup };
+});
+ipcMain.handle("developer:open-panel", event => { requireDeveloper(event); mainWindow?.webContents.send("developer:open-panel"); });
+ipcMain.handle("developer:open-simulation", async event => {
+  requireDeveloper(event);
+  if (!developerSimulation) throw new Error("Already in an update simulation.");
+  await developerSimulation.open();
+});
+ipcMain.handle("developer:run-scenario", async (event, scenario: unknown, system: unknown) => {
+  const { simulationChoice } = requireDeveloper(event, true);
+  const choice = simulationChoice(scenario, system);
+  if (!updates?.canChangeScenario) throw new Error("Wait for the current update operation to finish.");
+  await updates.demoScenario(choice.scenario, choice.windows);
+});
+ipcMain.handle("developer:open-example", async event => {
+  const { examplePython, exampleSetup } = requireDeveloper(event, true);
+  if (!examplePython(path.resolve(app.getAppPath(), "../.."))) { await dialog.showMessageBox(mainWindow!, { title: "Example solution", message: "Generator environment is required", detail: exampleSetup, buttons: ["OK"] }); return; }
+  if (preparingUpdate || solutionOperations) throw new Error("Wait for the current operation to finish.");
+  mainWindow?.webContents.send("solution:open-path", process.env.DATAM8_UPDATE_DEMO_SOLUTION);
+});
+
+ipcMain.handle("updates:get-status", () => updates?.status);
+ipcMain.handle("updates:check", () => updates?.check());
+ipcMain.handle("updates:download", () => updates?.download());
+ipcMain.handle("updates:install", () => updates?.install());
+ipcMain.handle("updates:open-release", () => updates?.openRelease());
+ipcMain.handle("updates:preparation-complete", (event, id: unknown, result: UpdatePreparation) => {
+  if (event.sender !== mainWindow?.webContents || !preparation || id !== preparation.id) return;
+  preparation.resolve({ ok: result?.ok === true, reason: typeof result?.reason === "string" ? result.reason.slice(0, 1000) : undefined });
+});
+
+function handleSolutionOperation<Args extends unknown[], Result>(channel: string, handler: (event: IpcMainInvokeEvent, ...args: Args) => Result | Promise<Result>) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (preparingUpdate || isQuitting) throw new Error("An update or shutdown is in progress. Please try again later.");
+    solutionOperations++;
+    try { return await handler(event, ...args as Args); }
+    finally { solutionOperations--; }
+  });
 }
 
 // Single Instance Lock
@@ -1502,28 +1626,28 @@ ipcMain.handle("solution:detect-version", (_event, solutionPath: string | null |
   return { version: detectSolutionVersion(normalized), path: normalized };
 });
 
-ipcMain.handle("solution:load", async (_event, solutionPath: string | null | undefined) => {
+handleSolutionOperation("solution:load", async (_event, solutionPath: string | null | undefined) => {
   const normalized = normalizeExistingFilePath(`${solutionPath || ""}`);
   await ensureBackendForSolution(normalized);
   const payload = await loadCurrentSolutionPayload();
   return { path: normalized, payload };
 });
 
-ipcMain.handle("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => {
+handleSolutionOperation("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => {
   const solutionPath = await createSolutionViaCli(payload);
   await ensureBackendForSolution(solutionPath);
   const loaded = await loadCurrentSolutionPayload();
   return { solutionPath, payload: loaded };
 });
 
-ipcMain.handle("solution:migrate-v1-to-v2", async (_event, payload: { sourceSolutionPath: string; targetDir: string }) => {
+handleSolutionOperation("solution:migrate-v1-to-v2", async (_event, payload: { sourceSolutionPath: string; targetDir: string }) => {
   const migratedSolutionPath = await migrateSolutionViaCli(payload);
   await ensureBackendForSolution(migratedSolutionPath);
   const loaded = await loadCurrentSolutionPayload();
   return { solutionPath: migratedSolutionPath, payload: loaded };
 });
 
-ipcMain.handle("solution:import-plugins", async (_event, payload: { solutionPath: string; artifactPaths: string[] }) => {
+handleSolutionOperation("solution:import-plugins", async (_event, payload: { solutionPath: string; artifactPaths: string[] }) => {
   const imported = importPluginArtifacts(payload);
   await ensureBackendForSolution(payload.solutionPath);
   await backendRequestJson("/plugins/reload", { method: "POST" });
@@ -1604,7 +1728,7 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle(
+handleSolutionOperation(
   "solution:generate",
   async (_event, payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) => {
     return await generateSolutionViaCli(payload);
@@ -1657,10 +1781,38 @@ nativeTheme.on("updated", () => {
 });
 
 if (gotLock) {
+  if (!app.isPackaged) {
+    const quitDevelopment = () => { developmentShutdown = true; app.quit(); };
+    process.on("SIGTERM", quitDevelopment);
+    process.on("SIGINT", quitDevelopment);
+    if (!updateDemo && typeof process.send === "function") {
+      // Only the owning development launcher has this process IPC channel.
+      process.on("message", message => {
+        if (message && typeof message === "object" && "type" in message && message.type === "development:shutdown") quitDevelopment();
+      });
+      process.once("disconnect", quitDevelopment);
+    }
+  }
+  if (updateDemo) {
+    process.on("message", message => {
+      const kind = (message as { type?: string }).type;
+      if (kind === "shutdown") app.quit();
+      if (kind === "focus") { if (mainWindow?.isMinimized()) mainWindow.restore(); mainWindow?.show(); mainWindow?.focus(); }
+    });
+    process.on("disconnect", () => {
+      if (!isQuitting && process.env.DATAM8_UPDATE_DEMO_PROFILE) {
+        const cleanup = spawn(process.execPath, [path.join(app.getAppPath(), "resources/cleanup-dev-profile.cjs"), path.dirname(process.env.DATAM8_UPDATE_DEMO_PROFILE), String(process.pid)], { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_OPTIONS: undefined }, detached: true, stdio: "ignore" });
+        cleanup.on("error", reportUpdateError); cleanup.unref();
+      }
+      app.quit();
+    });
+  }
   app.whenReady().then(async () => {
     setupMenu();
     await createWindow();
-    wireAutoUpdates();
+    wireUpdates();
+    if (updateDemo && process.connected) process.send?.({ type: "ready" });
+    else if (updateDemo) app.quit();
 
     if (process.platform !== "darwin") {
       const file = process.argv.find((arg) => arg.endsWith(".dm8s"));
@@ -1686,17 +1838,23 @@ if (gotLock) {
   });
 
   app.on("before-quit", event => {
+    if (shutdownComplete) return;
+    event.preventDefault();
     if (isQuitting) return;
     isQuitting = true;
-    if (!backendProcess) return;
-    event.preventDefault();
-    void stopBackend().then(() => app.quit()).catch(error => {
+    void Promise.all([stopBackend(), developerSimulation?.close()]).then(() => {
+      shutdownComplete = true;
+      // Development restarts must also finish with DevTools open. Exit only
+      // after the backend and the isolated simulation have finished cleanup.
+      if (!app.isPackaged && developmentShutdown) app.exit(0);
+      else app.quit();
+    }).catch(error => {
       console.error("Backend shutdown failed:", error);
       app.exit(1);
     });
   });
 
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    if (updateDemo || process.platform !== "darwin") app.quit();
   });
 }

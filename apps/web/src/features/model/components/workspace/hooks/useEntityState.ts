@@ -5,7 +5,7 @@ import { normalizeMappingForSave, normalizePropertiesForSave } from "../utils/so
 import { deepEqual } from "../../../../../shared/utils/deepEqual";
 import { reindexRecordAfterMove } from "./transformationSourceMaps";
 import { saveFunctionSource } from "../../../../../shared/desktop/functionSourceBridge";
-import { resolveQueuedPersistAfterSave } from "./autosaveScheduling";
+import { flushAutosave, resolveQueuedPersistAfterSave } from "./autosaveScheduling";
 
 const cloneDeep = <T,>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
 const asNonEmptyString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
@@ -266,7 +266,7 @@ export const useEntityState = ({
   const [transformSourceCache, setTransformSourceCache] = useState<Record<number, string>>({});
   const [transformSourceDirty, setTransformSourceDirty] = useState<Record<number, boolean>>({});
   const entityDirtyRef = useRef(false);
-  const persistInFlightRef = useRef(false);
+  const persistInFlightRef = useRef<Promise<boolean> | null>(null);
   const persistQueuedRef = useRef(false);
   const pendingPersistReasonRef = useRef<PersistReason | null>(null);
   const pendingPersistRevisionRef = useRef(0);
@@ -926,26 +926,39 @@ export const useEntityState = ({
         persistQueuedRef.current = true;
         return false;
       }
-      persistInFlightRef.current = true;
-      const saveStartedRevision = changeRevisionRef.current;
-      const ok = await onSubmit();
-      persistInFlightRef.current = false;
-      const queued = resolveQueuedPersistAfterSave(
-        persistQueuedRef.current,
-        reason,
-        changeRevisionRef.current,
-        saveStartedRevision,
-      );
-      if (queued.shouldReschedule) {
-        persistQueuedRef.current = false;
-        entityDirtyRef.current = queued.dirty;
-        pendingPersistReasonRef.current = queued.reason;
-        pendingPersistRevisionRef.current = queued.revision;
-        setPersistRequestTick((value) => value + 1);
-      }
-      return ok;
+      pendingPersistReasonRef.current = null;
+      pendingPersistRevisionRef.current = 0;
+      const saving = (async () => {
+        const saveStartedRevision = changeRevisionRef.current;
+        const ok = await onSubmit();
+        persistInFlightRef.current = null;
+        const queued = resolveQueuedPersistAfterSave(
+          persistQueuedRef.current,
+          reason,
+          changeRevisionRef.current,
+          saveStartedRevision,
+        );
+        if (queued.shouldReschedule) {
+          persistQueuedRef.current = false;
+          entityDirtyRef.current = queued.dirty;
+          pendingPersistReasonRef.current = queued.reason;
+          pendingPersistRevisionRef.current = queued.revision;
+          setPersistRequestTick((value) => value + 1);
+        }
+        return ok;
+      })();
+      persistInFlightRef.current = saving;
+      try { return await saving; }
+      finally { if (persistInFlightRef.current === saving) persistInFlightRef.current = null; }
     },
     [onSubmit, selectedEntity],
+  );
+
+  const persistLatestRef = useRef(persistNow);
+  persistLatestRef.current = persistNow;
+  const saveNow = useCallback(
+    () => flushAutosave(persistInFlightRef, () => persistLatestRef.current("tab-switch"), () => pendingPersistReasonRef.current !== null),
+    [],
   );
 
   const persistAfterStateFlush = useCallback(
@@ -1023,6 +1036,7 @@ export const useEntityState = ({
     onSubmit,
     persistNow,
     persistAfterStateFlush,
+    saveNow,
     dataTypes,
     attributeTypeOptions,
     dataTypeDefinitions,

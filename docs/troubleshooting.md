@@ -8,12 +8,12 @@ Symptom:
   - `Retrying in 1s...`
 
 Common causes:
-- Web dev server failed to start due to missing Rollup native optional dependency (`@rollup/rollup-<platform>`).
+- Web dev server failed to start due to missing native Rolldown dependency after copying dependencies from another platform.
 - Unsupported Node.js version (this repo supports Node 24 LTS; Node 25+ is unsupported).
 - Port `4320` is already in use (Vite runs with `strictPort`).
 
 Fix:
-- Run `npm run ci:ensure-rollup-native`.
+- Run `npm ci` on the current host using Node 24; do not copy `node_modules` between platforms.
 - Verify web starts on the expected port with `npm run dev:web`.
 - Start desktop again with `npm run dev:desktop`.
 

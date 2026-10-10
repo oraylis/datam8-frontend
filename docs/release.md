@@ -50,7 +50,7 @@ includes seven platform packages, signatures, checksums, the public GPG key,
 The signed workflow and GitHub environment currently permit
 `feature/external_refresh` and protected `v*` tags. A manual signed run on `main`
 requires the coordinated allowlist changes described in the rollout checklist.
-Local packaging commands such as `npm run build:desktop:mac` use the local host
+Local packaging commands such as `npm run build:desktop` use the local host
 and architecture; they do not substitute for four-platform signed acceptance.
 
 Before publication, set and commit the intended package version, keep the lockfile
@@ -201,6 +201,10 @@ requirement. Both Mac architectures use ad-hoc bundle signatures. These preserve
 bundle integrity but do not establish an Apple-verified publisher or provide an
 Apple malware-scan ticket. Automatic macOS updates are disabled.
 
+macOS and Linux still check published releases from inside the app and show
+GitHub release notes with a link to the matching downloads. These checks do not
+replace the manual signature verification and installation steps below.
+
 Download the DMG or ZIP for your architecture and verify the GPG signature first.
 Copy `datam8.app` into Applications. If macOS blocks the initial opening, follow
 [Apple's instructions for opening an app from an unidentified developer](https://support.apple.com/en-us/102445):
@@ -237,6 +241,42 @@ GPG-signed checksum manifest. Windows automatic updates retain publisher-signatu
 validation. macOS and Linux updates are manual: close DataM8, verify the new
 package and replace/install the application while retaining solution directories.
 
+## In-app update process
+
+All installed platforms expose **Help → Check for Updates…** without requiring a
+solution. Checks run only when the user selects this menu item; no release
+requests run at startup or periodically. There are no update system notifications
+or permanent in-app notices. Drafts, incomplete platform packages
+and incompatible channels are excluded: stable installations offer stable releases, beta installations offer
+newer beta/stable releases, and downgrades are disabled.
+
+Release notes are fetched from the GitHub API by the exact offered tag in
+`oraylis/datam8-frontend`. Native dialogs display up to twelve plaintext lines or
+1,200 characters and link to the full notes. Notes failures do not prevent an
+otherwise valid update. No tokens or signing credentials are distributed to the
+application. Public API rate limits/offline errors are shown on manual checks.
+
+Windows requires `latest.yml` even for beta releases, the NSIS installer and the
+release verification files. The updater is pointed at the selected tag's
+official download directory, so its metadata, installer and notes describe the
+same version. Metadata mismatch blocks downloading. Existing Authenticode
+publisher checks remain active. macOS requires both architecture-specific DMG
+and ZIP packages and their signatures; Linux requires AppImage and DEB with
+signatures. All candidates require the signed checksum manifest and public GPG
+key. Asset presence is a selection filter; Windows verifies downloaded bytes and
+publisher signatures, while macOS/Linux users verify downloads before installing.
+
+Windows downloads start only by user choice. Installation at ordinary app quit
+is disabled. **Restart and Install** first saves focused drafts, drains queued
+editor saves and follow-up operations, rejects remaining dirty tabs or active
+work, then stops the backend before invoking the installer. Native confirmation
+dialogs are asynchronous and attached to the app window.
+Download progress uses the Windows taskbar. A postponed installation is offered
+again through **Help → Check for Updates…**, without another download.
+
+For an isolated manual preview with native dialogs, see
+[the update demo](dev-desktop.md#developer-tools-and-update-simulation).
+
 ## Required verification
 
 The workflow performs lint, typecheck, workspace unit tests, documentation checks,
@@ -253,13 +293,17 @@ Packaged Playwright tests exercise real preload, IPC and backend behavior with
 disposable local fixtures in paths containing spaces. They open a solution,
 check health/authenticated config, edit and persist a model value, restart,
 generate `Hello world`, switch solutions and verify backend shutdown. Only the
-native file chooser is replaced. No sample-cloud source is contacted.
+native file chooser and update-dialog answers are replaced. Update-link tests
+capture the browser-opening call; they assert the official release URL without
+opening an external browser. Preload, IPC, HTTP and persistence stay real. No
+sample-cloud source is contacted.
 
 ```sh
 npm run test:runtime:packaged -- --runtime-root /absolute/path/to/python-runtime
-npm run test:desktop:packaged -- /absolute/path/to/installed.json
+DATAM8_INSTALLED_MANIFEST=/absolute/path/to/installed.json npm run test:desktop:packaged
 npm run test:desktop:signatures -- /absolute/path/to/installed/datam8.app
 npm run test:desktop:updates -- artifacts/update-fixtures
+npm run test:desktop:updates:ui
 ```
 
 To diagnose only the Windows update test, the manual entry workflow accepts the
@@ -272,9 +316,25 @@ four-platform acceptance. Leave the input empty for the required final full run.
 `installed.json` is generated by `scripts/desktop-distributions.mjs install`.
 Windows update tests use two signed private fixture versions and an HTTP loopback
 feed. They verify installation and restart, and reject unsigned or incorrectly
-signed updates. The internal `DATAM8_UPDATE_TEST_FEED` override accepts only
-HTTP on `127.0.0.1`. Regular acceptance tests set
-`DATAM8_DISABLE_AUTO_UPDATES=1` and cannot download public updates.
+signed updates through the UI's download and installation paths, including a
+focused edit immediately before installation and a real installer restart. The
+internal `DATAM8_UPDATE_TEST_FEED` and `DATAM8_UPDATE_TEST_RELEASES` overrides
+accept only HTTP on `127.0.0.1`. `DATAM8_UPDATE_TEST_PROFILE` retains the isolated
+profile across an installer restart and is honored only when both loopback test
+services are configured. `DATAM8_BACKEND_TEST_PORT` isolates backend listeners.
+Acceptance tests route explicit checks to local feeds and assert that startup
+does not request releases. They do not download public updates.
+
+The quality job also opens the development simulation through **Developer →
+Developer Tools… → Open Update Simulation** under Xvfb with a real Generator
+environment. It verifies process/profile/port isolation, repeated open, fresh
+profiles on reopen and cleanup when either app closes. It covers native dialog
+options, exact-version notes,
+progress, errors, focused inputs, in-flight/queued saves and failed saves. Fresh
+packaged macOS/Linux tests cover manual-update IPC/HTTP for both distribution
+formats and assert that developer functions are absent even with simulation
+flags set. Platform-native dialog appearance is additionally checked manually
+through the development panel described in [desktop development](dev-desktop.md).
 
 macOS/Linux tests replace a previous private fixture version with the installed
 current version and verify retained profile storage and saved model content.
@@ -290,3 +350,33 @@ GitHub-hosted runners contain development tools, so static native-dependency
 checks complement runtime tests. Windows Server runners do not fully represent
 Windows 11 or SmartScreen reputation. Ad-hoc Mac signatures do not satisfy
 Gatekeeper's Developer ID/notarization checks.
+
+## Shared quality checks and local commands
+
+`ci.yml` owns the quality checks and is reused by the desktop workflow. Pull
+requests enter through `desktop-pr.yml` and run those checks once before the
+four native builds. Pushes to `main` and explicit quality dispatches run quality
+only. Manual desktop builds and protected release tags use the same checks.
+Generated schema types are checked for consistency; the backend wheel is built
+once as a quality gate. Native runtime builds install the pinned Generator source
+and do not build an additional unused wheel.
+
+Use `npm run build:desktop` on the native host. CI uses the single workspace
+`package` command with `--win`, `--mac` or `--linux`. Packaging uses the dependencies
+installed by `npm ci`; it does not reinstall or prune the shared workspace. Installed-package tests also
+smoke-test each bundled interpreter, so a separate installed-runtime loop is not
+needed. The standalone `test:runtime:packaged` command remains useful for diagnosis.
+
+`npm run test:e2e:sample -- [Playwright options or a test filename]` is optional
+acceptance against a disposable copy of a supplied sample solution. Set
+`DATAM8_SAMPLE_SOLUTION_PATH`; it is not a desktop release gate or a CI dependency.
+Only run source refresh exercises with the sample's external access deliberately
+prepared. The simulation, packaged acceptance and backend gates use local,
+self-contained fixtures.
+
+Development simulation helpers and their type declarations are excluded from
+packaged application files. The main process loads them only in development;
+setting simulation environment variables in an installed app cannot load them.
+Keep the root file filters together before the web asset mapping: Electron
+Builder merges separated filter groups and can re-include excluded files. The
+installed-package test checks the actual ASAR contents.

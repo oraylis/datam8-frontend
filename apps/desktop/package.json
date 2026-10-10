@@ -10,18 +10,12 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc && concurrently \"tsc -w\" \"cross-env DATAM8_MODE=electron VITE_APP_MODE=electron electronmon .\"",
+    "dev": "node ../../scripts/watch-desktop.mjs",
     "start": "electron .",
     "lint": "eslint \"src/**/*.ts\"",
-    "prepare:prod-deps": "npm install --install-strategy=nested --include-workspace-root=false --package-lock=false",
-    "package:win:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --win --dir --publish never",
-    "package:win": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --win --publish never",
-    "package:mac:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --mac --dir --publish never",
-    "package:mac": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --mac --publish never",
-    "package:linux:dir": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --linux --dir --publish never",
-    "package:linux": "npm run build && npm run prepare:prod-deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --linux --publish never",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "node --test ../../scripts/backend-env.test.mjs ../../scripts/backend-lifecycle.test.mjs ../../scripts/mac-runtime.test.mjs ../../scripts/desktop-update-feed.test.mjs"
+    "test": "npm run build && node --test ../../scripts/backend-env.test.mjs ../../scripts/backend-lifecycle.test.mjs ../../scripts/mac-runtime.test.mjs ../../scripts/desktop-update-feed.test.mjs ../../scripts/desktop-updates.test.mjs ../../scripts/developer-simulation.test.mjs ../../scripts/watch-desktop.test.mjs",
+    "package": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --publish never"
   },
   "build": {
     "appId": "com.datam8",
@@ -34,12 +28,16 @@
     },
     "files": [
       "dist/**/*",
+      "node_modules/**/*",
+      "resources/**/*",
+      "!dist/developerSimulation.*",
+      "!resources/dev-fixtures.*",
+      "!resources/cleanup-dev-profile.cjs",
+      "!resources/*.d.cts",
       {
         "from": "../web/dist",
         "to": "web"
-      },
-      "node_modules/**/*",
-      "resources/**/*"
+      }
     ],
     "extraResources": [
       {
@@ -120,11 +118,9 @@
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
-    "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "electron": "^42.4.0",
     "electron-builder": "^26.15.3",
-    "electronmon": "^2.0.4",
     "typescript": "^6.0.3"
   },
   "dependencies": {

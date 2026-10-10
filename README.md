@@ -73,7 +73,8 @@ npm run ci:gates
 npm run build:web:electron
 ```
 
-Packaging: `npm run build:desktop`, or its `:win`, `:mac`, `:linux` variants.
+Packaging: `npm run build:desktop` builds for the current native host.
+The workflow supplies the target to the single desktop `package` command.
 See [installation and verification](docs/desktop-installation.md),
 [release checks](docs/release.md), [troubleshooting](docs/troubleshooting.md)
 and [opt-in screenshot maintenance](docs/user-guide/capture.md).

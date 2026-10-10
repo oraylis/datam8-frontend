@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
+import { createRequire } from "node:module";
+import { watchDesktop } from "./watch-desktop.mjs";
+import { terminateChild } from "../apps/desktop/resources/backend-lifecycle.cjs";
 import { fileURLToPath } from "url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,7 +29,7 @@ function isExistingFile(filePath) {
 function printSetupHints() {
   console.error("Fix:");
   console.error("- cd submodules/datam8-generator");
-  console.error("- uv sync");
+  console.error("- uv sync --frozen --all-extras");
   console.error("- cd ../..");
   console.error("- npm run dev:desktop");
 }
@@ -78,6 +81,7 @@ function canImportDatam8(pythonPath) {
     cwd: generatorRoot,
     stdio: "pipe",
     encoding: "utf8",
+    timeout: 5_000,
   });
   if (probe.error || probe.status !== 0) {
     console.error(`[dev-desktop] Python runtime is not ready for datam8: ${pythonPath}`);
@@ -93,35 +97,48 @@ function canImportDatam8(pythonPath) {
   return true;
 }
 
-if (!fs.existsSync(generatorSrcPath)) {
-  console.error(`[dev-desktop] datam8-generator source path not found: ${generatorSrcPath}`);
-  process.exit(1);
-}
-
-const pythonPath = resolvePythonPath();
-if (!pythonPath) {
-  process.exit(1);
-}
-
-if (!canImportDatam8(pythonPath)) {
-  process.exit(1);
-}
-
-console.log(`[dev-desktop] Using DATAM8_PYTHON_PATH=${pythonPath}`);
+const pythonPath = fs.existsSync(generatorSrcPath) ? resolvePythonPath() : null;
+const backendReady = Boolean(pythonPath && canImportDatam8(pythonPath));
+if (backendReady) console.log(`[dev-desktop] Using DATAM8_PYTHON_PATH=${pythonPath}`);
+else console.warn("[dev-desktop] Starting the frontend without a prepared backend. Developer update simulations remain available; prepare Generator before opening solutions.");
 console.log("[dev-desktop] Web UI URL is fixed to http://localhost:4320 (strict port). Electron spawns backend via `python -m datam8 serve`.");
 
-const env = {
-  ...process.env,
+Object.assign(process.env, {
   VITE_APP_MODE: "electron",
-  ...(process.platform === "win32"
-    ? { PYTHON_KEYRING_BACKEND: "keyring.backends.Windows.WinVaultKeyring" }
-    : {}),
-};
-
-const run = spawnSync("npm", ["run", "dev:desktop:source"], {
-  cwd: repoRoot,
-  stdio: "inherit",
-  env,
-  shell: process.platform === "win32",
+  ...(backendReady && pythonPath ? { DATAM8_PYTHON_PATH: pythonPath } : {}),
+  ...(process.platform === "win32" ? { PYTHON_KEYRING_BACKEND: "keyring.backends.Windows.WinVaultKeyring" } : {}),
 });
-process.exit(run.status ?? 1);
+if (!backendReady) delete process.env.DATAM8_PYTHON_PATH;
+
+const require = createRequire(path.join(repoRoot, 'apps/web/package.json'));
+const vite = spawn(process.execPath, [path.join(path.dirname(require.resolve('vite/package.json')), 'bin/vite.js')], {
+  cwd: path.join(repoRoot, 'apps/web'), stdio: ['inherit', 'pipe', 'pipe'], env: process.env,
+});
+let desktop, closing, viteReady = false;
+vite.stdout.on('data', chunk => {
+  process.stdout.write(chunk);
+  if (/http:\/\/localhost:4320\//.test(String(chunk))) viteReady = true;
+});
+vite.stderr.on('data', chunk => process.stderr.write(chunk));
+function close() {
+  if (!closing) closing = (async () => { await desktop?.close(); await terminateChild(vite); })();
+  return closing;
+}
+const shutdown = () => { void close().catch(error => { console.error(error.message); process.exitCode = 1; }); };
+process.once('SIGINT', shutdown);
+process.once('SIGTERM', shutdown);
+vite.once('error', error => { console.error(error.message); process.exitCode = 1; shutdown(); });
+vite.once('exit', code => { if (!closing && code) process.exitCode = code; shutdown(); });
+try {
+  const deadline = Date.now() + 30_000;
+  while (!closing) {
+    if (Date.now() >= deadline) throw new Error('Vite did not start within 30 seconds.');
+    try {
+      if (viteReady && (await fetch('http://localhost:4320', { signal: AbortSignal.timeout(500) })).ok) {
+        desktop = watchDesktop({ appDir: path.join(repoRoot, 'apps/desktop') });
+        break;
+      }
+    } catch { /* Vite is starting. */ }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+} catch (error) { console.error(error.message); process.exitCode = 1; await close(); }

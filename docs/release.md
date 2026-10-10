@@ -20,7 +20,8 @@ credential whose issuer is `https://token.actions.githubusercontent.com`, audien
 is `api://AzureADTokenExchange` and subject is
 `repo:oraylis/datam8-frontend:environment:desktop-signing-v2`.
 
-Reuse these existing v1 repository secrets without changing their values:
+Configure these secrets on the v2 GitHub environment. The initial setup reused
+the existing v1 configuration values without modifying its repository secrets:
 
 | Secret | Meaning |
 | --- | --- |
@@ -78,6 +79,98 @@ The vault uses legacy access policies, so the new principal's get/sign and secre
 get permissions apply at vault scope. Resource-scoped permissions require a future
 separate vault or coordinated RBAC migration; this setup preserves the v1 policies.
 Revocation information is retained in `datam8-v2-gpg-revocation` in the vault.
+
+### Provisioned v2 infrastructure
+
+The initial setup was performed through the authenticated Azure CLI and GitHub
+CLI/REST API on 9 October 2026. The application, federated credential, vault
+policy and GitHub environment configuration below were checked again through
+those APIs on 10 October 2026. This is a record of the provisioned infrastructure;
+the workflows consume it but do not create it. There is currently no Terraform,
+Bicep or idempotent provisioning script in this repository.
+
+| Resource | Provisioned value |
+| --- | --- |
+| Azure subscription | `04154975-918c-4f54-b216-f8ca3cdee657` |
+| Resource group | `automation-platform-dev` |
+| Key Vault | `aut0kvt0dev0standard` |
+| Vault endpoint | `https://aut0kvt0dev0standard.vault.azure.net` |
+| Existing Windows certificate | `DataM8CodeCert1` |
+| Entra application | `datam8-desktop-v2-github-signing` |
+| Application/client ID | `2ce264e6-f9b5-4b36-b994-7f44eb20dfb5` |
+| Application object ID | `dfbd21bd-fe6c-4332-8563-4f998e27d67c` |
+| Service principal object ID | `e17a9f1e-dd75-419e-853e-7ebf7f53a1ba` |
+| Federated credential name | `github-desktop-signing-v2` |
+| GitHub repository | `oraylis/datam8-frontend` |
+| GitHub environment | `desktop-signing-v2` |
+
+These identifiers are configuration metadata, not credentials. The Azure tenant
+ID is held in the environment secret `AZURE_KEY_VAULT_TENANT`; private keys,
+passphrases and access tokens are not stored in the repository.
+
+The setup consisted of these steps:
+
+1. Sign in to Azure using the authorized administrator's interactive MFA/device
+   login. Create the separate Entra application and its service principal. No
+   application client secret was created for v2.
+2. Add the federated credential using the issuer, audience and environment subject
+   specified above. GitHub jobs in that environment can exchange an OIDC token
+   for a short-lived Azure token; ordinary PR jobs cannot use this identity.
+3. Add a policy for the new service principal on the existing vault: certificates
+   `get`, keys `get`/`sign`, secrets `get`. The vault remains in legacy access-policy
+   mode (`enableRbacAuthorization: false`); these permissions are vault-wide.
+   Existing v1 policies, certificate material, firewall and permission model were
+   not changed. The supplied PFX was not imported because the existing certificate
+   was suitable.
+4. Create the GitHub environment with custom deployment policies for branch
+   `feature/external_refresh` and tags `v*`. Set environment variables
+   `AZURE_V2_CLIENT_ID` and `DATAM8_GPG_FINGERPRINT`, and environment secrets
+   `AZURE_KEY_VAULT_TENANT`, `AZURE_KEY_VAULT_URL` and `AZURE_KEY_VAULT_NAME`.
+   Here `AZURE_KEY_VAULT_NAME` is `DataM8CodeCert1`, not the vault resource name.
+5. Generate an Ed25519 GPG signing key with a three-year expiry and a random
+   passphrase in a temporary private directory. Store the armored private key,
+   passphrase and generated revocation certificate in the three v2 vault secrets
+   named above. Export only the public key and fingerprint into `docs/signing`;
+   terminate the temporary GPG agent and remove the local private-key directory.
+
+The environment currently has no required reviewers or wait timer, and its API
+configuration permits administrator bypass. Its tag deployment policy is an
+allowlist, not tag protection. The repository's release-tag ruleset was disabled
+when checked; no active tag ruleset was present. Before a future tagged release,
+configure tag protection. The signing workflow additionally requires
+`github.ref_protected == true` for tags and refuses unprotected tags. Manual
+feature-branch runs do not publish releases.
+
+### Inspect and recover the configuration
+
+With authorized Azure/GitHub CLI sessions, these read-only commands inspect the
+configuration without retrieving private keys or secret values. Specify the
+subscription explicitly: a user's current default subscription may be different.
+
+```sh
+az ad app show --id 2ce264e6-f9b5-4b36-b994-7f44eb20dfb5 \
+  --query '{name:displayName,clientId:appId,objectId:id}'
+az ad app federated-credential list \
+  --id dfbd21bd-fe6c-4332-8563-4f998e27d67c
+az keyvault show --name aut0kvt0dev0standard \
+  --subscription 04154975-918c-4f54-b216-f8ca3cdee657 \
+  --query "{rbac:properties.enableRbacAuthorization,policy:properties.accessPolicies[?objectId=='e17a9f1e-dd75-419e-853e-7ebf7f53a1ba']}"
+gh api repos/oraylis/datam8-frontend/environments/desktop-signing-v2
+gh api repos/oraylis/datam8-frontend/environments/desktop-signing-v2/deployment-branch-policies
+gh variable list --repo oraylis/datam8-frontend --env desktop-signing-v2
+gh secret list --repo oraylis/datam8-frontend --env desktop-signing-v2
+```
+
+To repair a missing setting, restore the recorded policy or environment value
+using an authorized administrator account. Recreating the Entra application
+produces new IDs: update the vault policy, federated credential and GitHub client
+ID together. Restore GPG signing from the existing protected key material; simply
+generating a replacement changes its fingerprint and the download trust anchor.
+Use the retained revocation certificate if that key must be revoked, and publish
+an explicit key-rotation notice. Do not overwrite the existing Windows certificate
+or v1 settings while repairing v2. The current vault is the stored source of the
+GPG private material; an independent disaster-recovery backup has not been set up
+by this implementation.
 
 ## macOS without Apple Developer ID
 

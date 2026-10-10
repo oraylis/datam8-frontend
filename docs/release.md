@@ -15,9 +15,10 @@ remain on that feature branch until reviewed.
 
 Create the GitHub environment `desktop-signing-v2`. Restrict deployment refs to
 `feature/external_refresh` and protected `v*` release tags. Do not permit PR refs.
-Use a separate Azure application/service principal for v2 with a federated
-credential whose issuer is `https://token.actions.githubusercontent.com`, audience
-is `api://AzureADTokenExchange` and subject is
+Reuse the existing signing Azure application/service principal for v1 and v2.
+Add a federated credential whose issuer is
+`https://token.actions.githubusercontent.com`, audience is
+`api://AzureADTokenExchange` and subject is
 `repo:oraylis/datam8-frontend:environment:desktop-signing-v2`.
 
 Configure these secrets on the v2 GitHub environment. The initial setup reused
@@ -33,7 +34,7 @@ Set these v2 environment variables:
 
 | Variable | Meaning |
 | --- | --- |
-| `AZURE_V2_CLIENT_ID` | New v2 application client ID |
+| `AZURE_V2_CLIENT_ID` | Existing signing application client ID used by the v2 OIDC jobs |
 | `DATAM8_GPG_FINGERPRINT` | Expected primary release-key fingerprint, without spaces |
 
 The identity needs public certificate read and signing-key get/sign permissions
@@ -41,8 +42,17 @@ for the existing Windows certificate. It also needs secret get permissions for
 `datam8-v2-gpg-private` (ASCII-armored private signing key) and
 `datam8-v2-gpg-passphrase`. Restrict permissions to these resources when the
 existing vault permission model supports that. Do not change the vault permission
-model, firewall or v1 access policies as part of this setup. Check that hosted
+model or firewall as part of this setup. Reduce the shared principal's policy to
+certificate get, key get/sign and secret get after reviewing existing consumers.
+Keep v1's required signing access and repository credentials. Check that hosted
 runners can reach the existing vault before running the workflow.
+
+Review Azure management-role assignments as well as the vault policy. Owner,
+Contributor or another role allowing vault policy changes can let the principal
+restore broader access, so limiting only its data-plane policy is insufficient.
+Identify other deployments that use the shared principal before removing such
+roles. Record the approved remaining permissions privately. See
+[Microsoft's access-policy guidance](https://learn.microsoft.com/en-us/azure/key-vault/general/assign-access-policy).
 
 Provision one GPG release key, securely retain its revocation information, and
 store the private key and passphrase in those vault secrets. Publish its public
@@ -78,7 +88,7 @@ certificate; SmartScreen reputation remains separate. See
 Review the effective permission scope with the vault owner: legacy access policies
 apply at vault scope, while resource-scoped permissions require a suitable RBAC
 configuration. Record the actual policy and revocation-material location in the
-private operations runbook; preserve existing v1 access while configuring v2.
+private operations runbook; preserve the operations required by existing v1 signing.
 
 ### Maintainer configuration and recovery
 
@@ -100,11 +110,17 @@ alone does not protect tags. The signing workflow also checks
 `github.ref_protected` and refuses unprotected tags. Manual feature-branch runs do
 not publish releases.
 
-When restoring an identity, coordinate its federation, vault permissions and
-GitHub client-ID setting. Restore GPG signing from the protected existing key;
-generating another key changes the fingerprint and download trust anchor. Keep
+When restoring the shared identity, coordinate its federation, vault permissions,
+management roles and GitHub client-ID setting. Keep the v1 client-secret flow
+and v2 OIDC flow associated with that same application. Restore GPG signing from
+the protected existing key; generating another key changes the fingerprint and
+download trust anchor. Keep
 revocation material and backup/recovery instructions private until a revocation
-is intentionally published. Do not overwrite v1 configuration during v2 recovery.
+is intentionally published. Do not overwrite v1 credentials during v2 recovery.
+After switching the v2 client-ID setting, complete a signed four-platform manual
+run with the restricted shared identity before removing an obsolete dedicated
+v2 application and its vault policy. Do not delete the shared signing certificate
+or GPG secrets during identity cleanup.
 
 ### Information suitable for publication
 

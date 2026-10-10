@@ -22,7 +22,7 @@ Fix:
 - `npm run dev:desktop` requires `submodules/datam8-generator/.venv`.
 - Prepare dependencies once:
   - `cd submodules/datam8-generator`
-  - `uv sync`
+  - `uv sync --all-extras`
 - If `DATAM8_PYTHON_PATH` is set, it must point to the same `.venv` interpreter.
 - Verify with:
   - `submodules/datam8-generator/.venv/Scripts/python.exe -m datam8 --help` (Windows)

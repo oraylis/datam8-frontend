@@ -7,7 +7,8 @@ workspace instead. This README describes the retained context, not a working pic
 ## Entry Points
 
 - `FileSystemContext.tsx` — stores current path, entries, loading state; exposes `loadFs(path?)`.
-- Consumed by the solution picker dialog in `AppShell` to display directories and `.dm8s` files.
+- Retained for legacy consumers; the current solution dialog does not use it to
+  browse directories or switch server workspaces.
 
 ## Flow
 
@@ -20,4 +21,3 @@ workspace instead. This README describes the retained context, not a working pic
 - Add client-side sorting/filtering if API changes.
 - If API adds metadata (mtime, size), surface via the picker UI.
 - Keep requests cheap; avoid recursive scans from the client.
-

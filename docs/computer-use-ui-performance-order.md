@@ -2,6 +2,8 @@
 
 Historical measurements for the recorded setup; not current performance limits.
 See the [documentation index](index.md) for current guidance.
+Personal paths and production source identifiers have been redacted; recorded
+measurements and outcomes are unchanged.
 
 Datum: 2026-09-07
 
@@ -9,7 +11,7 @@ Datum: 2026-09-07
 
 - UI: `http://localhost:4320/` via Codex In-app Browser
 - Backend: lokaler `datam8 serve` auf `127.0.0.1:4318`
-- Testdaten: temporaere Kopie unter `C:\Users\f.kayser\AppData\Local\Temp\datam8-ui-perf-order-20260907-164203`
+- Testdaten: temporaere Kopie unter `C:\Users\<user>\AppData\Local\Temp\<disposable-fixture>`
 - Original-Solution blieb unveraendert.
 - Die Browser-Pruefung wurde ausschliesslich mit Computer Use ausgefuehrt. Es wurden keine Playwright-UI-Tests verwendet.
 - Windows-Keyring war als `keyring.backends.Windows.WinVaultKeyring` aktiviert.
@@ -33,7 +35,7 @@ Die Werte sind einzelne sichtbare UI-Laeufe und dienen als Baseline, nicht als h
 | Overview-Ansicht | 344 ms | PASS |
 | Base-Scope | 872 ms | PASS |
 | Base-Kategorien nacheinander oeffnen | 722-1,008 ms | PASS fuer alle 8 Kategorien |
-| Data-Source-Editor `edwh-drillisch-prod` | 1,596 ms | PASS; Secret sichtbar als verfuegbar |
+| Data-Source-Editor `<redacted-data-source>` | 1,596 ms | PASS; Secret sichtbar als verfuegbar |
 | Refresh-Data-Sources-Dialog | 2,659 ms | PASS; 10 Quellen sichtbar |
 | Schema-Scan | 21,352 ms bis Review | PASS; 49 Aenderungen erkannt |
 | Review-Gruppen expandieren | 1,740 ms | PASS |
@@ -81,7 +83,7 @@ Dabei wurden Listen mit mehreren Items, expandierte Property-Value-Gruppen, Edit
 
 ### Sources und Import
 
-- `edwh-drillisch-prod` als SQLServer-Data-Source geoeffnet
+- `<redacted-data-source>` als SQLServer-Data-Source geoeffnet
 - Secret-Status: `Secret available`
 - Connection-Test erfolgreich
 - Refresh-Data-Sources-Dialog geoeffnet

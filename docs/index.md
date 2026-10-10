@@ -5,6 +5,8 @@
 Start with the [illustrated user guide](user-guide/README.md). It follows a copy of
 the separate ORAYLIS sample solution through editing and generation.
 
+For desktop downloads, use the [installation and signature-verification guide](desktop-installation.md).
+
 ## Develop and maintain
 
 - [Contributor instructions](../AGENTS.md) and [architecture](../ARCHITECTURE.md)

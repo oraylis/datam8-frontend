@@ -5,7 +5,7 @@ Frontend starts a local FastAPI backend process via Python module execution.
 ## Backend start contract
 
 ```bash
-python -m datam8 serve --host 127.0.0.1 --port 0 --token <random>
+python -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>
 ```
 
 Readiness line:
@@ -21,7 +21,7 @@ Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/gene
 - `npm run dev:desktop` requires the interpreter from `submodules/datam8-generator/.venv`.
 - Prepare local backend dependencies with:
   - `cd submodules/datam8-generator`
-  - `uv sync`
+  - `uv sync --all-extras`
 - `DATAM8_PYTHON_PATH`: optional override, but must still point to that `.venv` interpreter
 - `DATAM8_BACKEND_MODULE`: optional module name (default `datam8`)
 - Connector discovery uses the loaded solution's `pluginsPath`; see

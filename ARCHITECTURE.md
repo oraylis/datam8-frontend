@@ -17,9 +17,9 @@
   - Workspace composition: `features/model/components/Workspace.tsx` → entity editor (`workspace/entity-editor/*`), base editor (`workspace/base-editor/*`), new entity wizard (`CreateModelEntityWizard.tsx`).
   - Solution loading: `features/solution/*` (desktop path, file upload, server list).
   - Generator panel: `features/generator/*` (browser uses synchronous `POST /model/generate`; desktop delegates through preload to the CLI).
-  - Filesystem picker: `features/fs/FileSystemContext.tsx`.
+  - Retained legacy filesystem context: `features/fs/FileSystemContext.tsx`; the active dialog does not browse the server filesystem.
 - **Desktop (`apps/desktop`)**
-  - Main process: `src/main.ts` spawns `datam8 serve --host 127.0.0.1 --port 0 --token <random>`, parses readiness JSON from stdout, verifies `/health`, then creates the BrowserWindow.
+  - Main process: `src/main.ts` spawns `datam8 serve --host 127.0.0.1 --port 4318 --token <random>`, parses readiness JSON from stdout, verifies `/health` when a solution is opened. The window can start before a solution/backend is loaded.
   - Preload: `src/preload.ts` exposes `{ apiBase, token }` + native dialogs + theme events to the renderer.
   - Packaging: electron-builder bundles a Python runtime under `resources/python-runtime`; production starts `python -m datam8`.
 - **Backend (submodule)**
@@ -27,8 +27,8 @@
 
 ## Backend Lifecycle (Desktop-safe)
 
-Frontend starts the backend once and keeps it long-lived:
-- Spawn: `python -m datam8 serve --host 127.0.0.1 --port 0 --token <random>`
+Frontend starts the backend for the selected solution and replaces it when switching solutions:
+- Spawn: `python -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>`
 - Readiness: backend prints exactly one JSON line to stdout:
   - `{"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}`
 - All other logs go to stderr.
@@ -44,8 +44,8 @@ Frontend starts the backend once and keeps it long-lived:
 
 Frontend uses root endpoints. There is no `/api/*` namespace and no Jobs/SSE layer in the current contract.
 
-- Solution load: `GET /solution/inspect`, `GET /solution/full`
-- File-system picker: `GET /fs/list`
+- Solution load: browser uses `GET /solution/full`; desktop loads through its IPC bridge.
+- The retained filesystem context references `/fs/list`; this is not an implemented picker in the pinned backend.
 - Generate: browser uses synchronous `POST /model/generate`; desktop uses the CLI bridge.
 - Validation errors are surfaced by generation; there is no separate validation UI.
 - Editor operations use root model/base/entity/refactor/plugin/secret endpoints.
@@ -62,5 +62,5 @@ from historical parity entries. Do not infer route availability from old docs.
 
 ## Build & Runtime Notes
 
-- Dev: `npm run dev:desktop` expects the `submodules/datam8-generator/.venv` Python interpreter, or `DATAM8_PYTHON_PATH` pointing to a compatible Python.
+- Dev: `npm run dev:desktop` expects the `submodules/datam8-generator/.venv` Python interpreter; an override must point to that environment's interpreter.
 - Packaging: `npm run build:python-runtime` creates the runtime copied into desktop packages.

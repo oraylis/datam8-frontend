@@ -74,5 +74,6 @@ npm run build:web:electron
 ```
 
 Packaging: `npm run build:desktop`, or its `:win`, `:mac`, `:linux` variants.
-See [release checks](docs/release.md), [troubleshooting](docs/troubleshooting.md)
+See [installation and verification](docs/desktop-installation.md),
+[release checks](docs/release.md), [troubleshooting](docs/troubleshooting.md)
 and [opt-in screenshot maintenance](docs/user-guide/capture.md).

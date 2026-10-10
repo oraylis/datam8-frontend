@@ -75,102 +75,55 @@ established this CA trust. The application never installs a root certificate.
 Public distribution without that prerequisite requires a publicly trusted signing
 certificate; SmartScreen reputation remains separate. See
 [Microsoft's Authenticode trust explanation](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/authenticode).
-The vault uses legacy access policies, so the new principal's get/sign and secret
-get permissions apply at vault scope. Resource-scoped permissions require a future
-separate vault or coordinated RBAC migration; this setup preserves the v1 policies.
-Revocation information is retained in `datam8-v2-gpg-revocation` in the vault.
+Review the effective permission scope with the vault owner: legacy access policies
+apply at vault scope, while resource-scoped permissions require a suitable RBAC
+configuration. Record the actual policy and revocation-material location in the
+private operations runbook; preserve existing v1 access while configuring v2.
 
-### Provisioned v2 infrastructure
+### Maintainer configuration and recovery
 
-The initial setup was performed through the authenticated Azure CLI and GitHub
-CLI/REST API on 9 October 2026. The application, federated credential, vault
-policy and GitHub environment configuration below were checked again through
-those APIs on 10 October 2026. This is a record of the provisioned infrastructure;
-the workflows consume it but do not create it. There is currently no Terraform,
-Bicep or idempotent provisioning script in this repository.
+This public repository documents the workflow interface and verification process.
+Keep actual vault endpoints/names, certificate aliases, tenant/subscription IDs,
+application/service-principal IDs, effective access policies and recovery records
+in an access-controlled operations runbook. Use placeholders in public examples.
+Environment/secret variable names used by the public workflows are interface names,
+not secret values.
 
-| Resource | Provisioned value |
-| --- | --- |
-| Azure subscription | `04154975-918c-4f54-b216-f8ca3cdee657` |
-| Resource group | `automation-platform-dev` |
-| Key Vault | `aut0kvt0dev0standard` |
-| Vault endpoint | `https://aut0kvt0dev0standard.vault.azure.net` |
-| Existing Windows certificate | `DataM8CodeCert1` |
-| Entra application | `datam8-desktop-v2-github-signing` |
-| Application/client ID | `2ce264e6-f9b5-4b36-b994-7f44eb20dfb5` |
-| Application object ID | `dfbd21bd-fe6c-4332-8563-4f998e27d67c` |
-| Service principal object ID | `e17a9f1e-dd75-419e-853e-7ebf7f53a1ba` |
-| Federated credential name | `github-desktop-signing-v2` |
-| GitHub repository | `oraylis/datam8-frontend` |
-| GitHub environment | `desktop-signing-v2` |
+The infrastructure was provisioned once through authorized Azure CLI and GitHub
+CLI/API sessions. The workflows consume it; they do not provision it. There is
+currently no Terraform, Bicep or idempotent provisioning script in this repository.
+Authorized maintainers can inspect the configured GitHub environment and use their
+private runbook to locate and inspect Azure resources without retrieving keys.
 
-These identifiers are configuration metadata, not credentials. The Azure tenant
-ID is held in the environment secret `AZURE_KEY_VAULT_TENANT`; private keys,
-passphrases and access tokens are not stored in the repository.
+Before a tagged release, configure tag protection: the environment's tag allowlist
+alone does not protect tags. The signing workflow also checks
+`github.ref_protected` and refuses unprotected tags. Manual feature-branch runs do
+not publish releases.
 
-The setup consisted of these steps:
+When restoring an identity, coordinate its federation, vault permissions and
+GitHub client-ID setting. Restore GPG signing from the protected existing key;
+generating another key changes the fingerprint and download trust anchor. Keep
+revocation material and backup/recovery instructions private until a revocation
+is intentionally published. Do not overwrite v1 configuration during v2 recovery.
 
-1. Sign in to Azure using the authorized administrator's interactive MFA/device
-   login. Create the separate Entra application and its service principal. No
-   application client secret was created for v2.
-2. Add the federated credential using the issuer, audience and environment subject
-   specified above. GitHub jobs in that environment can exchange an OIDC token
-   for a short-lived Azure token; ordinary PR jobs cannot use this identity.
-3. Add a policy for the new service principal on the existing vault: certificates
-   `get`, keys `get`/`sign`, secrets `get`. The vault remains in legacy access-policy
-   mode (`enableRbacAuthorization: false`); these permissions are vault-wide.
-   Existing v1 policies, certificate material, firewall and permission model were
-   not changed. The supplied PFX was not imported because the existing certificate
-   was suitable.
-4. Create the GitHub environment with custom deployment policies for branch
-   `feature/external_refresh` and tags `v*`. Set environment variables
-   `AZURE_V2_CLIENT_ID` and `DATAM8_GPG_FINGERPRINT`, and environment secrets
-   `AZURE_KEY_VAULT_TENANT`, `AZURE_KEY_VAULT_URL` and `AZURE_KEY_VAULT_NAME`.
-   Here `AZURE_KEY_VAULT_NAME` is `DataM8CodeCert1`, not the vault resource name.
-5. Generate an Ed25519 GPG signing key with a three-year expiry and a random
-   passphrase in a temporary private directory. Store the armored private key,
-   passphrase and generated revocation certificate in the three v2 vault secrets
-   named above. Export only the public key and fingerprint into `docs/signing`;
-   terminate the temporary GPG agent and remove the local private-key directory.
+### Information suitable for publication
 
-The environment currently has no required reviewers or wait timer, and its API
-configuration permits administrator bypass. Its tag deployment policy is an
-allowlist, not tag protection. The repository's release-tag ruleset was disabled
-when checked; no active tag ruleset was present. Before a future tagged release,
-configure tag protection. The signing workflow additionally requires
-`github.ref_protected == true` for tags and refuses unprotected tags. Manual
-feature-branch runs do not publish releases.
+Publish the release public key, expected fingerprints, publisher identity,
+certificate validity and verification instructions. These identify the signer;
+they do not grant signing authority. The Windows signing certificate is also
+embedded in signed packages. See [Microsoft's certificate explanation](https://learn.microsoft.com/en-us/windows/win32/seccrypto/certificates-and-public-keys)
+and the [GNU Privacy Handbook](https://gnupg.org/gph/en/manual.html).
 
-### Inspect and recover the configuration
+Never publish PFX files, private keys, passphrases, access tokens or an unused GPG
+revocation certificate. Operational resource identifiers and personal/customer
+names are unnecessary in download notes even when they are not credentials.
+Use neutral fixtures and redact personal paths, connection endpoints and live
+credential values in logs/screenshots. Moving information out of current files
+does not remove earlier copies from Git history or existing artifacts.
 
-With authorized Azure/GitHub CLI sessions, these read-only commands inspect the
-configuration without retrieving private keys or secret values. Specify the
-subscription explicitly: a user's current default subscription may be different.
-
-```sh
-az ad app show --id 2ce264e6-f9b5-4b36-b994-7f44eb20dfb5 \
-  --query '{name:displayName,clientId:appId,objectId:id}'
-az ad app federated-credential list \
-  --id dfbd21bd-fe6c-4332-8563-4f998e27d67c
-az keyvault show --name aut0kvt0dev0standard \
-  --subscription 04154975-918c-4f54-b216-f8ca3cdee657 \
-  --query "{rbac:properties.enableRbacAuthorization,policy:properties.accessPolicies[?objectId=='e17a9f1e-dd75-419e-853e-7ebf7f53a1ba']}"
-gh api repos/oraylis/datam8-frontend/environments/desktop-signing-v2
-gh api repos/oraylis/datam8-frontend/environments/desktop-signing-v2/deployment-branch-policies
-gh variable list --repo oraylis/datam8-frontend --env desktop-signing-v2
-gh secret list --repo oraylis/datam8-frontend --env desktop-signing-v2
-```
-
-To repair a missing setting, restore the recorded policy or environment value
-using an authorized administrator account. Recreating the Entra application
-produces new IDs: update the vault policy, federated credential and GitHub client
-ID together. Restore GPG signing from the existing protected key material; simply
-generating a replacement changes its fingerprint and the download trust anchor.
-Use the retained revocation certificate if that key must be revoked, and publish
-an explicit key-rotation notice. Do not overwrite the existing Windows certificate
-or v1 settings while repairing v2. The current vault is the stored source of the
-GPG private material; an independent disaster-recovery backup has not been set up
-by this implementation.
+The user-facing [installation guide](desktop-installation.md) is packaged as
+`INSTALL-AND-VERIFY.md`. It excludes administrator setup and infrastructure
+inventory; this maintainer document is not copied into distribution notes.
 
 ## macOS without Apple Developer ID
 
@@ -199,7 +152,7 @@ published DataM8 fingerprint before trusting it:
 
 ```sh
 gpg --import datam8-release-public.asc
-gpg --fingerprint
+gpg --fingerprint A8987DFCDEC1DEA028294BCACFF392232DB6BB4B
 # Verify the signed manifest, then verify the downloaded package bytes.
 gpg --verify SHA256SUMS.asc SHA256SUMS
 gpg --verify DataM8-2.0.0-beta.6-mac-arm64.dmg.asc DataM8-2.0.0-beta.6-mac-arm64.dmg

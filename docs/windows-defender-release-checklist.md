@@ -4,6 +4,9 @@ Use this checklist for every Windows desktop release to reduce install/startup f
 
 Confirm signing is configured and available in the selected CI run; this checklist
 does not guarantee that a signing identity or SmartScreen reputation is present.
+The current Windows signer uses a private corporate CA. CI tests with explicit
+temporary CA trust; this does not prove trust on an unmanaged Windows 11 device.
+See [public signing identities and installation](desktop-installation.md).
 
 ## 1) Build + sign in CI
 
@@ -12,7 +15,9 @@ does not guarantee that a signing identity or SmartScreen reputation is present.
   - `*.exe`
   - `*.dll`
   - `*.node`
-- Ensure signature verification step reports `Valid` for all signed files.
+  - `*.pyd`
+- Ensure the embedded-signature gate passes for every binary, installer and
+  uninstaller, including the expected publisher, SHA-256 and RFC-3161 timestamp.
 
 ## 2) Prepare evidence package
 
@@ -39,7 +44,8 @@ Submission portal:
 Include:
 
 - Product name/version
-- Publisher/certificate info
+- Public publisher/certificate identity and fingerprints; exclude PFX files,
+  private keys, access tokens and internal vault/resource identifiers.
 - False-positive context and intended behavior
 
 ## 4) Clean-VM validation

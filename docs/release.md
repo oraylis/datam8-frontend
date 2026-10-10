@@ -1,29 +1,77 @@
 # Desktop builds, signing and release verification
 
-The v2 desktop workflow builds Windows x64, macOS Intel, macOS ARM64 and Linux
+The desktop workflow builds Windows x64, macOS Intel, macOS ARM64 and Linux
 x64 on native GitHub-hosted runners. It tests the installed distributions before
 providing the final `DataM8-verified-four-platforms` workflow artifact. No public
 release is created by a manual verification run.
 
-The existing v1 workflow and signing certificate on `main` remain unchanged.
-The workflow path `ci-push-and-pull-request-merged.yml` is already registered on
-`main`; select **feature/external_refresh** when running it manually. Its version
-on the feature branch delegates to the reusable v2 workflow. Changes and tests
-remain on that feature branch until reviewed.
+This is the maintained build and release process for DataM8 Desktop. The new
+application replaces the previous desktop application. Keeping two product
+generations or two signing/release processes is not a permanent requirement.
+The one-time [rollout checklist](desktop-rollout.md) covers workflow registration,
+existing installations and retirement of superseded infrastructure.
+
+## Build and release process
+
+All native builds use Node 24 and the pinned Generator submodule. Each target
+bundles its own Python runtime and backend dependencies:
+
+| Target | GitHub runner | Distribution |
+| --- | --- | --- |
+| Windows x64 | `windows-2025` | NSIS EXE |
+| macOS Intel | `macos-15-intel` | DMG and ZIP |
+| macOS ARM64 | `macos-15` | DMG and ZIP |
+| Linux x64 | `ubuntu-24.04` | AppImage and DEB |
+
+GitHub Actions runs quality gates, builds and signs native packages, tests the
+installed packages on fresh runners, then signs and verifies the final download
+manifest. The reusable workflow is `.github/workflows/desktop.yml`.
+
+| Entry point | Purpose | Result |
+| --- | --- | --- |
+| `ci.yml` | Push/PR quality checks and compilation | No distribution |
+| `desktop-pr.yml` | Four-platform packaging and installed-app checks on PRs | Test artifacts without release signing or Vault access |
+| `ci-push-and-pull-request-merged.yml` | Currently registered manual entry point | Verified four-platform artifact; no public release |
+| `build-desktop.yml` | Manual entry point once registered on the default branch | Same verified four-platform artifact; no public release |
+| `release.yml` | Protected version-tag push | Rebuild, verify and publish all distributions to a GitHub release |
+
+For the current feature-branch test phase, start the registered manual workflow:
+
+```sh
+gh workflow run ci-push-and-pull-request-merged.yml \
+  --repo oraylis/datam8-frontend --ref feature/external_refresh
+```
+
+Leave `windows_update_fixture_run` empty for full acceptance. Download
+`DataM8-verified-four-platforms` only after all required jobs pass. The artifact
+includes seven platform packages, signatures, checksums, the public GPG key,
+`BUILD-MANIFEST.json` and `INSTALL-AND-VERIFY.md`.
+
+The signed workflow and GitHub environment currently permit
+`feature/external_refresh` and protected `v*` tags. A manual signed run on `main`
+requires the coordinated allowlist changes described in the rollout checklist.
+Local packaging commands such as `npm run build:desktop:mac` use the local host
+and architecture; they do not substitute for four-platform signed acceptance.
+
+Before publication, set and commit the intended package version, keep the lockfile
+consistent, and complete the rollout and Windows clean-VM checks. The release
+tag must be protected and exactly match `v` plus `apps/desktop/package.json`'s
+version. Pushing it triggers a new full build and public release, so do not create
+test release tags during manual verification. Versions containing a prerelease
+suffix publish as GitHub prereleases; other versions publish as normal releases.
+Windows update metadata and blockmaps are published with the verified packages.
 
 ## Signing configuration
 
 Create the GitHub environment `desktop-signing-v2`. Restrict deployment refs to
 `feature/external_refresh` and protected `v*` release tags. Do not permit PR refs.
-The current v2 configuration uses a dedicated Azure application/service principal;
-v1 retains its existing signing principal and client-secret authentication.
-The v2 application has a federated credential whose issuer is
+The signing configuration uses a dedicated Azure application/service principal
+with GitHub OIDC. Its application has a federated credential whose issuer is
 `https://token.actions.githubusercontent.com`, audience is
 `api://AzureADTokenExchange` and subject is
 `repo:oraylis/datam8-frontend:environment:desktop-signing-v2`.
 
-Configure these secrets on the v2 GitHub environment. The initial setup reused
-the existing v1 configuration values without modifying its repository secrets:
+Configure these secrets on the signing GitHub environment:
 
 | Secret | Meaning |
 | --- | --- |
@@ -31,11 +79,11 @@ the existing v1 configuration values without modifying its repository secrets:
 | `AZURE_KEY_VAULT_URL` | Vault URL, for example `https://example.vault.azure.net` |
 | `AZURE_KEY_VAULT_NAME` | Windows certificate name inside the vault; not the vault name |
 
-Set these v2 environment variables:
+Set these environment variables:
 
 | Variable | Meaning |
 | --- | --- |
-| `AZURE_V2_CLIENT_ID` | Application client ID used by the v2 OIDC jobs |
+| `AZURE_V2_CLIENT_ID` | Application client ID used by the signing OIDC jobs |
 | `DATAM8_GPG_FINGERPRINT` | Expected primary release-key fingerprint, without spaces |
 
 The identity needs public certificate read and signing-key get/sign permissions
@@ -43,15 +91,15 @@ for the existing Windows certificate. It also needs secret get permissions for
 `datam8-v2-gpg-private` (ASCII-armored private signing key) and
 `datam8-v2-gpg-passphrase`. Restrict permissions to these resources when the
 existing vault permission model supports that. Do not change the vault permission
-model or firewall as part of this setup. Limit signing principals' policies to
-certificate get, key get/sign and required secret get operations after reviewing
-existing consumers. Keep v1's required signing access and repository credentials.
+model or firewall as part of this setup. Review existing consumers before
+restricting a principal to certificate get, key get/sign and required secret get
+operations.
 Check that hosted runners can reach the existing vault before running the workflow.
 
 Review Azure management-role assignments as well as the vault policy. Owner,
 Contributor or another role allowing vault policy changes can let the principal
 restore broader access, so limiting only its data-plane policy is insufficient.
-Identify other deployments that use the shared principal before removing such
+Identify other deployments that use a principal before removing such
 roles. Record the approved remaining permissions privately. See
 [Microsoft's access-policy guidance](https://learn.microsoft.com/en-us/azure/key-vault/general/assign-access-policy).
 
@@ -62,9 +110,9 @@ A public key delivered only alongside a download is not an independent trust
 anchor. The workflow checks the vault key against the configured fingerprint.
 
 Windows uses AzureSignTool 6.0.0, SHA-256 and an RFC-3161 timestamp. Its private
-key stays in Azure. Vault access uses short-lived GitHub OIDC credentials, not
-the v1 client secret. Expired certificates, missing code-signing EKU, failed
-signatures and missing permissions stop a signed build.
+key stays in Azure. Vault access uses short-lived GitHub OIDC credentials.
+Expired certificates, missing code-signing EKU, failed signatures and missing
+permissions stop a signed build.
 
 macOS and Linux distributions have detached GPG signatures. GPG keys exist only
 in a temporary runner directory while signing. PR builds cannot access the vault
@@ -89,7 +137,7 @@ certificate; SmartScreen reputation remains separate. See
 Review the effective permission scope with the vault owner: legacy access policies
 apply at vault scope, while resource-scoped permissions require a suitable RBAC
 configuration. Record the actual policy and revocation-material location in the
-private operations runbook; preserve the operations required by existing v1 signing.
+private operations runbook.
 
 ### Maintainer configuration and recovery
 
@@ -111,21 +159,21 @@ alone does not protect tags. The signing workflow also checks
 `github.ref_protected` and refuses unprotected tags. Manual feature-branch runs do
 not publish releases.
 
-When restoring the v2 identity, coordinate its federation, vault permissions,
+When restoring the signing identity, coordinate its federation, vault permissions,
 management roles and GitHub client-ID setting. Restore GPG signing from
 the protected existing key; generating another key changes the fingerprint and
-download trust anchor. Keep
-revocation material and backup/recovery instructions private until a revocation
-is intentionally published. Do not overwrite v1 credentials during v2 recovery.
+download trust anchor. Keep revocation material and backup/recovery instructions
+private until a revocation is intentionally published. Azure resource-group roles
+alone do not grant permission to edit an Entra app registration; federation changes
+require the app owner or an authorized Entra administrator. Any signing-identity
+change needs a complete successful signed four-platform run before retiring the
+previous identity. Do not delete signing certificates or GPG secrets during cleanup.
 
-A future migration can reuse the v1 application for v2 OIDC if its app owner or
-an authorized Entra administrator can add the federation. Azure resource-group
-roles alone do not grant permission to edit an Entra app registration. Keep the
-current v2 identity and client-ID setting until that federation is configured.
-After switching the v2 client-ID setting, complete a signed four-platform manual
-run with the restricted shared identity before removing the obsolete dedicated
-v2 application and its vault policy. Do not delete the shared signing certificate
-or GPG secrets during identity cleanup.
+Names such as `desktop-signing-v2`, `AZURE_V2_CLIENT_ID` and the GPG secret names
+are the current workflow interfaces. Their suffix does not describe a second
+maintained process. Renaming an environment requires coordinated changes to its
+OIDC subject, deployment rules, variables/secrets and workflow references. There
+is no need to rename working configuration as part of the product replacement.
 
 ### Information suitable for publication
 

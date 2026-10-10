@@ -14,6 +14,7 @@ For desktop downloads, use the [installation and signature-verification guide](d
 - [Autosave](autosave.md)
 - [Connector developer notes](connectors_dev.md)
 - [Release](release.md) and [Windows release checklist](windows-defender-release-checklist.md)
+- [Desktop process rollout and previous-installation migration](desktop-rollout.md)
 - [Screenshot maintenance](user-guide/capture.md)
 - [Documentation review and external follow-ups](documentation-review.md)
 - [Documentation integration handoff](documentation-handoff.md)

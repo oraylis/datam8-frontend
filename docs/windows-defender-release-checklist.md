@@ -10,7 +10,8 @@ See [public signing identities and installation](desktop-installation.md).
 
 ## 1) Build + sign in CI
 
-- Run the tag-based `Release` workflow.
+- Run the full manual desktop verification workflow before broad rollout; see
+  [build and release entry points](release.md#build-and-release-process).
 - Ensure Windows signing step succeeds for all release binaries:
   - `*.exe`
   - `*.dll`
@@ -52,10 +53,18 @@ Include:
 
 Run install/start tests on a fresh Windows 11 VM with default Defender settings:
 
-- Download installer from release page
+- Download the verified candidate installer from the successful manual run
 - Install application
 - Start app and execute the backend start path once
 - Confirm no quarantine/block events for installer, app executable, or runtime binaries
+- When replacing a previous MSI installation, complete the separate
+  [installation migration checks](desktop-rollout.md#replace-installed-applications-and-preserve-user-data).
+
+After these checks, publish through the protected-tag `Release` workflow. It
+repeats all required build/signing/package gates before creating the release.
+Repeat the Windows 11 checks on the final published files before broad
+distribution: the tag workflow rebuilds and signs them, so candidate file hashes
+are not evidence for the final bytes.
 
 ## 5) Incident response (if flagged after release)
 

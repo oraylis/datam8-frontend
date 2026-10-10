@@ -44,4 +44,13 @@ The development launcher requires that submodule virtual environment. Packaged
 runtime resolution is a separate concern. See [browser setup](../README.md#local-development)
 for the startup-bound web workflow and [user guide](user-guide/README.md) for usage.
 
+## Native packaging and CI
+
+Use `npm run build:desktop:win`, `npm run build:desktop:mac` or
+`npm run build:desktop:linux` on a suitable native host for local packaging.
+The [release process](release.md#build-and-release-process) defines the four-target
+GitHub build, signing, installed-package checks and artifact delivery. Local
+packages do not count as verified signed releases. The one-time
+[rollout checklist](desktop-rollout.md) covers adoption of that process on the
+default branch and replacement of previous installations.
 

@@ -1,5 +1,5 @@
-# This workflow path is already registered on main. Its v1 version stays unchanged there.
-name: DataM8 v2 manual desktop verification
+# Registered manual entry point during the feature-branch rollout; see docs/desktop-rollout.md.
+name: DataM8 manual desktop verification
 on:
   workflow_dispatch:
     inputs:

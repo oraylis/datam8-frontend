@@ -96,12 +96,13 @@ try {
   const downloaded = await updateEvent();
   if (downloaded.kind !== 'downloaded' || downloaded.version !== '2.0.0-beta.6-ci.1') throw new Error(`Valid signed update failed: ${JSON.stringify(downloaded)}`);
   phase('Expected signed update downloaded and accepted by the real updater');
-  const closed = app.waitForEvent('close');
   await app.evaluate(async ({ app }) => {
     const { createRequire } = process.getBuiltinModule('module');
     createRequire(`${app.getAppPath()}/package.json`)('electron-updater').autoUpdater.quitAndInstall(true, false);
-  }).catch(() => {});
-  await closed; app = null;
+  });
+  // app.close disconnects Playwright's Node inspector after requesting quit.
+  // Waiting for a close event alone leaves Electron waiting for that debugger.
+  await app.close(); app = null;
   const asar = require('@electron/asar');
   await until(() => {
     try { return JSON.parse(asar.extractFile(path.join(target, 'resources', 'app.asar'), 'package.json')).version === '2.0.0-beta.6-ci.1'; } catch { return false; }

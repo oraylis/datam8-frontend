@@ -15,8 +15,9 @@ remain on that feature branch until reviewed.
 
 Create the GitHub environment `desktop-signing-v2`. Restrict deployment refs to
 `feature/external_refresh` and protected `v*` release tags. Do not permit PR refs.
-Reuse the existing signing Azure application/service principal for v1 and v2.
-Add a federated credential whose issuer is
+The current v2 configuration uses a dedicated Azure application/service principal;
+v1 retains its existing signing principal and client-secret authentication.
+The v2 application has a federated credential whose issuer is
 `https://token.actions.githubusercontent.com`, audience is
 `api://AzureADTokenExchange` and subject is
 `repo:oraylis/datam8-frontend:environment:desktop-signing-v2`.
@@ -34,7 +35,7 @@ Set these v2 environment variables:
 
 | Variable | Meaning |
 | --- | --- |
-| `AZURE_V2_CLIENT_ID` | Existing signing application client ID used by the v2 OIDC jobs |
+| `AZURE_V2_CLIENT_ID` | Application client ID used by the v2 OIDC jobs |
 | `DATAM8_GPG_FINGERPRINT` | Expected primary release-key fingerprint, without spaces |
 
 The identity needs public certificate read and signing-key get/sign permissions
@@ -42,10 +43,10 @@ for the existing Windows certificate. It also needs secret get permissions for
 `datam8-v2-gpg-private` (ASCII-armored private signing key) and
 `datam8-v2-gpg-passphrase`. Restrict permissions to these resources when the
 existing vault permission model supports that. Do not change the vault permission
-model or firewall as part of this setup. Reduce the shared principal's policy to
-certificate get, key get/sign and secret get after reviewing existing consumers.
-Keep v1's required signing access and repository credentials. Check that hosted
-runners can reach the existing vault before running the workflow.
+model or firewall as part of this setup. Limit signing principals' policies to
+certificate get, key get/sign and required secret get operations after reviewing
+existing consumers. Keep v1's required signing access and repository credentials.
+Check that hosted runners can reach the existing vault before running the workflow.
 
 Review Azure management-role assignments as well as the vault policy. Owner,
 Contributor or another role allowing vault policy changes can let the principal
@@ -110,15 +111,19 @@ alone does not protect tags. The signing workflow also checks
 `github.ref_protected` and refuses unprotected tags. Manual feature-branch runs do
 not publish releases.
 
-When restoring the shared identity, coordinate its federation, vault permissions,
-management roles and GitHub client-ID setting. Keep the v1 client-secret flow
-and v2 OIDC flow associated with that same application. Restore GPG signing from
+When restoring the v2 identity, coordinate its federation, vault permissions,
+management roles and GitHub client-ID setting. Restore GPG signing from
 the protected existing key; generating another key changes the fingerprint and
 download trust anchor. Keep
 revocation material and backup/recovery instructions private until a revocation
 is intentionally published. Do not overwrite v1 credentials during v2 recovery.
+
+A future migration can reuse the v1 application for v2 OIDC if its app owner or
+an authorized Entra administrator can add the federation. Azure resource-group
+roles alone do not grant permission to edit an Entra app registration. Keep the
+current v2 identity and client-ID setting until that federation is configured.
 After switching the v2 client-ID setting, complete a signed four-platform manual
-run with the restricted shared identity before removing an obsolete dedicated
+run with the restricted shared identity before removing the obsolete dedicated
 v2 application and its vault policy. Do not delete the shared signing certificate
 or GPG secrets during identity cleanup.
 

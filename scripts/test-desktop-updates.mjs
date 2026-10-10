@@ -18,7 +18,13 @@ const next = files(path.join(fixtures, 'next')).find(name => name.endsWith('.exe
 const metadataFile = files(path.join(fixtures, 'next')).find(name => /\.yml$/.test(name));
 if (!old || !next || !metadataFile) throw new Error('Two signed update fixtures and metadata are required');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'DataM8 updates '));
-let app; let server; let feed;
+const diagnostics = path.resolve('artifacts/desktop-update-results');
+fs.mkdirSync(diagnostics, { recursive: true });
+const logs = [];
+const redact = text => String(text).replace(/Bearer\s+[^\s"']+/gi, 'Bearer [redacted]').replace(/(--token[\s=]+)[^\s"']+/gi, '$1[redacted]');
+const phase = message => { console.log(`[signed-update] ${message}`); logs.push(message); };
+let app; let server; let feed; let failure;
+const cleanupFailures = [];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(check, label) {
   for (let attempt = 0; attempt < 120; attempt++) { if (await check()) return; await sleep(500); }
@@ -29,8 +35,17 @@ function install(target) {
 }
 async function launch(target, enabled = true, solution) {
   const env = { ...process.env, DATAM8_UPDATE_TEST_FEED: feed, DATAM8_DISABLE_AUTO_UPDATES: enabled ? '0' : '1' };
-  app = await _electron.launch({ executablePath: path.join(target, 'datam8.exe'), args: [`--user-data-dir=${path.join(temp, 'Profiles', path.basename(target))}`, ...(solution ? [solution] : [])], env });
-  await app.firstWindow();
+  app = await _electron.launch({ executablePath: path.join(target, 'datam8.exe'), args: [`--user-data-dir=${path.join(temp, 'Profiles', path.basename(target))}`], env, timeout: 60_000 });
+  app.process().stdout?.on('data', chunk => logs.push(redact(chunk)));
+  app.process().stderr?.on('data', chunk => logs.push(redact(chunk)));
+  const page = await app.firstWindow();
+  // Use the same real preload/IPC/backend path as packaged acceptance. Only the
+  // native dialog is replaced; command-line file events can arrive before the UI.
+  if (solution) {
+    await app.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, solution);
+    await page.getByTitle('Open', { exact: true }).click({ timeout: 60_000 });
+    await expect(page.getByText('Customer', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+  }
 }
 async function updateEvent() {
   return app.evaluate(async ({ app }) => {
@@ -68,6 +83,7 @@ try {
   feed = `http://127.0.0.1:${server.address().port}`;
   const target = path.join(temp, 'Valid update'); install(target);
   verifyWindows(target, expected.thumbprint);
+  phase('Old version installed and all embedded signatures verified');
   await launch(target, true, solution);
   const oldPage = await app.firstWindow();
   await oldPage.getByText('Customer', { exact: true }).first().click({ timeout: 60_000 });
@@ -75,9 +91,11 @@ try {
   await oldDescription.fill('Preserved through signed update'); await oldDescription.press('Tab');
   await until(() => JSON.parse(fs.readFileSync(entityPath)).description === 'Preserved through signed update', 'old version saves model');
   await oldPage.evaluate(() => localStorage.setItem('desktop-update-regression', 'preserved'));
+  phase('Old version opened solution and saved model and profile state');
   prepare(next);
   const downloaded = await updateEvent();
   if (downloaded.kind !== 'downloaded' || downloaded.version !== '2.0.0-beta.6-ci.1') throw new Error(`Valid signed update failed: ${JSON.stringify(downloaded)}`);
+  phase('Expected signed update downloaded and accepted by the real updater');
   const closed = app.waitForEvent('close');
   await app.evaluate(async ({ app }) => {
     const { createRequire } = await import('node:module');
@@ -89,6 +107,7 @@ try {
     try { return JSON.parse(asar.extractFile(path.join(target, 'resources', 'app.asar'), 'package.json')).version === '2.0.0-beta.6-ci.1'; } catch { return false; }
   }, 'signed update installation');
   verifyWindows(target, expected.thumbprint);
+  phase('New version installed and all embedded signatures verified');
   await launch(target, false, solution);
   const page = await app.firstWindow();
   await until(async () => page.evaluate(async () => {
@@ -98,6 +117,7 @@ try {
   await page.getByText('Customer', { exact: true }).first().click({ timeout: 60_000 });
   await expect(page.getByPlaceholder('Describe this entity')).toHaveValue('Preserved through signed update');
   await app.close(); app = null;
+  phase('Updated app reopened solution with saved model and profile state');
   const unsigned = path.join(temp, 'unsigned.exe');
   const pe = Buffer.from(fs.readFileSync(next)); const header = pe.readUInt32LE(0x3c) + 24;
   const table = header + (pe.readUInt16LE(header) === 0x20b ? 112 : 96) + 32;
@@ -114,17 +134,37 @@ try {
     const event = await updateEvent();
     if (event.kind !== 'error' || !/signature|publisher|signed/i.test(event.message || '')) throw new Error(`Updater did not reject ${kind} by signature: ${JSON.stringify(event)}`);
     await app.close(); app = null;
+    phase(`Real updater rejected ${kind}: ${event.code || 'signature error'}`);
   }
   console.log(`Signed update installed and reopened; unsigned and wrong-publisher updates rejected. Expected publisher: ${expected.publisher}`);
+} catch (error) {
+  failure = error;
+  console.error(error);
+  logs.push(redact(error.stack || error));
+  if (app) {
+    const page = app.windows()[0];
+    if (page) await page.screenshot({ path: path.join(diagnostics, 'failure.png') }).catch(() => {});
+  }
 } finally {
-  if (app) await app.close().catch(() => {});
+  if (app) await app.close().catch(error => cleanupFailures.push(error));
   if (server) await new Promise(resolve => server.close(resolve));
   for (const name of ['Valid update', 'unsigned', 'wrong-publisher']) {
     const target = path.join(temp, name);
-    if (fs.existsSync(target)) {
-      const uninstaller = files(target).find(file => /uninstall.*\.exe$/i.test(path.basename(file)));
-      if (uninstaller) checked(uninstaller, ['/S']);
+    try {
+      if (fs.existsSync(target)) {
+        const uninstaller = files(target).find(file => /uninstall.*\.exe$/i.test(path.basename(file)));
+        if (uninstaller) {
+          checked(uninstaller, ['/S']);
+          // NSIS may exit its original process before its temporary uninstaller.
+          await until(() => !fs.existsSync(path.join(target, 'datam8.exe')), `uninstall ${name}`);
+        }
+      }
+    } catch (error) {
+      cleanupFailures.push(error);
     }
   }
-  fs.rmSync(temp, { recursive: true, force: true });
+  try { await fs.promises.rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
+  catch (error) { cleanupFailures.push(error); }
+  fs.writeFileSync(path.join(diagnostics, 'update.log'), logs.join('\n'));
 }
+if (failure || cleanupFailures.length) throw new AggregateError([failure, ...cleanupFailures].filter(Boolean), 'Signed update acceptance failed');

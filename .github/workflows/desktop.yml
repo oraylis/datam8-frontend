@@ -246,6 +246,7 @@ jobs:
           path: |
             artifacts/desktop-test-results
             artifacts/desktop-junit.xml
+            artifacts/desktop-update-results
           retention-days: 30
   deliver:
     needs: [build, verify]

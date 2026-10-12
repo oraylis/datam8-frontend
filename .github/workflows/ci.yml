@@ -76,10 +76,11 @@ jobs:
       - name: CI gates (no dm8gen/python fallback + backend smoke)
         run: npm run ci:gates
 
-      - name: Developer update simulation and real save barrier
+      - name: Desktop development launch, local fonts and developer update simulation
         run: |
           (cd submodules/datam8-generator && uv sync --frozen --all-extras)
           sudo apt-get update && sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0t64 libasound2t64
+          xvfb-run -a npm run test:desktop:dev
           xvfb-run -a npm run test:desktop:updates:ui
 
       - uses: actions/upload-artifact@v4
@@ -90,4 +91,5 @@ jobs:
             apps/web/test-results
             apps/web/playwright-report
             artifacts/desktop-update-ui-results
+            artifacts/desktop-dev-results
           retention-days: 30

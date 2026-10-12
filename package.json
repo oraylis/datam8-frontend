@@ -31,6 +31,7 @@
     "test:desktop:signatures": "node scripts/desktop-signatures.mjs verify",
     "test:desktop:updates": "node scripts/test-desktop-updates.mjs",
     "test:desktop:updates:ui": "npm --workspace apps/desktop run build && node scripts/test-desktop-updates-ui.mjs",
+    "test:desktop:dev": "node scripts/test-dev-desktop.mjs",
     "test:e2e:sample": "node scripts/test-sample.mjs"
   },
   "devDependencies": {

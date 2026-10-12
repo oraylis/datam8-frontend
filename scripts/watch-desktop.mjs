@@ -74,7 +74,10 @@ export function watchDesktop({ appDir = process.cwd(), executablePath = require(
       if (stopping || !canRun) return;
       fingerprint = snapshot(); // Include changes received while the previous app closed.
       log('[desktop-dev] Starting Electron.');
-      child = spawn(executablePath, [appDir], { cwd: appDir, detached: process.platform !== 'win32', stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env: { ...process.env, DATAM8_MODE: 'electron', VITE_APP_MODE: 'electron' } });
+      const debugArgs = process.env.DATAM8_DEVELOPER_TEST_DEBUG === '1'
+        ? ['--remote-debugging-port=0', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])]
+        : [];
+      child = spawn(executablePath, [...debugArgs, appDir], { cwd: appDir, detached: process.platform !== 'win32', stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env: { ...process.env, DATAM8_MODE: 'electron', VITE_APP_MODE: 'electron' } });
       child.once('error', error => {
         console.error('[desktop-dev] Electron failed to start:', error.message);
         process.exitCode = 1;

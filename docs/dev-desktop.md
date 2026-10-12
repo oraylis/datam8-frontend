@@ -54,9 +54,19 @@ rewrites do not restart the app; compilation errors leave the existing instance
 running until a successful changed build. Vite continues to handle web UI changes
 without restarting Electron.
 
+The launcher starts Vite through its JavaScript API in a separate process. After
+`server.listen()` succeeds, that process reports readiness over Node IPC; the
+launcher also checks the HTTP response before starting the desktop watcher.
+Console formatting does not affect readiness. Port 4320 remains strict, and
+startup failures are reported immediately. On shutdown, the launcher closes the
+desktop watcher first, then asks Vite to close its server over IPC.
+
 The Manrope UI font is bundled with the web assets. Desktop startup does not
 depend on Google Fonts or an internet connection. Its OFL license is shipped
 in `web/licenses/Manrope-OFL.txt` inside the packaged app.
+The launcher checks the local Fontsource CSS entries before starting. If they
+are missing after a branch switch, run `npm ci` in the repository root; the
+launcher reports that setup step instead of opening a broken editor.
 
 ## Developer tools and update simulation
 
@@ -116,6 +126,12 @@ Linux needs Xvfb and Electron libraries; use
 the test only stops a server it started itself. The internal
 `DATAM8_DEVELOPER_TEST_DEBUG=1` enables loopback debugger connections for this test
 in development; it grants no simulation access in packaged apps.
+
+To verify the actual `npm run dev:desktop` launcher and local Manrope assets, stop
+any running development launcher and run `npm run test:desktop:dev`. This check
+starts Electron with a temporary profile, verifies the editor and all four font
+weights, and closes its processes. Diagnostics are written to
+`artifacts/desktop-dev-results`. On Linux, run it under `xvfb-run -a`.
 
 ## Local package review
 

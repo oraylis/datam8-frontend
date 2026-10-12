@@ -1,12 +1,14 @@
 import fs from "fs";
 import path from "path";
-import { spawn, spawnSync } from "child_process";
-import { createRequire } from "node:module";
+import { spawnSync } from "child_process";
 import { watchDesktop } from "./watch-desktop.mjs";
-import { terminateChild } from "../apps/desktop/resources/backend-lifecycle.cjs";
+import { startVite } from "./dev-vite.mjs";
+import { assertFontAssets } from "./check-font-assets.mjs";
 import { fileURLToPath } from "url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+try { assertFontAssets(); }
+catch (error) { console.error(error.message); process.exit(1); }
 const generatorRoot = path.join(repoRoot, "submodules", "datam8-generator");
 const generatorSrcPath = path.join(generatorRoot, "src");
 const venvPythonCandidates = process.platform === "win32"
@@ -110,35 +112,36 @@ Object.assign(process.env, {
 });
 if (!backendReady) delete process.env.DATAM8_PYTHON_PATH;
 
-const require = createRequire(path.join(repoRoot, 'apps/web/package.json'));
-const vite = spawn(process.execPath, [path.join(path.dirname(require.resolve('vite/package.json')), 'bin/vite.js')], {
-  cwd: path.join(repoRoot, 'apps/web'), stdio: ['inherit', 'pipe', 'pipe'], env: process.env,
-});
-let desktop, closing, viteReady = false;
-vite.stdout.on('data', chunk => {
-  process.stdout.write(chunk);
-  if (/http:\/\/localhost:4320\//.test(String(chunk))) viteReady = true;
-});
-vite.stderr.on('data', chunk => process.stderr.write(chunk));
+const controlledTest = process.env.DATAM8_DEVELOPER_TEST_DEBUG === '1' && !process.stdin.isTTY;
+// In acceptance tests the launcher owns stdin; Vite must not also react to its EOF.
+const vite = startVite(controlledTest ? { env: { ...process.env, CI: 'true' }, stdio: ['ignore', 'inherit', 'inherit'] } : {});
+let desktop, closing;
 function close() {
-  if (!closing) closing = (async () => { await desktop?.close(); await terminateChild(vite); })();
+  if (!closing) closing = (async () => {
+    try { await desktop?.close(); }
+    finally { await vite.close(); }
+  })();
   return closing;
 }
 const shutdown = () => { void close().catch(error => { console.error(error.message); process.exitCode = 1; }); };
 process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
-vite.once('error', error => { console.error(error.message); process.exitCode = 1; shutdown(); });
-vite.once('exit', code => { if (!closing && code) process.exitCode = code; shutdown(); });
-try {
-  const deadline = Date.now() + 30_000;
-  while (!closing) {
-    if (Date.now() >= deadline) throw new Error('Vite did not start within 30 seconds.');
-    try {
-      if (viteReady && (await fetch('http://localhost:4320', { signal: AbortSignal.timeout(500) })).ok) {
-        desktop = watchDesktop({ appDir: path.join(repoRoot, 'apps/desktop') });
-        break;
-      }
-    } catch { /* Vite is starting. */ }
-    await new Promise(resolve => setTimeout(resolve, 100));
+if (controlledTest) {
+  // The launcher acceptance check owns this pipe and closes it to request cleanup.
+  process.stdin.once('end', shutdown);
+  process.stdin.resume();
+}
+vite.child.once('error', error => { console.error(error.message); process.exitCode = 1; shutdown(); });
+vite.child.once('exit', code => {
+  if (!closing && desktop) {
+    if (code) process.exitCode = code;
+    shutdown();
   }
-} catch (error) { console.error(error.message); process.exitCode = 1; await close(); }
+});
+try {
+  await vite.ready;
+  if (!closing) desktop = watchDesktop({ appDir: path.join(repoRoot, 'apps/desktop') });
+} catch (error) {
+  if (!closing) { console.error(error.message); process.exitCode = 1; }
+  await close();
+}

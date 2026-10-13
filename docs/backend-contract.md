@@ -20,6 +20,19 @@ frontend checkout; matching version numbers alone do not establish compatibility
 See the canonical contract for envelopes, locators, source ownership, metadata
 handles, inheritance and function details.
 
+## Source import consumption
+
+Use connection capabilities and supplied navigation handles without plugin-specific
+branches. Binding persists plugin mapping suggestions; runtime imports use the
+saved Data Source and Data Source Type mappings.
+
+A non-null import description is authoritative, including its data types and
+Attribute Types. When the description is null, the frontend translates metadata
+through the same configured matching rules and uses `Regular`; it does not perform
+backend default Attribute Type selection. An error is not a null description and
+must not trigger an alternative import path. See [connector developer notes](connectors_dev.md)
+for ownership and verification requirements.
+
 ## Compatibility boundaries
 
 The canonical document includes a **historical Neon parity surface**. Do not treat

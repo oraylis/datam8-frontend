@@ -171,7 +171,8 @@ export type SourceOverride = {
 export type TableMetadata = {
   schema: string;
   name: string;
-  type: "BASE TABLE" | "VIEW";
+  type: string;
+  sourceLocation?: string;
   description?: string;
   properties?: PropertyAssignment[];
   sourceOverride?: SourceOverride;

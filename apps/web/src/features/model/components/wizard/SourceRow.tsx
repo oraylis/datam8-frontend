@@ -3,14 +3,14 @@ import { Controller, type Control, type FieldErrors, type UseFormRegister, type 
 import { Badge, Button, Card, CardContent, Checkbox, FormSelect, Input, Label } from "@datam8/ui";
 import { Trash2, Loader2 } from "lucide-react";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
-import { ensureLoaded, useConnectorCatalog } from "../../../../shared/connectors/connectorCatalog";
-import type { PropertyAssignment } from "@datam8/types";
-import type { ModelEntity, SourceOverride, TableMetadata } from "../../model-types";
+import type { ModelEntity, TableMetadata } from "../../model-types";
 import type { PropertyReference } from "../../generated-schema-types.ts";
 import type { WizardFormValues } from "./schema";
 import { SourceTablePreviewDialog } from "./SourceTablePreviewDialog";
-import { buildSourceLocationsEndpoint, buildSourceMetadataEndpoint, canPreviewDataSource, type SourcePreviewTableRef } from "./sourcePreview";
-import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
+import { buildSourceLocationsEndpoint, buildSourceMetadataEndpoint, type SourcePreviewTableRef } from "./sourcePreview";
+import { resolveSourceOverride } from "./sourceOverride";
+import { normalizeLocations, normalizeSourceMetadata, type SourceLocationItem } from "./sourceNavigation";
+import { useSourceCapabilities } from "./useSourceCapabilities";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -28,89 +28,7 @@ type WizardDataSource = {
 type WizardZone = { name: string; displayName: string; localFolderName: string; targetName: string };
 
 type HttpError = Error & { status?: number };
-type SourceTableListItem = SourcePreviewTableRef & {
-  sourceOverride?: SourceOverride;
-  description?: string;
-  properties?: PropertyAssignment[];
-  type?: string;
-  parentLocation?: string;
-};
-
-function normalizeListedLocation(item: Record<string, unknown>, parentLocation?: string): SourceTableListItem | null {
-  const schema = typeof item.schema === "string" ? item.schema : undefined;
-  const container = typeof item.container === "string" ? item.container : undefined;
-  const rawName =
-    typeof item.name === "string"
-      ? item.name
-      : typeof item.object === "string"
-        ? item.object
-        : schema || container || "";
-  const name = rawName.trim();
-  if (!name) return null;
-  const type = typeof item.type === "string" ? item.type : undefined;
-  const isContainer = type?.toUpperCase() === "CONTAINER" || (!item.name && !!container);
-  const isSchema = type?.toUpperCase() === "SCHEMA" || (!item.name && !!schema);
-  const advertisedLocation = typeof item.sourceLocation === "string" ? item.sourceLocation.trim() : "";
-  const sourceLocation = advertisedLocation || (isContainer
-    ? container || name
-    : isSchema
-      ? schema || name
-      : container
-        ? `${container}@${name}`
-        : schema
-          ? `${schema}.${name}`
-          : parentLocation
-            ? `${parentLocation.replace(/[\\/]$/, "")}/${name}`
-            : name);
-  return {
-    schema: isSchema ? undefined : schema,
-    name,
-    sourceLocation,
-    parentLocation,
-    type: type || (isSchema ? "SCHEMA" : isContainer ? "CONTAINER" : undefined),
-    description: typeof item.description === "string" ? item.description : undefined,
-    properties: toPropertyAssignments(item.properties),
-    sourceOverride: toSourceOverride(item.sourceOverride),
-  };
-}
-
-function toPropertyAssignments(input: unknown): PropertyAssignment[] | undefined {
-  if (!Array.isArray(input)) return undefined;
-  const mapped = input
-    .map((entry): PropertyAssignment | null => {
-      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
-      const property = typeof rec?.property === "string" ? rec.property.trim() : "";
-      if (!property) return null;
-      const value = typeof rec?.value === "string" ? rec.value : undefined;
-      return value === undefined ? { property } : { property, value };
-    })
-    .filter((entry): entry is PropertyAssignment => entry !== null);
-  return mapped.length > 0 ? mapped : undefined;
-}
-
-function toColumnRelationships(input: unknown): TableMetadata["columns"][number]["relationships"] {
-  if (!Array.isArray(input)) return undefined;
-  const mapped = input
-    .map((entry): NonNullable<TableMetadata["columns"][number]["relationships"]>[number] | null => {
-      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
-      const sourceName = typeof rec?.sourceName === "string" ? rec.sourceName.trim() : "";
-      const targetName = typeof rec?.targetName === "string" ? rec.targetName.trim() : "";
-      const alias = typeof rec?.alias === "string" && rec.alias.trim() ? rec.alias.trim() : undefined;
-      if (rec?.relationshipType === "internal") {
-        const targetEntityName = typeof rec?.targetEntityName === "string" ? rec.targetEntityName.trim() : "";
-        if (!targetEntityName || !sourceName || !targetName) return null;
-        return alias
-          ? { relationshipType: "internal", targetEntityName, sourceName, targetName, alias }
-          : { relationshipType: "internal", targetEntityName, sourceName, targetName };
-      }
-      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
-      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
-      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
-      return alias ? { dataSource, targetLocation, sourceName, targetName, alias } : { dataSource, targetLocation, sourceName, targetName };
-    })
-    .filter((entry): entry is NonNullable<TableMetadata["columns"][number]["relationships"]>[number] => entry !== null);
-  return mapped.length > 0 ? mapped : undefined;
-}
+type SourceTableListItem = SourceLocationItem;
 
 function isAuthFailure(status?: number, message?: string) {
   if (status === 401 || status === 403) return true;
@@ -135,7 +53,7 @@ export const ExternalSourceConfigurator = ({
   mode?: "inline-select" | "wizard-single";
   onCancel?: () => void;
 }) => {
-  const [httpSourceLocation, setHttpSourceLocation] = useState(selectedTable || "");
+  const [manualSourceLocation, setManualSourceLocation] = useState(selectedTable || "");
 
   const [tables, setTables] = useState<SourceTableListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -147,19 +65,10 @@ export const ExternalSourceConfigurator = ({
   const [previewTable, setPreviewTable] = useState<SourcePreviewTableRef | null>(null);
   const [locationStack, setLocationStack] = useState<Array<{ label: string; sourceLocation: string }>>([]);
 
-  const connectorId =
-    dataSourceObject?.connectorId ||
-    dataSourceObject?.connector?.id ||
-    "";
-  const connector = useConnectorCatalog((s) => s.connectors.find((entry) => entry.id === connectorId) || null);
-  const isHttpApi = connectorId === "http-api";
-  const supportsMetadata = !!connectorId && !isHttpApi;
-  const isUnsupportedType = useMemo(() => !!dataSource && !connectorId, [connectorId, dataSource]);
-  const supportsPreview = canPreviewDataSource(dataSourceObject, connector);
-
-  useEffect(() => {
-    void ensureLoaded();
-  }, []);
+  const { capabilities, error: capabilitiesError } = useSourceCapabilities(dataSource, dataSourceObject);
+  const supportsMetadata = capabilities?.metadata === true;
+  const isUnsupportedType = !!dataSource && capabilities !== null && !supportsMetadata;
+  const supportsPreview = capabilities?.previewData === true;
 
   useEffect(() => {
     setTables([]);
@@ -169,10 +78,8 @@ export const ExternalSourceConfigurator = ({
     setPreviewOpen(false);
     setPreviewTable(null);
     setLocationStack([]);
-    if (isHttpApi) {
-      setHttpSourceLocation(selectedTable || "");
-    }
-  }, [dataSource, isHttpApi, selectedTable]);
+    setManualSourceLocation(selectedTable || "");
+  }, [dataSource, selectedTable]);
 
   const handleAuthFailure = useCallback((status?: number, message?: string) => {
     if (isAuthFailure(status, message)) {
@@ -194,12 +101,7 @@ export const ExternalSourceConfigurator = ({
         err.status = res.status;
         throw err;
       }
-      const items = Array.isArray((data as { items?: unknown[] }).items) ? (data as { items: Array<any> }).items : [];
-      setTables(
-        items
-          .map((item) => normalizeListedLocation((item || {}) as Record<string, unknown>))
-          .filter((item): item is SourceTableListItem => item !== null),
-      );
+      setTables(normalizeLocations(data));
       if (parent && updateStack) {
         setLocationStack((prev) => [...prev, parent]);
       }
@@ -233,7 +135,7 @@ export const ExternalSourceConfigurator = ({
     setLoading(true);
     setError(null);
     try {
-      const sourceLocation = tableRef.sourceLocation || (tableRef.schema ? `${tableRef.schema}.${tableRef.name}` : tableRef.name);
+      const sourceLocation = tableRef.sourceLocation;
       const endpoint = buildSourceMetadataEndpoint(dataSource, sourceLocation);
       const response = await fetch(endpoint);
       const data = await response.json().catch(() => ({}));
@@ -242,28 +144,7 @@ export const ExternalSourceConfigurator = ({
         err.status = response.status;
         throw err;
       }
-      const columns = Array.isArray((data as any)?.items) ? (data as any).items : [];
-      const metadataValue: TableMetadata = {
-        schema: tableRef.schema || "",
-        name: tableRef.name,
-        type: "BASE TABLE",
-        description: typeof (data as any)?.description === "string" ? (data as any).description : tableRef.description,
-        properties: toPropertyAssignments((data as any)?.properties) ?? tableRef.properties,
-        sourceOverride: tableRef.sourceOverride,
-        columns: columns.map((col: any) => ({
-          name: `${col?.name || ""}`,
-          ordinal: Number(col?.ordinal || 0),
-          dataType: `${col?.dataType || ""}`,
-          maxLength: typeof col?.maxLength === "number" ? col.maxLength : null,
-          numericPrecision: typeof col?.numericPrecision === "number" ? col.numericPrecision : null,
-          numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
-          isNullable: Boolean(col?.isNullable),
-          isPrimaryKey: Boolean(col?.isPrimaryKey),
-          description: typeof col?.description === "string" ? col.description : undefined,
-          properties: toPropertyAssignments(col?.properties),
-          relationships: toColumnRelationships(col?.relationships),
-        })),
-      };
+      const metadataValue = normalizeSourceMetadata(data, sourceLocation, tableRef);
       if (metadataValue.columns.length > 0) {
         setMetadata(metadataValue);
         onTableSelected(sourceLocation, metadataValue);
@@ -281,58 +162,7 @@ export const ExternalSourceConfigurator = ({
     }
   }, [dataSource, handleAuthFailure, onTableSelected]);
 
-  const fetchHttpApiMetadata = useCallback(async () => {
-    if (!dataSource || !httpSourceLocation) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const endpoint = buildSourceMetadataEndpoint(dataSource, httpSourceLocation);
-      const res = await fetch(endpoint);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const err: HttpError = new Error(readBackendErrorMessage(data, "Failed to fetch HTTP metadata"));
-        err.status = res.status;
-        throw err;
-      }
-      const columns = Array.isArray((data as any)?.items) ? (data as any).items : [];
-      const metadataValue: TableMetadata = {
-        schema: "",
-        name: httpSourceLocation,
-        type: "BASE TABLE",
-        description: typeof (data as any)?.description === "string" ? (data as any).description : undefined,
-        properties: toPropertyAssignments((data as any)?.properties),
-        columns: columns.map((col: any) => ({
-          name: `${col?.name || ""}`,
-          ordinal: Number(col?.ordinal || 0),
-          dataType: `${col?.dataType || ""}`,
-          maxLength: typeof col?.maxLength === "number" ? col.maxLength : null,
-          numericPrecision: typeof col?.numericPrecision === "number" ? col.numericPrecision : null,
-          numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
-          isNullable: Boolean(col?.isNullable),
-          isPrimaryKey: Boolean(col?.isPrimaryKey),
-          description: typeof col?.description === "string" ? col.description : undefined,
-          properties: toPropertyAssignments(col?.properties),
-          relationships: toColumnRelationships(col?.relationships),
-        })),
-      };
-      if (metadataValue) {
-        setMetadata(metadataValue);
-        onTableSelected(httpSourceLocation, metadataValue);
-      }
-    } catch (err) {
-      console.error("[DataM8] Failed to fetch HTTP metadata:", err);
-      const typedError = err as HttpError;
-      const status = typedError?.status;
-      const message = typedError?.message || "Failed to fetch HTTP metadata";
-      if (!handleAuthFailure(status, message)) {
-        setError(message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [dataSource, handleAuthFailure, httpSourceLocation, onTableSelected]);
-
-  const showTableList = !!dataSource && supportsMetadata;
+  const showTableList = !!dataSource && capabilities?.listSource === true;
   const isWizardSingleMode = mode === "wizard-single";
   const filteredTables = useMemo(() => {
     const needle = tableSearch.trim().toLowerCase();
@@ -480,22 +310,24 @@ export const ExternalSourceConfigurator = ({
         </div>
       ) : null}
 
-      {isHttpApi ? (
+      {supportsMetadata ? (
         <div className="space-y-2">
-          <Label>API Path *</Label>
+          <Label>Source Location *</Label>
           <Input
-            value={httpSourceLocation}
-            onChange={(e) => setHttpSourceLocation(e.target.value)}
-            placeholder="/groups/{groupId}/datasets"
+            value={manualSourceLocation}
+            onChange={(e) => setManualSourceLocation(e.target.value)}
+            placeholder="Enter a source location"
           />
-          <Button size="sm" variant="secondary" onClick={fetchHttpApiMetadata} disabled={loading || !httpSourceLocation}>
+          <Button size="sm" variant="secondary" onClick={() => void fetchMetadata({
+            name: manualSourceLocation, sourceLocation: manualSourceLocation, type: "OBJECT",
+          })} disabled={loading || !manualSourceLocation}>
             {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
             Fetch Metadata
           </Button>
         </div>
       ) : null}
 
-      {errorMessage ? <div className="text-sm text-destructive">{errorMessage}</div> : null}
+      {errorMessage || capabilitiesError ? <div className="text-sm text-destructive">{errorMessage || capabilitiesError}</div> : null}
       {metadata ? (
         <div className="codex-popup-scroll p-2 text-xs">
           <div className="font-semibold mb-1">
@@ -561,10 +393,6 @@ export const SourceRow = ({
     [dataSources, currentDataSourceName],
   );
 
-  const connectorId = currentDataSourceObj?.connectorId || currentDataSourceObj?.connector?.id || null;
-  const isHttpApi = connectorId === "http-api";
-  const supportsMetadata = !!connectorId && !isHttpApi;
-
   const internalEntityOptions = useMemo(() => {
     if (sourceType !== "internal") return [];
     const selectedZoneObj = zones.find((z) => z.name === internalZone);
@@ -621,7 +449,6 @@ export const SourceRow = ({
                   {...register(`sources.${index}.sourceLocation`)}
                   placeholder="Table/View/API Path"
                   className={errors.sources?.[index]?.sourceLocation ? "border-destructive" : ""}
-                  readOnly={supportsMetadata}
                 />
               </div>
               <div className="space-y-2">

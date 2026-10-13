@@ -36,6 +36,7 @@ export const step1Schema = z.object({
   tableDescriptions: z.record(z.string(), z.string()).optional(),
   tableProperties: z.record(z.string(), z.array(propertySchema)).optional(),
   tableSourceOverrides: z.record(z.string(), sourceOverrideSchema).optional(),
+  tableLocations: z.record(z.string(), z.any()).optional(),
 });
 
 export const sourceSchema = z

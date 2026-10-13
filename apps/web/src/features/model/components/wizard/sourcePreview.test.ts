@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSourceMetadataEndpoint, buildSourcePreviewEndpoint, canPreviewDataSource, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
+import { buildSourceMetadataEndpoint, buildSourcePreviewEndpoint, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
 
 describe("sourcePreview helpers", () => {
   it("builds preview endpoint for table without schema", () => {
@@ -9,10 +9,10 @@ describe("sourcePreview helpers", () => {
     expect(endpoint).toContain("limit=10");
   });
 
-  it("builds preview endpoint for schema table", () => {
-    const endpoint = buildSourcePreviewEndpoint("SalesDwh", { schema: "dbo", name: "Orders" }, 25);
+  it("uses the advertised opaque handle without interpreting the schema", () => {
+    const endpoint = buildSourcePreviewEndpoint("SalesDwh", { schema: "dbo", name: "Orders", sourceLocation: "opaque:/object#x" }, 25);
     expect(endpoint).toContain("/sources/SalesDwh/locations/preview?");
-    expect(endpoint).toContain("source_location=dbo.Orders");
+    expect(new URL(endpoint, "http://localhost").searchParams.get("source_location")).toBe("opaque:/object#x");
     expect(endpoint).toContain("limit=25");
   });
 
@@ -40,21 +40,4 @@ describe("sourcePreview helpers", () => {
     expect(columns).toEqual(["id", "name", "createdAt"]);
   });
 
-  it("disables preview for SQL Server ODCS auth modes", () => {
-    expect(
-      canPreviewDataSource(
-        { connectorId: "sqlserver", extendedProperties: { authMode: "bitbucket_server_bearer_token" } },
-        { capabilities: { previewData: true } },
-      ),
-    ).toBe(false);
-  });
-
-  it("enables preview when the connector exposes previewData", () => {
-    expect(
-      canPreviewDataSource(
-        { connectorId: "sqlserver", extendedProperties: { authMode: "databricks_pat" } },
-        { capabilities: { previewData: true } },
-      ),
-    ).toBe(true);
-  });
 });

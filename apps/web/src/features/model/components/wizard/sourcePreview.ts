@@ -14,27 +14,6 @@ export type SourcePreviewResult = {
   columns: string[];
 };
 
-const SQLSERVER_ODCS_AUTH_MODES = new Set([
-  "bitbucket_app_password",
-  "bitbucket_bearer_token",
-  "bitbucket_server_bearer_token",
-]);
-
-export function canPreviewDataSource(
-  dataSource: {
-    connectorId?: string | null;
-    connector?: { id?: string | null } | null;
-    extendedProperties?: Record<string, unknown>;
-  } | null | undefined,
-  connector: { capabilities?: { previewData?: boolean } | null } | null | undefined,
-): boolean {
-  if (connector?.capabilities?.previewData !== true) return false;
-  const connectorId = `${dataSource?.connectorId || dataSource?.connector?.id || ""}`.trim().toLowerCase();
-  const authMode = `${dataSource?.extendedProperties?.authMode || ""}`.trim();
-  if (connectorId === "sqlserver" && SQLSERVER_ODCS_AUTH_MODES.has(authMode)) return false;
-  return true;
-}
-
 type MultiItemResponse = {
   items?: unknown;
 };
@@ -46,7 +25,7 @@ function isJsonRecord(value: unknown): value is JsonRecord {
 export function buildSourcePreviewEndpoint(dataSource: string, table: SourcePreviewTableRef, limit = 10): string {
   const encodedDataSource = encodeURIComponent(dataSource);
   const params = new URLSearchParams();
-  params.set("source_location", table.sourceLocation || (table.schema?.trim() ? `${table.schema}.${table.name}` : table.name));
+  params.set("source_location", table.sourceLocation || table.name);
   params.set("limit", String(limit));
   return `${apiBase}/sources/${encodedDataSource}/locations/preview?${params.toString()}`;
 }

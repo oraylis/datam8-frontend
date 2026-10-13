@@ -1,11 +1,42 @@
 import { describe, expect, it } from "vitest";
+import { createSourceTypeMapper } from "../../model-utils";
 import type { PropertyAssignment } from "@datam8/types";
 import {
+  applyDescribedImport,
   buildEntityNameResolver,
   mapInternalAttributesFromEntity,
   mapMetadataColumnToCreatedAttribute,
   toMappedRelationshipsFromMetadata,
 } from "./useWizardSubmit";
+
+describe("authoritative import descriptions", () => {
+  const imported = {
+    name: "crm_customers",
+    displayName: "Kunden",
+    attributes: [{ name: "id", displayName: "Kundennummer", dataType: { type: "long", nullable: false } }],
+    sources: [{ sourceLocation: "nested/orders%20%231.yaml#customer%20%2F%20%C3%BC", mapping: [
+      { sourceName: "id", targetName: "id", sourceDataType: { type: "VendorInteger", nullable: false } },
+    ] }],
+    relationships: [{ targetLocation: 123, attributes: [{ sourceName: "id", targetName: "id" }] }],
+    transformations: [{ name: "Provided transformation" }],
+  };
+
+  it("keeps backend types, business names and opaque source locations when renaming the target", () => {
+    const result = applyDescribedImport(imported, "Customers", 42);
+    expect(result).toEqual({ ...imported, id: 42, name: "Customers" });
+    expect(imported.name).toBe("crm_customers");
+  });
+
+  it("keeps a missing business name empty", () => {
+    expect(applyDescribedImport({ ...imported, displayName: null }, "Customers", 42).displayName).toBeNull();
+  });
+
+  it("applies only explicitly supplied edits, including empty values", () => {
+    expect(applyDescribedImport(imported, "Customers", 42, { description: "", properties: [] })).toEqual({
+      ...imported, id: 42, name: "Customers", description: "", properties: [],
+    });
+  });
+});
 
 describe("mapMetadataColumnToCreatedAttribute", () => {
   it("maps optional column description and properties to created attributes", () => {
@@ -25,8 +56,8 @@ describe("mapMetadataColumnToCreatedAttribute", () => {
       },
       index: 0,
       nowIso: "2026-01-01T00:00:00.000Z",
-      effectiveMappings: [],
-      canonicalDataTypes: ["string", "int", "boolean"],
+      typeMapper: createSourceTypeMapper([{ sourceType: "string", targetType: "string" }], [], "Test"),
+      sourceLocation: "customers",
     });
 
     expect(result.name).toBe("CustomerId");

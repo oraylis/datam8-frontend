@@ -46,10 +46,10 @@ import { useWizardBaseData } from "./wizard/useWizardBaseData";
 import { readBackendErrorMessage } from "../../../shared/api/errorMessage";
 import { ErrorSurfaceHost, useErrorSurface } from "../../../shared/ui/ErrorSurface";
 import { SourceTablePreviewDialog } from "./wizard/SourceTablePreviewDialog";
-import { buildSourceLocationsEndpoint, canPreviewDataSource, type SourcePreviewTableRef } from "./wizard/sourcePreview";
-import { toSourceOverride } from "./wizard/sourceOverride";
-import type { SourceOverride } from "../model-types";
-import { ensureLoaded, useConnectorCatalog } from "../../../shared/connectors/connectorCatalog";
+import { buildSourceLocationsEndpoint, type SourcePreviewTableRef } from "./wizard/sourcePreview";
+import { collectSelectableLocations, normalizeLocations, type SourceLocationItem } from "./wizard/sourceNavigation";
+import { useSourceCapabilities } from "./wizard/useSourceCapabilities";
+import type { PropertyAssignment } from "@datam8/types";
 
 // --- Main Component ---
 
@@ -62,80 +62,17 @@ interface CreateModelEntityWizardProps {
 const normalizeFolderPath = (path: string) =>
   (path || "").split(/[\\/]/).join("/").replace(/^\/+|\/+$/g, "");
 
-type TablePropertyAssignment = { property: string; value: string };
-type AvailableSourceTable = {
-  name: string;
-  schema?: string;
-  sourceLocation: string;
-  type?: string;
-  description?: string;
-  properties?: TablePropertyAssignment[];
-  sourceOverride?: SourceOverride;
-};
-
-function normalizeLocationItem(item: Record<string, unknown>): AvailableSourceTable | null {
-  const schema = typeof item.schema === "string" ? item.schema : undefined;
-  const container = typeof item.container === "string" ? item.container : undefined;
-  const rawName =
-    typeof item.name === "string"
-      ? item.name
-      : typeof item.object === "string"
-        ? item.object
-        : schema || container || "";
-  const name = rawName.trim();
-  if (!name) return null;
-  const type = typeof item.type === "string" ? item.type : undefined;
-  const isSchema = type?.toUpperCase() === "SCHEMA" || (!!schema && !item.name);
-  const isContainer = type?.toUpperCase() === "CONTAINER" || (!!container && !item.name);
-  const advertisedLocation = typeof item.sourceLocation === "string" ? item.sourceLocation.trim() : "";
-  const sourceLocation = advertisedLocation || (isSchema
-    ? schema || name
-    : isContainer
-      ? container || name
-      : container
-        ? `${container}@${name}`
-        : schema
-          ? `${schema}.${name}`
-          : name);
-  return {
-    name,
-    schema: isSchema ? undefined : schema,
-    sourceLocation,
-    type: type || (isSchema ? "SCHEMA" : isContainer ? "CONTAINER" : undefined),
-    description: typeof item.description === "string" ? item.description : undefined,
-    properties: toPropertyAssignments(item.properties),
-    sourceOverride: toSourceOverride(item.sourceOverride),
-  };
-}
-
-function isBrowsableLocation(item: AvailableSourceTable): boolean {
-  const type = `${(item as AvailableSourceTable & { type?: string }).type || ""}`.toUpperCase();
-  return type === "SCHEMA" || type === "CONTAINER" || type === "DIRECTORY";
-}
-
-function toPropertyAssignments(input: unknown): TablePropertyAssignment[] {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((entry): TablePropertyAssignment | null => {
-      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
-      const property = typeof rec?.property === "string" ? rec.property.trim() : "";
-      if (!property) return null;
-      const value = typeof rec?.value === "string" ? rec.value : "";
-      return { property, value };
-    })
-    .filter((entry): entry is TablePropertyAssignment => entry !== null);
-}
+type AvailableSourceTable = SourceLocationItem;
 
 function toImportableEntityProperties(
-  properties: TablePropertyAssignment[] | undefined,
+  properties: PropertyAssignment[] | undefined,
   knownPropertyNames: Set<string>,
 ) {
   return (properties || []).filter((entry) => {
     const propertyName = `${entry?.property || ""}`.trim();
     if (!propertyName) return false;
-    if (propertyName.startsWith("odcs.")) return false;
     return knownPropertyNames.has(propertyName);
-  });
+  }).map((entry) => ({ property: entry.property, value: entry.value ?? "" }));
 }
 
 export function CreateModelEntityWizard({
@@ -219,6 +156,7 @@ export function CreateModelEntityWizard({
       tableDescriptions: {},
       tableProperties: {},
       tableSourceOverrides: {},
+      tableLocations: {},
     }),
     [],
   );
@@ -288,19 +226,12 @@ export function CreateModelEntityWizard({
     () => new Set((propertyOptions || []).map((entry) => `${entry?.name || ""}`.trim()).filter(Boolean)),
     [propertyOptions],
   );
-  const selectedSourceObj = useMemo(
-    () => dataSourcesResolved.find((entry) => entry.name === selectedSource) || null,
+  const selectedSourceConnection = useMemo(
+    () => dataSourcesResolved.find((entry) => entry.name === selectedSource),
     [dataSourcesResolved, selectedSource],
   );
-  const selectedConnector = useConnectorCatalog((s) =>
-    s.connectors.find((entry) => entry.id === selectedSourceObj?.connectorId) || null,
-  );
-  const supportsSelectedSourcePreview = canPreviewDataSource(selectedSourceObj, selectedConnector);
-
-  useEffect(() => {
-    if (!open) return;
-    void ensureLoaded();
-  }, [open]);
+  const { capabilities: sourceCapabilities, error: capabilitiesError } = useSourceCapabilities(open ? selectedSource : null, selectedSourceConnection);
+  const supportsSelectedSourcePreview = sourceCapabilities?.previewData === true;
   const duplicates = useMemo(() => {
     if (creationMode !== "from-source" || !watchedFolderPath) return new Set<string>();
 
@@ -310,7 +241,7 @@ export function CreateModelEntityWizard({
     selectedItems.forEach((item) => {
         const fallbackName = selectedSourceKind === "internal"
           ? modelEntities.find((e) => e.relPath === item)?.name || item
-          : item.replace(/^\[.*\]\.\[(.*)\]$/, "$1").replace(/^\[|\]$/g, "");
+          : availableTables.find((table) => table.sourceLocation === item)?.name || item;
         const entityName = tableRenames[item] || fallbackName;
         const relPath = `Model/${watchedFolderPath}/${entityName}.json`;
 
@@ -321,16 +252,23 @@ export function CreateModelEntityWizard({
     });
 
     return duplicateNames;
-  }, [creationMode, modelEntities, selectedInternalEntities, selectedSourceKind, selectedTables, tableRenames, watchedFolderPath]);
+  }, [availableTables, creationMode, modelEntities, selectedInternalEntities, selectedSourceKind, selectedTables, tableRenames, watchedFolderPath]);
 
   // Reset tables when source changes
   useEffect(() => {
     if (creationMode === "from-source" && selectedSourceKind === "external") {
         setAvailableTables([]);
+        setValue("selectedTables", []);
+        setValue("tableLocations", {});
+        setValue("tableRenames", {});
+        setValue("tableDescriptions", {});
+        setValue("tableProperties", {});
+        setValue("tableSourceOverrides", {});
+        locationCacheRef.current.clear();
         setPreviewOpen(false);
         setPreviewTable(null);
     }
-  }, [creationMode, selectedSource, selectedSourceKind]);
+  }, [creationMode, selectedSource, selectedSourceKind, setValue]);
 
   useEffect(() => {
     if (creationMode !== "from-source") return;
@@ -361,9 +299,7 @@ export function CreateModelEntityWizard({
 
               const data = await res.json();
               const items: unknown[] = Array.isArray(data?.items) ? data.items : [];
-              return items
-                .map((item) => normalizeLocationItem((item || {}) as Record<string, unknown>))
-                .filter((item: AvailableSourceTable | null): item is AvailableSourceTable => item !== null);
+              return normalizeLocations({ items });
               })();
               locationCacheRef.current.set(cacheKey, request);
               try {
@@ -374,23 +310,7 @@ export function CreateModelEntityWizard({
               }
             };
 
-            const rootItems = await loadLocations();
-            const rootSelectable = rootItems.filter((item) => !isBrowsableLocation(item));
-            const browsable = rootItems.filter(isBrowsableLocation);
-            const children: AvailableSourceTable[][] = Array.from({ length: browsable.length }, () => []);
-            setAvailableTables(rootSelectable);
-            let nextIndex = 0;
-            const loadWorker = async () => {
-              while (nextIndex < browsable.length) {
-                const index = nextIndex++;
-                children[index] = await loadLocations(browsable[index].sourceLocation).catch(() => []);
-                setAvailableTables([
-                  ...rootSelectable,
-                  ...children.flat().filter((entry) => !isBrowsableLocation(entry)),
-                ]);
-              }
-            };
-            await Promise.all(Array.from({ length: Math.min(4, browsable.length) }, () => loadWorker()));
+            await collectSelectableLocations(loadLocations, setAvailableTables);
         } catch (err) {
             showError("dialog:create-entity-wizard", { title: "Error loading tables", description: (err as Error).message });
         } finally {
@@ -459,7 +379,6 @@ export function CreateModelEntityWizard({
       setExpanded,
       solutionPath,
       dataSources: dataSourcesResolved,
-      canonicalDataTypes: dataTypes,
   });
 
   const onSubmit: SubmitHandler<WizardFormValues> = (data) => {
@@ -560,7 +479,7 @@ export function CreateModelEntityWizard({
   const getImportItemLabel = (item: string) =>
     selectedSourceKind === "internal"
       ? modelEntities.find((entity) => entity.relPath === item)?.name || item
-      : item.replace(/^\[.*\]\.\[(.*)\]$/, "$1").replace(/^\[|\]$/g, "");
+      : availableTables.find((table) => table.sourceLocation === item)?.name || item;
   return (
     <Dialog open={open} onOpenChange={(val) => !isSubmitting && onOpenChange(val)}>
       <DialogContent className="entity-wizard flex h-[84vh] max-w-5xl flex-col gap-0 p-0">
@@ -696,13 +615,14 @@ export function CreateModelEntityWizard({
                                         <Button
                                             variant="secondary"
                                             onClick={handleFetchTables}
-                                            disabled={isLoadingTables}
+                                            disabled={isLoadingTables || sourceCapabilities?.listSource !== true}
                                         >
                                             {isLoadingTables ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                                             Load Tables
                                         </Button>
                                     </div>
                                 </div>
+
                                 
                                 {availableTables.length > 0 && (
                                     <ScrollArea className="codex-popup-scroll h-[220px]">
@@ -720,13 +640,12 @@ export function CreateModelEntityWizard({
                                                                 const current = selectedTables;
                                                                 if (checked) {
                                                                   setValue("selectedTables", [...current, uniqueName]);
-                                                                  setValue("tableDescriptions", {
-                                                                    ...tableDescriptions,
-                                                                    [uniqueName]: table.description || "",
-                                                                  });
-                                                                  setValue("tableProperties", {
-                                                                    ...tableProperties,
-                                                                    [uniqueName]: toImportableEntityProperties(table.properties, knownPropertyNames),
+                                                                  setValue("tableLocations", {
+                                                                    ...watch("tableLocations"),
+                                                                    [uniqueName]: {
+                                                                      ...table,
+                                                                      properties: toImportableEntityProperties(table.properties, knownPropertyNames),
+                                                                    },
                                                                   });
                                                                   if (table.sourceOverride) {
                                                                     setValue("tableSourceOverrides", {
@@ -777,6 +696,7 @@ export function CreateModelEntityWizard({
                                 <div className="text-xs text-muted-foreground">
                                     {selectedTables.length} tables selected.
                                 </div>
+                                {capabilitiesError ? <p className="text-destructive text-xs">{capabilitiesError}</p> : null}
                                 {errors.selectedTables && (
                                     <p className="text-destructive text-xs">{errors.selectedTables.message}</p>
                                 )}

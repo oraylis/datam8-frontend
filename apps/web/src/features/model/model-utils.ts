@@ -35,10 +35,10 @@ export const mergeInheritedProps = (
 export const mergeInheritedDataTypeMappings = (typeMappings: DataTypeMapping[] = [], currentMappings: DataTypeMapping[] = []) => {
   const bySourceType = new Map<string, DataTypeMapping>();
   typeMappings.forEach((m) => {
-    if (m?.sourceType) bySourceType.set(m.sourceType, m);
+    if (m?.sourceType) bySourceType.set(normalizeTypeKey(m.sourceType), m);
   });
   currentMappings.forEach((m) => {
-    if (m?.sourceType) bySourceType.delete(m.sourceType);
+    if (m?.sourceType) bySourceType.delete(normalizeTypeKey(m.sourceType));
   });
   return Array.from(bySourceType.values());
 };
@@ -388,37 +388,45 @@ export function sanitizeDataType(input: unknown): DataType {
 }
 
 function normalizeTypeKey(value: string): string {
-  const raw = (value || "").trim().toLowerCase();
-  if (!raw) return "";
-  const noParams = raw.replace(/\(.*\)\s*$/g, "").trim();
-  const head = noParams.split(/\s+/)[0] || noParams;
-  return head;
+  return value.trim().toLowerCase();
 }
 
-function resolveCanonicalTypeName(candidate: string, canonicalTypes: string[]): string | null {
-  const norm = normalizeTypeKey(candidate);
-  if (!norm) return null;
-  return canonicalTypes.find((t) => normalizeTypeKey(t) === norm) || null;
-}
+export type SourceTypeMapper = {
+  resolve: (sourceType: string, context: { column: string; sourceLocation: string }) => string;
+};
 
-export function mapSourceDataTypeToCanonical(params: {
-  sourceDataType: DataType;
-  mappings: DataTypeMapping[];
-  canonicalTypes: string[];
-}): DataType {
-  const { sourceDataType, mappings, canonicalTypes } = params;
-
-  if (!canonicalTypes.length) return { ...sourceDataType };
-
-  const fallback = resolveCanonicalTypeName("string", canonicalTypes) || canonicalTypes[0] || "string";
-  const sourceKey = normalizeTypeKey(sourceDataType.type);
-
-  const match = mappings.find((m) => normalizeTypeKey(m?.sourceType || "") === sourceKey);
-  const mappedTarget = typeof match?.targetType === "string" ? match.targetType : "";
-  const resolvedTarget = mappedTarget ? resolveCanonicalTypeName(mappedTarget, canonicalTypes) : null;
-
-  const alreadyCanonical = resolveCanonicalTypeName(sourceDataType.type, canonicalTypes);
-  const nextType = resolvedTarget || alreadyCanonical || fallback;
-
-  return { ...sourceDataType, type: nextType };
+export function createSourceTypeMapper(
+  typeMappings: DataTypeMapping[],
+  sourceMappings: DataTypeMapping[],
+  dataSource: string,
+): SourceTypeMapper {
+  const index = (mappings: DataTypeMapping[], level: string) => {
+    const result = new Map<string, string>();
+    for (const mapping of mappings) {
+      const key = normalizeTypeKey(mapping.sourceType);
+      if (!key || !mapping.targetType.trim()) {
+        throw new Error(`Data Source '${dataSource}': empty ${level} type mapping`);
+      }
+      if (result.has(key)) {
+        throw new Error(`Data Source '${dataSource}': duplicate ${level} type mapping for '${mapping.sourceType}'`);
+      }
+      result.set(key, mapping.targetType);
+    }
+    return result;
+  };
+  const source = index(sourceMappings, "Data Source");
+  const type = index(typeMappings, "Data Source Type");
+  return {
+    resolve(sourceType, { column, sourceLocation }) {
+      const full = normalizeTypeKey(sourceType);
+      const base = full.match(/^[a-z_][a-z0-9_]*/)?.[0] || full;
+      for (const mappings of [source, type]) {
+        if (mappings.has(full)) return mappings.get(full)!;
+        if (mappings.has(base)) return mappings.get(base)!;
+      }
+      throw new Error(
+        `Data Source '${dataSource}', object '${sourceLocation}', column '${column}': no configured data type mapping for '${sourceType}'`,
+      );
+    },
+  };
 }

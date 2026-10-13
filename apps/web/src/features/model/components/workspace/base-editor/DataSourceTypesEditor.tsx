@@ -13,7 +13,6 @@ import { readBackendErrorMessage } from "../../../../../shared/api/errorMessage"
 import { useErrorSurface } from "../../../../../shared/ui/ErrorSurface";
 import { pruneConnectionPropertiesForConnector } from "./dataSourceConnectionProperties";
 
-const DEFAULT_CONNECTOR_TYPE_MAPPING = [{ sourceType: "string", targetType: "string" }];
 const EMPTY_ARRAY: any[] = [];
 
 type DataSourceTypesEditorProps = {
@@ -156,7 +155,7 @@ export const DataSourceTypesEditor = React.memo((props: DataSourceTypesEditorPro
             .filter((mode: any) => mode.name);
         })(),
       ]);
-      const nextDataTypeMapping = dataTypeMapping.length ? dataTypeMapping : DEFAULT_CONNECTOR_TYPE_MAPPING;
+      const nextDataTypeMapping = dataTypeMapping;
       markBaseDirty();
       setBaseDraft((prev: any) => {
         const base = prev || baseDraft || selectedBase.content || {};

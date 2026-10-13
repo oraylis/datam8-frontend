@@ -20,6 +20,7 @@ export type WizardZone = {
 export type WizardDataSource = {
   name: string;
   type: string;
+  dataTypeMapping?: BaseDataSource["dataTypeMapping"];
   extendedProperties: Record<string, unknown>;
 };
 
@@ -72,6 +73,7 @@ export function useWizardBaseData(baseEntities: BaseEntity[]): UseWizardBaseData
     return (dsEntry?.content?.dataSources || []).map((d: BaseDataSource) => ({
       name: d.name,
       type: d.type || d.dataSourceType || "",
+      dataTypeMapping: d.dataTypeMapping,
       extendedProperties:
         d.extendedProperties && typeof d.extendedProperties === "object"
           ? (d.extendedProperties as Record<string, unknown>)

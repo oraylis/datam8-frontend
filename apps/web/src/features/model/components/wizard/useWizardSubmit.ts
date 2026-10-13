@@ -1,12 +1,12 @@
 import type React from "react";
 import { apiBase } from "../../../../config";
 import type { PropertyAssignment } from "@datam8/types";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { readBackendErrorMessage } from "../../../../shared/api/errorMessage";
 import type { ModelEntity, TableMetadata } from "../../model-types";
 import {
-  mapSourceDataTypeToCanonical,
-  mergeInheritedDataTypeMappings,
+  createSourceTypeMapper,
+  type SourceTypeMapper,
   normalizeFolderPath,
   sanitizeDataType,
   type DataTypeMapping,
@@ -16,8 +16,9 @@ import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
 import { createModelEntityByRelPath, saveModel } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
-import { resolveSourceOverride, toSourceOverride } from "./sourceOverride";
-import { buildSourceLocationsEndpoint, buildSourceMetadataEndpoint } from "./sourcePreview";
+import { resolveSourceOverride } from "./sourceOverride";
+import { buildSourceMetadataEndpoint } from "./sourcePreview";
+import { normalizeSourceMetadata, type SourceLocationItem } from "./sourceNavigation";
 
 type SubmitDeps = {
   modelEntities: ModelEntity[];
@@ -29,8 +30,21 @@ type SubmitDeps = {
   setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
   solutionPath?: string;
   dataSources: Array<ResolvedWizardDataSource & { dataTypeMapping?: unknown }>;
-  canonicalDataTypes: string[];
 };
+
+export function applyDescribedImport<T extends Record<string, any>>(
+  imported: T,
+  entityName: string,
+  id: number,
+  overrides: { description?: string; properties?: PropertyAssignment[] } = {},
+) {
+  return {
+    ...imported,
+    id,
+    name: entityName,
+    ...overrides,
+  };
+}
 
 type WizardAttribute = WizardFormValues["attributes"][number];
 type WizardSource = WizardFormValues["sources"][number];
@@ -57,6 +71,7 @@ type MappedSource = {
   dataSource?: string;
   sourceAlias?: string;
   sourceLocation?: string | number;
+  metadataLocation?: string;
   properties?: PropertyAssignment[];
   mapping?: MappedSourceMapping[] | unknown[];
 };
@@ -109,19 +124,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object";
 }
 
-function toPropertyAssignments(input: unknown): PropertyAssignment[] {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((entry): PropertyAssignment | null => {
-      if (!isRecord(entry)) return null;
-      const property = typeof entry.property === "string" ? entry.property.trim() : "";
-      if (!property) return null;
-      const value = typeof entry.value === "string" ? entry.value : "";
-      return { property, value };
-    })
-    .filter((entry): entry is PropertyAssignment => entry !== null);
-}
-
 function toDataTypeMappings(input: unknown): DataTypeMapping[] {
   if (!Array.isArray(input)) return [];
   return input
@@ -139,10 +141,10 @@ export function mapMetadataColumnToCreatedAttribute(params: {
   column: TableMetadata["columns"][number];
   index: number;
   nowIso: string;
-  effectiveMappings: DataTypeMapping[];
-  canonicalDataTypes: string[];
+  typeMapper: SourceTypeMapper;
+  sourceLocation: string;
 }): MappedCreatedAttribute {
-  const { column, index, nowIso, effectiveMappings, canonicalDataTypes } = params;
+  const { column, index, nowIso, typeMapper, sourceLocation } = params;
   const sourceDataType = sanitizeDataType({
     type: column.dataType,
     nullable: column.isNullable,
@@ -150,11 +152,10 @@ export function mapMetadataColumnToCreatedAttribute(params: {
     precision: column.numericPrecision,
     scale: column.numericScale,
   });
-  const dataType = mapSourceDataTypeToCanonical({
-    sourceDataType,
-    mappings: effectiveMappings,
-    canonicalTypes: canonicalDataTypes,
-  });
+  const dataType = {
+    ...sourceDataType,
+    type: typeMapper.resolve(column.dataType, { column: column.name, sourceLocation }),
+  };
 
   return {
     ordinalNumber: index + 1,
@@ -186,30 +187,6 @@ function toMappedSourceColumns(metadata: TableMetadata): MappedSourceMapping[] {
     }
     return row;
   });
-}
-
-function toColumnRelationships(input: unknown): TableMetadata["columns"][number]["relationships"] {
-  if (!Array.isArray(input)) return undefined;
-  const mapped = input
-    .map((entry): NonNullable<TableMetadata["columns"][number]["relationships"]>[number] | null => {
-      const rec = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
-      const sourceName = typeof rec?.sourceName === "string" ? rec.sourceName.trim() : "";
-      const targetName = typeof rec?.targetName === "string" ? rec.targetName.trim() : "";
-      const alias = typeof rec?.alias === "string" && rec.alias.trim() ? rec.alias.trim() : undefined;
-      if (rec?.relationshipType === "internal") {
-        const targetEntityName = typeof rec?.targetEntityName === "string" ? rec.targetEntityName.trim() : "";
-        if (!targetEntityName || !sourceName || !targetName) return null;
-        return alias
-          ? { relationshipType: "internal", targetEntityName, sourceName, targetName, alias }
-          : { relationshipType: "internal", targetEntityName, sourceName, targetName };
-      }
-      const dataSource = typeof rec?.dataSource === "string" ? rec.dataSource.trim() : "";
-      const targetLocation = typeof rec?.targetLocation === "string" ? rec.targetLocation.trim() : "";
-      if (!dataSource || !targetLocation || !sourceName || !targetName) return null;
-      return alias ? { dataSource, targetLocation, sourceName, targetName, alias } : { dataSource, targetLocation, sourceName, targetName };
-    })
-    .filter((entry): entry is NonNullable<TableMetadata["columns"][number]["relationships"]>[number] => entry !== null);
-  return mapped.length > 0 ? mapped : undefined;
 }
 
 export function toMappedRelationshipsFromMetadata(
@@ -316,66 +293,6 @@ function mapRelationship(rel: WizardRelationship, modelEntities: ModelEntity[]):
   };
 }
 
-function parseTableRef(table: string): { schema: string; name: string } {
-  let schema = "";
-  let tableName = table;
-  const bracketMatch = table.match(/^\[(.*?)\]\.\[(.*?)\]$/);
-  if (bracketMatch) {
-    schema = bracketMatch[1];
-    tableName = bracketMatch[2];
-  } else if (table.includes(".")) {
-    const parts = table.split(".");
-    if (parts.length === 2) {
-      schema = parts[0].replace(/^\[|\]$/g, "");
-      tableName = parts[1].replace(/^\[|\]$/g, "");
-    }
-  }
-  return { schema, name: tableName };
-}
-
-function normalizeLocationItem(item: Record<string, unknown>): { schema: string; name: string; sourceLocation: string; sourceOverride?: { dataSource?: string; sourceLocation?: string } } | null {
-  const schema = typeof item.schema === "string" ? item.schema : "";
-  const container = typeof item.container === "string" ? item.container : "";
-  const rawName =
-    typeof item.name === "string"
-      ? item.name
-      : typeof item.object === "string"
-        ? item.object
-        : schema || container || "";
-  const name = rawName.trim();
-  if (!name) return null;
-  const isSchema = !!schema && !item.name;
-  const isContainer = !!container && !item.name;
-  const sourceLocation = isSchema
-    ? schema
-    : isContainer
-      ? container
-      : container
-        ? `${container}@${name}`
-        : schema
-          ? `${schema}.${name}`
-          : name;
-  return {
-    schema: isSchema ? "" : schema,
-    name,
-    sourceLocation,
-    sourceOverride: toSourceOverride(item.sourceOverride),
-  };
-}
-
-function sourceOverrideLookupKeys(tableRef: { schema: string; name: string }): string[] {
-  const keys = new Set<string>();
-  const schema = `${tableRef.schema || ""}`.trim();
-  const name = `${tableRef.name || ""}`.trim();
-  if (!name) return [];
-  if (schema) {
-    keys.add(`[${schema}].[${name}]`);
-    keys.add(`${schema}.${name}`);
-  }
-  keys.add(name);
-  return Array.from(keys);
-}
-
 export function useWizardSubmit(deps: SubmitDeps) {
   const {
     modelEntities,
@@ -387,21 +304,13 @@ export function useWizardSubmit(deps: SubmitDeps) {
     setExpanded,
     solutionPath: _solutionPath,
     dataSources,
-    canonicalDataTypes,
   } = deps;
   const { showError, clearError } = useErrorSurface();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const metadataCacheRef = useRef(new Map<string, TableMetadata>());
 
   const fetchTableMetadata = useCallback(
-    async (dataSource: string, table: string): Promise<TableMetadata> => {
-      const cacheKey = `${dataSource}\n${table}`;
-      const cached = metadataCacheRef.current.get(cacheKey);
-      if (cached) return cached;
-      const parsedRef = parseTableRef(table);
-      const schema = parsedRef.schema;
-      const tableName = parsedRef.name;
+    async (dataSource: string, table: string, listed?: SourceLocationItem): Promise<TableMetadata> => {
 
       const endpoint = buildSourceMetadataEndpoint(dataSource, table);
       const sourceRes = await fetch(endpoint);
@@ -411,28 +320,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
       }
       const payload = (await sourceRes.json()) as { items?: Array<any> };
       const items = Array.isArray(payload?.items) ? payload.items : [];
-      const metadata: TableMetadata = {
-        schema,
-        name: tableName,
-        type: "BASE TABLE",
-        description: typeof (payload as any)?.description === "string" ? (payload as any).description : undefined,
-        properties: toPropertyAssignments((payload as any)?.properties),
-        sourceOverride: toSourceOverride((payload as any)?.sourceOverride),
-        columns: items.map((col) => ({
-          name: `${col?.name || ""}`,
-          ordinal: Number(col?.ordinal || 0),
-          dataType: `${col?.dataType || ""}`,
-          maxLength: typeof col?.maxLength === "number" ? col.maxLength : null,
-          numericPrecision: typeof col?.numericPrecision === "number" ? col.numericPrecision : null,
-          numericScale: typeof col?.numbericScale === "number" ? col.numbericScale : null,
-          isNullable: Boolean(col?.isNullable),
-          isPrimaryKey: Boolean(col?.isPrimaryKey),
-          description: typeof col?.description === "string" ? col.description : undefined,
-          properties: toPropertyAssignments(col?.properties),
-          relationships: toColumnRelationships(col?.relationships),
-        })),
-      };
-      metadataCacheRef.current.set(cacheKey, metadata);
+      const metadata = normalizeSourceMetadata(payload, table, listed);
       return metadata;
     },
     [],
@@ -476,14 +364,11 @@ export function useWizardSubmit(deps: SubmitDeps) {
               }
 
               const metadata = (isRecord(src) ? (src.metadata as TableMetadata | undefined) : undefined) || undefined;
-              const dsObj = dataSources.find((entry) => entry.name === src.dataSource) || null;
-              const isHttp = dsObj?.connectorId === "http-api";
               let formattedLocation: string | number | undefined = src.sourceLocation;
               let mapping: MappedSourceMapping[] = [];
               let sourceDataSource = src.dataSource;
 
               if (metadata) {
-                formattedLocation = isHttp ? src.sourceLocation : `[${metadata.schema}].[${metadata.name}]`;
                 mapping = toMappedSourceColumns(metadata);
                 const override = resolveSourceOverride({
                   sourceOverride: metadata.sourceOverride,
@@ -498,6 +383,8 @@ export function useWizardSubmit(deps: SubmitDeps) {
               const externalSource: MappedSource = {
                 dataSource: sourceDataSource,
                 sourceLocation: formattedLocation,
+                ...(sourceDataSource === src.dataSource && metadata?.sourceLocation && metadata.sourceLocation !== formattedLocation
+                  ? { metadataLocation: metadata.sourceLocation } : {}),
               };
               if (src.sourceAlias) externalSource.sourceAlias = src.sourceAlias;
               if (Array.isArray(src.properties) && src.properties.length > 0) {
@@ -590,41 +477,10 @@ export function useWizardSubmit(deps: SubmitDeps) {
             const dsObj = dataSources.find((entry) => entry.name === selectedSource) || null;
             const typeMappings = toDataTypeMappings(dsObj?.dataSourceType?.dataTypeMapping);
             const sourceMappings = toDataTypeMappings(dsObj?.dataTypeMapping);
-            const inheritedMappings = mergeInheritedDataTypeMappings(typeMappings, sourceMappings);
-            const effectiveMappings = [...inheritedMappings, ...sourceMappings];
-            let listedOverridesByKey: Record<string, { dataSource?: string; sourceLocation?: string }> | null = null;
-
-            const ensureListedOverrides = async (): Promise<Record<string, { dataSource?: string; sourceLocation?: string }>> => {
-              if (listedOverridesByKey) return listedOverridesByKey;
-              const res = await fetch(buildSourceLocationsEndpoint(selectedSource), { method: "GET" });
-              if (!res.ok) {
-                const payload = await res.json().catch(() => ({}));
-                throw new Error(readBackendErrorMessage(payload, "Failed to load tables"));
-              }
-              const payload = (await res.json()) as { items?: Array<any> };
-              const items = Array.isArray(payload?.items) ? payload.items : [];
-              const byKey: Record<string, { dataSource?: string; sourceLocation?: string }> = {};
-              items.forEach((item) => {
-                const normalized = normalizeLocationItem((item || {}) as Record<string, unknown>);
-                const override = normalized?.sourceOverride;
-                if (!normalized || !override) return;
-                sourceOverrideLookupKeys({ schema: normalized.schema, name: normalized.name }).forEach((key) => {
-                  byKey[key] = override;
-                });
-                byKey[normalized.sourceLocation] = override;
-              });
-              listedOverridesByKey = byKey;
-              return byKey;
-            };
-
+            const typeMapper = createSourceTypeMapper(typeMappings, sourceMappings, selectedSource);
             for (const tableName of values.selectedTables || []) {
               currentMaxId += 1;
-              const metadata = await fetchTableMetadata(selectedSource, tableName);
-              const entityName = values.tableRenames?.[tableName] || metadata.name;
-              const relPath = `Model/${folderPath}/${entityName}.json`;
-              const locator = modelLocatorFromRelPath(relPath);
-              if (!firstRelPath) firstRelPath = relPath;
-
+              const listed = values.tableLocations?.[tableName] as SourceLocationItem | undefined;
               const importParams = new URLSearchParams({ source_location: tableName });
               const importResponse = await fetch(
                 `${apiBase}/sources/${encodeURIComponent(selectedSource)}/locations/import-description?${importParams}`,
@@ -634,6 +490,11 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 throw new Error(readBackendErrorMessage(payload, "Failed to describe imported entity"));
               }
               const importDescription = await importResponse.json() as { entity?: Record<string, any> | null };
+              const metadata = importDescription.entity ? null : await fetchTableMetadata(selectedSource, tableName, listed);
+              const entityName = values.tableRenames?.[tableName] || importDescription.entity?.name || metadata?.name || listed?.name || tableName;
+              const relPath = `Model/${folderPath}/${entityName}.json`;
+              const locator = modelLocatorFromRelPath(relPath);
+              if (!firstRelPath) firstRelPath = relPath;
               if (importDescription.entity) {
                 const imported = importDescription.entity;
                 createdEntities.push({
@@ -641,19 +502,18 @@ export function useWizardSubmit(deps: SubmitDeps) {
                   relPath,
                   name: entityName,
                   content: {
-                    ...imported,
-                    id: currentMaxId,
-                    name: entityName,
-                    displayName: entityName,
-                    description: values.tableDescriptions?.[tableName] || imported.description || "",
-                    properties: values.tableProperties?.[tableName]?.length
-                      ? values.tableProperties[tableName]
-                      : imported.properties,
+                    ...applyDescribedImport(imported, entityName, currentMaxId, {
+                      ...(values.tableDescriptions?.[tableName] !== undefined
+                        ? { description: values.tableDescriptions[tableName] } : {}),
+                      ...(values.tableProperties?.[tableName] !== undefined
+                        ? { properties: values.tableProperties[tableName] } : {}),
+                    }),
                   },
                 });
-                metadataByRelPath.set(relPath, metadata);
                 continue;
               }
+
+              if (!metadata) throw new Error("The backend did not provide source metadata.");
 
               const nowIso = new Date().toISOString();
               const attributes = metadata.columns.map((col, idx) =>
@@ -661,29 +521,13 @@ export function useWizardSubmit(deps: SubmitDeps) {
                   column: col,
                   index: idx,
                   nowIso,
-                  effectiveMappings,
-                  canonicalDataTypes,
+                  typeMapper,
+                  sourceLocation: tableName,
                 }),
               );
 
-              const typeName = (dsObj?.type || "").toLowerCase();
-              const isHttp = dsObj?.connectorId === "http-api" || typeName.includes("http") || typeName.includes("api");
-              const defaultLocation = isHttp ? tableName : `[${metadata.schema}].[${metadata.name}]`;
-              let sourceOverride = values.tableSourceOverrides?.[tableName] || metadata.sourceOverride;
-              if (!sourceOverride) {
-                const listedOverrides = await ensureListedOverrides();
-                const parsedRef = parseTableRef(tableName);
-                const lookupKeys = sourceOverrideLookupKeys({
-                  schema: parsedRef.schema || metadata.schema,
-                  name: parsedRef.name || metadata.name,
-                });
-                for (const key of lookupKeys) {
-                  if (listedOverrides[key]) {
-                    sourceOverride = listedOverrides[key];
-                    break;
-                  }
-                }
-              }
+              const defaultLocation = tableName;
+              const sourceOverride = values.tableSourceOverrides?.[tableName] || metadata.sourceOverride;
               const resolvedOverride = resolveSourceOverride({
                 sourceOverride,
                 fallbackDataSource: selectedSource,
@@ -697,6 +541,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
               const source: MappedSource = {
                 dataSource: sourceDataSource,
                 sourceLocation: formattedLocation,
+                ...(sourceDataSource === selectedSource && formattedLocation !== tableName ? { metadataLocation: tableName } : {}),
                 mapping,
               };
               createdEntities.push({
@@ -777,7 +622,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
       }
     },
     [
-      canonicalDataTypes,
       dataSources,
       fetchTableMetadata,
       focusEntityTab,

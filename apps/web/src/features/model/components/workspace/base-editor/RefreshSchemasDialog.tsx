@@ -19,10 +19,6 @@ import {
   Alert,
   AlertTitle,
   AlertDescription,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -44,8 +40,8 @@ import {
   groupAttributeChanges,
   groupExternalSourceChanges,
   presentDeepDiff,
+  affectedChanges,
   type DeepDiffEntry,
-  type DeepDiffSourceGroup,
 } from "./deepDiffPresenter";
 import {
   externalSchemaTriState,
@@ -54,6 +50,15 @@ import {
   isUsageInExternalSchemaScope,
   type ExternalSchemaScope,
 } from "./externalSchemaScope";
+
+import {
+  ChangeSummary,
+  ObjectChanges,
+  ColumnsSection,
+  SourcesSection,
+  RefreshReviewExpansion,
+  reviewNodeKeys,
+} from "./RefreshChangeReview";
 
 const AUTH_FAILURE_MESSAGE =
   "Authentication failed. Update the Data Source configuration (including secrets) and try again.";
@@ -113,221 +118,6 @@ const diffKey = (entityRelPath: string, sourceIndex: number) => `${entityRelPath
 type TriState = boolean | "indeterminate";
 type HttpError = Error & { status?: number };
 type RefreshMode = "complete" | "sources-only";
-type ChangeTab = "model" | "sources";
-
-const CHANGE_OPERATION_CLASSES: Record<DeepDiffEntry["operation"], string> = {
-  added: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
-  changed: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
-  removed: "border-destructive/35 bg-destructive/10 text-destructive",
-};
-
-const CHANGE_OPERATION_MARKERS: Record<DeepDiffEntry["operation"], string> = {
-  added: "+",
-  changed: "~",
-  removed: "−",
-};
-
-const CHANGE_OPERATION_LABELS: Record<DeepDiffEntry["operation"], string> = {
-  added: "New",
-  changed: "Changed",
-  removed: "Removed",
-};
-
-const ChangeSummary = ({ changes }: { changes: DeepDiffEntry[] }) => {
-  const counts = changes.reduce<Record<DeepDiffEntry["operation"], number>>(
-    (result, change) => {
-      result[change.operation] += 1;
-      return result;
-    },
-    { added: 0, changed: 0, removed: 0 },
-  );
-
-  const labels: Record<DeepDiffEntry["operation"], string> = {
-    added: `+${counts.added}`,
-    changed: `${counts.changed} modified`,
-    removed: `−${counts.removed}`,
-  };
-
-  return (Object.keys(counts) as DeepDiffEntry["operation"][]).map((operation) => (
-    counts[operation] > 0 ? (
-      <Badge
-        key={operation}
-        variant="outline"
-        className={`h-6 px-2 text-xs font-medium ${CHANGE_OPERATION_CLASSES[operation]}`}
-        data-testid={`change-count-${operation}`}
-      >
-        {labels[operation]}
-      </Badge>
-    ) : null
-  ));
-};
-
-const ChangeValue = ({ value }: { value: unknown }) => {
-  if (value !== null && typeof value === "object") {
-    return (
-      <details className="min-w-0">
-        <summary className="cursor-pointer text-[11px] text-primary">View value</summary>
-        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] text-muted-foreground">
-          {formatDeepDiffValue(value)}
-        </pre>
-      </details>
-    );
-  }
-  return <span className="break-all">{formatDeepDiffValue(value)}</span>;
-};
-
-const ChangeValuePair = ({ change }: { change: DeepDiffEntry }) => (
-  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-    {change.operation !== "added" ? (
-      <span className={change.operation === "removed" ? "text-muted-foreground line-through" : "text-muted-foreground"}>
-        <ChangeValue value={change.before} />
-      </span>
-    ) : null}
-    {change.operation === "changed" ? <span aria-hidden="true" className="text-muted-foreground">→</span> : null}
-    {change.operation !== "removed" ? (
-      <span className="font-medium text-foreground"><ChangeValue value={change.after} /></span>
-    ) : null}
-    {change.beforeType || change.afterType ? (
-      <span className="basis-full text-[10px] text-muted-foreground">
-        type: {change.beforeType || "—"}{change.afterType ? ` → ${change.afterType}` : ""}
-      </span>
-    ) : null}
-  </div>
-);
-
-const ChangeLine = ({ change, label }: { change: DeepDiffEntry; label: string }) => (
-  <div
-    className="grid min-w-0 grid-cols-[1rem_minmax(7rem,0.8fr)_minmax(0,1.5fr)] items-start gap-2 border-b border-border/50 py-2 last:border-b-0"
-    title={`${change.category}: ${change.path}`}
-    data-testid="diff-entry"
-  >
-    <span
-      className={`font-semibold ${CHANGE_OPERATION_CLASSES[change.operation].split(" ").find((part) => part.startsWith("text-")) || "text-muted-foreground"}`}
-      aria-label={`${change.operation}; ${change.category}; ${change.path}`}
-      title={`${change.operation}: ${change.category}`}
-    >
-      {CHANGE_OPERATION_MARKERS[change.operation]}
-    </span>
-    <span className="min-w-0 break-words text-xs font-medium text-foreground">{label}</span>
-    <ChangeValuePair change={change} />
-  </div>
-);
-
-const ObjectChanges = ({ changes, sourceLabel }: { changes: DeepDiffEntry[]; sourceLabel?: string }) => (
-  changes.length > 0 ? (
-    <div className="min-w-0" data-testid="object-changes">
-      {changes.map((change) => {
-        const path = change.displayPath.split(" › ");
-        const label = sourceLabel && path[0] === sourceLabel
-          ? path.slice(1).join(" › ") || "Source"
-          : change.displayPath;
-        return <ChangeLine key={change.id} change={change} label={label} />;
-      })}
-    </div>
-  ) : null
-);
-
-const ColumnChangeDetail = ({ change, groupKey }: { change: DeepDiffEntry; groupKey: string }) => {
-  const parts = change.displayPath.split(" › ");
-  const fieldLabel = groupKey.startsWith("attribute:")
-    ? parts.slice(1).join(" › ") || "Attribute definition"
-    : parts.slice(2).join(" › ") || "Mapping definition";
-
-  return (
-    <div
-      className="grid min-w-0 gap-1 border-t border-border/50 px-3 py-2 first:border-t-0 sm:grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.3fr)] sm:gap-3"
-      title={`${change.category}: ${change.path}`}
-      data-testid="diff-entry"
-    >
-      <div className="flex min-w-0 items-start gap-2">
-        <span className="min-w-0 break-words text-xs font-medium text-foreground">{fieldLabel}</span>
-        <Badge
-          variant="outline"
-          className={`h-5 shrink-0 px-1.5 text-[10px] font-medium ${CHANGE_OPERATION_CLASSES[change.operation]}`}
-          aria-label={`${change.operation}; ${change.category}; ${change.path}`}
-        >
-          {CHANGE_OPERATION_LABELS[change.operation]}
-        </Badge>
-      </div>
-      <ChangeValuePair change={change} />
-    </div>
-  );
-};
-
-const ColumnChanges = ({ groups }: { groups: Array<{ key: string; label: string; changes: DeepDiffEntry[]; operation: DeepDiffEntry["operation"] }> }) => (
-  groups.length > 0 ? (
-    <section className="min-w-0" data-testid="column-changes">
-      <div className="flex items-center gap-2 border-b border-border/60 py-2 text-xs font-semibold text-muted-foreground">
-        <span className="uppercase tracking-wide">Column changes</span>
-        <span className="ml-auto tabular-nums font-normal">
-          {groups.length} {groups.length === 1 ? "column" : "columns"}
-        </span>
-      </div>
-      <div className="divide-y divide-border/50" data-testid="column-change-list">
-        {groups.map((group) => (
-          <details key={group.key} className="group min-w-0" data-testid="diff-column-group">
-            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 py-1.5 [&::-webkit-details-marker]:hidden">
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
-              <span className="min-w-0 flex-1 break-all text-xs font-medium text-foreground">{group.label}</span>
-              <Badge
-                variant="outline"
-                className={`h-5 shrink-0 px-2 text-[10px] font-medium ${CHANGE_OPERATION_CLASSES[group.operation]}`}
-                data-testid={`column-status-${group.operation}`}
-              >
-                {CHANGE_OPERATION_LABELS[group.operation]}
-              </Badge>
-            </summary>
-            <div className="mb-2 ml-5 overflow-hidden rounded-md border border-border/60 bg-background/40">
-              {group.changes.map((change) => (
-                <ColumnChangeDetail key={change.id} change={change} groupKey={group.key} />
-              ))}
-            </div>
-          </details>
-        ))}
-      </div>
-    </section>
-  ) : null
-);
-
-const ExternalSourceDetails = ({ source, showCount }: { source: DeepDiffSourceGroup; showCount: boolean }) => (
-  <details className="group min-w-0 border-b border-border/60 last:border-b-0" data-testid="external-source-details">
-    <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 py-2 [&::-webkit-details-marker]:hidden">
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground" title={source.label}>{source.label}</span>
-      {showCount ? (
-        <Badge variant="outline" className="h-5 shrink-0 px-2 text-[10px] font-normal">
-          {source.changes.length} {source.changes.length === 1 ? "change" : "changes"}
-        </Badge>
-      ) : null}
-    </summary>
-    <div className="grid gap-2 pb-2 pl-5">
-      <ObjectChanges changes={source.objectChanges} sourceLabel={source.label} />
-      <ColumnChanges groups={source.columns} />
-    </div>
-  </details>
-);
-
-const ChangeContent = ({
-  title,
-  testId,
-  showHeader = true,
-  children,
-}: {
-  title: string;
-  testId: string;
-  showHeader?: boolean;
-  children: React.ReactNode;
-}) => (
-  <section className="min-w-0" data-testid={testId}>
-    {showHeader ? (
-      <header className="mb-2 flex min-w-0 items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{title}</h3>
-      </header>
-    ) : null}
-    <div className="grid gap-2">{children}</div>
-  </section>
-);
-
 const toHttpError = (message: string, status?: number): HttpError => {
   const err: HttpError = new Error(message);
   err.status = status;
@@ -373,7 +163,7 @@ export const RefreshSchemasDialog = ({
   const [dirtyWarning, setDirtyWarning] = useState<string | null>(null);
   const [previewFilter, setPreviewFilter] = useState("");
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
-  const [activeChangeTabs, setActiveChangeTabs] = useState<Map<string, ChangeTab>>(new Map());
+  const [expandedReviewNodes, setExpandedReviewNodes] = useState<Set<string>>(new Set());
   const [authErrorHint, setAuthErrorHint] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState({ completed: 0, total: 0 });
   const [scanErrors, setScanErrors] = useState<Record<string, ScanFailure>>({});
@@ -636,7 +426,7 @@ export const RefreshSchemasDialog = ({
         fetchedDiffs.map((diff) => diffKey(diff.entityRelPath, diff.sourceIndex)),
       ));
       setExpandedEntities(new Set());
-      setActiveChangeTabs(new Map());
+      setExpandedReviewNodes(new Set());
       setCollapsedPreviewDataSources(new Set());
 
       setStep(STEPS.PREVIEW);
@@ -942,6 +732,30 @@ export const RefreshSchemasDialog = ({
 
   const filteredDiffGroups = useMemo(() => groupExternalSchemaUsages(filteredDiffs), [filteredDiffs]);
 
+  const affectedChangesByEntity = useMemo(() => new Map(diffs.map((diff) => [
+    diffKey(diff.entityRelPath, diff.sourceIndex), affectedChanges(diff.changes),
+  ])), [diffs]);
+  const allAffectedChanges = [...affectedChangesByEntity.values()].flat();
+
+  const setVisibleReviewExpanded = (expanded: boolean) => {
+    const entityKeys = filteredDiffs.map((diff) => diffKey(diff.entityRelPath, diff.sourceIndex));
+    const nodeKeys = filteredDiffs.flatMap((diff) => reviewNodeKeys(
+      diffKey(diff.entityRelPath, diff.sourceIndex),
+      groupAttributeChanges(diff.changes.filter((change) => change.group === "attributes")),
+      groupExternalSourceChanges(diff.changes.filter((change) => change.group === "sources" || change.group === "mappings")),
+    ));
+    const update = (previous: Set<string>, keys: string[], add: boolean) => {
+      const next = new Set(previous);
+      keys.forEach((key) => {
+        if (add) next.add(key); else next.delete(key);
+      });
+      return next;
+    };
+    setCollapsedPreviewDataSources((previous) => update(previous, filteredDiffGroups.map(([sourceName]) => sourceName), !expanded));
+    setExpandedEntities((previous) => update(previous, entityKeys, expanded));
+    setExpandedReviewNodes((previous) => update(previous, nodeKeys, expanded));
+  };
+
   const allDiffsByDataSource = useMemo(() => {
     return new Map(groupExternalSchemaUsages(diffs));
   }, [diffs]);
@@ -971,9 +785,9 @@ export const RefreshSchemasDialog = ({
         ) : null}
         <div className="schema-review__toolbar flex min-w-0 flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
-            <Badge variant="outline">{diffs.reduce((acc, d) => acc + d.changes.length, 0)} changes</Badge>
+            <Badge variant="outline" data-testid="global-change-count">{allAffectedChanges.length} changes</Badge>
             <div className="flex flex-wrap items-center gap-1.5" data-testid="global-operation-summary">
-              <ChangeSummary changes={diffs.flatMap((diff) => diff.changes)} />
+              <ChangeSummary changes={allAffectedChanges} />
             </div>
             <Badge variant="outline">{selectionStats.selected}/{selectionStats.total} selected</Badge>
           </div>
@@ -997,10 +811,7 @@ export const RefreshSchemasDialog = ({
             size="sm"
             variant="ghost"
             className="h-7 px-2"
-            onClick={() => {
-              setCollapsedPreviewDataSources(new Set());
-              setExpandedEntities(new Set(filteredDiffs.map((diff) => diffKey(diff.entityRelPath, diff.sourceIndex))));
-            }}
+            onClick={() => setVisibleReviewExpanded(true)}
             disabled={!filteredDiffs.length}
           >
             Expand all
@@ -1009,10 +820,7 @@ export const RefreshSchemasDialog = ({
             size="sm"
             variant="ghost"
             className="h-7 px-2"
-            onClick={() => {
-              setCollapsedPreviewDataSources(new Set(filteredDiffGroups.map(([sourceName]) => sourceName)));
-              setExpandedEntities(new Set());
-            }}
+            onClick={() => setVisibleReviewExpanded(false)}
             disabled={!filteredDiffs.length}
           >
             Collapse all
@@ -1020,6 +828,11 @@ export const RefreshSchemasDialog = ({
         </div>
       </div>
 
+      <RefreshReviewExpansion.Provider value={{ expanded: expandedReviewNodes, toggle: (nodeKey) => setExpandedReviewNodes((previous) => {
+        const next = new Set(previous);
+        if (next.has(nodeKey)) next.delete(nodeKey); else next.add(nodeKey);
+        return next;
+      }) }}>
       <ScrollArea className="schema-review__scroll min-w-0 flex-1 pr-3">
         {filteredDiffs.length === 0 ? (
           diffs.length === 0 ? (
@@ -1048,7 +861,7 @@ export const RefreshSchemasDialog = ({
               return (
                 <section
                   key={sourceName}
-                  className="schema-review__group min-w-0 overflow-hidden rounded-xl border border-border/80"
+                  className="schema-review__group min-w-0 overflow-hidden"
                   data-testid="schema-review-group"
                 >
                   <div className="flex min-w-0 items-center gap-3 border-y border-primary/20 bg-primary/[0.07] px-4 py-2.5 dark:bg-primary/[0.10]">
@@ -1094,48 +907,14 @@ export const RefreshSchemasDialog = ({
                         const sourceGroups = groupExternalSourceChanges(
                           diff.changes.filter((change) => change.group === "sources" || change.group === "mappings"),
                         );
-                        const sourceChangeCount = sourceGroups.reduce((count, source) => count + source.changes.length, 0);
-                        const modelChangeCount = modelObjectChanges.length
-                          + modelColumnGroups.reduce((count, column) => count + column.changes.length, 0);
-                        const hasModelChanges = modelChangeCount > 0;
-                        const hasSourceChanges = sourceChangeCount > 0;
-                        const hasBothChangeTypes = hasModelChanges && hasSourceChanges;
                         const isEntityExpanded = expandedEntities.has(key);
-                        const activeTab = activeChangeTabs.get(key) || (hasModelChanges ? "model" : "sources");
-                        const totalChangeCount = modelChangeCount + sourceChangeCount;
+                        const entityAffectedChanges = affectedChangesByEntity.get(key) || [];
+                        const totalChangeCount = entityAffectedChanges.length;
                         const toggleEntity = () => setExpandedEntities((previous) => {
                           const next = new Set(previous);
                           if (next.has(key)) next.delete(key); else next.add(key);
                           return next;
                         });
-                        const modelContent = (
-                          <ChangeContent
-                            title="Model Entity"
-                            testId="model-entity-change-section"
-                            showHeader={!hasBothChangeTypes}
-                          >
-                            <ObjectChanges changes={modelObjectChanges} />
-                            <ColumnChanges groups={modelColumnGroups} />
-                          </ChangeContent>
-                        );
-                        const sourceContent = (
-                          <ChangeContent
-                            title="External Sources"
-                            testId="external-source-change-section"
-                            showHeader={!hasBothChangeTypes}
-                          >
-                            <div className="grid gap-1">
-                              {sourceGroups.map((source) => (
-                                <ExternalSourceDetails
-                                  key={source.key}
-                                  source={source}
-                                  showCount={sourceGroups.length > 1}
-                                />
-                              ))}
-                            </div>
-                          </ChangeContent>
-                        );
-
                         return (
                           <div key={key} className="schema-review__entity min-w-0 overflow-hidden" data-testid="schema-review-entity">
                             <div className="flex min-w-0 items-center gap-2 px-4 py-2 pl-8">
@@ -1158,59 +937,18 @@ export const RefreshSchemasDialog = ({
                                 )}
                                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                                 <span className="min-w-0 flex-1 truncate font-semibold">{diff.entityName}</span>
-                                <Badge variant="outline" className="shrink-0 font-normal">
-                                  {totalChangeCount} {totalChangeCount === 1 ? "change" : "changes"}
-                                </Badge>
+                                <span className="flex shrink-0 flex-wrap justify-end gap-2"><ChangeSummary changes={entityAffectedChanges} /></span>
+                                <span className="shrink-0 text-xs text-muted-foreground" data-testid="entity-change-count">{totalChangeCount} {totalChangeCount === 1 ? "change" : "changes"}</span>
                               </button>
                             </div>
 
                             {isEntityExpanded ? (
-                              <div className="px-4 pb-3 pl-8">
-                                {hasBothChangeTypes ? (
-                                  <Tabs
-                                    value={activeTab}
-                                    onValueChange={(value) => setActiveChangeTabs((previous) => {
-                                      const next = new Map(previous);
-                                      next.set(key, value as ChangeTab);
-                                      return next;
-                                    })}
-                                  >
-                                    <TabsList className="h-9 w-fit justify-start rounded-none border-0 border-b border-border bg-transparent p-0 backdrop-blur-none">
-                                      <TabsTrigger
-                                        value="model"
-                                        className="h-9 min-w-0 gap-2 rounded-none border-0 border-b-2 border-transparent px-3 text-xs data-[state=active]:border-0 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                                      >
-                                        Model Entity
-                                        <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                                          {modelChangeCount}
-                                        </Badge>
-                                      </TabsTrigger>
-                                      <TabsTrigger
-                                        value="sources"
-                                        className="h-9 min-w-0 gap-2 rounded-none border-0 border-b-2 border-transparent px-3 text-xs data-[state=active]:border-0 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                                      >
-                                        External Sources
-                                        <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                                          {sourceChangeCount}
-                                        </Badge>
-                                      </TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent
-                                      value="model"
-                                      forceMount
-                                      className="mt-2 rounded-none border-0 bg-transparent p-0 shadow-none data-[state=inactive]:hidden"
-                                    >
-                                      {modelContent}
-                                    </TabsContent>
-                                    <TabsContent
-                                      value="sources"
-                                      forceMount
-                                      className="mt-2 rounded-none border-0 bg-transparent p-0 shadow-none data-[state=inactive]:hidden"
-                                    >
-                                      {sourceContent}
-                                    </TabsContent>
-                                  </Tabs>
-                                ) : hasModelChanges ? modelContent : sourceContent}
+                              <div className="px-4 pb-3 pl-[6.5rem]">
+                                <section data-testid={modelObjectChanges.length || modelColumnGroups.length ? "model-entity-change-section" : undefined} className="min-w-0">
+                                  <ObjectChanges changes={modelObjectChanges} />
+                                  <ColumnsSection groups={modelColumnGroups} entityKey={key} />
+                                  <SourcesSection sources={sourceGroups} entityKey={key} />
+                                </section>
                               </div>
                             ) : null}
                           </div>
@@ -1224,6 +962,7 @@ export const RefreshSchemasDialog = ({
           </div>
         )}
       </ScrollArea>
+      </RefreshReviewExpansion.Provider>
     </div>
   );
 

@@ -671,6 +671,13 @@
   color: #ffffff;
 }
 
+.schema-review__scroll [data-radix-scroll-area-viewport] > div {
+  /* Radix's intrinsic table layout can widen the review for long source names. */
+  display: block !important;
+  width: 100%;
+  min-width: 0;
+}
+
 .light .connector-picker-dialog,
 .light .refresh-schemas-dialog {
   background: #fbfafb;

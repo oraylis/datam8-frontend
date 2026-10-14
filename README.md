@@ -11,7 +11,7 @@ shell backed by the Python DataM8 Generator.
 
 ## Local development
 
-Use Node **24** (25+ unsupported), Python compatible with the pinned Generator,
+Use Node **24** (25+ unsupported), Python compatible with Generator **v2.0.0**,
 and `uv`. Initialize nested submodules and install locked dependencies:
 
 ```sh

@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import {
   formatDeepDiffValue,
   readableChangeFields,
-  readableFieldLabel,
+  readableChangeLabel,
   type DeepDiffEntry,
   type DeepDiffColumnGroup,
   type DeepDiffSourceGroup,
@@ -82,13 +82,14 @@ function ReviewDetails({
           event.preventDefault();
           toggle(nodeKey);
         }}
-        className="flex min-h-11 cursor-pointer list-none items-center gap-2 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+        className="relative flex min-h-11 cursor-pointer list-none items-center gap-2 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
       >
-        {summary}
         <ChevronRight
-          className={`ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
+          className={`absolute -left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""}`}
           aria-hidden="true"
+          data-testid="review-expand-icon"
         />
+        {summary}
       </summary>
       <div className="min-w-0 pb-2 pl-6">{children}</div>
     </details>
@@ -115,7 +116,7 @@ export function ChangeLine({
 }) {
   return (
     <div
-      className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] gap-x-2 gap-y-1 border-b border-border/50 py-2.5 last:border-b-0 sm:grid-cols-[1rem_minmax(7rem,0.8fr)_minmax(0,1fr)_1rem_minmax(0,1fr)]"
+      className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] gap-x-2 gap-y-1 border-b border-border/50 py-2.5 last:border-b-0 sm:grid-cols-[1rem_minmax(0,10rem)_minmax(0,1fr)]"
       title={`${change.category}: ${change.path}`}
       data-testid="diff-entry"
     >
@@ -125,30 +126,43 @@ export function ChangeLine({
       >
         {STATUS[change.operation].marker}
       </span>
-      <span className="min-w-0 break-words [overflow-wrap:anywhere] text-xs text-muted-foreground">
-        {readableFieldLabel(label)}
-      </span>
-      <span className="col-start-2 min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-muted-foreground sm:col-start-auto">
-        {change.operation !== "added" ? (
-          <s>{formatDeepDiffValue(change.before)}</s>
-        ) : null}
-      </span>
       <span
-        className="col-start-2 text-xs text-muted-foreground sm:col-start-auto"
-        aria-hidden="true"
+        className="min-w-0 break-words [overflow-wrap:anywhere] text-xs text-muted-foreground"
+        data-testid="diff-field-label"
       >
-        {change.operation === "changed" ? "→" : ""}
+        {readableChangeLabel(change, label)}
       </span>
-      <span className="col-start-2 min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs font-medium sm:col-start-auto">
-        {change.operation !== "removed"
-          ? formatDeepDiffValue(change.after)
-          : null}
-      </span>
-      {change.beforeType || change.afterType ? (
-        <span className="col-start-2 col-end-[-1] text-xs text-muted-foreground">
-          type: {change.beforeType || "—"} → {change.afterType || "—"}
-        </span>
-      ) : null}
+      <div
+        className="col-start-2 flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1 text-xs sm:col-start-auto"
+        data-testid="diff-values"
+      >
+        {change.operation !== "added" ? (
+          <s
+            className="min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-muted-foreground"
+            data-testid="diff-before"
+          >
+            {formatDeepDiffValue(change.before)}
+          </s>
+        ) : null}
+        {change.operation === "changed" ? (
+          <span className="shrink-0 text-muted-foreground" aria-hidden="true">
+            →
+          </span>
+        ) : null}
+        {change.operation !== "removed" ? (
+          <span
+            className="min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] font-medium"
+            data-testid="diff-after"
+          >
+            {formatDeepDiffValue(change.after)}
+          </span>
+        ) : null}
+        {change.beforeType || change.afterType ? (
+          <span className="basis-full text-xs text-muted-foreground">
+            type: {change.beforeType || "—"} → {change.afterType || "—"}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -288,7 +302,7 @@ export function ColumnsSection({
       testId="column-changes"
       summary={
         <>
-          <span className="font-medium">Columns</span>
+          <span className="min-w-0 flex-1 font-medium">Columns</span>
           <span className="text-xs text-muted-foreground">
             {groups.length} affected
           </span>
@@ -315,7 +329,7 @@ export function SourcesSection({
       testId="external-source-change-section"
       summary={
         <>
-          <span className="font-medium">External Sources</span>
+          <span className="min-w-0 flex-1 font-medium">External Sources</span>
           <span className="text-xs text-muted-foreground">
             {sources.length} affected
           </span>
@@ -354,7 +368,7 @@ export function SourcesSection({
               testId="mapping-changes"
               summary={
                 <>
-                  <span className="font-medium">Mappings</span>
+                  <span className="min-w-0 flex-1 font-medium">Mappings</span>
                   <span className="text-xs text-muted-foreground">
                     {source.columns.length} affected
                   </span>

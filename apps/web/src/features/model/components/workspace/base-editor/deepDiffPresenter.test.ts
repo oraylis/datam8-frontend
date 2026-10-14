@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { groupAttributeChanges, groupExternalSourceChanges, presentDeepDiff, readableChangeFields, affectedChanges } from "./deepDiffPresenter";
+import { groupAttributeChanges, groupExternalSourceChanges, presentDeepDiff, readableChangeFields, affectedChanges, readableChangeLabel } from "./deepDiffPresenter";
 
 describe("presentDeepDiff", () => {
+  it.each([
+    ["root['properties'][0]['value']", "classification", "Properties › classification"],
+    ["root['attributes'][0]['properties'][0]['value']", "business_name", "Properties › business_name"],
+    ["root['sources'][0]['properties'][0]['value']", "extract_mode", "Properties › extract_mode"],
+    ["root['sources'][0]['mapping'][0]['properties'][0]['value']", "type", "Properties › type"],
+    ["root['sources'][0]['mapping'][0]['properties'][0]['value']['type']['name']", "format › type › name", "Properties › format › type › name"],
+    ["root['sources'][0]['mapping'][0]['sourceDataType']['type']", "sourceDataType › type", "Data type"],
+    ["root['attributes'][0]['dataType']['charLen']", "dataType › charLen", "Length"],
+    ["root['attributes'][0]['description']", "classification", "classification"],
+    ["root['parameters'][0]['value']['properties'][0]", "type", "Data type"],
+  ])("labels properties by their schema path and preserves custom names: %s", (path, label, expected) => {
+    const [entry] = presentDeepDiff({ values_changed: { [path]: { old_value: "old", new_value: "new" } } }, {}, {});
+    expect(readableChangeLabel(entry, label)).toBe(expected);
+  });
+
   it("counts 20 field changes as five modified affected objects, without counting new mapping properties as added sources", () => {
     const before = {
       attributes: Array.from({ length: 4 }, (_, index) => ({ name: `column_${index}`, dataType: { type: "string", charLen: 12 } })),

@@ -361,6 +361,32 @@ export function readableChangeFields(change: DeepDiffEntry): DeepDiffEntry[] {
   return fields;
 }
 
+export function readableChangeLabel(
+  change: DeepDiffEntry,
+  label: string,
+): string {
+  const segments = parseDeepDiffPath(change.path);
+  const propertyIndex =
+    segments[0] === "properties"
+      ? 0
+      : segments[0] === "attributes"
+        ? 2
+        : segments[0] === "sources"
+          ? segments[2] === "mapping"
+            ? 4
+            : 2
+          : -1;
+  if (
+    propertyIndex >= 0 &&
+    segments[propertyIndex] === "properties" &&
+    typeof segments[propertyIndex + 1] === "number"
+  ) {
+    // Property names and their nested keys are user-defined, including names such as "type".
+    return `Properties › ${label}`;
+  }
+  return readableFieldLabel(label);
+}
+
 export function readableFieldLabel(path: string): string {
   const labels: Record<string, string> = {
     sourceName: "Source column",

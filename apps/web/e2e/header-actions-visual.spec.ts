@@ -735,6 +735,7 @@ test("schema review shows attribute and entity property diffs from the generator
           "root['attributes'][2]": {
             name: "CreatedAt",
             attributeType: "Generic Datetime",
+            properties: [{ property: "classification", value: "internal" }],
             dataType: { type: "datetime", nullable: false },
           },
         },
@@ -750,6 +751,7 @@ test("schema review shows attribute and entity property diffs from the generator
           {
             name: "CreatedAt",
             attributeType: "Generic Datetime",
+            properties: [{ property: "classification", value: "internal" }],
             dataType: { type: "datetime", nullable: false },
           },
         ],
@@ -772,7 +774,7 @@ test("schema review shows attribute and entity property diffs from the generator
   await expect(dialog.getByTestId("external-source-change-section")).toHaveCount(0);
   await expect(modelEntitySection.getByText("Object changes", { exact: true })).toHaveCount(0);
   await expect(modelEntitySection.getByText("Columns", { exact: true })).toBeVisible();
-  await expect(modelEntitySection.getByText("write_mode", { exact: true })).toBeVisible();
+  await expect(modelEntitySection.getByText("Properties › write_mode", { exact: true })).toBeVisible();
   const columnsSection = modelEntitySection.getByTestId("column-changes");
   await expect(columnsSection).not.toHaveAttribute("open");
   await columnsSection.locator(":scope > summary").click();
@@ -794,8 +796,9 @@ test("schema review shows attribute and entity property diffs from the generator
   await addedColumn.locator("summary").first().click();
   await expect(addedColumn.getByText("Generic Datetime", { exact: true })).toBeVisible();
   await expect(addedColumn.getByText("Nullable", { exact: true })).toBeVisible();
+  await expect(addedColumn.getByText("Properties › classification", { exact: true })).toBeVisible();
   await expect(addedColumn.locator("pre")).toHaveCount(0);
-  await modelEntitySection.getByText("write_mode", { exact: true }).scrollIntoViewIfNeeded();
+  await modelEntitySection.getByText("Properties › write_mode", { exact: true }).scrollIntoViewIfNeeded();
   await dialog.screenshot({ path: "output/playwright/refresh-diff-entity-properties.png" });
 });
 
@@ -877,6 +880,7 @@ test("schema review shows source-only and mapping diffs from the generator", asy
   await externalSourcesSection.locator(":scope > summary").click();
   const singleSource = externalSourcesSection.getByTestId("external-source-details");
   await singleSource.locator(":scope > summary").click();
+  await expect(singleSource.getByText("Properties › extract_mode", { exact: true })).toBeVisible();
   await expect(externalSourcesSection.getByText("Object changes", { exact: true })).toHaveCount(0);
   const mappingsSection = externalSourcesSection.getByTestId("mapping-changes");
   await expect(mappingsSection).not.toHaveAttribute("open");
@@ -894,6 +898,7 @@ test("schema review shows source-only and mapping diffs from the generator", asy
   const changedMapping = changedMappingGroup.getByTestId("diff-entry").filter({ hasText: "Data type" });
   await expect(changedMapping).toBeHidden();
   await changedMappingGroup.locator("summary").first().click();
+  await expect(changedMappingGroup.getByText("Properties › attribute_type", { exact: true })).toBeVisible();
   await expect(changedMapping.getByLabel(
     "changed; values_changed; root['sources'][0]['mapping'][0]['sourceDataType']['type']",
   )).toBeVisible();
@@ -1102,8 +1107,8 @@ test("schema review extracts whole sources and mapping lists with long names wit
   await expect(amountMapping.locator(":scope > summary")).toHaveText(/~amount → total1 change/);
   await expect(amountMapping.getByText("Precision", { exact: true })).toBeVisible();
   await expect(amountMapping.getByText("Scale", { exact: true })).toBeVisible();
-  await expect(current.getByText("format › unit", { exact: true })).toBeVisible();
-  await expect(current.getByText("format › round", { exact: true })).toBeVisible();
+  await expect(current.getByText("Properties › format › unit", { exact: true })).toBeVisible();
+  await expect(current.getByText("Properties › format › round", { exact: true })).toBeVisible();
   await expect(current.getByTestId("diff-column-group").filter({ hasText: "code → code" }).getByLabel("New", { exact: true })).toHaveText("+");
   const archived = sources.filter({ hasText: "Archive" });
   await expect(archived.getByText("Target column", { exact: true })).toBeVisible();
@@ -1122,14 +1127,16 @@ test("schema review counts affected objects and hides mapping and column preview
   await page.addInitScript(() => localStorage.setItem("datam8-ui-theme-v2", "light"));
   const payload = createMockSolutionPayload();
   const entity = payload.modelEntities[0].content as any;
-  entity.attributes = ["campaign_desc", "campaign_name_desc", "campaign_type_desc", "dm_load_job_id"].map((name) => ({ name, dataType: { type: "string", charLen: 12 } }));
+  entity.attributes = ["campaign_desc", "campaign_name_desc", "campaign_type_desc", "dm_load_job_id"].map((name, index) => ({ name, dataType: { type: "string", ...(index ? { charLen: 12 } : {}) } }));
   entity.sources[0].mapping = Array.from({ length: 11 }, (_, index) => ({ sourceName: `column_${index}`, targetName: `column_${index}`, sourceDataType: { type: "string" }, properties: [] }));
   const refreshed = structuredClone(entity);
   const values_changed: Record<string, unknown> = {};
   const iterable_item_added: Record<string, unknown> = {};
+  const dictionary_item_added: Record<string, unknown> = {};
   refreshed.attributes.forEach((attribute: any, index: number) => {
-    attribute.dataType.charLen = 24;
-    values_changed[`root['attributes'][${index}]['dataType']['charLen']`] = { old_value: 12, new_value: 24 };
+    attribute.dataType.charLen = index ? 24 : 510;
+    if (index) values_changed[`root['attributes'][${index}]['dataType']['charLen']`] = { old_value: 12, new_value: 24 };
+    else dictionary_item_added[`root['attributes'][${index}]['dataType']['charLen']`] = 510;
   });
   refreshed.sources[0].mapping.forEach((mapping: any, index: number) => {
     if (index < 6) {
@@ -1144,7 +1151,7 @@ test("schema review counts affected objects and hides mapping and column preview
   });
   await mockApi(page, payload);
   await page.route("**/sources/compare**", async (route) => route.fulfill({ json: {
-    has_changes: true, diff: { values_changed, iterable_item_added }, wrapper: { entity: refreshed },
+    has_changes: true, diff: { values_changed, iterable_item_added, dictionary_item_added }, wrapper: { entity: refreshed },
   } }));
   await loadSolutionFromDialog(page);
   await page.getByRole("button", { name: "Refresh data sources" }).click();
@@ -1157,13 +1164,22 @@ test("schema review counts affected objects and hides mapping and column preview
   await expect(dialog.getByTestId("entity-change-count")).toHaveText("5 changes");
   const columns = dialog.getByTestId("column-changes");
   await columns.locator(":scope > summary").click();
-  const firstColumn = columns.getByTestId("diff-column-group").first();
+  const firstColumn = columns.getByTestId("diff-column-group").filter({ hasText: "campaign_desc" });
   await expect(firstColumn.locator(":scope > summary")).toHaveText(/~campaign_desc1 change/);
   await expect(firstColumn.getByText("Length", { exact: true })).toBeHidden();
   await expect(columns.getByText("Changed", { exact: true })).toHaveCount(0);
   await dialog.screenshot({ path: "output/playwright/refresh-diff-affected-counts.png" });
-  await firstColumn.locator(":scope > summary").click();
+  await firstColumn.locator(":scope > summary").getByTestId("review-expand-icon").click();
   await expect(firstColumn.getByText("Length", { exact: true })).toBeVisible();
+  const lengthRow = firstColumn.getByTestId("diff-entry");
+  await expect(lengthRow.getByTestId("diff-before")).toHaveCount(0);
+  await expect(lengthRow.getByTestId("diff-after")).toHaveText("510");
+  const labelBox = await lengthRow.getByTestId("diff-field-label").boundingBox();
+  const valueBox = await lengthRow.getByTestId("diff-values").boundingBox();
+  const afterBox = await lengthRow.getByTestId("diff-after").boundingBox();
+  expect(labelBox!.width).toBeLessThanOrEqual(160);
+  expect(valueBox!.x - labelBox!.x - labelBox!.width).toBeLessThanOrEqual(12);
+  expect(Math.abs(afterBox!.x - valueBox!.x)).toBeLessThanOrEqual(1);
   const sources = dialog.getByTestId("external-source-change-section");
   await sources.locator(":scope > summary").click();
   const source = sources.getByTestId("external-source-details");
@@ -1171,13 +1187,22 @@ test("schema review counts affected objects and hides mapping and column preview
   await source.getByTestId("mapping-changes").locator(":scope > summary").click();
   const mapping = source.getByTestId("diff-column-group").first();
   await expect(mapping.locator(":scope > summary")).toHaveText(/~column_0 → column_02 changes/);
-  await expect(mapping.getByText("classification", { exact: true })).toBeHidden();
+  await expect(mapping.getByText("Properties › classification", { exact: true })).toBeHidden();
   await expect(mapping.getByText("Data type", { exact: true })).toBeHidden();
   await expect(source.getByText("Changed", { exact: true })).toHaveCount(0);
   await dialog.screenshot({ path: "output/playwright/refresh-diff-mappings-compact.png" });
   await mapping.locator(":scope > summary").click();
-  await expect(mapping.getByText("classification", { exact: true })).toBeVisible();
+  await expect(mapping.getByText("Properties › classification", { exact: true })).toBeVisible();
   await expect(mapping.getByText("Data type", { exact: true })).toBeVisible();
+  const dataTypeRow = mapping.getByTestId("diff-entry").filter({ hasText: "Data type" });
+  const beforeBox = await dataTypeRow.getByTestId("diff-before").boundingBox();
+  const newTypeBox = await dataTypeRow.getByTestId("diff-after").boundingBox();
+  expect(newTypeBox!.x - beforeBox!.x - beforeBox!.width).toBeLessThanOrEqual(32);
+  expect(await dialog.locator("summary:visible").filter({ has: page.getByTestId("review-expand-icon") }).evaluateAll((summaries) => summaries.every((summary) => {
+    const icon = summary.querySelector('[data-testid="review-expand-icon"]')!;
+    return icon.getBoundingClientRect().right < summary.getBoundingClientRect().left;
+  }))).toBe(true);
+  await dialog.screenshot({ path: "output/playwright/refresh-diff-compact-values.png", animations: "disabled" });
 });
 
 test("schema refresh keeps failed apply results available for retry", async ({ page }) => {

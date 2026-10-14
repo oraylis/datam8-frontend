@@ -926,13 +926,7 @@ body {
 
 .base-item__delete.icon-btn {
   border-color: transparent;
-  background: transparent;
-}
-
-.base-item__delete.icon-btn:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
+  background-color: transparent;
 }
 
 .base-item__path {
@@ -1477,34 +1471,24 @@ textarea:not([class]):focus {
 
 .btn {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--text);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: var(--font-sm);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .btn--primary {
-  background: var(--accent);
+  background-color: var(--accent);
   border-color: var(--accent-strong);
   color: #fff;
   box-shadow: none;
 }
 
 .btn--ghost {
-  background: transparent;
+  background-color: transparent;
   border-color: transparent;
-}
-
-.btn:hover {
-  border-color: var(--accent);
-  background: var(--accent-subtle);
-}
-
-.btn:active {
-  transform: translateY(1px);
 }
 
 .pill {
@@ -1818,13 +1802,12 @@ textarea:not([class]):focus {
 
 .icon-btn {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  background-color: rgba(255, 255, 255, 0.03);
   color: var(--text);
   border-radius: 10px;
   padding: 6px 8px;
   font-size: var(--font-sm);
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .icon-btn--active {

@@ -3,7 +3,66 @@
 @config "../tailwind.config.ts";
 @source "./**/*.{ts,tsx}";
 @source "../../../apps/web/src/**/*.{ts,tsx}";
-@source inline("inline-flex items-center justify-center justify-start gap-2 whitespace-nowrap rounded-lg text-left text-xs text-sm text-[13px] font-medium font-normal leading-5 transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 h-8 h-9 h-10 w-9 w-full px-3 px-3.5 px-3.5 px-4 border border-primary/40 border-primary/60 border-border border-border/60 border-border/70 border-border/90 border-transparent border-destructive/55 bg-primary bg-primary/95 bg-card/55 bg-card/75 bg-card/82 bg-elevated bg-elevated/70 bg-elevated/75 bg-transparent bg-foreground/5 bg-foreground/6 bg-destructive bg-destructive/90 text-primary text-primary/90 text-primary-foreground text-foreground text-foreground/88 text-foreground/90 text-destructive-foreground shadow-none shadow-sm hover:border-primary/60 hover:bg-primary/95 hover:border-border hover:bg-elevated/70 hover:border-ring/40 hover:bg-elevated hover:border-border/60 hover:bg-foreground/5 hover:border-border/90 hover:bg-card/55 hover:bg-destructive hover:bg-card/75 hover:text-primary/90 hover:underline");
+@source inline("inline-flex items-center justify-center justify-start gap-2 whitespace-nowrap rounded-lg text-left text-xs text-sm text-[13px] font-medium font-normal leading-5 disabled:pointer-events-none disabled:opacity-50 h-8 h-9 h-10 w-9 w-full px-3 px-3.5 px-4 border border-primary/40 border-border border-border/65 border-border/70 border-transparent border-destructive/55 bg-primary bg-card/55 bg-card/82 bg-elevated/75 bg-transparent bg-destructive/90 text-primary text-primary-foreground text-foreground text-foreground/88 text-foreground/90 text-destructive-foreground shadow-none shadow-sm hover:underline");
+
+/* A color overlay preserves each variant's resting fill and selected state. */
+@property --ui-button-overlay {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+:is(.ui-button, .btn, .icon-btn) {
+  --ui-button-ink: hsl(var(--ui-foreground));
+  --ui-button-state-border: hsl(var(--ui-ring));
+  background-image: linear-gradient(var(--ui-button-overlay), var(--ui-button-overlay));
+  transition: --ui-button-overlay var(--ui-transition-fast),
+    background-color var(--ui-transition-fast), border-color var(--ui-transition-fast),
+    color var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
+}
+
+.ui-button[data-variant="default"],
+.btn--primary {
+  --ui-button-ink: hsl(var(--ui-primary-foreground));
+}
+
+.ui-button[data-variant="destructive"] {
+  --ui-button-ink: hsl(var(--ui-destructive-foreground));
+  --ui-button-state-border: hsl(var(--ui-destructive));
+}
+
+:is(.ui-button, .btn, .icon-btn):not(:disabled):not([aria-disabled="true"]):hover {
+  --ui-button-overlay: color-mix(in srgb, var(--ui-button-ink) 6%, transparent);
+  background-image: linear-gradient(var(--ui-button-overlay), var(--ui-button-overlay));
+  border-color: color-mix(in srgb, hsl(var(--ui-border)) 60%, var(--ui-button-state-border) 40%);
+}
+
+:is(.ui-button, .btn, .icon-btn):not(:disabled):not([aria-disabled="true"]):active {
+  --ui-button-overlay: color-mix(in srgb, var(--ui-button-ink) 12%, transparent);
+  background-image: linear-gradient(var(--ui-button-overlay), var(--ui-button-overlay));
+  border-color: color-mix(in srgb, hsl(var(--ui-border)) 40%, var(--ui-button-state-border) 60%);
+  transform: translateY(1px);
+  transition: none;
+}
+
+:is(.ui-button, .btn, .icon-btn):not(:disabled):not([aria-disabled="true"]):focus-visible {
+  outline: 2px solid hsl(var(--ui-ring));
+  outline-offset: 2px;
+}
+
+:is(.ui-button, .btn, .icon-btn):is(:disabled, [aria-disabled="true"]) {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-button, .btn, .icon-btn) {
+    transition: none;
+  }
+  :is(.ui-button, .btn, .icon-btn):not(:disabled):not([aria-disabled="true"]):active {
+    transform: none;
+  }
+}
 
 @layer base {
   :root {
@@ -351,17 +410,6 @@
     color: hsl(var(--ui-foreground));
     box-shadow: var(--ui-shadow-sm);
     padding: 0.5rem 0.875rem;
-    transition:
-      background-color var(--ui-transition-fast),
-      border-color var(--ui-transition-fast),
-      color var(--ui-transition-fast),
-      box-shadow var(--ui-transition-fast),
-      transform var(--ui-transition-fast);
-  }
-
-  .btn:hover {
-    background: color-mix(in srgb, hsl(var(--ui-surface-elevated)) 86%, transparent);
-    border-color: color-mix(in srgb, hsl(var(--ui-border)) 80%, hsl(var(--ui-ring)) 20%);
   }
 
   .btn:disabled {
@@ -376,20 +424,10 @@
     box-shadow: 0 8px 20px color-mix(in srgb, hsl(var(--ui-primary)) 30%, transparent);
   }
 
-  .btn--primary:hover {
-    background: color-mix(in srgb, hsl(var(--ui-primary)) 96%, #0b121f 4%);
-    border-color: color-mix(in srgb, hsl(var(--ui-primary)) 62%, transparent);
-  }
-
   .btn--ghost {
     background: transparent;
     border-color: transparent;
     box-shadow: none;
-  }
-
-  .btn--ghost:hover {
-    background: color-mix(in srgb, hsl(var(--ui-foreground)) 8%, transparent);
-    border-color: color-mix(in srgb, hsl(var(--ui-border-subtle)) 70%, transparent);
   }
 
   .icon-btn {
@@ -403,12 +441,6 @@
     background: color-mix(in srgb, hsl(var(--ui-surface-panel)) 84%, transparent);
     color: hsl(var(--ui-foreground));
     box-shadow: var(--ui-shadow-sm);
-    transition: background-color var(--ui-transition-fast), border-color var(--ui-transition-fast), color var(--ui-transition-fast);
-  }
-
-  .icon-btn:hover {
-    background: color-mix(in srgb, hsl(var(--ui-surface-elevated)) 90%, transparent);
-    border-color: color-mix(in srgb, hsl(var(--ui-border)) 78%, hsl(var(--ui-ring)) 22%);
   }
 
   .icon-btn--active {

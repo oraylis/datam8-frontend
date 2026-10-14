@@ -358,6 +358,42 @@ test("light editor surfaces are uniformly white while dark surfaces stay unchang
   await expectBackground(baseFormSurface, "rgb(39, 39, 39)");
 });
 
+for (const theme of ["light", "dark"] as const) {
+  test(`${theme}: refresh Cancel and Back show feedback and preserve their actions`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem("datam8-ui-theme-v2", value), theme);
+    await mockApi(page);
+    await loadSolutionFromDialog(page);
+    await page.getByRole("button", { name: "Refresh data sources" }).click();
+    const dialog = page.getByRole("dialog");
+    const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
+    await cancel.hover();
+    await expect.poll(() => cancel.evaluate((button) => getComputedStyle(button).getPropertyValue("--ui-button-overlay"))).toContain("0.06");
+    await dialog.screenshot({ path: `output/playwright/button-refresh-${theme}-cancel-hover.png` });
+    await page.mouse.down();
+    await expect(cancel).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 1)");
+    await page.mouse.up();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole("button", { name: "Refresh data sources" }).click();
+    await dialog.getByRole("button", { name: "Scan selected sources" }).click();
+    const back = dialog.getByRole("button", { name: "Back", exact: true });
+    await back.focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(back).toBeFocused();
+    await expect(back).toHaveCSS("outline-width", "2px");
+    await back.hover();
+    await expect.poll(() => back.evaluate((button) => getComputedStyle(button).getPropertyValue("--ui-button-overlay"))).toContain("0.06");
+    await dialog.screenshot({ path: `output/playwright/button-refresh-${theme}-back-hover.png` });
+    await page.mouse.down();
+    await expect(back).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 1)");
+    await page.mouse.up();
+    await expect(dialog.getByRole("combobox", { name: "Refresh mode" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Scan selected sources" })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+}
+
 test("global schema refresh groups, scans, and applies external sources", async ({ page }) => {
   await mockApi(page);
   await loadSolutionFromDialog(page);

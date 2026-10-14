@@ -370,7 +370,7 @@ test("global schema refresh groups, scans, and applies external sources", async 
   await expect(refreshMode).toHaveAttribute("id", "refresh-mode");
   const modeLabel = dialog.getByText("Refresh mode", { exact: true });
   const helperText = dialog.getByText(
-    "Select the external sources to scan. Sources are grouped by Data Source; exclusions apply only to this run.",
+    "All external sources of each selected entity will be scanned.",
     { exact: true },
   );
   const [labelBox, helperBox, modeBox] = await Promise.all([
@@ -389,7 +389,9 @@ test("global schema refresh groups, scans, and applies external sources", async 
   await page.keyboard.press("Escape");
   await expect(dialog.getByRole("cell").filter({ hasText: /^CRM/ })).toBeVisible();
   await expect(dialog.getByText("Customer", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("All external sources", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("columnheader")).toHaveCount(2);
+  await expect(dialog.getByRole("columnheader", { name: "Refresh scope" })).toHaveCount(0);
+  await expect(dialog.getByText("All external sources of each selected entity will be scanned.", { exact: true })).toHaveCount(1);
 
   await expect(dialog.getByRole("button", { name: "Scan selected sources" })).toBeEnabled();
   await dialog.getByRole("button", { name: "Scan selected sources" }).click();

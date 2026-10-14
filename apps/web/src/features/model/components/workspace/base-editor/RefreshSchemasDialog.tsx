@@ -569,9 +569,10 @@ export const RefreshSchemasDialog = ({
     <div className="flex flex-col gap-4 h-[400px]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 text-sm text-muted-foreground">
-          {refreshMode === "sources-only"
-            ? "Refresh only source mappings and source metadata; entity attributes remain unchanged."
-            : "Select the external sources to scan. Sources are grouped by Data Source; exclusions apply only to this run."}
+          <p>All external sources of each selected entity will be scanned.</p>
+          {refreshMode === "sources-only" ? (
+            <p>Only source mappings and source metadata are refreshed; entity attributes remain unchanged.</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2 text-xs text-muted-foreground">
           <label htmlFor="refresh-mode" className="whitespace-nowrap">
@@ -618,7 +619,6 @@ export const RefreshSchemasDialog = ({
                 />
               </TableHead>
               <TableHead>Entity</TableHead>
-              <TableHead>Refresh scope</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -634,7 +634,7 @@ export const RefreshSchemasDialog = ({
               return (
                 <React.Fragment key={sourceName}>
                   <TableRow className="border-y border-primary/20 bg-primary/[0.07] hover:bg-primary/[0.11] dark:bg-primary/[0.10] dark:hover:bg-primary/[0.15]">
-                    <TableCell colSpan={3} className="p-0">
+                    <TableCell colSpan={2} className="p-0">
                       <div className="flex min-h-11 items-center gap-3 px-4">
                       <Checkbox
                         checked={state}
@@ -693,9 +693,6 @@ export const RefreshSchemasDialog = ({
                           </div>
                           <div className="text-xs text-muted-foreground">{usage.layer || usage.entityRelPath}</div>
                         </TableCell>
-                        <TableCell className="text-sm font-mono">
-                          All external sources
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -704,7 +701,7 @@ export const RefreshSchemasDialog = ({
             })}
             {usages.length === 0 && !isLoading && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center p-4 muted">No usages found for this data source.</TableCell>
+                <TableCell colSpan={2} className="text-center p-4 muted">No usages found for this data source.</TableCell>
               </TableRow>
             )}
           </TableBody>

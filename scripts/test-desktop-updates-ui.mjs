@@ -76,7 +76,7 @@ try {
     if (response.exceptionDetails) throw new Error(response.exceptionDetails.exception?.description || response.exceptionDetails.text);
     return response.result?.value;
   } };
-  browser = await chromium.connectOverCDP(address.browser);
+  browser = await chromium.connectOverCDP(address.browser, { noDefaults: true });
   page = browser.contexts()[0].pages().find(candidate => candidate.url().startsWith('http://localhost:4320')) || browser.contexts()[0].pages()[0];
   await expect(page.getByRole('heading', { name: 'Update Simulation', exact: true })).toBeVisible();
   expect(fs.realpathSync(await app.evaluate(({ app }) => app.getPath('userData')))).toBe(fs.realpathSync(path.join(simulationRoot, 'Profile')));

@@ -1,0 +1,57 @@
+{
+  "name": "datam8",
+  "private": true,
+  "version": "2.0.0",
+  "description": "DataM8 2.0 UI + API + Desktop shell",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/ui",
+    "packages/types"
+  ],
+  "scripts": {
+    "docs:check": "node --test scripts/check-docs.test.mjs && node scripts/check-docs.mjs",
+    "docs:capture": "node scripts/capture-user-guide.mjs",
+    "dev:web": "npm --workspace apps/web exec vite",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
+    "generate:schema-types": "node scripts/generate-schema-types.mjs",
+    "build:datam8-binaries": "node scripts/build-datam8-binaries.mjs",
+    "build:python-runtime": "node scripts/build-python-runtime.mjs",
+    "ci:gates": "node --test scripts/ci-gates.test.mjs && node scripts/ci-gates.mjs",
+    "lint": "npm --workspaces run lint",
+    "typecheck": "npm --workspaces run typecheck",
+    "test:runtime:packaged": "node scripts/smoke-python-runtime.mjs",
+    "test:e2e": "npm --workspace apps/web run e2e",
+    "build:web:electron": "cross-env VITE_APP_MODE=electron npm --workspace apps/web run build -- --mode electron",
+    "build:desktop": "npm run build:web:electron && npm run build:python-runtime && npm --workspace apps/desktop run package --",
+    "version:set": "node scripts/set-version.mjs",
+    "test:desktop:packaged": "playwright test --config apps/desktop/playwright.packaged.config.mjs",
+    "test:desktop:signatures": "node scripts/desktop-signatures.mjs verify",
+    "test:desktop:updates": "node scripts/test-desktop-updates.mjs",
+    "test:desktop:updates:ui": "npm --workspace apps/desktop run build && node scripts/test-desktop-updates-ui.mjs",
+    "test:desktop:dev": "node scripts/test-dev-desktop.mjs",
+    "test:desktop:functions": "npm --workspace apps/desktop run build && node --test scripts/function-files.test.mjs",
+    "test:e2e:sample": "node scripts/test-sample.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "adm-zip": "^0.5.16",
+    "cross-env": "^10.1.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.20.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "json-schema-to-typescript": "^15.0.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript-eslint": "^8.24.1"
+  },
+  "overrides": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.1"
+  }
+}

@@ -1,0 +1,39 @@
+name: Release
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  verified:
+    uses: ./.github/workflows/desktop.yml
+    with:
+      signed: true
+    secrets: inherit
+  publish:
+    needs: verified
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: DataM8-verified-four-platforms
+          path: verified
+      - name: Publish only verified distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes="docs/releases/${version}.md"
+          test -s "$notes"
+          jq -e --arg commit "$GITHUB_SHA" --arg version "$version" '.commit == $commit and .version == $version' verified/BUILD-MANIFEST.json
+          cp "$notes" "$RUNNER_TEMP/release-notes.md"
+          printf '\n\nBuild: [%s](https://github.com/%s/commit/%s) · [Verification](https://github.com/%s/actions/runs/%s)\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/release-notes.md"
+          case "$GITHUB_REF_NAME" in
+            *-*) gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --notes-file "$RUNNER_TEMP/release-notes.md" verified/* ;;
+            *) gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --latest --notes-file "$RUNNER_TEMP/release-notes.md" verified/* ;;
+          esac

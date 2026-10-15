@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Install
+        run: npm ci
+
+      - name: Match protected release tag to package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node -e "const fs=require('fs'); const v=JSON.parse(fs.readFileSync('apps/desktop/package.json')).version; if(process.env.GITHUB_REF_NAME !== 'v'+v) throw new Error('Release tag must match desktop package version');"
+
+      - name: Check generated schema types
+        run: |
+          npm run generate:schema-types
+          git diff --exit-code -- apps/web/src/features/model/generated-schema-types.ts
+
+      - name: Build datam8 backend wheel
+        run: npm run build:datam8-binaries
+
+      - name: Prepare the pinned backend for real-backend tests
+        working-directory: submodules/datam8-generator
+        run: uv sync --frozen --all-extras
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Documentation links, images and Markdown checks
+        run: npm run docs:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (workspaces)
+        run: |
+          node --test scripts/final-desktop-manifest.test.mjs
+          npm --workspaces run test --if-present
+
+      - name: Install Playwright Chromium
+        run: npm --workspace apps/web exec playwright install --with-deps chromium
+
+      - name: E2E tests (Playwright)
+        run: npm run test:e2e
+
+      - name: Build web (electron mode)
+        run: npm run build:web:electron
+
+      - name: CI gates (no dm8gen/python fallback + backend smoke)
+        run: npm run ci:gates
+
+      - name: Desktop development launch, local fonts and developer update simulation
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0t64 libasound2t64
+          xvfb-run -a npm run test:desktop:functions
+          xvfb-run -a npm run test:desktop:dev
+          xvfb-run -a npm run test:desktop:updates:ui
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: quality-diagnostics
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+            artifacts/desktop-update-ui-results
+            artifacts/desktop-dev-results
+          retention-days: 30

@@ -47,9 +47,8 @@ Leave `windows_update_fixture_run` empty for full acceptance. Download
 includes seven platform packages, signatures, checksums, the public GPG key,
 `BUILD-MANIFEST.json` and `INSTALL-AND-VERIFY.md`.
 
-The signed workflow and GitHub environment currently permit
-`feature/external_refresh` and protected `v*` tags. A manual signed run on `main`
-requires the coordinated allowlist changes described in the rollout checklist.
+The signed workflow and GitHub environment permit `main`,
+`feature/external_refresh` and protected `v*` tags. PR refs cannot use signing.
 Local packaging commands such as `npm run build:desktop` use the local host
 and architecture; they do not substitute for four-platform signed acceptance.
 
@@ -60,6 +59,26 @@ version. Pushing it triggers a new full build and public release, so do not crea
 test release tags during manual verification. Versions containing a prerelease
 suffix publish as GitHub prereleases; other versions publish as normal releases.
 Windows update metadata and blockmaps are published with the verified packages.
+
+Before pushing a release tag, commit its curated description at
+`docs/releases/<version>.md`; [the 2.0.0 description](releases/2.0.0.md) covers the
+first regular v2 desktop release. Publication requires this file and a matching
+version/commit in `BUILD-MANIFEST.json`. The workflow appends the actual build
+commit and verification URL to the description. The manifest also records the
+Generator and schema commits, so the reissued backend's version label alone is
+not used as build provenance.
+
+Release preparation stops before the main merge and public tag until approval.
+Run the registered manual wrapper with an empty `windows_update_fixture_run`
+on the final candidate, retain its verified artifact and review PR #51. A
+candidate run does not publish a draft release or reserve a tag. After approval,
+tag the actual main merge commit; the tag workflow performs a fresh full build
+and verification before publishing.
+
+CodeQL uses the repository workflow for Actions, JavaScript/TypeScript and Python.
+Default setup must be disabled when activating this workflow; the old default
+branch does not contain the React application and cannot enable its JavaScript
+analysis through default setup before the migration is merged.
 
 ## Signing configuration
 

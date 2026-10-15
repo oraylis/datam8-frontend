@@ -17,9 +17,9 @@ or change to `main` is made by manual verification.
    normal manual entry point. GitHub requires manual workflows to be registered
    there even when the selected execution ref is another branch. See
    [GitHub's manual workflow documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
-4. For manual signed builds on `main`, allow that branch in the GitHub signing
-   environment and update the trusted-ref guards in `desktop.yml` together.
-   The current guards allow the feature branch and protected version tags only.
+4. Manual signed builds on `main` are allowed in the GitHub signing environment
+   and the trusted-ref guards in `desktop.yml`. Keep these lists aligned;
+   `feature/external_refresh` remains available for candidate verification.
    Require reviewed changes on the production branch and keep PR refs excluded.
 5. Configure active protection for release tags. The signing environment's
    `v*` allowlist alone does not protect tags. The workflow checks

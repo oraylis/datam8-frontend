@@ -52,6 +52,10 @@ jobs:
       - name: Build datam8 backend wheel
         run: npm run build:datam8-binaries
 
+      - name: Prepare the pinned backend for real-backend tests
+        working-directory: submodules/datam8-generator
+        run: uv sync --frozen --all-extras
+
       - name: Lint
         run: npm run lint
 
@@ -62,7 +66,9 @@ jobs:
         run: npm run typecheck
 
       - name: Unit tests (workspaces)
-        run: npm --workspaces run test --if-present
+        run: |
+          node --test scripts/final-desktop-manifest.test.mjs
+          npm --workspaces run test --if-present
 
       - name: Install Playwright Chromium
         run: npm --workspace apps/web exec playwright install --with-deps chromium
@@ -78,8 +84,8 @@ jobs:
 
       - name: Desktop development launch, local fonts and developer update simulation
         run: |
-          (cd submodules/datam8-generator && uv sync --frozen --all-extras)
           sudo apt-get update && sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0t64 libasound2t64
+          xvfb-run -a npm run test:desktop:functions
           xvfb-run -a npm run test:desktop:dev
           xvfb-run -a npm run test:desktop:updates:ui
 

@@ -12,7 +12,8 @@ const { terminateChild } = require('./resources/backend-lifecycle.cjs');
 // Watch completed compiler output, not individual emissions. Preload changes
 // require the same orderly restart as main-process changes.
 export function watchDesktop({ appDir = process.cwd(), executablePath = require('electron'), settleMs = 200, log = console.log } = {}) {
-  appDir = path.resolve(appDir);
+  // Windows temp paths may use an 8.3 alias; native recursive watchers need one canonical path.
+  appDir = fs.realpathSync.native(path.resolve(appDir));
   const dist = path.join(appDir, 'dist');
   fs.mkdirSync(dist, { recursive: true });
   const resources = path.join(appDir, 'resources');

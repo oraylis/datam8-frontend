@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch && "$GITHUB_EVENT_NAME" != push ]]; then exit 1; fi
-          if [[ "$GITHUB_REF" != refs/heads/feature/external_refresh && "$GITHUB_REF" != refs/tags/v* ]]; then exit 1; fi
+          if [[ "$GITHUB_REF" != refs/heads/main && "$GITHUB_REF" != refs/heads/feature/external_refresh && "$GITHUB_REF" != refs/tags/v* ]]; then exit 1; fi
           if [[ "$GITHUB_REF" == refs/tags/v* && "${{ github.ref_protected }}" != true ]]; then exit 1; fi
       - uses: actions/setup-node@v6
         with:
@@ -224,6 +224,8 @@ jobs:
       DATAM8_GPG_PASSPHRASE_SECRET: datam8-v2-gpg-passphrase
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v6
         with:
           node-version: 24

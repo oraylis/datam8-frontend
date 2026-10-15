@@ -39,7 +39,7 @@ fingerprint, and verify the signed checksums and your package:
 gpg --import datam8-release-public.asc
 gpg --fingerprint A8987DFCDEC1DEA028294BCACFF392232DB6BB4B
 gpg --verify SHA256SUMS.asc SHA256SUMS
-gpg --verify DataM8-2.0.0-beta.6-mac-arm64.dmg.asc DataM8-2.0.0-beta.6-mac-arm64.dmg
+gpg --verify DataM8-2.0.0-mac-arm64.dmg.asc DataM8-2.0.0-mac-arm64.dmg
 ```
 
 Replace the example filename with your DMG, ZIP, AppImage or DEB. All four formats

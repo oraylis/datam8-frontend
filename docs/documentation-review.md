@@ -71,7 +71,7 @@ patch records the current behavior and tests recovery through context switching.
 | Generator `tests/README.md` | Good self-contained-regression guidance; distinguish legacy sample-dependent full suite from new fixture policy |
 | Generator `tests/db/README.md` | Useful local AdventureWorks fixture; clarify OS driver setup and reproducible image/sample pins upstream |
 | Generator Windows JSON persistence | Capture preparation found a non-ASCII em dash persisted using a platform encoding rather than UTF-8. The guide uses an ASCII exercise suffix; consistent UTF-8 writes need a separate backend regression/fix |
-| Generator `SECURITY.md` | 1.0.x supported-version table does not explain v2 beta support |
+| Generator `SECURITY.md` | Supported-version guidance must match the documented release |
 | Nested schema `README.md` | Incomplete introductory sentence and old central docs naming; clarify generation/compatibility path |
 | Nested schema `SECURITY.md` | Same v2 support-policy ambiguity; requires maintainer decision upstream |
 | Sample `README.md` | Three active targets listed, but `.dm8s` defines four |
@@ -82,13 +82,11 @@ patch records the current behavior and tests recovery through context switching.
 | Sample `docs/howto-template-and-payload-development.md` | Useful Python/Jinja separation and examples; keep linked at a fixed revision |
 | Sample `docs/template-development-howto.md` | Good compatibility redirect; retain |
 | Sample `docs/reference/generator-contracts.md` | Useful template contracts, but execution/API examples must be checked against pinned Generator |
-| Sample `docs/reference/targets.md` | Missing Lakeflow entry |
-| Sample `docs/reference/properties.md` | Clearly target-specific; explain Lakeflow support separately when established |
+| Sample `docs/reference/targets.md` | Match target coverage to the selected solution descriptor |
+| Sample `docs/reference/properties.md` | Keep property interpretation specific to the target implementation |
 | Sample `docs/reference/output-structure.md` | Compare expected output with actual payload paths; distinguish deploy hand-written files from generated files |
 | Sample `Generate/databricks/README.md` | Appropriate short entry point; retain |
 | Sample `Generate/databricks/ARCHITECTURE.md` | Useful interpreted-property/payload mapping reference; keep maintained beside target |
-| Sample `Generate/databricks-lakeflow/README.md` | Duplicates Databricks wording; lacks target-specific behavior explanation |
-| Sample `Generate/databricks-lakeflow/ARCHITECTURE.md` | Duplicate Databricks architecture; do not infer Lakeflow semantics from folder name |
 | Sample `Generate/powerbi-tabular/ARCHITECTURE.md` | Useful narrow property surface; retain and verify actual paths |
 | Sample `Generate/docs/ARCHITECTURE.md` | Useful deterministic docs/diagram design; capture verifies actual local generation |
 | Sample `Output/powerbi-tabular/README.md` | Deployment runner uses a generated subdirectory convention; reconcile with output reference and target paths |

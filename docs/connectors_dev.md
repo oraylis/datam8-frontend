@@ -1,8 +1,7 @@
 # Connector Developer Notes
 
 Keep Python plugin development and backend semantics in Generator; UI consumption
-belongs here. This page describes the current development checkout, not the
-recorded desktop beta.6 runtime. Read [frontend usage](connectors.md),
+belongs here. This page describes the DataM8 2.0.0 integration. Read [frontend usage](connectors.md),
 [the plugin reference](../submodules/datam8-generator/docs/connectors.md),
 [the runnable example](../submodules/datam8-generator/docs/plugin-example.md) and
 [the canonical source contract](../submodules/datam8-generator/docs/backend-contract.md#source-import-and-refresh).

@@ -115,42 +115,6 @@ function withOpenSolutionPrefix(message: string): string {
   return `Failed to open solution: ${cleaned}`;
 }
 
-function cleanupStaleBackendOnPort(port: number): void {
-  if (process.platform !== "win32") return;
-  try {
-    const netstat = spawnSync("netstat", ["-ano", "-p", "tcp"], {
-      shell: false,
-      stdio: "pipe",
-      encoding: "utf8",
-    });
-    const output = `${netstat.stdout || ""}`;
-    if (!output) return;
-
-    const pids = new Set<number>();
-    for (const line of output.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (!/\sLISTENING\s/i.test(trimmed)) continue;
-      if (!trimmed.includes(`:${port}`)) continue;
-      const parts = trimmed.split(/\s+/);
-      const pidRaw = parts.at(-1) || "";
-      const pid = Number.parseInt(pidRaw, 10);
-      if (!Number.isFinite(pid) || pid <= 0 || pid === process.pid) continue;
-      pids.add(pid);
-    }
-
-    for (const pid of pids) {
-      // Best effort cleanup: stale python/datam8 listeners can survive electron restarts.
-      spawnSync("taskkill", ["/PID", `${pid}`, "/T", "/F"], {
-        shell: false,
-        stdio: "ignore",
-      });
-    }
-  } catch {
-    // Ignore cleanup failures; startup will still attempt to spawn and report errors.
-  }
-}
-
 function getWindowsChromeColors(theme: "light" | "dark") {
   if (theme === "light") {
     return {
@@ -362,8 +326,7 @@ async function waitForBackendReady(
     const timeout = setTimeout(() => {
       if (didResolve) return;
       didResolve = true;
-      // Not every backend build emits a machine-readable ready line.
-      // Caller must fallback to /health probing.
+      cleanup();
       resolve(null);
     }, timeoutMs);
 
@@ -1132,7 +1095,6 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     const backendModule = (process.env.DATAM8_BACKEND_MODULE || userSettings.backendModule || "datam8").trim();
     const token = (tokenOverride || backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
-    cleanupStaleBackendOnPort(BACKEND_PORT);
     const env = buildPythonEnv(pythonPath, path.join(process.resourcesPath, "python-runtime"));
     const backendOutputPreview = { value: "" };
 
@@ -1142,6 +1104,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     const proc = spawn(
       pythonPath,
       [
+        "-u",
         "-m",
         backendModule,
         "serve",
@@ -1209,20 +1172,12 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     });
 
     try {
-      const fallbackBaseUrl = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
-      const readyOrHealth = await Promise.race<
-        { baseUrl: string; version: string | null } | null
-      >([
-        waitForBackendReady(proc, 5_000).then((ready) =>
-          ready ? { baseUrl: ready.baseUrl, version: ready.version } : null,
-        ),
-        waitForBackendHealth(fallbackBaseUrl, token, 20_000).then(() => ({
-          baseUrl: fallbackBaseUrl,
-          version: null,
-        })),
-      ]);
-      backendBaseUrl = readyOrHealth?.baseUrl || fallbackBaseUrl;
-      backendVersion = readyOrHealth?.version || null;
+      // Only the process we started can establish readiness. Another service
+      // may already occupy the port and must neither be stopped nor adopted.
+      const ready = await waitForBackendReady(proc);
+      if (!ready) throw new Error("Backend readiness timed out");
+      backendBaseUrl = ready.baseUrl;
+      backendVersion = ready.version;
       backendSolutionPath = targetSolutionPath;
       await waitForBackendHealth(backendBaseUrl, token);
       const versionPayload = await backendRequestJson<{ appVersion?: string; app_version?: string; schemaVersion?: string; schema_version?: string }>("/version");

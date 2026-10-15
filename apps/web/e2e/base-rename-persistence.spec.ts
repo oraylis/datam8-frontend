@@ -227,7 +227,10 @@ test("renaming a folder moves its own metadata and descendants with a real backe
   await expect(folderName).toHaveValue("After");
   await expect(page.locator(".tree__node-label.tree__child--active")).toHaveText("After");
 
+  const reloaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/solution/full" && response.ok());
   await page.getByRole("button", { name: "Reload", exact: true }).first().click();
+  await reloaded;
+  await expect(folderName).toHaveCount(0);
   await expect(page.getByRole("button", { name: "After", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Before", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "After", exact: true }).click();
@@ -254,6 +257,7 @@ test("entity rename retains functions and entity deletion removes them with a re
     await page.getByPlaceholder("Entity name", { exact: true }).press("Tab");
     await expect.poll(() => existsSync(path.join(root, `Model/Core/${renamed}.json`))).toBe(true);
     await expect.poll(() => existsSync(path.join(root, `Model/Core/${name}.json`))).toBe(false);
+    await expect(page.locator(".tree__child--entity.tree__child--active")).toHaveText(renamed);
     expect(readFileSync(functionFile, "utf8")).toBe(original);
     expect(readJson(`Model/Core/${renamed}.json`).transformations[0].function.source).toBe(source);
     await page.getByPlaceholder("Describe this entity").fill("Edited after function rename");

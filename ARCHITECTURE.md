@@ -28,10 +28,12 @@
 ## Backend Lifecycle (Desktop-safe)
 
 Frontend starts the backend for the selected solution and replaces it when switching solutions:
-- Spawn: `python -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>`
+- Spawn: `python -u -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>`
 - Readiness: backend prints exactly one JSON line to stdout:
   - `{"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}`
 - All other logs go to stderr.
+- HTTP health is checked only after the launched process reports readiness. An
+  unrelated listener on the backend port is never stopped or adopted as the backend.
 
 ## Security Model
 

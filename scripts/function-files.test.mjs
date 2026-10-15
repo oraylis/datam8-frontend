@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import { expect, _electron } from '@playwright/test';
 import { desktopFixture } from './desktop-fixture.mjs';
@@ -15,8 +16,10 @@ test('function creation and legacy deletion use real Desktop IPC without overwri
   const solution = desktopFixture(temp, 'Solution');
   const directory = path.join(path.dirname(solution), 'Model/Core');
   let app;
+  const listener = spawn(process.execPath, ['-e', "require('node:http').createServer((_, res) => res.end('unrelated service')).listen(0, '127.0.0.1', function () { process.send(this.address().port); });"], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
   try {
-    const env = { ...process.env };
+    const port = await new Promise((resolve, reject) => { listener.once('message', resolve); listener.once('error', reject); listener.once('exit', code => reject(new Error(`Listener exited ${code}`))); });
+    const env = { ...process.env, DATAM8_BACKEND_TEST_PORT: String(port) };
     delete env.ELECTRON_RUN_AS_NODE;
     app = await _electron.launch({
       executablePath: require('electron'),
@@ -24,7 +27,7 @@ test('function creation and legacy deletion use real Desktop IPC without overwri
       env,
     });
     assert.equal(fs.realpathSync(await app.evaluate(({ app }) => app.getPath('userData'))), fs.realpathSync(path.join(temp, 'Profile')));
-    await app.firstWindow();
+    await (await app.firstWindow()).waitForLoadState('domcontentloaded');
     // Keep the production window/preload, without depending on a running dev server.
     await app.evaluate(async ({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows().find(window => !window.webContents.getURL().startsWith('devtools:'));
@@ -64,8 +67,14 @@ test('function creation and legacy deletion use real Desktop IPC without overwri
     await page.evaluate(payload => window.desktop.solution.deleteFunctionSource(payload), { ...payload, source: 'legacy.py' });
     assert.equal(fs.existsSync(path.join(directory, 'Customer/legacy.py')), false);
     assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');
+    // A port collision must fail without terminating an unrelated listener.
+    await assert.rejects(page.evaluate(solution => window.desktop.solution.load(solution), solution), /Backend|open solution/i);
+    assert.equal(await (await fetch(`http://127.0.0.1:${port}`)).text(), 'unrelated service');
   } finally {
     if (app) await app.close();
+    if (listener.exitCode === null) {
+      await new Promise(resolve => { listener.once('exit', resolve); listener.kill(); });
+    }
     const resolved = path.resolve(temp);
     assert.equal(path.dirname(resolved), path.resolve(os.tmpdir()));
     assert.ok(path.basename(resolved).startsWith('datam8-function-ipc-'));

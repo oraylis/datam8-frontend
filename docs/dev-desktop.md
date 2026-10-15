@@ -5,7 +5,7 @@ Frontend starts a local FastAPI backend process via Python module execution.
 ## Backend start contract
 
 ```bash
-python -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>
+python -u -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>
 ```
 
 Readiness line:
@@ -13,6 +13,10 @@ Readiness line:
 ```json
 {"type":"ready","baseUrl":"http://127.0.0.1:<PORT>","version":"<cliVersion>"}
 ```
+
+The launcher waits for readiness from its own child process before checking HTTP
+health. Python runs unbuffered so the readiness line reaches the launcher promptly.
+An occupied backend port reports a startup error; unrelated listeners are retained.
 
 Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/generate`, ...), no `/api/*` and no `/jobs`.
 

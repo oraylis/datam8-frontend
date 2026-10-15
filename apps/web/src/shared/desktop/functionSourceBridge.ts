@@ -66,7 +66,7 @@ export async function readFunctionSource(payload: FunctionSourcePayload): Promis
 
 export async function createFunctionSource(payload: FunctionSourcePayload): Promise<void> {
   if (hasDesktopBridge() && window.desktop?.solution?.saveFunctionSource) {
-    await window.desktop.solution.saveFunctionSource({ ...payload, content: "" });
+    await window.desktop.solution.saveFunctionSource({ ...payload, content: "", createOnly: true });
     return;
   }
 

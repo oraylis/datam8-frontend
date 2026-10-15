@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { test } from 'node:test';
+import { expect, _electron } from '@playwright/test';
+import { desktopFixture } from './desktop-fixture.mjs';
+
+const root = path.resolve(import.meta.dirname, '..');
+const require = createRequire(path.join(root, 'apps/desktop/package.json'));
+
+test('function creation and legacy deletion use real Desktop IPC without overwriting files', { timeout: 60_000 }, async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datam8-function-ipc-'));
+  const solution = desktopFixture(temp, 'Solution');
+  const directory = path.join(path.dirname(solution), 'Model/Core');
+  let app;
+  try {
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    app = await _electron.launch({
+      executablePath: require('electron'),
+      args: [path.join(root, 'apps/desktop'), `--user-data-dir=${path.join(temp, 'Profile')}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+      env,
+    });
+    assert.equal(fs.realpathSync(await app.evaluate(({ app }) => app.getPath('userData'))), fs.realpathSync(path.join(temp, 'Profile')));
+    await app.firstWindow();
+    // Keep the production window/preload, without depending on a running dev server.
+    await app.evaluate(async ({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find(window => !window.webContents.getURL().startsWith('devtools:'));
+      if (!window) throw new Error('Production renderer window not found');
+      window.webContents.closeDevTools();
+      window.loadURL = async () => {}; // Disable only the development server retry.
+      window.webContents.stop();
+      await window.webContents.loadURL('data:text/html,<title>Function IPC regression</title>');
+    });
+    await expect.poll(() => app.windows().some(window => window.url().startsWith('data:text/html'))).toBe(true);
+    const page = app.windows().find(window => window.url().startsWith('data:text/html'));
+    await page.waitForFunction(() => !!window.desktop?.solution?.saveFunctionSource);
+    const payload = { relPath: 'Model/Core/Customer.json', entityName: 'Customer', solutionPath: solution, content: '', createOnly: true };
+    const create = source => page.evaluate(payload => window.desktop.solution.saveFunctionSource(payload), { ...payload, source });
+
+    const result = await create('new.py');
+    assert.equal(result.path, path.join(directory, 'new.py'));
+    assert.equal(fs.readFileSync(result.path, 'utf8'), '');
+    assert.equal(fs.existsSync(path.join(directory, 'Customer/new.py')), false);
+    // An empty existing source is also a collision.
+    await assert.rejects(create('new.py'), /already exists/);
+    fs.writeFileSync(path.join(directory, 'existing.py'), '# keep direct content');
+    await assert.rejects(create('existing.py'), /already exists/);
+    assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');
+    fs.mkdirSync(path.join(directory, 'Customer'));
+    fs.writeFileSync(path.join(directory, 'Customer/legacy.py'), '# keep legacy content');
+    await assert.rejects(create('legacy.py'), /already exists/);
+    await assert.rejects(create('Customer/legacy.py'), /already exists/);
+    assert.equal(fs.existsSync(path.join(directory, 'legacy.py')), false);
+    assert.equal(fs.readFileSync(path.join(directory, 'Customer/legacy.py'), 'utf8'), '# keep legacy content');
+
+    // Ordinary saves retain their overwrite semantics.
+    await page.evaluate(payload => window.desktop.solution.saveFunctionSource(payload), {
+      ...payload, createOnly: false, source: 'new.py', content: '# saved normally',
+    });
+    assert.equal(fs.readFileSync(path.join(directory, 'new.py'), 'utf8'), '# saved normally');
+    await page.evaluate(payload => window.desktop.solution.deleteFunctionSource(payload), { ...payload, source: 'legacy.py' });
+    assert.equal(fs.existsSync(path.join(directory, 'Customer/legacy.py')), false);
+    assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');
+  } finally {
+    if (app) await app.close();
+    const resolved = path.resolve(temp);
+    assert.equal(path.dirname(resolved), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(resolved).startsWith('datam8-function-ipc-'));
+    fs.rmSync(resolved, { recursive: true, force: true });
+  }
+});

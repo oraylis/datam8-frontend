@@ -5,6 +5,7 @@ import { ChevronDown, GripVertical, Trash2 } from "lucide-react";
 import type { ModelEntity } from "../../../model-types";
 import { IconBtn } from "../common/IconBtn";
 import { reindexRecordAfterRemove } from "../hooks/transformationSourceMaps";
+import { publishAppError } from "../../../../../shared/ui/appErrorBridge";
 import {
   createFunctionSource,
   deleteFunctionSource,
@@ -221,21 +222,22 @@ export const EntityTransformationsEditor = ({
                     onChange={(kind) => {
                       const source = derivePySourcePath(tr.name || "", tr.function?.source);
                       const createsFunction = kind === "function" && tr.kind !== "function";
-                      updateTransformation(idx, (t: any) => ({
-                        ...t,
-                        kind,
-                        function:
-                          kind === "function"
-                            ? { ...(t.function || {}), source }
-                            : undefined,
-                        __uiPrevFunctionSource:
-                          kind === "function"
-                            ? t.__uiPrevFunctionSource || t.function?.source || source
-                            : undefined,
-                      }));
+                      const commitKind = () => {
+                        updateTransformation(idx, (t: any) => ({
+                          ...t,
+                          kind,
+                          function:
+                            kind === "function"
+                              ? { ...(t.function || {}), source }
+                              : undefined,
+                          __uiPrevFunctionSource:
+                            kind === "function"
+                              ? t.__uiPrevFunctionSource || t.function?.source || source
+                              : undefined,
+                        }));
+                        onCommit?.("dropdown-change");
+                      };
                       if (createsFunction && selectedEntity?.relPath) {
-                        setTransformSourceCache((prev) => ({ ...prev, [idx]: "" }));
-                        setTransformSourceDirty((prev) => ({ ...prev, [idx]: false }));
                         void createFunctionSource({
                           relPath: selectedEntity.relPath,
                           source,
@@ -245,14 +247,20 @@ export const EntityTransformationsEditor = ({
                           entityName: entityName || undefined,
                           solutionPath: solutionPath || undefined,
                         })
-                          .then(() => onCommit?.("dropdown-change"))
+                          .then(() => {
+                            setTransformSourceCache((prev) => ({ ...prev, [idx]: "" }));
+                            setTransformSourceDirty((prev) => ({ ...prev, [idx]: false }));
+                            commitKind();
+                          })
                           .catch((err) => {
                             console.error("[DataM8] Function source create failed:", err);
-                            setSaveError((err as Error).message || "Failed to create function source.");
+                            const message = (err as Error).message || "Failed to create function source.";
+                            setSaveError(message);
+                            publishAppError("Function creation failed", message);
                           });
                         return;
                       }
-                      onCommit?.("dropdown-change");
+                      commitKind();
                     }}
                     options={[{ value: "", label: "Select kind" }, ...transformKinds.map((k) => ({ value: k, label: k }))]}
                     placeholder="Select kind"

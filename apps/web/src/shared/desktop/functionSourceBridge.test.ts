@@ -109,7 +109,7 @@ describe("functionSourceBridge", () => {
     });
 
     expect(saveFunctionSourceToDisk).toHaveBeenCalledWith(
-      expect.objectContaining({ source: "clean_data.py", content: "" }),
+      expect.objectContaining({ source: "clean_data.py", content: "", createOnly: true }),
     );
   });
 

@@ -897,13 +897,28 @@ export function AppShell() {
       const toRelPath = renameRequested
         ? [...relPathParts.slice(0, -1), `${nextEntityName}${extension}`].join("/")
         : fromRelPath;
+      let nextContent = updated.content;
       try {
         if (renameRequested) {
-          await renameEntity(modelLocatorFromRelPath(fromRelPath), updated.name);
-          const nextNonLocatorContent = { ...(updated.content as Record<string, unknown>) };
+          const renamed = await renameEntity(modelLocatorFromRelPath(fromRelPath), updated.name);
+          const previousContent = modelEntities.find((entity) => entity.relPath === fromRelPath)?.content;
+          const renamedContent = renamed?.entity as ModelEntity["content"] | undefined;
+          if (nextContent.transformations && renamedContent?.transformations) {
+            nextContent = {
+              ...nextContent,
+              transformations: nextContent.transformations.map((transformation, index) => {
+                const previous = previousContent?.transformations?.[index];
+                const saved = renamedContent.transformations?.find((item) => item.stepNo === transformation.stepNo);
+                return transformation.kind === "function" && saved?.function && deepEqual(transformation.function, previous?.function)
+                  ? { ...transformation, function: saved.function }
+                  : transformation;
+              }),
+            };
+          }
+          const nextNonLocatorContent = { ...(nextContent as Record<string, unknown>) };
           delete nextNonLocatorContent.name;
           const previousNonLocatorContent = {
-            ...((modelEntities.find((entity) => entity.relPath === fromRelPath)?.content || {}) as Record<string, unknown>),
+            ...((previousContent || {}) as Record<string, unknown>),
           };
           delete previousNonLocatorContent.name;
           const hasNonIdentityPatch = !deepEqual(
@@ -918,6 +933,7 @@ export function AppShell() {
         }
         const persisted: ModelEntity = {
           ...updated,
+          content: nextContent,
           name: nextEntityName || updated.name,
           relPath: toRelPath,
           locator: modelLocatorFromRelPath(toRelPath),
@@ -1931,7 +1947,8 @@ export function AppShell() {
       const nextContent = {
         ...(payload.content || {}),
         path: effectiveFolderPath,
-        name: targetFolderName,
+        // The move sets the new identity after saving changes at the current locator.
+        name: currentFolderName,
       };
 
       if (folderExists) {

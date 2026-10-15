@@ -83,7 +83,7 @@ contextBridge.exposeInMainWorld("desktop", {
       ipcRenderer.invoke("solution:import-plugins", payload),
     readFunctionSource: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) =>
       ipcRenderer.invoke("solution:read-function-source", payload),
-    saveFunctionSource: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string }) =>
+    saveFunctionSource: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string; createOnly?: boolean }) =>
       ipcRenderer.invoke("solution:save-function-source", payload),
     renameFunctionSource: (payload: { relPath: string; fromSource: string; toSource: string; entityName?: string; solutionPath?: string }) =>
       ipcRenderer.invoke("solution:rename-function-source", payload),

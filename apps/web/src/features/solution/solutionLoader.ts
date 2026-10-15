@@ -59,7 +59,7 @@ declare global {
         migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         importPlugins?: (payload: { solutionPath: string; artifactPaths: string[] }) => Promise<{ imported?: number; plugins?: unknown } | null>;
         readFunctionSource?: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => Promise<{ content?: string } | null>;
-        saveFunctionSource?: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string }) => Promise<{ path?: string } | null>;
+        saveFunctionSource?: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string; createOnly?: boolean }) => Promise<{ path?: string } | null>;
         renameFunctionSource?: (payload: { relPath: string; fromSource: string; toSource: string; entityName?: string; solutionPath?: string }) => Promise<{ skipped?: boolean; fromPath?: string; toPath?: string } | null>;
         deleteFunctionSource?: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => Promise<{ path?: string } | null>;
         renameFolder?: (payload: { fromFolderPath: string; toFolderPath: string; solutionPath?: string }) => Promise<{ fromPath?: string; toPath?: string } | null>;

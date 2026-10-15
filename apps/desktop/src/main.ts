@@ -906,11 +906,15 @@ function writeFunctionSourceToDisk(payload: {
   content: string;
   entityName?: string;
   solutionPath?: string;
+  createOnly?: boolean;
 }): string {
   const resolved = resolveFunctionSourcePaths(payload);
   const content = typeof payload.content === "string" ? payload.content : "";
+  if (payload.createOnly && [resolved.preferredPath, resolved.fallbackPath, resolved.legacyPath].some((candidate) => fs.existsSync(candidate))) {
+    throw new Error("Function source already exists. Choose another name.");
+  }
   fs.mkdirSync(path.dirname(resolved.preferredPath), { recursive: true });
-  fs.writeFileSync(resolved.preferredPath, content, "utf8");
+  fs.writeFileSync(resolved.preferredPath, content, { encoding: "utf8", flag: payload.createOnly ? "wx" : "w" });
 
   if (resolved.legacyPath !== resolved.preferredPath && fs.existsSync(resolved.legacyPath)) {
     try {
@@ -1700,7 +1704,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "solution:save-function-source",
-  (_event, payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string }) => {
+  (_event, payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string; createOnly?: boolean }) => {
     const filePath = writeFunctionSourceToDisk(payload);
     return { path: filePath };
   },

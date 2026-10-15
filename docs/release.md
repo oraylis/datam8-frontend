@@ -47,6 +47,10 @@ Leave `windows_update_fixture_run` empty for full acceptance. Download
 includes seven platform packages, signatures, checksums, the public GPG key,
 `BUILD-MANIFEST.json` and `INSTALL-AND-VERIFY.md`.
 
+Release filenames must remain unchanged on GitHub. The Windows installer uses
+`DataM8-Setup-<version>.exe`; delivery rejects unsafe filenames before signing
+checksums, so download names, update URLs and checksum entries stay consistent.
+
 The signed workflow and GitHub environment permit `main`,
 `feature/external_refresh` and protected `v*` tags. PR refs cannot use release
 signing or Vault access. macOS PR packages still receive local ad-hoc bundle

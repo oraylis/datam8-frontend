@@ -83,7 +83,7 @@ analysis through default setup before the migration is merged.
 ## Signing configuration
 
 Create the GitHub environment `desktop-signing-v2`. Restrict deployment refs to
-`feature/external_refresh` and protected `v*` release tags. Do not permit PR refs.
+`main`, `feature/external_refresh` and protected `v*` release tags. Do not permit PR refs.
 The signing configuration uses a dedicated Azure application/service principal
 with GitHub OIDC. Its application has a federated credential whose issuer is
 `https://token.actions.githubusercontent.com`, audience is

@@ -86,7 +86,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0t64 libasound2t64
           xvfb-run -a npm run test:desktop:functions
-          xvfb-run -a npm run test:desktop:dev
+          DEBUG=pw:protocol xvfb-run -a npm run test:desktop:dev
           xvfb-run -a npm run test:desktop:updates:ui
 
       - uses: actions/upload-artifact@v4

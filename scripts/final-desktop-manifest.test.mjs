@@ -18,6 +18,11 @@ test('final delivery records the version and pinned source identities and reject
     fs.writeFileSync(path.join(temporary, 'latest-mac.yml'), 'fixture');
     assert.notEqual(run().status, 0, 'a macOS update feed is not supported');
     fs.unlinkSync(path.join(temporary, 'latest-mac.yml'));
+    fs.renameSync(path.join(temporary, 'DataM8.exe'), path.join(temporary, 'DataM8 Setup.exe'));
+    const unsafe = run();
+    assert.notEqual(unsafe.status, 0);
+    assert.match(unsafe.stderr, /Release filenames must be GitHub-safe/);
+    fs.renameSync(path.join(temporary, 'DataM8 Setup.exe'), path.join(temporary, 'DataM8.exe'));
     const result = run();
     assert.equal(result.status, 0, result.stderr);
     const manifest = JSON.parse(fs.readFileSync(path.join(temporary, 'BUILD-MANIFEST.json'), 'utf8'));

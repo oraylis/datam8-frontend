@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 const root = path.resolve(process.argv[2]);
 const names = fs.readdirSync(root);
+if (names.some(name => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name))) throw new Error('Release filenames must be GitHub-safe so update URLs and signed checksums remain valid');
 for (const pattern of [/\.exe$/, /mac-x64\.dmg$/, /mac-x64\.zip$/, /mac-arm64\.dmg$/, /mac-arm64\.zip$/, /\.AppImage$/, /\.deb$/]) {
   if (names.filter(name => pattern.test(name)).length !== 1) throw new Error(`Missing or ambiguous final distribution: ${pattern}`);
 }

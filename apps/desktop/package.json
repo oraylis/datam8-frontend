@@ -76,6 +76,7 @@
       }
     },
     "nsis": {
+      "artifactName": "DataM8-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,

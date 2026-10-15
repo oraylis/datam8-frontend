@@ -65,7 +65,7 @@ test('construction leaves updates idle and makes no release requests', () => {
 test('manual checks show exact-version notes without automatic downloads; errors show a dialog', async () => {
   const h = harness(); await h.updates.check();
   assert.equal(h.updates.status.phase, 'available'); assert.equal(h.dialogs.length, 1); assert.deepEqual(h.order, []);
-  assert(h.requests[1].endsWith('/releases/tags/v2.1.0-beta.99'));
+  assert(h.requests[1].endsWith('/releases/tags/v2.1.0'));
   assert(h.dialogs[0].detail.includes('Safer desktop updates'));
   const failed = harness({ fetch: async () => new Response('', { status: 503 }) });
   await failed.updates.check(); assert.equal(failed.dialogs.length, 1); assert.equal(failed.dialogs[0].type, 'error');
@@ -98,7 +98,7 @@ test('installation waits for saving and backend shutdown, and save failure never
 test('manual platforms open only a constructed official URL and never invoke the Windows updater', async () => {
   const h = harness({ platform: 'darwin', arch: 'arm64', checkWindows: () => { throw new Error('must not run'); } });
   await h.updates.check(); await h.updates.download(); await h.updates.install(); await h.updates.openRelease();
-  assert.deepEqual(h.order, ['https://github.com/oraylis/datam8-frontend/releases/tag/v2.1.0-beta.99']);
+  assert.deepEqual(h.order, ['https://github.com/oraylis/datam8-frontend/releases/tag/v2.1.0']);
 });
 test('backend shutdown failure stops installation and keeps the downloaded update available', async () => {
   const h = harness({ stopBackend: async () => { throw new Error('Backend did not terminate'); } });
@@ -130,5 +130,5 @@ test('another manual check cannot replace the release displayed in an open nativ
   const checking = h.updates.check(); await shown;
   const requests = h.requests.length;
   await h.updates.check(); assert.equal(h.requests.length, requests);
-  answer(); await checking; assert.equal(h.updates.status.version, '2.1.0-beta.99');
+  answer(); await checking; assert.equal(h.updates.status.version, '2.1.0');
 });

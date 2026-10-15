@@ -25,3 +25,13 @@ test('terminates a backend that ignores shutdown', async () => {
     assert.throws(() => process.kill(proc.pid, 0));
   } finally { if (proc.exitCode === null && proc.signalCode === null) proc.kill('SIGKILL'); }
 });
+
+test('Windows termination includes the owned launcher child', { skip: process.platform !== 'win32' }, async () => {
+  const proc = spawn(process.execPath, ['-e', "const nested = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(()=>{}, 1000)'], { stdio: 'inherit' }); nested.once('spawn', () => process.send(nested.pid)); setInterval(()=>{}, 1000)"], { stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true });
+  const [pid] = await once(proc, 'message');
+  try {
+    await terminateChild(proc);
+    assert.throws(() => process.kill(proc.pid, 0));
+    assert.throws(() => process.kill(pid, 0));
+  } finally { if (proc.exitCode === null && proc.signalCode === null) await terminateChild(proc); }
+});

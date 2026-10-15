@@ -164,7 +164,7 @@ for (const distribution of distributions) {
       expect(releaseRequests).toHaveLength(2);
       expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items.some(item => item.label === 'Developer' || item.label === 'Update demo'))).toBe(false);
       await expect(page.getByRole('complementary', { name: 'Desktop update' })).toHaveCount(0);
-      expect(await app.evaluate(() => globalThis.__links.at(-1))).toBe('https://github.com/oraylis/datam8-frontend/releases/tag/v2.1.0-beta.99');
+      expect(await app.evaluate(() => globalThis.__links.at(-1))).toBe('https://github.com/oraylis/datam8-frontend/releases/tag/v2.1.0');
       expect(await app.evaluate(() => globalThis.__dialogs.at(-1).buttons)).toEqual(['Open Release & Downloads', 'Later']);
     } finally {
       if (app) await app.close();

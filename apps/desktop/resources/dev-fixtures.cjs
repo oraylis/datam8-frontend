@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-function releaseFixture(version = '2.1.0-beta.99', body = '# Changes\n\n- Safer desktop updates\n- Python runtime fixes\n\n[Full details](https://github.com/oraylis/datam8-frontend)') {
+function releaseFixture(version = '2.1.0', body = '# Changes\n\n- Safer desktop updates\n- Python runtime fixes\n\n[Full details](https://github.com/oraylis/datam8-frontend)') {
   const packages = ['x64', 'arm64'].flatMap(arch => ['dmg', 'zip'].map(ext => `DataM8-${version}-mac-${arch}.${ext}`));
   packages.push(`DataM8-${version}.AppImage`, `datam8_${version}_amd64.deb`);
   return { tag_name: `v${version}`, draft: false, prerelease: version.includes('-'), body,

@@ -1401,7 +1401,7 @@ async function createWindow() {
       });
     };
     loadDev();
-    if (isDevToolsAllowed() && !updateDemo) {
+    if (isDevToolsAllowed() && !updateDemo && process.env.DATAM8_DEVELOPER_TEST_DEBUG !== "1") {
       mainWindow.webContents.openDevTools();
     }
   } else {

@@ -52,9 +52,7 @@ try {
     if (Date.now() >= deadline) throw new Error(`Electron did not start within 60 seconds:\n${logs.join('')}`);
     await sleep(100);
   }
-  // Keep Electron's native context defaults; Chromium download-policy setup
-  // is not supported consistently by Electron's Linux CDP endpoint.
-  browser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
+  browser = await chromium.connectOverCDP(endpoint);
   await expect.poll(() => browser.contexts()[0].pages().some(candidate => candidate.url().startsWith('http://localhost:4320')), { timeout: 30_000 }).toBe(true);
   page = browser.contexts()[0].pages().find(candidate => candidate.url().startsWith('http://localhost:4320'));
   page.on('pageerror', error => rendererErrors.push(error.message));

@@ -75,7 +75,7 @@ test.beforeAll(async () => {
   });
   writeFileSync(path.join(root, "Model/Core/existing.py"), "# keep existing content", "utf8");
   server = spawn(python, [
-    "-m", "datam8", "serve", "--host", "127.0.0.1", "--port", "0", "--solution", path.join(root, "TestSolution.dm8s"),
+    "-u", "-m", "datam8", "serve", "--host", "127.0.0.1", "--port", "0", "--solution", path.join(root, "TestSolution.dm8s"),
   ], { cwd: repoRoot, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   baseUrl = await new Promise<string>((resolve, reject) => {
     let output = "";

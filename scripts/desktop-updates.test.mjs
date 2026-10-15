@@ -30,6 +30,10 @@ test('release notes are bounded plaintext and contain no executable HTML or link
   assert(excerpt.includes('Heading')); assert(excerpt.includes('bold details')); assert(excerpt.includes('excerpt'));
   assert(!excerpt.includes('<script>')); assert(!excerpt.includes('alert')); assert(!excerpt.includes('evil.example')); assert(!excerpt.includes('**'));
   assert(notesExcerpt('x'.repeat(3000)).length < 1300); assert.equal(notesExcerpt(''), '');
+  for (const notes of ['<scr<script>ipt>alert(1)</scr</script>ipt>', '&lt;script&gt;alert(1)&lt;/script&gt;', '<!--<!-->hidden-->']) {
+    assert(!notesExcerpt(notes).includes('<'));
+  }
+  assert.equal(notesExcerpt('&amp;lt;b&amp;gt; &amp; &lt;b&gt;Text&lt;/b&gt;'), '&lt;b&gt; & Text');
 });
 test('test servers accept only loopback HTTP without credentials or URL fragments', () => {
   assert.equal(loopback('http://127.0.0.1:8123/'), 'http://127.0.0.1:8123');

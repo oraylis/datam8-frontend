@@ -23,7 +23,13 @@ export function headingAnchors(source) {
   for (const line of proseLines(source)) {
     const heading = line.match(/^#{1,6}\s+(.+?)\s*#*$/)?.[1];
     if (!heading) continue;
-    const slug = heading.toLowerCase().replace(/<[^>]*>/g, "")
+    let text = heading.toLowerCase();
+    let previous;
+    do {
+      previous = text;
+      text = text.replace(/<[^<>]*>/g, "");
+    } while (text !== previous);
+    const slug = text
       .replace(/[^\p{L}\p{N}\p{M}_\-\s]/gu, "").replace(/\s/g, "-");
     const count = counts.get(slug) || 0;
     counts.set(slug, count + 1);

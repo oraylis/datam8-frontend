@@ -4,6 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { checked, validateMacBinaries } from './mac-runtime.mjs';
+
+test('command arguments remain literal even if options request a shell', () => {
+  const literal = 'value; echo injected';
+  assert.equal(checked(process.execPath, ['-e', 'process.stdout.write(process.argv[1])', literal], { shell: true }), literal);
+});
 test('reject host dylibs, wrong architecture and escaping links after relocation', { skip: process.platform !== 'darwin' }, () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'DataM8 portability regression '));
   try {

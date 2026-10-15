@@ -83,7 +83,7 @@ test.beforeAll(async () => {
   };
   execFileSync(python, ["-c", fixtureScript, root], { cwd: backend, env, windowsHide: true });
   server = spawn(python, [
-    "-m", "datam8", "serve", "--host", "127.0.0.1", "--port", "0",
+    "-u", "-m", "datam8", "serve", "--host", "127.0.0.1", "--port", "0",
     "--solution", path.join(root, "Builtin.dm8s"),
   ], { cwd: backend, env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   baseUrl = await new Promise<string>((resolve, reject) => {

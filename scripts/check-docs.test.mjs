@@ -19,6 +19,7 @@ test("checks local links, images and anchors without reading example code as pro
 test("handles duplicate heading fragments and referenced links", () => {
   const source = "# Guide\n\n## Save\n\n## Save\n\n[second](#save-1)\n[ref][home]\n\n[home]: https://example.com\n";
   assert.ok(headingAnchors(source).has("save-1"));
+  assert.ok(headingAnchors('# <b>Save</b>\n').has('save'));
   assert.deepEqual(checkMarkdown("/guide.md", source, () => source, () => true), []);
 });
 

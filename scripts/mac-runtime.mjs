@@ -12,7 +12,7 @@ export const standaloneArchives = {
   x64: { triple: 'x86_64-apple-darwin', sha256: 'a8fd7a91852f19b6d959793ef41fad048631ccb2a334a9ecdf573255298f7978' },
 };
 export function checked(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: 'utf8', shell: false, ...options });
+  const result = spawnSync(command, args, { encoding: 'utf8', ...options, shell: false });
   if (result.error || result.status !== 0) throw new Error(`${command} failed: ${result.error?.message || result.stderr || result.stdout || `exit ${result.status}`}`);
   return result.stdout || '';
 }

@@ -49,16 +49,22 @@ function selectRelease(releases, current, platform, arch) {
   }).sort((a, b) => compareVersions(b.tag_name.replace(/^v/, ''), a.tag_name.replace(/^v/, '')))[0] || null;
 }
 function plainNotes(markdown) {
-  return String(markdown || '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, '')
-    .replace(/<[^>]*>/g, '')
+  const entities = { '&amp;': '&', '&lt;': '<', '&gt;': '>' };
+  let text = String(markdown || '').replace(/&(?:amp|lt|gt);/g, entity => entities[entity]);
+  // Repeat because removing a nested fragment can expose another HTML tag.
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, '')
+      .replace(/<[^<>]*(?:>|$)/g, '');
+  } while (text !== previous);
+  return text
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/^\s*#{1,6}\s+/gm, '')
     .replace(/^\s*```[^\n]*\n?/gm, '')
     .replace(/[`*_]/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/\r/g, '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim();
 }
 function notesExcerpt(markdown) {

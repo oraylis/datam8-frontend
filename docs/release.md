@@ -48,7 +48,9 @@ includes seven platform packages, signatures, checksums, the public GPG key,
 `BUILD-MANIFEST.json` and `INSTALL-AND-VERIFY.md`.
 
 The signed workflow and GitHub environment permit `main`,
-`feature/external_refresh` and protected `v*` tags. PR refs cannot use signing.
+`feature/external_refresh` and protected `v*` tags. PR refs cannot use release
+signing or Vault access. macOS PR packages still receive local ad-hoc bundle
+signatures (`identity: '-'`) so the same strict bundle verification applies.
 Local packaging commands such as `npm run build:desktop` use the local host
 and architecture; they do not substitute for four-platform signed acceptance.
 

@@ -19,7 +19,9 @@ const old = files(path.join(fixtures, 'old')).find(name => name.endsWith('.exe')
 const next = files(path.join(fixtures, 'next')).find(name => name.endsWith('.exe'));
 const metadataFile = files(path.join(fixtures, 'next')).find(name => /\.yml$/.test(name));
 if (!old || !next || !metadataFile) throw new Error('Two signed update fixtures and metadata are required');
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'DataM8 updates '));
+// NSIS can expand the runner's 8.3 temp path when relaunching the app. Use the
+// canonical path throughout so process discovery compares the same executable.
+const temp = fs.mkdtempSync(path.join(fs.realpathSync.native(os.tmpdir()), 'DataM8 updates '));
 const diagnostics = path.resolve('artifacts/desktop-update-results');
 fs.mkdirSync(diagnostics, { recursive: true });
 const logs = [];

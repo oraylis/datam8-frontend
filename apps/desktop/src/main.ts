@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions, type IpcMainInvokeEvent } from "electron";
 import { autoUpdater } from "electron-updater";
+import { waitForBackendReady, waitForBackendHealth } from "../resources/backend-startup.cjs";
 import { terminateChild } from "../resources/backend-lifecycle.cjs";
 import { buildPythonEnv } from "../resources/backend-env.cjs";
 import { loopback, parseVersion, REPOSITORY, releaseUrl, requireWindowsPublisher } from "../resources/update-policy.cjs";
@@ -59,6 +60,9 @@ let backendToken: string | null = crypto.randomBytes(24).toString("hex");
 let backendVersion: string | null = null;
 let backendStartPromise: Promise<void> | null = null;
 let backendSolutionPath: string | null = null;
+let backendWorkspaceId: string | null = null;
+let backendRuntimeKey: string | null = null;
+let backendStartupAbort: AbortController | null = null;
 type AppTheme = "light" | "dark" | "system";
 let currentAppTheme: AppTheme = "system";
 let applicationMenu: Menu | null = null;
@@ -313,120 +317,8 @@ function parseReadyLine(line: string): { baseUrl: string; version: string } | nu
   }
 }
 
-async function waitForBackendReady(
-  proc: ChildProcessWithoutNullStreams,
-  timeoutMs = 20_000,
-): Promise<{ baseUrl: string; version: string } | null> {
-  return await new Promise((resolve, reject) => {
-    let stdoutBuf = "";
-    let stderrBuf = "";
-    let stderrPreview = "";
-    let didResolve = false;
-
-    const timeout = setTimeout(() => {
-      if (didResolve) return;
-      didResolve = true;
-      cleanup();
-      resolve(null);
-    }, timeoutMs);
-
-    const cleanup = () => {
-      clearTimeout(timeout);
-      proc.stdout.off("data", onStdout);
-      proc.stderr.off("data", onStderr);
-      proc.off("exit", onExit);
-      proc.off("error", onError);
-    };
-
-    const onError = (err: unknown) => {
-      if (didResolve) return;
-      didResolve = true;
-      cleanup();
-      reject(err instanceof Error ? err : new Error(String(err)));
-    };
-
-    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
-      if (didResolve) return;
-      didResolve = true;
-      cleanup();
-      reject(new Error(`Backend exited before readiness. code=${code ?? "null"} signal=${signal ?? "null"}\nStderr (preview):\n${stderrPreview}`));
-    };
-
-    const onStderr = (chunk: string) => {
-      if (stderrPreview.length < 4096) {
-        stderrPreview += chunk.slice(0, 4096 - stderrPreview.length);
-      }
-      stderrBuf += chunk;
-      while (true) {
-        const idx = stderrBuf.indexOf("\n");
-        if (idx < 0) break;
-        const line = stderrBuf.slice(0, idx).trim();
-        stderrBuf = stderrBuf.slice(idx + 1);
-        if (!line) continue;
-        const ready = parseReadyLine(line);
-        if (ready) {
-          if (didResolve) return;
-          didResolve = true;
-          cleanup();
-          resolve(ready);
-          return;
-        }
-        const uvicornMatch = line.match(/Uvicorn running on (https?:\/\/[^\s]+)\s*/i);
-        if (uvicornMatch?.[1]) {
-          if (didResolve) return;
-          didResolve = true;
-          cleanup();
-          resolve({ baseUrl: uvicornMatch[1].trim().replace(/\/+$/, ""), version: "0.0.0" });
-          return;
-        }
-      }
-    };
-
-    const onStdout = (chunk: string) => {
-      stdoutBuf += chunk;
-      while (true) {
-        const idx = stdoutBuf.indexOf("\n");
-        if (idx < 0) return;
-        const line = stdoutBuf.slice(0, idx).trim();
-        stdoutBuf = stdoutBuf.slice(idx + 1);
-        if (!line) continue;
-        const ready = parseReadyLine(line);
-        if (!ready) continue;
-        if (didResolve) return;
-        didResolve = true;
-        cleanup();
-        resolve(ready);
-        return;
-      }
-    };
-
-    proc.once("error", onError);
-    proc.once("exit", onExit);
-    proc.stderr.setEncoding("utf8");
-    proc.stdout.setEncoding("utf8");
-    proc.stderr.on("data", onStderr);
-    proc.stdout.on("data", onStdout);
-  });
-}
-
-async function waitForBackendHealth(baseUrl: string, token: string, timeoutMs = 20_000): Promise<void> {
-  const start = Date.now();
-  const headers = { Authorization: `Bearer ${token}` };
-
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(`${baseUrl}/health`, { headers });
-      if (res.ok) return;
-    } catch {
-      // Backend may still be booting.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-
-  throw new Error(`Backend health timed out after ${timeoutMs}ms`);
-}
-
 async function stopBackend() {
+  backendStartupAbort?.abort();
   if (backendStopPromise) return backendStopPromise;
   if (!backendProcess) return;
   const proc = backendProcess;
@@ -504,6 +396,7 @@ async function backendRequestJson<T>(relativePath: string, init?: RequestInit): 
   }
   const headers = new Headers(init?.headers || {});
   headers.set("Authorization", `Bearer ${backendToken}`);
+  if (backendWorkspaceId) headers.set("X-DataM8-Workspace", backendWorkspaceId);
   const response = await fetch(`${backendBaseUrl}${relativePath}`, { ...(init || {}), headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -520,19 +413,33 @@ async function loadCurrentSolutionPayload() {
 
 async function ensureBackendForSolution(solutionPath: string): Promise<void> {
   const normalized = normalizeExistingFilePath(solutionPath);
-  if (backendProcess && backendSolutionPath && path.resolve(backendSolutionPath) === normalized) {
-    if (backendBaseUrl && backendToken) {
-      try {
-        await waitForBackendHealth(backendBaseUrl, backendToken, 2_500);
-        return;
-      } catch {
-        // Existing process is stale/unreachable; restart below.
-      }
-    }
+  const previousSettings = userSettings;
+  const nextSettings = UserSettings.parseFromSolution(path.dirname(normalized));
+  userSettings = nextSettings;
+  let runtimeKey: string;
+  try {
+    const nextPython = resolvePythonRuntimePath();
+    if (!nextPython) throw new Error("Python runtime for the selected solution was not found. The current workspace remains open.");
+    runtimeKey = `${nextPython}\0${(process.env.DATAM8_BACKEND_MODULE || nextSettings.backendModule || "datam8").trim()}`;
+  } finally {
+    userSettings = previousSettings;
   }
-  await stopBackend();
+  if (backendProcess && backendBaseUrl && backendToken && backendRuntimeKey === runtimeKey) {
+    await waitForBackendHealth(backendBaseUrl, backendToken, 2_500);
+    if (!backendSolutionPath || path.resolve(backendSolutionPath) !== normalized) {
+      const workspace = await backendRequestJson<{ workspaceId: string }>("/workspace/open", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: normalized }),
+      });
+      backendWorkspaceId = workspace.workspaceId;
+      backendSolutionPath = normalized;
+      userSettings = nextSettings;
+    }
+  } else {
+    await stopBackend();
+    await startBackend(normalized);
+  }
   currentSolutionPath = normalized;
-  await startBackend(normalized);
   syncWindowTitle();
 }
 
@@ -1093,6 +1000,12 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       throw new Error(lines.join("\n"));
     }
     const backendModule = (process.env.DATAM8_BACKEND_MODULE || userSettings.backendModule || "datam8").trim();
+    backendWorkspaceId = null;
+    backendRuntimeKey = `${pythonPath}\0${backendModule}`;
+    const startupAbort = new AbortController();
+    backendStartupAbort = startupAbort;
+    mainWindow?.webContents.send("solution:startup-changed", true);
+    const startupDeadline = Date.now() + 60_000;
     const token = (tokenOverride || backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
     backendToken = token;
     const env = buildPythonEnv(pythonPath, path.join(process.resourcesPath, "python-runtime"));
@@ -1108,6 +1021,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
         "-m",
         backendModule,
         "serve",
+        "--workspace-switch",
         "--host",
         BACKEND_HOST,
         "--port",
@@ -1174,28 +1088,29 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     try {
       // Only the process we started can establish readiness. Another service
       // may already occupy the port and must neither be stopped nor adopted.
-      const ready = await waitForBackendReady(proc);
-      if (!ready) throw new Error("Backend readiness timed out");
+      const ready = await waitForBackendReady(proc, parseReadyLine, startupDeadline - Date.now(), startupAbort.signal);
       backendBaseUrl = ready.baseUrl;
       backendVersion = ready.version;
       backendSolutionPath = targetSolutionPath;
-      await waitForBackendHealth(backendBaseUrl, token);
-      const versionPayload = await backendRequestJson<{ appVersion?: string; app_version?: string; schemaVersion?: string; schema_version?: string }>("/version");
+      await waitForBackendHealth(backendBaseUrl, token, Math.max(1, startupDeadline - Date.now()), startupAbort.signal);
+      const init = { signal: AbortSignal.any([startupAbort.signal, AbortSignal.timeout(Math.max(1, startupDeadline - Date.now()))]) };
+      const workspace = await backendRequestJson<{ workspaceId: string }>("/workspace", init);
+      backendWorkspaceId = workspace.workspaceId;
+      const versionPayload = await backendRequestJson<{ appVersion?: string; app_version?: string; schemaVersion?: string; schema_version?: string }>("/version", init);
       backendVersion = `${versionPayload?.appVersion || versionPayload?.app_version || versionPayload?.schemaVersion || versionPayload?.schema_version || backendVersion || "0.0.0"}`;
       isStartupPhase = false;
     } catch (err) {
-      try {
-        proc.kill();
-      } catch {
-        // ignore
-      }
-      backendProcess = null;
-      backendBaseUrl = null;
-      backendVersion = null;
-      backendSolutionPath = null;
+      await stopBackend();
+      backendWorkspaceId = null;
+      backendRuntimeKey = null;
       const msg = err instanceof Error ? err.message : String(err);
       const output = backendOutputPreview.value.trim();
       throw new Error(withOpenSolutionPrefix(simplifyBackendErrorMessage(msg, output)));
+    } finally {
+      if (backendStartupAbort === startupAbort) {
+        backendStartupAbort = null;
+        mainWindow?.webContents.send("solution:startup-changed", false);
+      }
     }
   })();
 
@@ -1525,6 +1440,7 @@ ipcMain.handle("updates:preparation-complete", (event, id: unknown, result: Upda
 function handleSolutionOperation<Args extends unknown[], Result>(channel: string, handler: (event: IpcMainInvokeEvent, ...args: Args) => Result | Promise<Result>) {
   ipcMain.handle(channel, async (event, ...args) => {
     if (preparingUpdate || isQuitting) throw new Error("An update or shutdown is in progress. Please try again later.");
+    if (solutionOperations) throw new Error("Wait for the current solution operation to finish.");
     solutionOperations++;
     try { return await handler(event, ...args as Args); }
     finally { solutionOperations--; }
@@ -1586,25 +1502,30 @@ ipcMain.handle("solution:detect-version", (_event, solutionPath: string | null |
   return { version: detectSolutionVersion(normalized), path: normalized };
 });
 
+ipcMain.handle("solution:cancel-start", async () => {
+  if (!backendStartupAbort) return false;
+  backendStartupAbort.abort(new Error("Backend startup cancelled."));
+  await backendStartPromise?.catch(() => {});
+  return true;
+});
+ipcMain.handle("solution:is-starting", () => backendStartupAbort !== null);
+ipcMain.handle("solution:workspace-id", () => backendWorkspaceId);
+
 handleSolutionOperation("solution:load", async (_event, solutionPath: string | null | undefined) => {
   const normalized = normalizeExistingFilePath(`${solutionPath || ""}`);
   await ensureBackendForSolution(normalized);
   const payload = await loadCurrentSolutionPayload();
-  return { path: normalized, payload };
+  return { path: normalized, payload, workspaceId: backendWorkspaceId };
 });
 
 handleSolutionOperation("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => {
   const solutionPath = await createSolutionViaCli(payload);
-  await ensureBackendForSolution(solutionPath);
-  const loaded = await loadCurrentSolutionPayload();
-  return { solutionPath, payload: loaded };
+  return { solutionPath };
 });
 
 handleSolutionOperation("solution:migrate-v1-to-v2", async (_event, payload: { sourceSolutionPath: string; targetDir: string }) => {
   const migratedSolutionPath = await migrateSolutionViaCli(payload);
-  await ensureBackendForSolution(migratedSolutionPath);
-  const loaded = await loadCurrentSolutionPayload();
-  return { solutionPath: migratedSolutionPath, payload: loaded };
+  return { solutionPath: migratedSolutionPath };
 });
 
 handleSolutionOperation("solution:import-plugins", async (_event, payload: { solutionPath: string; artifactPaths: string[] }) => {
@@ -1619,11 +1540,13 @@ ipcMain.handle(
   "backend:function-request",
   async (_event, payload: {
     path: string;
+    workspaceId?: string | null;
     method?: "GET" | "POST";
     body?: unknown;
     legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
   }) => {
     const requestPath = `${payload?.path || ""}`;
+    if (backendWorkspaceId && payload.workspaceId !== backendWorkspaceId) throw new Error("Workspace changed; reload before retrying.");
     if (!requestPath.startsWith("/functions/")) {
       throw new Error("Only Function API requests are allowed through this bridge.");
     }

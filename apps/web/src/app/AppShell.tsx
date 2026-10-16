@@ -20,6 +20,7 @@ import { FolderEditor } from "../features/model/components/workspace/folder-edit
 import { GeneratorPanel } from "../features/generator/GeneratorPanel";
 import { RefreshSchemasDialog } from "../features/model/components/workspace/base-editor/RefreshSchemasDialog";
 import { SolutionDialog } from "./SolutionDialog";
+import { SolutionLoadingDialog } from "./SolutionLoadingDialog";
 import { CreateModelEntityWizard } from "../features/model/components/CreateModelEntityWizard";
 import { MoveEntitiesDialog } from "../features/model/components/MoveEntitiesDialog";
 import { NewProjectDialog } from "./NewProjectDialog";
@@ -261,6 +262,7 @@ export function AppShell() {
     solutionSource,
     solutionPath,
     loading: solutionLoading,
+    beforeLoad,
     error,
     migrationOpen,
     migrationSourcePath,
@@ -860,14 +862,14 @@ export function AppShell() {
 
   const handleProjectCreated = useCallback(
     async (createdSolutionPath: string) => {
-      const result = await loadSolution({ kind: "server-path", path: createdSolutionPath });
+      const result = await loadSolution({ kind: electronLike ? "electron-path" : "server-path", path: createdSolutionPath });
       if (!result) {
         throw new Error("Failed to load created solution");
       }
-      applyLoadedSolution(result);
+      applyLoadedSolution(result, { resetWorkspace: true });
       setNewProjectOpen(false);
     },
-    [applyLoadedSolution, loadSolution],
+    [applyLoadedSolution, loadSolution, electronLike],
   );
 
   const handleToggle = useCallback(
@@ -1738,6 +1740,21 @@ export function AppShell() {
   useEffect(() => {
     updateSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
   }, [hasAnyDirty, generatorRunning, solutionLoading, persistActiveEditorBeforeSwitch]);
+  useEffect(() => {
+    beforeLoad.current = async () => {
+      if (updateSnapshotRef.current.generatorRunning) throw new Error("Wait for generation to finish before opening another solution.");
+      flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+      const saved = await updateSnapshotRef.current.persist();
+      const baseSaved = await Promise.all(
+        [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
+      );
+      flushSync(() => {});
+      if (!saved || baseSaved.includes(false) || updateSnapshotRef.current.hasAnyDirty) {
+        throw new Error("Some changes are still unsaved. Save them before opening another solution.");
+      }
+    };
+    return () => { beforeLoad.current = null; };
+  }, [beforeLoad, flushPatchedBaseAutosave]);
   const updateStatus = useDesktopUpdates(async () => {
     const snapshot = updateSnapshotRef.current;
     if (snapshot.generatorRunning || snapshot.solutionLoading) return { ok: false, reason: "Wait for generation or solution loading to finish." };
@@ -1757,8 +1774,8 @@ export function AppShell() {
     return { ok: true };
   });
   useEffect(() => {
-    if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing";
-  }, [updateStatus?.phase]);
+    if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing" || solutionLoading;
+  }, [updateStatus?.phase, solutionLoading]);
 
   const handleReload = useCallback(async () => {
     if (!solution) return;
@@ -2183,6 +2200,7 @@ export function AppShell() {
       />
 
       {import.meta.env.DEV && <DeveloperTools status={updateStatus} />}
+      <SolutionLoadingDialog open={electronLike && solutionLoading} />
       <SolutionDialog
         open={dialogOpen}
         onLoaded={(model, base, folders) => {

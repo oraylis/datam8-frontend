@@ -14,7 +14,7 @@
     "start": "electron .",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "npm run build && node --test ../../scripts/backend-env.test.mjs ../../scripts/backend-lifecycle.test.mjs ../../scripts/mac-runtime.test.mjs ../../scripts/desktop-update-feed.test.mjs ../../scripts/desktop-updates.test.mjs ../../scripts/developer-simulation.test.mjs ../../scripts/watch-desktop.test.mjs ../../scripts/dev-vite.test.mjs ../../scripts/check-font-assets.test.mjs",
+    "test": "npm run build && node --test ../../scripts/backend-startup.test.mjs ../../scripts/backend-env.test.mjs ../../scripts/backend-lifecycle.test.mjs ../../scripts/mac-runtime.test.mjs ../../scripts/desktop-update-feed.test.mjs ../../scripts/desktop-updates.test.mjs ../../scripts/developer-simulation.test.mjs ../../scripts/watch-desktop.test.mjs ../../scripts/dev-vite.test.mjs ../../scripts/check-font-assets.test.mjs",
     "package": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config build.config.cjs --publish never"
   },
   "build": {

@@ -5,7 +5,7 @@ Frontend starts a local FastAPI backend process via Python module execution.
 ## Backend start contract
 
 ```bash
-python -u -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>
+python -u -m datam8 serve --host 127.0.0.1 --port 4318 --token <random> --solution <path> --workspace-switch
 ```
 
 Readiness line:
@@ -16,6 +16,12 @@ Readiness line:
 
 The launcher waits for readiness from its own child process before checking HTTP
 health. Python runs unbuffered so the readiness line reaches the launcher promptly.
+The first solution starts the process on demand with a shared 60-second startup
+budget. The loading dialog allows cancelling startup and waits for owned process
+termination before another attempt. Subsequent solutions use the
+[workspace switching contract](../submodules/datam8-generator/docs/backend-contract.md#desktop-workspace-switching)
+in the same process. Editor saves are drained first; failed opens keep the old
+workspace. Changing the Python interpreter or backend module requires a restart.
 An occupied backend port reports a startup error; unrelated listeners are retained.
 
 Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/generate`, ...), no `/api/*` and no `/jobs`.
@@ -73,6 +79,10 @@ are missing after a branch switch, run `npm ci` in the repository root; the
 launcher reports that setup step instead of opening a broken editor.
 
 ## Developer tools and update simulation
+
+`npm run test:desktop:workspaces` exercises editor autosave, workspace switching
+with the same backend PID, failure recovery, stale requests, generation and
+shutdown using disposable local fixtures and the prepared Generator environment.
 
 With Node 24 and installed npm dependencies, use the normal desktop start:
 
@@ -152,6 +162,17 @@ integrity with `codesign --verify --deep --strict /path/to/datam8.app`. Follow t
 [installation guide](desktop-installation.md) if Gatekeeper requires approval.
 
 ## Native packaging and CI
+
+The runtime build installs dependencies into clean `site-packages`, without
+inheriting packages from the build interpreter. `scripts/prepare-python-runtime.py`
+removes development-only components and package tests, bundles the standard
+library and an explicit allowlist of pure Python dependencies into bytecode ZIPs,
+and precompiles remaining external packages. Native libraries, package metadata,
+licenses, certificates and required package resources are retained. All existing
+connector extras remain installed. `runtime-manifest.json` records the reduction.
+Windows uses a relative `._pth` file to isolate imports from registry and host
+Python paths. The relocated runtime smoke test checks actual imports and service
+startup; archives are imported directly without extraction at application start.
 
 Use `npm run build:desktop` on a suitable native host for local packaging.
 The launcher directly starts Vite and the compilation-aware Electron watcher;

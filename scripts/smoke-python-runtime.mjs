@@ -117,6 +117,7 @@ async function main() {
 
     console.log(`[smoke-python-runtime] Runtime: ${runtimeRoot}`);
     console.log(`[smoke-python-runtime] Python: ${python}`);
+    checked(python, [path.join(repoRoot, "scripts", "verify-python-runtime.py"), runtimeRoot], { env, cwd: temp, stdio: "inherit" });
 
     checked(python, ["-m", "datam8", "--help"], { env });
     checked(

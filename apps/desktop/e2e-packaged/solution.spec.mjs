@@ -98,7 +98,7 @@ for (const distribution of distributions) {
       await expect(page.locator('.generator-panel').getByRole('button', { name: 'Generate', exact: true })).toBeEnabled();
       const oldPids = await app.evaluate(() => process._getActiveHandles().filter(handle => handle.constructor.name === 'ChildProcess' && handle.spawnargs?.includes('serve')).map(handle => handle.pid));
       const newPids = await open(second); expect(newPids.length).toBeGreaterThan(0);
-      expect(newPids.some(pid => !oldPids.includes(pid))).toBe(true);
+      expect(newPids).toEqual(oldPids);
       await expect(await editEntity()).toHaveValue('Packaged fixture');
       await page.context().tracing.stop();
       await app.evaluate(({ app }) => { app.quit(); app.quit(); });

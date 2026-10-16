@@ -9,6 +9,9 @@ frontend checkout; matching version numbers alone do not establish compatibility
 
 - Electron starts `python -m datam8 serve` on loopback with a token, parses readiness
   and exposes connection details through preload.
+- Desktop solution changes reuse the running backend through the canonical
+  [workspace switching contract](../submodules/datam8-generator/docs/backend-contract.md#desktop-workspace-switching).
+  Save checks run before switching; requests carry their workspace ID.
 - Browser loads the startup-bound workspace through `/solution/full`. The dialog
   path is retained for UI state but does not select another server workspace.
 - Editor updates use `/entities/*` and `/model/save`; Reload uses `/model/reload`.

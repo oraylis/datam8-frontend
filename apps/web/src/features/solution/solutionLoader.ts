@@ -7,6 +7,7 @@ import type { Solution } from "./solution-types";
 import { apiBase } from "../../config";
 import { V1SolutionDetectedError } from "./errors";
 import { readBackendErrorMessage } from "../../shared/api/errorMessage";
+import { setWorkspaceId } from "../../shared/api/workspaceSession";
 import type { DesktopUpdateBridge, DesktopDeveloperBridge } from "@datam8/types";
 
 export type SolutionSource =
@@ -45,6 +46,7 @@ declare global {
       solution?: {
         requestFunctionApi?: (payload: {
           path: string;
+          workspaceId?: string | null;
           method?: "GET" | "POST";
           body?: unknown;
           legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
@@ -54,7 +56,11 @@ declare global {
         pickDirectory?: () => Promise<string | null>;
         pickPluginArtifacts?: () => Promise<string[] | null>;
         detectVersion?: (solutionPath: string) => Promise<{ version?: "v1" | "v2"; path?: string } | null>;
-        load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown } | null>;
+        load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown; workspaceId?: string } | null>;
+        cancelStart?: () => Promise<boolean>;
+        isStarting?: () => Promise<boolean>;
+        workspaceId?: () => Promise<string | null>;
+        onStartupChanged?: (callback: (starting: boolean) => void) => () => void;
         createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         importPlugins?: (payload: { solutionPath: string; artifactPaths: string[] }) => Promise<{ imported?: number; plugins?: unknown } | null>;
@@ -325,6 +331,7 @@ async function loadFromElectron(path: string): Promise<LoadedSolution> {
 
   if (desktopBridge?.load) {
     const loaded = await desktopBridge.load(path);
+    setWorkspaceId(loaded?.workspaceId || null);
     return normalizePayload((loaded as any)?.payload ?? loaded);
   }
 

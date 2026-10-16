@@ -212,6 +212,7 @@ function writeRuntimeSiteCustomize() {
     [
       "import os",
       "import sys",
+      "sys.dont_write_bytecode = True",
       "",
       "_prefix = os.path.realpath(sys.prefix)",
       "",
@@ -317,7 +318,15 @@ if (!fs.existsSync(sourcePrefix) || !fs.statSync(sourcePrefix).isDirectory()) {
 
 if (process.platform !== "darwin") {
   console.log(`[build:python-runtime] Copying Python runtime from ${sourcePrefix}`);
-  fs.cpSync(sourcePrefix, runtimeRoot, { recursive: true, dereference: true });
+  fs.cpSync(sourcePrefix, runtimeRoot, {
+    recursive: true, dereference: true,
+    // Never inherit packages from the build machine; install only declared
+    // runtime dependencies into a clean site-packages below.
+    filter: source => {
+      const relative = path.relative(sourcePrefix, source);
+      return !relative.split(path.sep).some(part => part === "site-packages" || part === "__pycache__");
+    },
+  });
   normalizeRuntimeSymlinks();
 }
 ensureRuntimePythonAliases();
@@ -356,6 +365,8 @@ installRuntimePackages(runtimeSitePackages, generatorInstallSpec);
 // self-contained until the generator metadata is corrected upstream.
 installRuntimePackages(runtimeSitePackages, "deepdiff==8.6.2");
 pruneBuildOnlyPythonPackages();
+fs.writeFileSync(path.join(runtimeRoot, ".datam8-runtime-staging"), path.resolve(runtimeRoot));
+runChecked(runtimePython, ["-I", path.join(repoRoot, "scripts", "prepare-python-runtime.py"), runtimeRoot]);
 if (process.platform === "darwin") {
   validateMacBinaries(runtimeRoot);
   signMacRuntime(runtimeRoot);

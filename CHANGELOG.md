@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.0.1
+
+- Bundle Generator 2.0.1 to preserve Unicode in model JSON and generated output.
+- Automatically convert legacy Windows-1252 solution JSON to UTF-8 when opening
+  solutions, without retaining backup files.
+- See the [2.0.1 release notes](docs/releases/2.0.1.md) for compatibility details.
+
 ## v2.0.0-beta.6
 
 ### Highlights

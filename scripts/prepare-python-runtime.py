@@ -1,12 +1,13 @@
 """Reduce and bundle an already-installed runtime, using its own interpreter.
 
-Keep native/mixed packages and namespace packages on disk. The explicit archive
+Keep native/mixed packages on disk. The explicit archive
 allowlist is intentionally conservative: package resources and dynamic imports
 must continue working. Sources stay inside the archives for introspection.
 """
 
 import compileall
 import json
+import py_compile
 import shutil
 import sys
 import zipfile
@@ -199,13 +200,13 @@ def prepare(root):
         packages,
         quiet=1,
         optimize=0,
-        invalidation_mode=__import__("py_compile").PycInvalidationMode.UNCHECKED_HASH,
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
     ):
         raise RuntimeError("External package bytecode compilation failed")
     compileall.compile_file(
         stdlib / "sitecustomize.py",
         quiet=1,
-        invalidation_mode=__import__("py_compile").PycInvalidationMode.UNCHECKED_HASH,
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
     )
     marker.unlink()
     manifest = {

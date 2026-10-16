@@ -22,6 +22,11 @@ termination before another attempt. Subsequent solutions use the
 [workspace switching contract](../submodules/datam8-generator/docs/backend-contract.md#desktop-workspace-switching)
 in the same process. Editor saves are drained first; failed opens keep the old
 workspace. Changing the Python interpreter or backend module requires a restart.
+Frontend **Reload** refreshes the current model, plugins and editor data without
+reopening the solution or resolving the Python runtime. Runtime selection is logged
+when a process actually starts, including the interpreter path and configuration
+source (`DATAM8_PYTHON_PATH`, solution settings, bundled runtime or development
+environment). The window's bearer token remains stable across startup retries.
 An occupied backend port reports a startup error; unrelated listeners are retained.
 
 Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/generate`, ...), no `/api/*` and no `/jobs`.

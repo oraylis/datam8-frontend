@@ -49,16 +49,7 @@ plugins.init_builtin_plugins()
 manager = PluginManager()
 for manifest in manager.get_plugins():
     cls = manager.get_plugin(manifest.id)
-    # The pinned model requires a non-empty AuthMode.required, while the
-    # existing Azure default/managed-identity modes provide []. This also fails
-    # in the unbundled development environment; it is not an archive failure.
-    if manifest.id == "builtin:AzureDataLake":
-        print(
-            "SKIP: AzureDataLake UI auth schema (existing empty-required validation error)"
-        )
-        cls.get_connection_properties()
-    else:
-        cls.get_ui_schema()
+    cls.get_connection_properties()
     cls.get_data_type_mappings()
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / "local.parquet"

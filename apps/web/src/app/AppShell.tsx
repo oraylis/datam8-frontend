@@ -30,7 +30,7 @@ import { useDesktopUpdates } from "../features/updates/useDesktopUpdates";
 import { flushSync } from "react-dom";
 import { useSolution } from "../features/solution/SolutionContext";
 import { MigrateSolutionV1Wizard } from "../features/migration/components/MigrateSolutionV1Wizard";
-import type { ElectronSolutionBridge, SolutionSource } from "../features/solution/solutionLoader";
+import type { ElectronSolutionBridge } from "../features/solution/solutionLoader";
 import { useModelEditor } from "../features/model/ModelEditorContext";
 import { useGenerator } from "../features/generator/GeneratorContext";
 import { useConfirm } from "../shared/hooks/useConfirm";
@@ -259,10 +259,10 @@ const uniqueScopeTargets = (targets: PropertyRefactorScopeTarget[]): PropertyRef
 export function AppShell() {
   const {
     solution,
-    solutionSource,
     solutionPath,
     loading: solutionLoading,
     beforeLoad,
+    refreshSolution,
     error,
     migrationOpen,
     migrationSourcePath,
@@ -1736,39 +1736,32 @@ export function AppShell() {
     return true;
   }, [activeWorkTab]);
 
-  const updateSnapshotRef = useRef({ hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch });
+  const workspaceSnapshotRef = useRef({ hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch });
   useEffect(() => {
-    updateSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
+    workspaceSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
   }, [hasAnyDirty, generatorRunning, solutionLoading, persistActiveEditorBeforeSwitch]);
-  useEffect(() => {
-    beforeLoad.current = async () => {
-      if (updateSnapshotRef.current.generatorRunning) throw new Error("Wait for generation to finish before opening another solution.");
-      flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
-      const saved = await updateSnapshotRef.current.persist();
-      const baseSaved = await Promise.all(
-        [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
-      );
-      flushSync(() => {});
-      if (!saved || baseSaved.includes(false) || updateSnapshotRef.current.hasAnyDirty) {
-        throw new Error("Some changes are still unsaved. Save them before opening another solution.");
-      }
-    };
-    return () => { beforeLoad.current = null; };
-  }, [beforeLoad, flushPatchedBaseAutosave]);
-  const updateStatus = useDesktopUpdates(async () => {
-    const snapshot = updateSnapshotRef.current;
-    if (snapshot.generatorRunning || snapshot.solutionLoading) return { ok: false, reason: "Wait for generation or solution loading to finish." };
-    if (Array.from(document.querySelectorAll('[role="dialog"]')).some(element => element.getClientRects().length)) return { ok: false, reason: "Finish or cancel the open editor dialog before installing an update." };
-    // Blur commits local input drafts before inert prevents any further editing.
+  const persistWorkspaceEdits = useCallback(async () => {
     flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
     if (appRootRef.current) appRootRef.current.inert = true;
-    const saved = await updateSnapshotRef.current.persist();
+    const saved = await workspaceSnapshotRef.current.persist();
     const baseSaved = await Promise.all(
-      [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])]
-        .map(flushPatchedBaseAutosave),
+      [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
     );
     flushSync(() => {});
-    if (!saved || baseSaved.includes(false) || updateSnapshotRef.current.hasAnyDirty || updateSnapshotRef.current.generatorRunning || updateSnapshotRef.current.solutionLoading) {
+    return saved && !baseSaved.includes(false) && !workspaceSnapshotRef.current.hasAnyDirty;
+  }, [flushPatchedBaseAutosave]);
+  useEffect(() => {
+    beforeLoad.current = async () => {
+      if (workspaceSnapshotRef.current.generatorRunning) throw new Error("Wait for generation to finish before opening another solution.");
+      if (!await persistWorkspaceEdits()) throw new Error("Some changes are still unsaved. Save them before opening another solution.");
+    };
+    return () => { beforeLoad.current = null; };
+  }, [beforeLoad, persistWorkspaceEdits]);
+  const updateStatus = useDesktopUpdates(async () => {
+    const snapshot = workspaceSnapshotRef.current;
+    if (snapshot.generatorRunning || snapshot.solutionLoading) return { ok: false, reason: "Wait for generation or solution loading to finish." };
+    if (Array.from(document.querySelectorAll('[role="dialog"]')).some(element => element.getClientRects().length)) return { ok: false, reason: "Finish or cancel the open editor dialog before installing an update." };
+    if (!await persistWorkspaceEdits() || workspaceSnapshotRef.current.generatorRunning || workspaceSnapshotRef.current.solutionLoading) {
       return { ok: false, reason: "Some changes are still unsaved. Resolve the save errors in the open tabs and try again." };
     }
     return { ok: true };
@@ -1825,16 +1818,13 @@ export function AppShell() {
     }
     void refreshConnectorCatalog();
 
-    const fallbackSource: SolutionSource | null = solutionSource
-      ? solutionSource
-      : electronLike && solutionPath
-        ? { kind: "electron-path", path: solutionPath }
-        : { kind: "server-path", path: solutionPath || "" };
-    const result = fallbackSource ? await loadSolution(fallbackSource) : undefined;
-    if (result) {
+    try {
+      const result = await refreshSolution();
       applyLoadedSolution(result);
+    } catch (err) {
+      showAppError("Reload failed", (err as Error).message);
     }
-  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solution, solutionPath, solutionSource]);
+  }, [applyLoadedSolution, confirm, hasAnyDirty, refreshSolution, showAppError, solution]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")

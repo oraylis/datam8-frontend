@@ -52,16 +52,16 @@ let installingUpdate = false;
 let solutionOperations = 0;
 let preparation: { id: string; resolve: (result: UpdatePreparation) => void } | null = null;
 let currentSolutionPath: string | null = null;
-let userSettings: UserSettings | null = null;
 
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendBaseUrl: string | null = null;
-let backendToken: string | null = crypto.randomBytes(24).toString("hex");
+const backendToken = crypto.randomBytes(24).toString("hex");
 let backendVersion: string | null = null;
 let backendStartPromise: Promise<void> | null = null;
 let backendSolutionPath: string | null = null;
 let backendWorkspaceId: string | null = null;
-let backendRuntimeKey: string | null = null;
+type BackendRuntime = { pythonPath: string; source: string; moduleName: string };
+let backendRuntime: BackendRuntime | null = null;
 let backendStartupAbort: AbortController | null = null;
 type AppTheme = "light" | "dark" | "system";
 let currentAppTheme: AppTheme = "system";
@@ -257,64 +257,31 @@ function appendOutputPreview(preview: { value: string }, label: "stdout" | "stde
   }
 }
 
-function resolvePythonRuntimePath(): string | null {
+function resolvePythonRuntime(settings: UserSettings): { pythonPath: string; source: string } | null {
   const override = process.env.DATAM8_PYTHON_PATH;
-  if (override) {
-    console.log("override detected");
-    return isRunnablePython(override) ? override : null;
-  }
-
-  if (userSettings?.pythonPath) {
-    console.log("user setting detected");
-    return isRunnablePython(userSettings.pythonPath) ? userSettings.pythonPath : null;
-  }
-
+  if (override) return isRunnablePython(override) ? { pythonPath: override, source: "DATAM8_PYTHON_PATH" } : null;
+  if (settings.pythonPath) return isRunnablePython(settings.pythonPath)
+    ? { pythonPath: settings.pythonPath, source: ".user-settings.json" } : null;
   if (app.isPackaged) {
-    console.log("packaged");
-    for (const candidate of resolvePackagedPythonCandidates()) {
-      if (ensureExecutable(candidate)) return candidate;
-    }
-    return null;
+    const pythonPath = resolvePackagedPythonCandidates().find(ensureExecutable);
+    return pythonPath ? { pythonPath, source: "bundled runtime" } : null;
   }
-
   const repoRoot = resolveRepoRoot();
   if (repoRoot) {
-    console.log("submodule fallback");
-    const submoduleRoot = path.join(repoRoot, "submodules", "datam8-generator");
-    const devCandidates = process.platform === "win32"
-      ? [path.join(submoduleRoot, ".venv", "Scripts", "python.exe")]
-      : [path.join(submoduleRoot, ".venv", "bin", "python3"), path.join(submoduleRoot, ".venv", "bin", "python")];
-    for (const candidate of devCandidates) {
-      if (ensureExecutable(candidate)) return candidate;
-    }
+    const venv = path.join(repoRoot, "submodules/datam8-generator/.venv");
+    const pythonPath = path.join(venv, process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
+    if (ensureExecutable(pythonPath)) return { pythonPath, source: "Generator development environment" };
   }
-
-  const fallbackCommands = process.platform === "win32" ? ["python", "py"] : ["python3", "python"];
-  for (const candidate of fallbackCommands) {
-    if (canRunCommand(candidate)) return candidate;
-  }
-
   return null;
 }
 
-function parseReadyLine(line: string): { baseUrl: string; version: string } | null {
-  try {
-    const data = JSON.parse(line);
-    if (!data || typeof data !== "object") return null;
-    if (data.type !== "ready") return null;
-    if (typeof data.baseUrl !== "string" || !data.baseUrl.trim()) return null;
-    const version = typeof data.version === "string" ? data.version : "0.0.0";
-    return { baseUrl: data.baseUrl, version };
-  } catch {
-    // Current datam8 serve emits plain text:
-    // "API ready at `http://127.0.0.1:4318`, schemaVersion: 2.0.0"
-    const match = line.match(/API ready at\s+`([^`]+)`(?:,\s*schemaVersion:\s*(.+))?/i);
-    if (!match) return null;
-    const baseUrl = `${match[1] || ""}`.trim();
-    if (!baseUrl) return null;
-    const version = `${match[2] || "0.0.0"}`.trim() || "0.0.0";
-    return { baseUrl, version };
-  }
+function resolveBackendRuntime(solutionPath: string): BackendRuntime {
+  const settings = UserSettings.parseFromSolution(path.dirname(solutionPath));
+  const python = resolvePythonRuntime(settings);
+  if (!python) throw new Error("Python runtime not found. Prepare the Generator .venv for development or reinstall the packaged app. DATAM8_PYTHON_PATH can select an explicit interpreter.");
+  const moduleName = (process.env.DATAM8_BACKEND_MODULE || settings.backendModule || "datam8").trim();
+  if (!moduleName) throw new Error("The configured backend module must not be empty.");
+  return { ...python, moduleName };
 }
 
 async function stopBackend() {
@@ -322,17 +289,20 @@ async function stopBackend() {
   if (backendStopPromise) return backendStopPromise;
   if (!backendProcess) return;
   const proc = backendProcess;
-  const previous = { baseUrl: backendBaseUrl, version: backendVersion, solutionPath: backendSolutionPath };
+  const previous = { baseUrl: backendBaseUrl, version: backendVersion, solutionPath: backendSolutionPath, workspaceId: backendWorkspaceId, runtime: backendRuntime };
   backendProcess = null;
   backendBaseUrl = null;
   backendVersion = null;
   backendSolutionPath = null;
+  backendWorkspaceId = null;
+  backendRuntime = null;
 
   backendStopPromise = terminateChild(proc);
   try { await backendStopPromise; if (updateDemo && process.connected) process.send?.({ type: "backend-stopped", pid: proc.pid }); }
   catch (error) {
     if (proc.exitCode === null && proc.signalCode === null) {
       backendProcess = proc; backendBaseUrl = previous.baseUrl; backendVersion = previous.version; backendSolutionPath = previous.solutionPath;
+      backendWorkspaceId = previous.workspaceId; backendRuntime = previous.runtime;
     }
     throw error;
   }
@@ -391,14 +361,14 @@ function detectSolutionVersion(solutionFilePath: string): "v1" | "v2" {
 }
 
 async function backendRequestJson<T>(relativePath: string, init?: RequestInit): Promise<T> {
-  if (!backendBaseUrl || !backendToken) {
+  if (!backendBaseUrl) {
     throw new Error("Backend is not running.");
   }
   const headers = new Headers(init?.headers || {});
   headers.set("Authorization", `Bearer ${backendToken}`);
   if (backendWorkspaceId) headers.set("X-DataM8-Workspace", backendWorkspaceId);
   const response = await fetch(`${backendBaseUrl}${relativePath}`, { ...(init || {}), headers });
-  const data = await response.json().catch(() => ({}));
+  const data = await response.json();
   if (!response.ok) {
     const message = (data as { message?: unknown } | null | undefined)?.message;
     const msg = typeof message === "string" ? message : `HTTP ${response.status}`;
@@ -413,18 +383,9 @@ async function loadCurrentSolutionPayload() {
 
 async function ensureBackendForSolution(solutionPath: string): Promise<void> {
   const normalized = normalizeExistingFilePath(solutionPath);
-  const previousSettings = userSettings;
-  const nextSettings = UserSettings.parseFromSolution(path.dirname(normalized));
-  userSettings = nextSettings;
-  let runtimeKey: string;
-  try {
-    const nextPython = resolvePythonRuntimePath();
-    if (!nextPython) throw new Error("Python runtime for the selected solution was not found. The current workspace remains open.");
-    runtimeKey = `${nextPython}\0${(process.env.DATAM8_BACKEND_MODULE || nextSettings.backendModule || "datam8").trim()}`;
-  } finally {
-    userSettings = previousSettings;
-  }
-  if (backendProcess && backendBaseUrl && backendToken && backendRuntimeKey === runtimeKey) {
+  const runtime = resolveBackendRuntime(normalized);
+  if (backendProcess && backendBaseUrl
+      && backendRuntime?.pythonPath === runtime.pythonPath && backendRuntime.moduleName === runtime.moduleName) {
     await waitForBackendHealth(backendBaseUrl, backendToken, 2_500);
     if (!backendSolutionPath || path.resolve(backendSolutionPath) !== normalized) {
       const workspace = await backendRequestJson<{ workspaceId: string }>("/workspace/open", {
@@ -433,22 +394,23 @@ async function ensureBackendForSolution(solutionPath: string): Promise<void> {
       });
       backendWorkspaceId = workspace.workspaceId;
       backendSolutionPath = normalized;
-      userSettings = nextSettings;
+      console.log(`[datam8] Workspace opened: ${JSON.stringify(normalized)}; reusing backend PID ${backendProcess.pid}.`);
     }
   } else {
     await stopBackend();
-    await startBackend(normalized);
+    await startBackend(normalized, runtime);
   }
   currentSolutionPath = normalized;
   syncWindowTitle();
 }
 
 function runPythonCli(
-  pythonPath: string,
-  backendModule: string,
+  runtime: BackendRuntime,
   args: string[],
 ): { stdout: string; stderr: string } {
-  const result = spawnSync(pythonPath, ["-m", backendModule, ...args], {
+  const { pythonPath, moduleName, source } = runtime;
+  console.log(`[datam8] Running ${moduleName} ${args[0]}: Python=${JSON.stringify(pythonPath)} (source: ${source}).`);
+  const result = spawnSync(pythonPath, ["-m", moduleName, ...args], {
     env: buildPythonEnv(pythonPath, path.join(process.resourcesPath, "python-runtime")),
     shell: false,
     stdio: "pipe",
@@ -476,10 +438,8 @@ async function createSolutionViaCli(params: {
   const solutionFile = path.join(solutionDir, `${solutionName}.dm8s`);
   fs.mkdirSync(solutionDir, { recursive: true });
 
-  const pythonPath = resolvePythonRuntimePath();
-  if (!pythonPath) throw new Error("Python runtime not found.");
-  const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
-  runPythonCli(pythonPath, backendModule, ["init", solutionName, "--solution", solutionFile, "--type", "empty"]);
+  const runtime = resolveBackendRuntime(solutionFile);
+  runPythonCli(runtime, ["init", solutionName, "--solution", solutionFile, "--type", "empty"]);
 
   // Optional path overrides (still v2 compliant) if user customized defaults.
   const basePath = `${params.basePath || ""}`.trim();
@@ -511,10 +471,8 @@ async function migrateSolutionViaCli(params: { sourceSolutionPath: string; targe
     throw new Error("Migration target must not be the source solution directory.");
   }
 
-  const pythonPath = resolvePythonRuntimePath();
-  if (!pythonPath) throw new Error("Python runtime not found.");
-  const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
-  runPythonCli(pythonPath, backendModule, [
+  const runtime = resolveBackendRuntime(path.join(normalizedTargetDir, path.basename(sourceSolutionPath)));
+  runPythonCli(runtime, [
     "migrate",
     "v1-to-v2",
     "--solution",
@@ -554,9 +512,7 @@ async function generateSolutionViaCli(params: { solutionPath: string; target: st
     throw new Error("Generator target is required.");
   }
 
-  const pythonPath = resolvePythonRuntimePath();
-  if (!pythonPath) throw new Error("Python runtime not found.");
-  const backendModule = (process.env.DATAM8_BACKEND_MODULE || "datam8").trim() || "datam8";
+  const runtime = resolveBackendRuntime(solutionPath);
 
   const args = ["generate", target, "--solution", solutionPath];
   const logLevel = `${params.logLevel || ""}`.trim();
@@ -565,7 +521,7 @@ async function generateSolutionViaCli(params: { solutionPath: string; target: st
   }
   // Always clean generator output before rendering to match frontend behavior.
   args.push("--clean-output");
-  const result = runPythonCli(pythonPath, backendModule, args);
+  const result = runPythonCli(runtime, args);
   const deduped = parseCliOutputLines(result);
   return {
     success: true,
@@ -955,64 +911,23 @@ function renameFolderOnDisk(payload: { fromFolderPath: string; toFolderPath: str
   return { fromPath: fromResolved, toPath: toResolved };
 }
 
-async function startBackend(solutionPath?: string, tokenOverride?: string) {
-  userSettings = null;
-
-  if (backendBaseUrl && backendToken && backendProcess) {
-    try {
-      await waitForBackendHealth(backendBaseUrl, backendToken, 2_500);
-      return;
-    } catch {
-      await stopBackend();
-    }
-  }
-  if (backendStartPromise) {
-    await backendStartPromise;
-    return;
-  }
-
+async function startBackend(solutionPath: string, runtime = resolveBackendRuntime(solutionPath)) {
+  if (backendStartPromise) return await backendStartPromise;
+  if (backendProcess) throw new Error("Stop the current backend before starting another process.");
   backendStartPromise = (async () => {
-    if (backendBaseUrl && backendToken && backendProcess) {
-      try {
-        await waitForBackendHealth(backendBaseUrl, backendToken, 2_500);
-        return;
-      } catch {
-        await stopBackend();
-      }
-    }
-
-    const targetSolutionPath = solutionPath || currentSolutionPath || "";
-    if (!targetSolutionPath) return;
-    const targetSolutionDir = path.dirname(path.resolve(targetSolutionPath));
-    userSettings = UserSettings.parseFromSolution(targetSolutionDir);
-
-    const pythonPath = resolvePythonRuntimePath();
-    if (!pythonPath) {
-      const lines = [
-        app.isPackaged ? "Bundled Python runtime for datam8 backend not found." : "Python runtime for datam8 backend not found.",
-        "",
-        "Fix:",
-        ...(app.isPackaged
-          ? ["- Reinstall/update the desktop app (package may be incomplete).", "- Or set DATAM8_PYTHON_PATH to a valid Python executable."]
-          : ["- Set DATAM8_PYTHON_PATH to a valid Python executable."]),
-        "- Ensure the runtime can import the 'datam8' module (wheel installed or PYTHONPATH configured).",
-      ];
-      throw new Error(lines.join("\n"));
-    }
-    const backendModule = (process.env.DATAM8_BACKEND_MODULE || userSettings.backendModule || "datam8").trim();
+    const targetSolutionPath = solutionPath;
+    const { pythonPath, moduleName: backendModule, source } = runtime;
     backendWorkspaceId = null;
-    backendRuntimeKey = `${pythonPath}\0${backendModule}`;
+    backendRuntime = runtime;
     const startupAbort = new AbortController();
     backendStartupAbort = startupAbort;
     mainWindow?.webContents.send("solution:startup-changed", true);
     const startupDeadline = Date.now() + 60_000;
-    const token = (tokenOverride || backendToken || "").trim() || crypto.randomBytes(24).toString("hex");
-    backendToken = token;
+    const token = backendToken;
     const env = buildPythonEnv(pythonPath, path.join(process.resourcesPath, "python-runtime"));
     const backendOutputPreview = { value: "" };
 
-    console.log(`[datam8] resolved python path: '${pythonPath}'`);
-    console.log(`[datam8] resolved python module: '${backendModule}'`);
+    console.log(`[datam8] Starting backend for ${JSON.stringify(targetSolutionPath)}: Python=${JSON.stringify(pythonPath)} (source: ${source}), module=${backendModule}.`);
 
     const proc = spawn(
       pythonPath,
@@ -1054,9 +969,10 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       if (wasActiveProcess) {
         backendProcess = null;
         backendBaseUrl = null;
-        backendToken = null;
         backendVersion = null;
         backendSolutionPath = null;
+        backendWorkspaceId = null;
+        backendRuntime = null;
       }
       if (isQuitting || !wasActiveProcess || isStartupPhase) return;
 
@@ -1088,7 +1004,7 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
     try {
       // Only the process we started can establish readiness. Another service
       // may already occupy the port and must neither be stopped nor adopted.
-      const ready = await waitForBackendReady(proc, parseReadyLine, startupDeadline - Date.now(), startupAbort.signal);
+      const ready = await waitForBackendReady(proc, startupDeadline - Date.now(), startupAbort.signal);
       backendBaseUrl = ready.baseUrl;
       backendVersion = ready.version;
       backendSolutionPath = targetSolutionPath;
@@ -1096,13 +1012,11 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
       const init = { signal: AbortSignal.any([startupAbort.signal, AbortSignal.timeout(Math.max(1, startupDeadline - Date.now()))]) };
       const workspace = await backendRequestJson<{ workspaceId: string }>("/workspace", init);
       backendWorkspaceId = workspace.workspaceId;
-      const versionPayload = await backendRequestJson<{ appVersion?: string; app_version?: string; schemaVersion?: string; schema_version?: string }>("/version", init);
-      backendVersion = `${versionPayload?.appVersion || versionPayload?.app_version || versionPayload?.schemaVersion || versionPayload?.schema_version || backendVersion || "0.0.0"}`;
       isStartupPhase = false;
     } catch (err) {
       await stopBackend();
       backendWorkspaceId = null;
-      backendRuntimeKey = null;
+      backendRuntime = null;
       const msg = err instanceof Error ? err.message : String(err);
       const output = backendOutputPreview.value.trim();
       throw new Error(withOpenSolutionPrefix(simplifyBackendErrorMessage(msg, output)));
@@ -1143,12 +1057,11 @@ function setupMenu() {
       accelerator: "CmdOrCtrl+Shift+R",
       click: async () => {
         if (preparingUpdate) return;
-        const savedToken = backendToken ?? undefined;
         const savedPath = currentSolutionPath ?? undefined;
         await stopBackend();
         if (savedPath) {
           try {
-            await startBackend(savedPath, savedToken);
+            await startBackend(savedPath);
           } catch (err) {
             dialog.showErrorBox("Force Reload Failed", `Backend failed to restart: ${(err as Error).message}`);
           }
@@ -1248,7 +1161,7 @@ async function createWindow() {
     return;
   }
 
-  if (!backendBaseUrl || !backendToken) {
+  if (!backendBaseUrl) {
     backendBaseUrl = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
   }
 
@@ -1295,7 +1208,7 @@ async function createWindow() {
       additionalArguments: [
         ...(!app.isPackaged ? ["--datam8-development=1"] : []),
         `--datam8-api-base=${backendBaseUrl}`,
-        `--datam8-token=${backendToken || ""}`,
+        `--datam8-token=${backendToken}`,
         ...(backendVersion ? [`--datam8-backend-version=${backendVersion}`] : []),
       ],
     },
@@ -1509,7 +1422,6 @@ ipcMain.handle("solution:cancel-start", async () => {
   return true;
 });
 ipcMain.handle("solution:is-starting", () => backendStartupAbort !== null);
-ipcMain.handle("solution:workspace-id", () => backendWorkspaceId);
 
 handleSolutionOperation("solution:load", async (_event, solutionPath: string | null | undefined) => {
   const normalized = normalizeExistingFilePath(`${solutionPath || ""}`);

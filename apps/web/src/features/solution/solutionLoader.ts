@@ -56,10 +56,9 @@ declare global {
         pickDirectory?: () => Promise<string | null>;
         pickPluginArtifacts?: () => Promise<string[] | null>;
         detectVersion?: (solutionPath: string) => Promise<{ version?: "v1" | "v2"; path?: string } | null>;
-        load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown; workspaceId?: string } | null>;
+        load?: (solutionPath: string) => Promise<{ path: string; payload: unknown; workspaceId: string }>;
         cancelStart?: () => Promise<boolean>;
         isStarting?: () => Promise<boolean>;
-        workspaceId?: () => Promise<string | null>;
         onStartupChanged?: (callback: (starting: boolean) => void) => () => void;
         createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
@@ -291,10 +290,7 @@ function normalizePayload(payload: any): LoadedSolution {
   };
 }
 
-async function loadFromServer(path: string): Promise<LoadedSolution> {
-  // Non-desktop mode cannot switch backend workspace by path; keep the input for UX parity
-  // and load the currently bound solution from the active backend instance.
-  void path;
+export async function loadCurrentSolution(): Promise<LoadedSolution> {
   const res = await fetch(`${apiBase}/solution/full`);
   if (!res.ok) {
     const payload = await res.json().catch(() => null);
@@ -331,8 +327,9 @@ async function loadFromElectron(path: string): Promise<LoadedSolution> {
 
   if (desktopBridge?.load) {
     const loaded = await desktopBridge.load(path);
-    setWorkspaceId(loaded?.workspaceId || null);
-    return normalizePayload((loaded as any)?.payload ?? loaded);
+    const result = normalizePayload(loaded.payload);
+    setWorkspaceId(loaded.workspaceId);
+    return result;
   }
 
   if (desktopBridge?.loadSolution) {
@@ -363,7 +360,8 @@ async function loadFromElectron(path: string): Promise<LoadedSolution> {
 export async function loadSolution(source: SolutionSource): Promise<LoadedSolution> {
   switch (source.kind) {
     case "server-path":
-      return loadFromServer(source.path);
+      // Browser mode reads the workspace bound at startup; the input does not switch it.
+      return loadCurrentSolution();
     case "uploaded-file":
       return loadFromUploadedFile(source.file);
     case "electron-path":

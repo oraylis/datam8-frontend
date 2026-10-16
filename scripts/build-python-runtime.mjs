@@ -360,10 +360,6 @@ const generatorInstallSpec = generatorExtras.length > 0
   : generatorRoot;
 console.log(`[build:python-runtime] Installing datam8 with extras: [${generatorExtras.join(", ") || "none"}]`);
 installRuntimePackages(runtimeSitePackages, generatorInstallSpec);
-// The generator imports deepdiff from its runtime command modules, but currently
-// declares it only in the dev dependency group. Keep packaged desktop runtimes
-// self-contained until the generator metadata is corrected upstream.
-installRuntimePackages(runtimeSitePackages, "deepdiff==8.6.2");
 pruneBuildOnlyPythonPackages();
 fs.writeFileSync(path.join(runtimeRoot, ".datam8-runtime-staging"), path.resolve(runtimeRoot));
 runChecked(runtimePython, ["-I", path.join(repoRoot, "scripts", "prepare-python-runtime.py"), runtimeRoot]);

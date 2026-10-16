@@ -77,7 +77,6 @@ contextBridge.exposeInMainWorld("desktop", {
     detectVersion: (solutionPath: string) => ipcRenderer.invoke("solution:detect-version", solutionPath),
     cancelStart: () => ipcRenderer.invoke("solution:cancel-start"),
     isStarting: () => ipcRenderer.invoke("solution:is-starting"),
-    workspaceId: () => ipcRenderer.invoke("solution:workspace-id"),
     onStartupChanged: (callback: (starting: boolean) => void) => {
       const handler = (_event: IpcRendererEvent, starting: boolean) => callback(starting);
       ipcRenderer.on("solution:startup-changed", handler);

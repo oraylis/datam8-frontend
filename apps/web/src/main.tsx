@@ -5,7 +5,7 @@ import { ThemeProvider } from "@datam8/ui/theme";
 import "@datam8/ui/styles.css";
 import "./index.css";
 import { publishAppError } from "./shared/ui/appErrorBridge";
-import { getWorkspaceId, guardWorkspaceResponse } from "./shared/api/workspaceSession";
+import { getWorkspaceId, getWorkspaceSignal } from "./shared/api/workspaceSession";
 
 let didLogAuthShimInstalled = false;
 
@@ -47,11 +47,13 @@ function installAuthFetchShim() {
     }
     const workspaceId = getWorkspaceId();
     if (workspaceId && !headers.has("X-DataM8-Workspace")) headers.set("X-DataM8-Workspace", workspaceId);
-    const response = await originalFetch(input, { ...(init || {}), headers });
+    const callerSignal = init?.signal || req?.signal;
+    const signal = callerSignal ? AbortSignal.any([callerSignal, getWorkspaceSignal()]) : getWorkspaceSignal();
+    const response = await originalFetch(input, { ...(init || {}), headers, signal });
     if (workspaceId && workspaceId !== getWorkspaceId()) {
       throw new DOMException("Request aborted because the workspace changed", "AbortError");
     }
-    return guardWorkspaceResponse(response, workspaceId);
+    return response;
   }) satisfies typeof window.fetch;
 }
 

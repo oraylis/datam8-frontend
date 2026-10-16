@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import type { BaseEntity, FolderEntity, ModelEntity } from "../model/model-types";
 import type { Solution } from "./solution-types";
-import { loadSolution as loadSolutionFromSource, type SolutionSource } from "./solutionLoader";
+import { loadSolution as loadSolutionFromSource, loadCurrentSolution, type SolutionSource } from "./solutionLoader";
 import { V1SolutionDetectedError } from "./errors";
 import { compactErrorMessage } from "../../shared/api/errorMessage";
 
@@ -30,6 +30,7 @@ type SolutionContextValue = {
   openMigration: (sourcePath: string) => void;
   closeMigration: () => void;
   loadSolution: (source: SolutionSource) => Promise<LoadSolutionResult | void>;
+  refreshSolution: () => Promise<LoadSolutionResult>;
   beforeLoad: React.MutableRefObject<(() => Promise<void>) | null>;
 };
 
@@ -114,6 +115,12 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
     setPickerError(null);
   }, []);
 
+  const refreshSolution = useCallback(async () => {
+    const result = await loadCurrentSolution();
+    setSolution(result.solution);
+    return result;
+  }, []);
+
   return (
     <SolutionContext.Provider
       value={{
@@ -134,6 +141,7 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
         openMigration,
         closeMigration,
         loadSolution,
+        refreshSolution,
         beforeLoad,
       }}
     >

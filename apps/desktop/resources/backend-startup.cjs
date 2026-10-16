@@ -1,9 +1,11 @@
 const { setTimeout: delay } = require('node:timers/promises');
 
-function waitForBackendReady(proc, parseReadyLine, timeoutMs = 60_000, signal) {
+function waitForBackendReady(proc, timeoutMs = 60_000, signal) {
   return new Promise((resolve, reject) => {
-    let stdout = '', stderr = '', preview = '';
+    let stdout = '', preview = '', settled = false;
     const finish = (error, result) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       proc.stdout.off('data', onStdout); proc.stderr.off('data', onStderr);
       proc.off('exit', onExit); proc.off('error', onError);
@@ -18,13 +20,17 @@ function waitForBackendReady(proc, parseReadyLine, timeoutMs = 60_000, signal) {
       const lines = buffer.split('\n');
       const remaining = lines.pop();
       for (const line of lines) {
-        const ready = parseReadyLine(line.trim());
-        if (ready) { finish(null, ready); break; }
+        let ready;
+        try { ready = JSON.parse(line); } catch { continue; }
+        if (ready?.type === 'ready' && typeof ready.baseUrl === 'string' && ready.baseUrl.trim()
+            && typeof ready.version === 'string' && ready.version.trim()) {
+          finish(null, ready); break;
+        }
       }
       return remaining;
     };
     const onStdout = chunk => { stdout = consume(stdout, chunk); };
-    const onStderr = chunk => { preview = (preview + chunk).slice(-4096); stderr = consume(stderr, chunk); };
+    const onStderr = chunk => { preview = (preview + chunk).slice(-4096); };
     const timer = setTimeout(() => finish(new Error(`Backend startup timed out after ${timeoutMs}ms`)), Math.max(1, timeoutMs));
     proc.stdout.on('data', onStdout); proc.stderr.on('data', onStderr);
     proc.once('exit', onExit); proc.once('error', onError);

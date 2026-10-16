@@ -12,6 +12,7 @@ import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "child_pro
 
 import { APP_DISPLAY_NAME } from "./appConfig";
 import { UserSettings } from "./userSettings";
+import { readSolutionText, writeSolutionText } from "./solutionEncoding";
 
 const isDevToolsAllowed = () => !app.isPackaged || process.env.DATAM8_ALLOW_DEVTOOLS === "1";
 
@@ -488,7 +489,7 @@ function isDangerousMigrationTarget(targetDir: string): boolean {
 
 function detectSolutionVersion(solutionFilePath: string): "v1" | "v2" {
   try {
-    const raw = fs.readFileSync(solutionFilePath, "utf8");
+    const raw = readSolutionText(solutionFilePath);
     const parsed = JSON.parse(raw);
     const schemaVersion = typeof parsed?.schemaVersion === "string" ? parsed.schemaVersion.trim() : "";
     return schemaVersion ? "v2" : "v1";
@@ -578,11 +579,11 @@ async function createSolutionViaCli(params: {
   const basePath = `${params.basePath || ""}`.trim();
   const modelPath = `${params.modelPath || ""}`.trim();
   if (basePath || modelPath) {
-    const raw = fs.readFileSync(solutionFile, "utf8");
+    const raw = readSolutionText(solutionFile);
     const parsed = JSON.parse(raw);
     if (basePath) parsed.basePath = basePath;
     if (modelPath) parsed.modelPath = modelPath;
-    fs.writeFileSync(solutionFile, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+    writeSolutionText(solutionFile, `${JSON.stringify(parsed, null, 2)}\n`);
     if (basePath) fs.mkdirSync(path.join(solutionDir, basePath), { recursive: true });
     if (modelPath) fs.mkdirSync(path.join(solutionDir, modelPath), { recursive: true });
   }
@@ -671,7 +672,7 @@ async function generateSolutionViaCli(params: { solutionPath: string; target: st
 function importPluginArtifacts(params: { solutionPath: string; artifactPaths: string[] }): number {
   const solutionPath = normalizeExistingFilePath(params.solutionPath);
   const solutionDir = path.dirname(solutionPath);
-  const raw = fs.readFileSync(solutionPath, "utf8");
+  const raw = readSolutionText(solutionPath);
   const solution = JSON.parse(raw);
   const pluginsPath = typeof solution?.pluginsPath === "string" ? solution.pluginsPath.trim() : "";
   if (!pluginsPath) {
@@ -950,7 +951,7 @@ function normalizeFolderRelativePath(value: string): string {
 
 function readSolutionConfig(solutionPath?: string | null): { solutionRoot: string; modelPath: string } {
   const normalizedSolutionPath = normalizeExistingFilePath(`${solutionPath || backendSolutionPath || currentSolutionPath || ""}`.trim());
-  const raw = fs.readFileSync(normalizedSolutionPath, "utf8");
+  const raw = readSolutionText(normalizedSolutionPath);
   const parsed = JSON.parse(raw);
   const modelPath = typeof parsed?.modelPath === "string" && parsed.modelPath.trim() ? parsed.modelPath.trim() : "Model";
   return {
@@ -979,7 +980,7 @@ function updateFolderPropertiesSubtree(modelRootDir: string, subtreeRootDir: str
       if (entry.name !== ".properties.json") continue;
 
       try {
-        const raw = fs.readFileSync(absPath, "utf8");
+        const raw = readSolutionText(absPath);
         const parsed = JSON.parse(raw);
         const relFolderPath = path
           .relative(modelRootDir, path.dirname(absPath))
@@ -1008,7 +1009,7 @@ function updateFolderPropertiesSubtree(modelRootDir: string, subtreeRootDir: str
           changed = true;
         }
         if (changed) {
-          fs.writeFileSync(absPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+          writeSolutionText(absPath, `${JSON.stringify(parsed, null, 2)}\n`);
         }
       } catch {
         // Ignore malformed files; backend reload will surface parse errors if relevant.

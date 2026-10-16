@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import { expect, _electron } from '@playwright/test';
 import { desktopFixture } from './desktop-fixture.mjs';
+import { readSolutionText, writeSolutionText } from '../apps/desktop/dist/solutionEncoding.js';
 
 const root = path.resolve(import.meta.dirname, '..');
 const require = createRequire(path.join(root, 'apps/desktop/package.json'));
@@ -52,6 +53,21 @@ test('function creation and legacy deletion use real Desktop IPC without overwri
     fs.writeFileSync(path.join(directory, 'existing.py'), '# keep direct content');
     await assert.rejects(create('existing.py'), /already exists/);
     assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');
+    const metadataDirectory = path.join(directory, 'Alt');
+    fs.mkdirSync(metadataDirectory);
+    writeSolutionText(path.join(metadataDirectory, '.properties.json'), JSON.stringify({
+      type: 'folders', folders: [{ id: 2, name: 'Alt', path: 'Core/Alt', displayName: 'für Größe €' }],
+    }));
+    await page.evaluate(solutionPath => window.desktop.solution.renameFolder({
+      fromFolderPath: 'Core/Alt', toFolderPath: 'Core/Größe', solutionPath,
+    }), solution);
+    const metadataPath = path.join(directory, 'Größe/.properties.json');
+    const metadata = JSON.parse(readSolutionText(metadataPath));
+    assert.equal(metadata.folders[0].displayName, 'für Größe €');
+    assert.equal(metadata.folders[0].name, 'Größe');
+    assert.equal(metadata.folders[0].path, 'Core/Größe');
+    assert.ok(fs.readFileSync(metadataPath).includes(0xfc));
+    assert.ok(fs.readFileSync(metadataPath).includes(0x80));
     fs.mkdirSync(path.join(directory, 'Customer'));
     fs.writeFileSync(path.join(directory, 'Customer/legacy.py'), '# keep legacy content');
     await assert.rejects(create('legacy.py'), /already exists/);
@@ -61,9 +77,9 @@ test('function creation and legacy deletion use real Desktop IPC without overwri
 
     // Ordinary saves retain their overwrite semantics.
     await page.evaluate(payload => window.desktop.solution.saveFunctionSource(payload), {
-      ...payload, createOnly: false, source: 'new.py', content: '# saved normally',
+      ...payload, createOnly: false, source: 'new.py', content: '# für Größe €',
     });
-    assert.equal(fs.readFileSync(path.join(directory, 'new.py'), 'utf8'), '# saved normally');
+    assert.equal(fs.readFileSync(path.join(directory, 'new.py'), 'utf8'), '# für Größe €');
     await page.evaluate(payload => window.desktop.solution.deleteFunctionSource(payload), { ...payload, source: 'legacy.py' });
     assert.equal(fs.existsSync(path.join(directory, 'Customer/legacy.py')), false);
     assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');

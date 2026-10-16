@@ -303,7 +303,11 @@ async function loadFromServer(path: string): Promise<LoadedSolution> {
 }
 
 async function loadFromUploadedFile(file: File): Promise<LoadedSolution> {
-  const raw = await file.text();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes.some((byte) => [0x81, 0x8d, 0x8f, 0x90, 0x9d].includes(byte))) {
+    throw new Error("Solution file contains an invalid Windows-1252 byte.");
+  }
+  const raw = new TextDecoder("windows-1252").decode(bytes);
   const parsed = JSON.parse(raw);
   if (parsed && typeof parsed === "object" && !("schemaVersion" in parsed) && "basePath" in parsed) {
     throw new Error("V1 solutions must be migrated from a file path (upload is not supported).");

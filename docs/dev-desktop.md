@@ -22,6 +22,15 @@ Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/gene
 
 ## Runtime configuration
 
+This branch uses Windows-1252 for direct solution `.dm8s` and `.properties.json`
+file access and browser solution uploads. It is intended for the pinned backend
+running on Windows with the Windows-1252 locale and Python UTF-8 mode disabled;
+that backend still relies on its platform default for JSON files and generated
+output. HTTP JSON and transformation Python files retain UTF-8. This frontend
+change does not add encoding declarations to generated Python files or change
+backend generation behavior. Characters outside Windows-1252 are rejected before
+a desktop file write; existing files are not converted automatically.
+
 - Opening solutions in development requires the interpreter from
   `submodules/datam8-generator/.venv`; the frontend and update simulation can
   start without it.

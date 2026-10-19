@@ -1,52 +1,145 @@
-# Registered manual entry point during the feature-branch rollout; see docs/desktop-rollout.md.
-name: DataM8 manual desktop verification
+# Temporary, manually dispatched Windows test build. Removed after delivery.
+name: One-off signed Windows runtime test
 on:
   workflow_dispatch:
-    inputs:
-      windows_update_fixture_run:
-        description: 'Optional diagnostic only: reuse signed Windows fixtures from this run ID; empty runs full four-platform acceptance'
-        type: string
-        required: false
-        default: ''
 permissions:
   contents: read
-  id-token: write
+concurrency:
+  group: one-off-signed-windows-runtime-test
+  cancel-in-progress: false
 jobs:
-  desktop:
-    if: inputs.windows_update_fixture_run == ''
-    uses: ./.github/workflows/desktop.yml
-    with:
-      signed: true
-    secrets: inherit
-  diagnose-windows-updates:
-    if: inputs.windows_update_fixture_run != '' && github.ref == 'refs/heads/feature/external_refresh'
+  build:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/windows-signed-runtime-test-20261019'
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 45
+    environment: desktop-signing-v2
     permissions:
       contents: read
-      actions: read
+      id-token: write
+    env:
+      DATAM8_REQUIRE_SIGNING: '1'
+      AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+      AZURE_KEY_VAULT_NAME: ${{ secrets.AZURE_KEY_VAULT_NAME }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 2
+      - name: Require the already-verified runtime source unchanged
+        shell: bash
+        run: git diff --exit-code 82fe313c97b89764cc4f02179b0b61a51d0bde26 HEAD -- . ':(exclude).github/workflows/ci-push-and-pull-request-merged.yml'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install AzureSignTool
+        run: dotnet tool install --global AzureSignTool --version 6.0.0
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_V2_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_KEY_VAULT_TENANT }}
+          allow-no-subscriptions: true
+      - name: Configure corporate CA trust on the disposable runner
+        run: node scripts/windows-test-trust.mjs install
+      - name: Validate the existing signing certificate
+        run: node scripts/signing-vault.mjs windows artifacts/signing-public
+      - name: Verify embedded signing and negative cases
+        run: node scripts/test-windows-signing.mjs
+      - run: npm ci
+      - run: npm run build:web:electron
+      - run: npm run build:python-runtime
+      - name: Package and sign Windows installer and embedded binaries
+        run: npm --workspace apps/desktop run package -- --win
+      - name: Verify embedded signatures and RFC-3161 timestamps
+        run: npm run test:desktop:signatures -- apps/desktop/release
+      - run: node scripts/desktop-distributions.mjs collect apps/desktop/release artifacts/distributions
+      - name: Include public signing identity
+        shell: bash
+        run: cp artifacts/signing-public/* artifacts/distributions/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows-runtime-test-build
+          path: artifacts/distributions
+          retention-days: 2
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signed-windows-runtime-build-diagnostics
+          path: artifacts/runtime-test-results
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Remove temporary CA trust
+        if: always()
+        run: node scripts/windows-test-trust.mjs remove
+      - name: Remove Azure credentials
+        if: always()
+        shell: bash
+        run: |
+          if command -v az >/dev/null; then az account clear; fi
+  verify:
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      DATAM8_REQUIRE_SIGNING: '1'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: npm
       - run: npm ci
       - uses: actions/download-artifact@v8
         with:
-          name: internal-update-fixtures
-          path: artifacts/update-fixtures
-          run-id: ${{ inputs.windows_update_fixture_run }}
-          github-token: ${{ github.token }}
-      - name: Configure explicit corporate CA trust on disposable Windows runner
+          name: signed-windows-runtime-test-build
+          path: artifacts/distributions
+      - name: Configure corporate CA trust on the disposable runner
         run: node scripts/windows-test-trust.mjs install
-      - name: Diagnose real signed updates using existing fixtures (no final delivery)
-        run: npm run test:desktop:updates -- artifacts/update-fixtures
-      - name: Remove temporary Windows CA trust
+      - name: Read the expected public signing identity
+        shell: bash
+        run: node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('artifacts/distributions/windows.json'));fs.appendFileSync(process.env.GITHUB_ENV,'DATAM8_WINDOWS_THUMBPRINT='+c.thumbprint+'\n');"
+      - name: Verify the downloaded installer
+        run: npm run test:desktop:signatures -- artifacts/distributions
+      - run: node scripts/desktop-distributions.mjs install artifacts/distributions artifacts/installed
+      - name: Test installed signed desktop and its runtime
+        run: npm run test:desktop:packaged
+      - name: Uninstall test app
+        if: always()
+        run: node scripts/desktop-distributions.mjs uninstall artifacts/distributions artifacts/installed
+      - name: Record source, certificate and download hashes
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const root='artifacts/distributions';
+          const files=fs.readdirSync(root).filter(name=>/\.(exe|blockmap|yml|cer|json)$/.test(name));
+          const manifest={purpose:'One-off signed Windows runtime test; no release publication',sourceCommit:'82fe313c97b89764cc4f02179b0b61a51d0bde26',workflowCommit:process.env.GITHUB_SHA,run:`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,certificate:JSON.parse(fs.readFileSync(`${root}/windows.json`)),files:files.map(name=>({name,sha256:crypto.createHash('sha256').update(fs.readFileSync(`${root}/${name}`)).digest('hex')}))};
+          fs.writeFileSync(`${root}/BUILD-MANIFEST.json`,JSON.stringify(manifest,null,2));
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DataM8-Windows-signed-runtime-test
+          path: artifacts/distributions
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signed-windows-runtime-test-diagnostics
+          path: |
+            artifacts/desktop-test-results
+            artifacts/desktop-junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Remove temporary CA trust
         if: always()
         run: node scripts/windows-test-trust.mjs remove
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: windows-update-diagnostics
-          path: artifacts/desktop-update-results
-          retention-days: 7

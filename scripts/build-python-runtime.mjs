@@ -374,7 +374,8 @@ try {
   fs.mkdirSync(path.dirname(relocatedRuntimeRoot), { recursive: true });
   if (process.platform === "darwin") runChecked("ditto", [runtimeRoot, relocatedRuntimeRoot]);
   else fs.cpSync(runtimeRoot, relocatedRuntimeRoot, { recursive: true, dereference: true });
-  runChecked(process.execPath, [smokeScript, "--runtime-root", relocatedRuntimeRoot]);
+  runChecked(process.execPath, [smokeScript, "--runtime-root", relocatedRuntimeRoot,
+    "--report", path.join(repoRoot, "artifacts", "runtime-test-results", `build-${process.platform}-${process.arch}.json`)]);
 } finally {
   fs.rmSync(smokeRoot, { recursive: true, force: true });
 }

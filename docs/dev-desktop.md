@@ -176,8 +176,70 @@ and precompiles remaining external packages. Native libraries, package metadata,
 licenses, certificates and required package resources are retained. All existing
 connector extras remain installed. `runtime-manifest.json` records the reduction.
 Windows uses a relative `._pth` file to isolate imports from registry and host
-Python paths. The relocated runtime smoke test checks actual imports and service
-startup; archives are imported directly without extraction at application start.
+Python paths. Archives are imported directly without extraction at application
+start. On macOS/Linux the preparation also removes Python headers, build config,
+manuals, unused launchers and Tcl/Tk scripts/extensions. Shared native libraries
+are conservatively retained.
+PyCryptodome's `Crypto/SelfTest` and C/C++ development inputs are removed on all
+platforms. The pure-package allowlist also bundles Polars' Python frontend,
+Pydantic and resource-aware helpers; their separate native engines stay on disk.
+Python sources remain inside the ZIPs for introspection.
+
+### Verify an existing runtime
+
+Run against the runtime attached to an installed app or a native build:
+
+```sh
+npm run test:runtime:packaged -- --runtime-root "/absolute/path/python-runtime" --report artifacts/runtime-test-results/local.json
+```
+
+This command uses only that runtime's interpreter and installed Python packages;
+it does not build, install dependencies or require the Generator checkout/.venv.
+Use the host matching the runtime's OS and architecture. If automatic discovery
+finds multiple runtimes, select one explicitly. `--python`, if supplied, must
+resolve inside the selected runtime. A ZIP layout or runtime manifest is not
+required for the functional checks.
+
+The suite runs `init`, `migrate v1-to-v2`, `generate` (including a custom Python
+payload and Jinja template), and `serve` with desktop workspace authentication.
+It checks loaded/persisted state, source-preserving migration, CSV/ODCS imports,
+custom plugin resources/reload, native Parquet IO and builtin connector loading.
+It also checks Polars execution, Pydantic/Polars source introspection, JSON Schema
+resources and encrypted-keyring entry-point metadata after ZIP import.
+Solutions are disposable local fixtures; no cloud connections are exercised.
+Content hashes and file/link inventories verify that running the tests does not
+change the runtime. Results distinguish passes, failures and skips; failures
+return a nonzero exit code. Reports must be written outside the runtime.
+
+Secret backend availability and a temporary encrypted-file secret roundtrip are
+always checked on every platform, without modifying the user's keyring. This
+exercises the crypto backend after removing its bundled self-tests.
+Add `--secrets-roundtrip` on a
+disposable test account to exercise set/read/overwrite/delete using uniquely
+named test entries that are cleaned afterward. Windows uses Credential Vault;
+macOS uses the configured keyring; Linux uses a temporary encrypted file backend.
+The installed-package CI requires this roundtrip. Local packaged tests can opt in
+with `DATAM8_RUNTIME_TEST_SECRETS=1`; otherwise this case is reported as skipped.
+
+The `Python runtime and desktop acceptance` workflow runs on pushes to
+`codex/python-runtime-slimming-all-platforms` and supports manual dispatch once
+registered on the default branch. It first builds/tests only the runtime on
+Windows x64, macOS ARM64/x64 and Linux x64, without an Electron build or release
+credentials. After all four pass, it runs the existing unsigned desktop matrix.
+Both stages upload diagnostics even on failure.
+
+Each runtime report counts regular files, bytes and symlinks separately and
+compares regular files with the published v2.0.1 runtimes (Windows x64: 8,698;
+macOS ARM64: 4,945; macOS x64: 4,963; Linux x64: 11,697). Dependency and interpreter
+versions can differ from that release. The preparation manifest records the
+pruning/archive stages; the test report contains the final inventory including
+the manifest itself. A 60% reduction is a comparison target, not a functional
+gate or a reason to remove required dependencies.
+
+The build runs the same suite after relocating the runtime and records results
+under `artifacts/runtime-test-results`. Installed-package tests run it again on
+each distribution, then exercise desktop persistence/generation plus the real
+create/migrate/plugin-import IPC bridges and verify bundle integrity afterward.
 
 Use `npm run build:desktop` on a suitable native host for local packaging.
 The launcher directly starts Vite and the compilation-aware Electron watcher;

@@ -76,8 +76,14 @@ jobs:
         run: node scripts/test-windows-signing.mjs
       - run: npm ci
       - run: npm run build:web:electron
-      - run: node --test scripts/backend-env.test.mjs scripts/backend-lifecycle.test.mjs scripts/mac-runtime.test.mjs
+      - run: node --test scripts/backend-env.test.mjs scripts/backend-lifecycle.test.mjs scripts/mac-runtime.test.mjs scripts/runtime-test-support.test.mjs
       - run: npm run build:python-runtime
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-build-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/runtime-test-results
+          if-no-files-found: ignore
       - run: npm --workspace apps/desktop run package -- --${{ matrix.platform }}
       - name: Verify Windows signatures before upload
         if: inputs.signed && matrix.platform == 'win'
@@ -203,7 +209,7 @@ jobs:
         if: always() && inputs.signed && matrix.platform == 'win'
         run: node scripts/windows-test-trust.mjs remove
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: diagnostics-${{ matrix.platform }}-${{ matrix.arch }}
           path: |

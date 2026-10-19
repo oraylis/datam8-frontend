@@ -112,11 +112,13 @@ def secret_check(solution_file, roundtrip, encrypted=False):
     from datam8 import config
     from datam8.secrets import SecretResolver
 
+    encrypted_file = None
     if roundtrip and (encrypted or sys.platform == "linux"):
         # Always test crypto after removing SelfTest, without touching user keyrings.
         from keyrings.cryptfile.cryptfile import CryptFileKeyring
         backend = CryptFileKeyring()
-        backend.file_path = str(solution_file.parent / "test-keyring.cfg")
+        encrypted_file = solution_file.parent / ("test-keyring-" + secrets.token_hex(12) + ".cfg")
+        backend.file_path = str(encrypted_file)
         backend.keyring_key = secrets.token_hex(24)
         keyring.set_keyring(backend)
     backend = keyring.get_keyring()
@@ -139,8 +141,12 @@ def secret_check(solution_file, roundtrip, encrypted=False):
         assert resolver.get_secret("runtime/password") is None
         assert resolver.list_secrets() == []
     finally:
-        resolver.clean()
-        private.unlink()
+        try:
+            resolver.clean()
+        finally:
+            private.unlink(missing_ok=True)
+            if encrypted_file is not None:
+                encrypted_file.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

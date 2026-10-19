@@ -145,7 +145,11 @@ async function main() {
       assert.equal(fs.readFileSync(path.join(solutionDir, 'Output/generated/hello.txt'), 'utf8').trim(), 'Hello world');
     });
     await test('secret backend available', () => check('secrets', fixture));
-    await test('encrypted secret set, read, overwrite and delete', () => check('encrypted-secrets-roundtrip', fixture));
+    await test('encrypted secret set, read, overwrite and delete across independent runs', () => {
+      check('encrypted-secrets-roundtrip', fixture);
+      check('encrypted-secrets-roundtrip', fixture);
+      assert.deepEqual(fs.readdirSync(solutionDir).filter(name => name.startsWith('test-keyring-')), []);
+    });
     if (args['secrets-roundtrip']) await test('isolated secret set, read, overwrite and delete', () => check('secrets-roundtrip', fixture));
     else {
       const reason = 'Enable --secrets-roundtrip on a disposable test account';

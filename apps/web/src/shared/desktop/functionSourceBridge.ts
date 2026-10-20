@@ -1,5 +1,6 @@
 import { apiBase } from "../../config";
 import { readBackendErrorMessage } from "../api/errorMessage";
+import { getWorkspaceId } from "../api/workspaceSession";
 
 type FunctionSourcePayload = {
   relPath: string;
@@ -34,7 +35,10 @@ async function requestFunctionApi(
   const desktop = typeof window !== "undefined" ? window.desktop : undefined;
   const desktopRequest = desktop?.isElectron ? desktop.solution?.requestFunctionApi : undefined;
   if (desktopRequest) {
-    return await desktopRequest({ path, method: init?.method, body: init?.body, legacySource: init?.legacySource });
+    const workspaceId = getWorkspaceId();
+    const result = await desktopRequest({ path, method: init?.method, body: init?.body, legacySource: init?.legacySource, ...(workspaceId ? { workspaceId } : {}) });
+    if (workspaceId && workspaceId !== getWorkspaceId()) throw new DOMException("Request aborted because the workspace changed", "AbortError");
+    return result;
   }
   const response = await fetch(`${apiBase}${path}`, {
     method: init?.method,

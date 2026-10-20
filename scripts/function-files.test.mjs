@@ -117,24 +117,13 @@ test('Desktop reload commands and solution detection preserve the active solutio
     await expect(page.getByRole('button', { name: 'Customer', exact: true })).toBeVisible({ timeout: 30_000 });
     const pids = await backendPids(); assert.equal(pids.length, 1);
     await page.evaluate(() => { window.reloadMarker = 'same renderer'; });
-    // Solution payloads are fetched through real Main IPC, not renderer HTTP.
-    await app.evaluate(() => {
-      globalThis.solutionReadCount = 0;
-      const originalFetch = globalThis.fetch;
-      globalThis.fetch = (...args) => {
-        if (String(args[0]).endsWith('/solution/full')) globalThis.solutionReadCount++;
-        return originalFetch(...args);
-      };
-    });
     const requests = [];
     page.on('request', request => { const pathname = new URL(request.url()).pathname;
       if (['/model/reload', '/plugins/reload', '/solution/full'].includes(pathname)) requests.push(`${request.method()} ${pathname}`); });
     for (const reload of [() => page.getByTitle('Reload', { exact: true }).click(), () => menu('Reload')]) {
       requests.length = 0;
-      const reads = await app.evaluate(() => globalThis.solutionReadCount);
       await reload();
-      await expect.poll(() => app.evaluate(() => globalThis.solutionReadCount)).toBe(reads + 1);
-      assert.deepEqual(requests, ['POST /model/reload', 'POST /plugins/reload']);
+      await expect.poll(() => [...requests]).toEqual(['POST /model/reload', 'POST /plugins/reload', 'GET /solution/full']);
       assert.deepEqual(await backendPids(), pids);
       assert.equal(await page.evaluate(() => window.reloadMarker), 'same renderer');
       await expect(page.getByRole('button', { name: 'Customer', exact: true })).toBeVisible();

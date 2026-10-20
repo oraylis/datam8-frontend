@@ -7,6 +7,7 @@ import type { Solution } from "./solution-types";
 import { apiBase } from "../../config";
 import { V1SolutionDetectedError } from "./errors";
 import { readBackendErrorMessage } from "../../shared/api/errorMessage";
+import { setWorkspaceId } from "../../shared/api/workspaceSession";
 import type { DesktopUpdateBridge, DesktopDeveloperBridge } from "@datam8/types";
 
 export type SolutionSource =
@@ -45,6 +46,7 @@ declare global {
       solution?: {
         requestFunctionApi?: (payload: {
           path: string;
+          workspaceId?: string | null;
           method?: "GET" | "POST";
           body?: unknown;
           legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
@@ -54,7 +56,10 @@ declare global {
         pickDirectory?: () => Promise<string | null>;
         pickPluginArtifacts?: () => Promise<string[] | null>;
         detectVersion?: (solutionPath: string) => Promise<{ version?: "v1" | "v2"; path?: string } | null>;
-        load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown } | null>;
+        load?: (solutionPath: string) => Promise<{ path: string; payload: unknown; workspaceId: string }>;
+        cancelStart?: () => Promise<boolean>;
+        isStarting?: () => Promise<boolean>;
+        onStartupChanged?: (callback: (starting: boolean) => void) => () => void;
         forceReload?: () => Promise<void>;
         onReload?: (callback: (force: boolean) => void) => () => void;
         createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
@@ -287,10 +292,7 @@ function normalizePayload(payload: any): LoadedSolution {
   };
 }
 
-async function loadFromServer(path: string): Promise<LoadedSolution> {
-  // Non-desktop mode cannot switch backend workspace by path; keep the input for UX parity
-  // and load the currently bound solution from the active backend instance.
-  void path;
+export async function loadCurrentSolution(): Promise<LoadedSolution> {
   const res = await fetch(`${apiBase}/solution/full`);
   if (!res.ok) {
     const payload = await res.json().catch(() => null);
@@ -327,7 +329,9 @@ async function loadFromElectron(path: string): Promise<LoadedSolution> {
 
   if (desktopBridge?.load) {
     const loaded = await desktopBridge.load(path);
-    return normalizePayload((loaded as any)?.payload ?? loaded);
+    const result = normalizePayload(loaded.payload);
+    setWorkspaceId(loaded.workspaceId);
+    return result;
   }
 
   if (desktopBridge?.loadSolution) {
@@ -358,7 +362,8 @@ async function loadFromElectron(path: string): Promise<LoadedSolution> {
 export async function loadSolution(source: SolutionSource): Promise<LoadedSolution> {
   switch (source.kind) {
     case "server-path":
-      return loadFromServer(source.path);
+      // Browser mode reads the workspace bound at startup; the input does not switch it.
+      return loadCurrentSolution();
     case "uploaded-file":
       return loadFromUploadedFile(source.file);
     case "electron-path":

@@ -85,7 +85,10 @@ export function SolutionDialog({ open, onLoaded }: SolutionDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(next) => setPickerOpen(next)}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className="max-w-3xl"
+        onEnter={!loading && (window.desktop?.isElectron || pickerInput) ? handleLoad : undefined}
+      >
         <DialogHeader>
           <DialogTitle>Select solution (.dm8s)</DialogTitle>
           <DialogDescription>

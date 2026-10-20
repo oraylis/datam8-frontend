@@ -2222,7 +2222,7 @@ export function AppShell() {
         onConfirm={confirmMoveEntities}
       />
       <Dialog open={newFolderDialogOpen} onOpenChange={setNewFolderDialogOpen}>
-        <DialogContent className="new-folder-dialog max-w-md">
+        <DialogContent className="new-folder-dialog max-w-md" onEnter={() => void submitCreateFolder()}>
           <DialogHeader>
             <DialogTitle>Create Folder</DialogTitle>
             <DialogDescription>{`Create a folder under ${newFolderParentPath}.`}</DialogDescription>

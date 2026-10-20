@@ -20,6 +20,15 @@ An occupied backend port reports a startup error; unrelated listeners are retain
 
 Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/generate`, ...), no `/api/*` and no `/jobs`.
 
+## Dialog keyboard actions
+
+Enter runs the main action in confirmation, Create Folder, Move, and Load Solution
+dialogs. Confirmation dialogs initially focus their main button, including Delete.
+Tab to Cancel and press Enter, or use Escape, to cancel. Input dialogs retain their
+input focus; text areas, selections, and the folder picker's search keep their own
+Enter behavior. Shared `DialogContent` provides an optional `onEnter` callback;
+callers use the same handler and enabled conditions as their main button.
+
 ## Runtime configuration
 
 **View > Reload** (`Ctrl/Cmd+R`) runs the same solution/model and plugin refresh

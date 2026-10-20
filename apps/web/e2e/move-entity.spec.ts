@@ -103,6 +103,9 @@ function createMockSolutionPayload() {
 async function mockApi(page: import("@playwright/test").Page) {
   const solutionPayload = createMockSolutionPayload();
   const moveBodies: JsonRecord[] = [];
+  const folderWrites: JsonRecord[] = [];
+  const deletes: string[] = [];
+  const solutionReads: string[] = [];
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -116,6 +119,7 @@ async function mockApi(page: import("@playwright/test").Page) {
   });
 
   await page.route("**/solution/full**", async (route) => {
+    solutionReads.push(route.request().url());
     await route.fulfill({ json: solutionPayload });
   });
 
@@ -140,6 +144,15 @@ async function mockApi(page: import("@playwright/test").Page) {
     await route.fulfill({ json: {} });
   });
 
+  await page.route("**/entities/**", async (route) => {
+    if (route.request().method() === "DELETE") {
+      deletes.push(route.request().url());
+    } else {
+      folderWrites.push(JSON.parse(route.request().postData() || "{}"));
+    }
+    await route.fulfill({ json: {} });
+  });
+
   await page.route("**/entities/move", async (route) => {
     const req = route.request();
     if (req.method() !== "POST") {
@@ -151,13 +164,13 @@ async function mockApi(page: import("@playwright/test").Page) {
     await route.fulfill({ status: 200, json: { ok: true } });
   });
 
-  return { solutionPayload, moveBodies };
+  return { solutionPayload, moveBodies, folderWrites, deletes, solutionReads };
 }
 
 async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("Absolute path to .dm8s").fill("/tmp/mock.dm8s");
-  await page.getByRole("button", { name: "Load" }).click();
+  await page.getByPlaceholder("Absolute path to .dm8s").press("Enter");
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
 }
 
@@ -174,13 +187,23 @@ test("Move to… moves model entity to new Zone/Product/Module", async ({ page }
   await expect(page.getByRole("heading", { name: "Move entity" })).toBeVisible();
   await page.getByRole("button", { name: "Browse" }).click();
   const folderPicker = page.locator(".move-entities-dialog .codex-popup-section").first();
+  await folderPicker.getByPlaceholder("Search folders…").fill("ProductX");
+  await folderPicker.getByPlaceholder("Search folders…").press("Enter");
+  await expect(page.getByRole("heading", { name: "Move entity" })).toBeVisible();
+  expect(moveBodies).toHaveLength(0);
+  await folderPicker.getByPlaceholder("Search folders…").fill("");
   await folderPicker.getByRole("button", { name: "Model" }).click();
   await folderPicker.getByRole("button", { name: "ZoneX" }).first().click();
   const productRow = folderPicker.locator("div", { hasText: "ProductX" }).first();
-  await productRow.getByRole("button", { name: "Select" }).click();
+  await productRow.getByRole("button", { name: "Select" }).press("Enter");
   const moveButton = page.getByRole("button", { name: "Move" });
   await expect(moveButton).toBeEnabled();
-  await moveButton.click();
+  const targetFolder = page.getByPlaceholder("No folder selected");
+  await targetFolder.press("Shift+Enter");
+  await targetFolder.dispatchEvent("keydown", { key: "Enter", repeat: true });
+  await targetFolder.dispatchEvent("keydown", { key: "Enter", isComposing: true });
+  expect(moveBodies).toHaveLength(0);
+  await targetFolder.press("Enter");
 
   await expect.poll(() => moveBodies.length, { timeout: 10_000 }).toBe(1);
   expect(moveBodies[0]).toMatchObject({
@@ -191,4 +214,47 @@ test("Move to… moves model entity to new Zone/Product/Module", async ({ page }
   await expect(page.getByRole("button", { name: "ZoneX" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "ProductX" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Customer" }).first()).toBeVisible();
+});
+
+test("solution Enter respects disabled Load and loads exactly once", async ({ page }) => {
+  const { solutionReads } = await mockApi(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const path = page.getByPlaceholder("Absolute path to .dm8s");
+  await expect(page.getByRole("button", { name: "Load", exact: true })).toBeDisabled();
+  await path.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(solutionReads).toHaveLength(0);
+  await path.fill("/tmp/mock.dm8s");
+  await path.press("Enter");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  expect(solutionReads).toHaveLength(1);
+});
+
+test("folder Enter creates once; confirmation Enter, Cancel and Escape follow focus", async ({ page }) => {
+  const { folderWrites, deletes } = await mockApi(page);
+  await loadSolutionFromDialog(page);
+  await page.getByRole("button", { name: "ZoneX", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New Folder...", exact: true }).click();
+  const name = page.getByPlaceholder("New folder");
+  await expect(name).toBeFocused();
+  await name.fill("KeyboardFolder");
+  await name.press("Enter");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  expect(folderWrites).toHaveLength(1);
+  expect(folderWrites[0]).toMatchObject({ name: "KeyboardFolder", path: "ZoneX/KeyboardFolder" });
+
+  for (const action of ["cancel", "escape", "confirm"]) {
+    await page.getByRole("button", { name: "KeyboardFolder", exact: true }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Delete Folder", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeFocused();
+    if (action === "cancel") {
+      await page.keyboard.press("Shift+Tab");
+      await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+    }
+    await page.keyboard.press(action === "escape" ? "Escape" : "Enter");
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => deletes.length).toBe(action === "confirm" ? 1 : 0);
+  }
+  await expect(page.getByRole("button", { name: "KeyboardFolder", exact: true })).toHaveCount(0);
 });

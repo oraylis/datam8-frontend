@@ -66,7 +66,7 @@ export function MoveEntitiesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="move-entities-dialog max-w-lg">
+      <DialogContent className="move-entities-dialog max-w-lg" onEnter={submit}>
         <DialogHeader>
           <DialogTitle>Move {safeCount === 1 ? "entity" : "entities"}</DialogTitle>
           <DialogDescription>Select the target folder under Model.</DialogDescription>

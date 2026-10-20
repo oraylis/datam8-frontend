@@ -60,6 +60,8 @@ declare global {
         cancelStart?: () => Promise<boolean>;
         isStarting?: () => Promise<boolean>;
         onStartupChanged?: (callback: (starting: boolean) => void) => () => void;
+        forceReload?: () => Promise<void>;
+        onReload?: (callback: (force: boolean) => void) => () => void;
         createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         importPlugins?: (payload: { solutionPath: string; artifactPaths: string[] }) => Promise<{ imported?: number; plugins?: unknown } | null>;

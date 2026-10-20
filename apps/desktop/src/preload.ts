@@ -83,6 +83,12 @@ contextBridge.exposeInMainWorld("desktop", {
       return () => ipcRenderer.off("solution:startup-changed", handler);
     },
     load: (solutionPath: string) => ipcRenderer.invoke("solution:load", solutionPath),
+    forceReload: () => ipcRenderer.invoke("solution:force-reload"),
+    onReload: (callback: (force: boolean) => void) => {
+      const handler = (_event: IpcRendererEvent, force: boolean) => callback(force);
+      ipcRenderer.on("solution:reload", handler);
+      return () => ipcRenderer.off("solution:reload", handler);
+    },
     createNew: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) =>
       ipcRenderer.invoke("solution:create-new", payload),
     migrateV1ToV2: (payload: { sourceSolutionPath: string; targetDir: string }) =>

@@ -164,7 +164,7 @@ const persistBaseListItems = async (
   baseType: string,
   prevItems: unknown[],
   nextItems: unknown[],
-  opts?: { save?: boolean },
+  opts?: { save?: boolean; sourceFile?: string },
 ): Promise<boolean> => {
   let hadMutation = false;
   const previousByKey = new Map<string, Record<string, unknown>>();
@@ -539,7 +539,7 @@ export function AppShell() {
 
             if (baseType && baseType !== "unknown") {
               assertNoDuplicateBaseKeys(baseType, nextItems);
-              hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
+              hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false, sourceFile: nextEntity.relPath });
             } else {
               const locator = nextEntity.locator || modelLocatorFromRelPath(nextEntity.relPath);
               try {
@@ -1169,7 +1169,7 @@ export function AppShell() {
           const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
           const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          await persistBaseListItems(baseType, prevItems, nextItems);
+          await persistBaseListItems(baseType, prevItems, nextItems, { sourceFile: updatedBase.relPath });
         }
       }
 
@@ -1398,7 +1398,7 @@ export function AppShell() {
 
         if (baseType && baseType !== "unknown") {
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
+          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false, sourceFile: updated.relPath });
         } else {
           const updatedLocator = updated.locator || modelLocatorFromRelPath(updated.relPath);
           try {

@@ -1045,11 +1045,10 @@ async function startBackend(solutionPath: string, runtime = resolveBackendRuntim
 }
 
 async function forceReload() {
-  const savedToken = backendToken ?? undefined;
   const savedPath = currentSolutionPath ?? undefined;
   await stopBackend();
   if (savedPath) {
-    await startBackend(savedPath, savedToken);
+    await startBackend(savedPath);
     syncWindowTitle();
   }
   if (mainWindow) {

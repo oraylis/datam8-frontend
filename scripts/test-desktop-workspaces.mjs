@@ -2,15 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { spawn } from 'node:child_process';
 import { _electron, expect } from '@playwright/test';
 import { desktopFixture } from './desktop-fixture.mjs';
 import { unusedLoopbackPort } from './test-port.mjs';
-import { terminateChild } from '../apps/desktop/resources/backend-lifecycle.cjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const require = createRequire(path.join(root, 'apps/desktop/package.json'));
-const webRequire = createRequire(path.join(root, 'apps/web/package.json'));
 const tempRoot = fs.realpathSync.native(os.tmpdir());
 const temp = fs.mkdtempSync(path.join(tempRoot, 'DataM8 workspace test '));
 if (path.dirname(temp) !== tempRoot) throw new Error('Unexpected test directory');
@@ -25,7 +22,7 @@ fs.writeFileSync(path.join(path.dirname(slow), '.user-settings.json'), JSON.stri
 fs.writeFileSync(path.join(temp, 'slow_backend.py'), 'import time, runpy\ntime.sleep(30)\nrunpy.run_module("datam8", run_name="__main__")\n');
 const broken = path.join(temp, 'Broken.dm8s');
 fs.writeFileSync(broken, JSON.stringify({ schemaVersion: '2.0.0', modelPath: 42 }));
-let vite, app, page;
+let app, page;
 const logs = [];
 const metrics = [];
 const backendPort = await unusedLoopbackPort();
@@ -34,20 +31,20 @@ try {
     DATAM8_BACKEND_TEST_PORT: String(backendPort),
     PYTHONPATH: temp,
     DATAM8_PYTHON_PATH: path.join(root, 'submodules/datam8-generator/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python') };
-  let running = false;
-  try { running = (await fetch('http://localhost:4320', { signal: AbortSignal.timeout(500) })).ok; } catch { /* no server */ }
-  if (!running) {
-    vite = spawn(process.execPath, [path.join(path.dirname(webRequire.resolve('vite/package.json')), 'bin/vite.js')],
-      { cwd: path.join(root, 'apps/web'), env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
-    vite.stdout.on('data', data => logs.push(String(data))); vite.stderr.on('data', data => logs.push(String(data)));
-    await expect.poll(async () => {
-      try { return (await fetch('http://localhost:4320', { signal: AbortSignal.timeout(500) })).ok; } catch { return false; }
-    }, { timeout: 30_000 }).toBe(true);
-  }
   app = await _electron.launch({ executablePath: require('electron'),
     args: [path.join(root, 'apps/desktop'), `--user-data-dir=${path.join(temp, 'Profile')}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])], env, timeout: 60_000 });
   app.process().stdout?.on('data', data => logs.push(String(data))); app.process().stderr?.on('data', data => logs.push(String(data)));
-  page = await app.firstWindow();
+  await (await app.firstWindow()).waitForLoadState('load');
+  await app.evaluate(async ({ BrowserWindow }, file) => {
+    const window = BrowserWindow.getAllWindows().find(window => !window.webContents.getURL().startsWith('devtools:'));
+    if (!window) throw new Error('Production renderer window not found');
+    window.loadURL = async () => {};
+    window.webContents.stop();
+    window.webContents.closeDevTools();
+    await window.loadFile(file);
+  }, path.join(root, 'apps/web/dist/index.html'));
+  await expect.poll(() => app.windows().some(window => window.url().startsWith('file:'))).toBe(true);
+  page = app.windows().find(window => window.url().startsWith('file:'));
   await expect(page.getByTitle('Open', { exact: true })).toBeVisible({ timeout: 30_000 });
   const pids = () => app.evaluate(() => process._getActiveHandles().filter(handle => handle.constructor.name === 'ChildProcess' && handle.spawnargs?.includes('serve')).map(handle => handle.pid));
   async function open(solution) {
@@ -131,7 +128,6 @@ try {
   throw error;
 } finally {
   await app?.close().catch(() => {});
-  if (vite) await terminateChild(vite);
   fs.writeFileSync(path.join(diagnostics, 'test.log'), logs.join('\n').replace(/(--token[\s=]+)[^\s"']+/gi, '$1[redacted]'));
   fs.writeFileSync(path.join(diagnostics, 'metrics.json'), JSON.stringify(metrics, null, 2));
   await fs.promises.rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

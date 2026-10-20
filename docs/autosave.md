@@ -53,6 +53,11 @@ Workspace editors follow one command model:
 
 ## Persistence model
 
+New Base collection items retain the file selected in the editor. Creation passes
+its relative path through the canonical
+[entity creation contract](../submodules/datam8-generator/docs/backend-contract.md#entity-and-function-invariants).
+This applies to normal editor saves, programmatic Base patches and refactor saves.
+
 Each editor uses the same core pattern:
 
 1. Mutations mark state dirty and increment a local change revision.

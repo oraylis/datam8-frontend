@@ -487,15 +487,24 @@ function isDangerousMigrationTarget(targetDir: string): boolean {
 }
 
 function detectSolutionVersion(solutionFilePath: string): "v1" | "v2" {
+  let parsed: unknown;
   try {
-    const raw = fs.readFileSync(solutionFilePath, "utf8");
-    const parsed = JSON.parse(raw);
-    const schemaVersion = typeof parsed?.schemaVersion === "string" ? parsed.schemaVersion.trim() : "";
-    return schemaVersion ? "v2" : "v1";
-  } catch {
-    // If unreadable/unparseable we let the backend report a detailed error later.
-    return "v1";
+    parsed = JSON.parse(fs.readFileSync(solutionFilePath, "utf8"));
+  } catch (err) {
+    throw new Error(`Cannot read solution '${solutionFilePath}': ${(err as Error).message}`);
   }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const value = parsed as Record<string, unknown>;
+    if (typeof value.schemaVersion === "string" && value.schemaVersion.trim()) return "v2";
+    const paths = ["basePath", "rawPath", "stagingPath", "corePath", "curatedPath", "generatePath", "diagramPath", "outputPath"];
+    const areas = value.AreaTypes;
+    if (
+      !("schemaVersion" in value) && paths.every((key) => typeof value[key] === "string") &&
+      areas && typeof areas === "object" && !Array.isArray(areas) &&
+      ["Raw", "Stage", "Core", "Curated", "Diagram"].every((key) => typeof (areas as Record<string, unknown>)[key] === "string")
+    ) return "v1";
+  }
+  throw new Error(`Invalid solution structure: ${solutionFilePath}`);
 }
 
 async function backendRequestJson<T>(relativePath: string, init?: RequestInit): Promise<T> {
@@ -1206,6 +1215,24 @@ async function startBackend(solutionPath?: string, tokenOverride?: string) {
   }
 }
 
+async function forceReload() {
+  const savedToken = backendToken ?? undefined;
+  const savedPath = currentSolutionPath ?? undefined;
+  await stopBackend();
+  if (savedPath) {
+    await startBackend(savedPath, savedToken);
+    syncWindowTitle();
+  }
+  if (mainWindow) {
+    if (savedPath) {
+      mainWindow.webContents.once("did-finish-load", () => {
+        mainWindow?.webContents.send("solution:open-path", savedPath);
+      });
+    }
+    mainWindow.webContents.reload();
+  }
+}
+
 function setupMenu() {
   const isMac = process.platform === "darwin";
   const menuItem = <T extends MenuItemConstructorOptions>(item: T): MenuItemConstructorOptions => item;
@@ -1222,34 +1249,15 @@ function setupMenu() {
     ...(isMac ? [menuItem({ type: "separator" }), menuItem({ role: "startSpeaking" }), menuItem({ role: "stopSpeaking" })] : []),
   ];
   const viewSubmenu: MenuItemConstructorOptions[] = [
-    menuItem({ role: "reload" }),
+    {
+      label: "Reload",
+      accelerator: "CmdOrCtrl+R",
+      click: () => { if (!preparingUpdate) mainWindow?.webContents.send("solution:reload", false); },
+    },
     {
       label: "Force Reload",
       accelerator: "CmdOrCtrl+Shift+R",
-      click: async () => {
-        if (preparingUpdate) return;
-        const savedToken = backendToken ?? undefined;
-        const savedPath = currentSolutionPath ?? undefined;
-        await stopBackend();
-        if (savedPath) {
-          try {
-            await startBackend(savedPath, savedToken);
-          } catch (err) {
-            dialog.showErrorBox("Force Reload Failed", `Backend failed to restart: ${(err as Error).message}`);
-          }
-          syncWindowTitle();
-        }
-        if (mainWindow) {
-          // After the renderer finishes reloading, re-send the solution path so
-          // the app re-opens the same solution it had before the force reload.
-          if (savedPath) {
-            mainWindow.webContents.once("did-finish-load", () => {
-              mainWindow?.webContents.send("solution:open-path", savedPath);
-            });
-          }
-          mainWindow.webContents.reload();
-        }
-      },
+      click: () => { if (!preparingUpdate) mainWindow?.webContents.send("solution:reload", true); },
     },
     menuItem({ role: "toggleDevTools" }),
     menuItem({ type: "separator" }),
@@ -1592,6 +1600,8 @@ handleSolutionOperation("solution:load", async (_event, solutionPath: string | n
   const payload = await loadCurrentSolutionPayload();
   return { path: normalized, payload };
 });
+
+handleSolutionOperation("solution:force-reload", forceReload);
 
 handleSolutionOperation("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => {
   const solutionPath = await createSolutionViaCli(payload);

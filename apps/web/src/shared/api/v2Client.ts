@@ -42,9 +42,10 @@ async function parseResponse(response: Response): Promise<EntityResponsePayload>
   return isJsonRecord(payload) ? payload : {};
 }
 
-async function createEntityInternal(locator: string, body: JsonRecord, opts?: { save?: boolean }): Promise<EntityResponseItem | undefined> {
+async function createEntityInternal(locator: string, body: JsonRecord, opts?: { save?: boolean; sourceFile?: string }): Promise<EntityResponseItem | undefined> {
   const normalized = locator.startsWith("/") ? locator : `/${locator}`;
-  const response = await fetch(`${apiBase}/entities${normalized}`, {
+  const query = opts?.sourceFile !== undefined ? `?${new URLSearchParams({ sourceFile: opts.sourceFile })}` : "";
+  const response = await fetch(`${apiBase}/entities${normalized}${query}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -90,7 +91,7 @@ async function patchEntityInternal(locator: string, patch: JsonRecord, opts?: { 
   return payload?.item;
 }
 
-export async function createEntity(locator: string, body: JsonRecord, opts?: { save?: boolean }): Promise<EntityResponseItem | undefined> {
+export async function createEntity(locator: string, body: JsonRecord, opts?: { save?: boolean; sourceFile?: string }): Promise<EntityResponseItem | undefined> {
   return createEntityInternal(locator, body, opts ?? { save: true });
 }
 

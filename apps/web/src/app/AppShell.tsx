@@ -164,7 +164,7 @@ const persistBaseListItems = async (
   baseType: string,
   prevItems: unknown[],
   nextItems: unknown[],
-  opts?: { save?: boolean },
+  opts?: { save?: boolean; sourceFile?: string },
 ): Promise<boolean> => {
   let hadMutation = false;
   const previousByKey = new Map<string, Record<string, unknown>>();
@@ -539,7 +539,7 @@ export function AppShell() {
 
             if (baseType && baseType !== "unknown") {
               assertNoDuplicateBaseKeys(baseType, nextItems);
-              hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
+              hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false, sourceFile: nextEntity.relPath });
             } else {
               const locator = nextEntity.locator || modelLocatorFromRelPath(nextEntity.relPath);
               try {
@@ -1169,7 +1169,7 @@ export function AppShell() {
           const nextItems = Array.isArray(detectedUpdated.items) ? detectedUpdated.items : [];
           const prevItems = Array.isArray(detectedPrevious.items) ? detectedPrevious.items : [];
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          await persistBaseListItems(baseType, prevItems, nextItems);
+          await persistBaseListItems(baseType, prevItems, nextItems, { sourceFile: updatedBase.relPath });
         }
       }
 
@@ -1398,7 +1398,7 @@ export function AppShell() {
 
         if (baseType && baseType !== "unknown") {
           assertNoDuplicateBaseKeys(baseType, nextItems);
-          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false });
+          hadMutation = await persistBaseListItems(baseType, prevItems, nextItems, { save: false, sourceFile: updated.relPath });
         } else {
           const updatedLocator = updated.locator || modelLocatorFromRelPath(updated.relPath);
           try {
@@ -1760,8 +1760,8 @@ export function AppShell() {
     if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing";
   }, [updateStatus?.phase]);
 
-  const handleReload = useCallback(async () => {
-    if (!solution) return;
+  const handleReload = useCallback(async (force = false) => {
+    if (!solution && !force) return;
     if (hasAnyDirty) {
       const proceed = await confirm({
         title: "Reload solution?",
@@ -1772,6 +1772,10 @@ export function AppShell() {
       if (!proceed) return;
     }
     try {
+      if (force) {
+        await window.desktop?.solution?.forceReload?.();
+        return;
+      }
       const reloadResponse = await fetch(`${apiBase}/model/reload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1818,6 +1822,8 @@ export function AppShell() {
       applyLoadedSolution(result);
     }
   }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solution, solutionPath, solutionSource]);
+
+  useEffect(() => window.desktop?.solution?.onReload?.((force) => { void handleReload(force); }), [handleReload]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cloneEntity, deleteEntity, moveEntities, moveSingleEntity, renameEntity } from "./v2Client";
+import { cloneEntity, createEntity, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity } from "./v2Client";
 
 describe("v2Client.moveEntities", () => {
   const originalFetch = globalThis.fetch;
@@ -169,6 +169,52 @@ describe("v2Client.moveEntities", () => {
       1,
       expect.stringMatching(/\/entities\/folders\/Raw\/Sales$/),
       expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+});
+
+describe("v2Client collection creation", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("encodes the selected source file without adding it to the entity body or saving early", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ item: { name: "New" } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const body = { name: "New", property: "Priority" };
+    const sourceFile = "Base/Custom/Values ä & #.json";
+
+    await createEntity("/propertyValues/Priority/New", body, { sourceFile, save: false });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const parsed = new URL(url, "http://localhost");
+    expect(parsed.pathname).toBe("/entities/propertyValues/Priority/New");
+    expect(parsed.searchParams.get("sourceFile")).toBe(sourceFile);
+    expect(parsed.hash).toBe("");
+    expect(init).toMatchObject({ method: "PUT", body: JSON.stringify(body) });
+  });
+
+  it("keeps creation without a target compatible and saves once by default", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createEntity("dataTypes/New", { name: "New", targets: {} });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/entities\/dataTypes\/New$/);
+    expect(fetchMock.mock.calls[1][0]).toMatch(/\/model\/save$/);
+  });
+
+  it("keeps existing items on PATCH without a file placement parameter", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+    const options = { sourceFile: "Base/Custom/Values.json", save: false };
+
+    await patchEntity("/propertyValues/Priority/Existing", { displayName: "Changed" }, options);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/entities\/propertyValues\/Priority\/Existing$/),
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ displayName: "Changed" }) }),
     );
   });
 });

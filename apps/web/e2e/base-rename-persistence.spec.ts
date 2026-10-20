@@ -23,7 +23,7 @@ test.beforeAll(async () => {
     writeFileSync(target, JSON.stringify(content), "utf8");
   };
   writeJson("Base/Zones.json", { type: "zones", zones: [{ name: "Core", targetName: "core", displayName: "Core" }] });
-  writeJson("Base/DataTypes.json", { type: "dataTypes", dataTypes: [{ name: "int", targets: {} }] });
+  writeJson("Base/DataTypes.json", { type: "dataTypes", dataTypes: [{ name: "int", targets: { test: "int" } }] });
   writeJson("Base/AttributeTypes.json", {
     type: "attributeTypes", attributeTypes: [{ name: "ID", displayName: "Identifier", defaultType: "int" }],
   });
@@ -34,6 +34,12 @@ test.beforeAll(async () => {
   writeJson("Base/PropertyValues.json", {
     type: "propertyValues",
     propertyValues: [{ property: "write_mode", name: "merge" }, { property: "status", name: "merge" }],
+  });
+  writeJson("Base/Custom/SelectedValues.json", {
+    type: "propertyValues", propertyValues: [{ property: "write_mode", name: "custom" }],
+  });
+  writeJson("Base/Custom/SelectedTypes.json", {
+    type: "dataTypes", dataTypes: [{ name: "custom_type", targets: { test: "string" } }],
   });
   writeJson("Model/Core/Customer.json", {
     id: 1, name: "Customer",
@@ -140,6 +146,49 @@ async function openFixture(page: Page) {
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
   return { serverErrors, pageErrors };
+}
+
+for (const scenario of [
+  { kind: "propertyValues", title: "Selected Values", file: "Base/Custom/SelectedValues.json", name: "Value1", label: "Value Name *" },
+  { kind: "dataTypes", title: "Selected Types", file: "Base/Custom/SelectedTypes.json", name: "DataType1", label: "Name *" },
+]) {
+  test(`adding ${scenario.kind} retains the selected custom collection with a real backend`, async ({ page, request }) => {
+    const { serverErrors, pageErrors } = await openFixture(page);
+    const originalFiles = readdirSync(path.join(root, "Base"), { recursive: true }).sort();
+    const before = readJson(scenario.file)[scenario.kind];
+    const otherFile = scenario.kind === "propertyValues" ? "Base/PropertyValues.json" : "Base/DataTypes.json";
+    const otherBytes = readFileSync(path.join(root, otherFile), "utf8");
+    const createRequests: string[] = [];
+    page.on("request", (req) => {
+      if (req.method() === "PUT" && new URL(req.url()).pathname.startsWith(`/entities/${scenario.kind}/`)) {
+        createRequests.push(new URL(req.url()).searchParams.get("sourceFile") || "");
+      }
+    });
+    await page.getByRole("tab", { name: "Base", exact: true }).click();
+    await page.getByRole("button", { name: scenario.title, exact: true }).click();
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith("/model/save") && response.ok(), { timeout: 15_000 }),
+      page.locator(".base-list__header").getByRole("button", { name: "Add", exact: true }).click(),
+    ]);
+
+    await expect.poll(() => readJson(scenario.file)[scenario.kind].map((row: { name: string }) => row.name))
+      .toEqual([...before.map((row: { name: string }) => row.name), scenario.name]);
+    expect(createRequests).toEqual([scenario.file]);
+    expect(readFileSync(path.join(root, otherFile), "utf8")).toBe(otherBytes);
+    expect(readdirSync(path.join(root, "Base"), { recursive: true }).sort()).toEqual(originalFiles);
+    expect(await (await request.get(`${baseUrl}/model/unsaved`)).json()).toMatchObject({ count: 0 });
+
+    const reloaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/solution/full" && response.ok());
+    await page.getByRole("button", { name: "Reload", exact: true }).first().click();
+    await reloaded;
+    await page.getByRole("button", { name: scenario.title, exact: true }).click();
+    await page.getByRole("table", { name: "Base items" }).getByText(scenario.name, { exact: true }).click();
+    await expect(page.locator(".base-editor label").filter({ hasText: scenario.label }).locator("..").getByRole("textbox").first())
+      .toHaveValue(scenario.name);
+    expect(readJson(scenario.file)[scenario.kind]).toHaveLength(before.length + 1);
+    expect(serverErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+  });
 }
 
 test("changing a Property Value name or property saves the original file and references with a real backend", async ({ page, request }) => {

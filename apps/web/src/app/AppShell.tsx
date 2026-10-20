@@ -1760,8 +1760,8 @@ export function AppShell() {
     if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing";
   }, [updateStatus?.phase]);
 
-  const handleReload = useCallback(async () => {
-    if (!solution) return;
+  const handleReload = useCallback(async (force = false) => {
+    if (!solution && !force) return;
     if (hasAnyDirty) {
       const proceed = await confirm({
         title: "Reload solution?",
@@ -1772,6 +1772,10 @@ export function AppShell() {
       if (!proceed) return;
     }
     try {
+      if (force) {
+        await window.desktop?.solution?.forceReload?.();
+        return;
+      }
       const reloadResponse = await fetch(`${apiBase}/model/reload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1818,6 +1822,8 @@ export function AppShell() {
       applyLoadedSolution(result);
     }
   }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solution, solutionPath, solutionSource]);
+
+  useEffect(() => window.desktop?.solution?.onReload?.((force) => { void handleReload(force); }), [handleReload]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")

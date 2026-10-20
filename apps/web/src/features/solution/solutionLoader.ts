@@ -55,6 +55,8 @@ declare global {
         pickPluginArtifacts?: () => Promise<string[] | null>;
         detectVersion?: (solutionPath: string) => Promise<{ version?: "v1" | "v2"; path?: string } | null>;
         load?: (solutionPath: string) => Promise<{ path?: string; payload?: unknown } | null>;
+        forceReload?: () => Promise<void>;
+        onReload?: (callback: (force: boolean) => void) => () => void;
         createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         importPlugins?: (payload: { solutionPath: string; artifactPaths: string[] }) => Promise<{ imported?: number; plugins?: unknown } | null>;

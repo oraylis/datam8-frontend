@@ -22,6 +22,16 @@ Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/gene
 
 ## Runtime configuration
 
+**View > Reload** (`Ctrl/Cmd+R`) runs the same solution/model and plugin refresh
+as the frontend Reload button, keeping the renderer and backend running.
+**View > Force Reload** (`Ctrl/Cmd+Shift+R`) restarts the backend and renderer and
+reopens the active solution. Both use the frontend's existing confirmation when
+there are unsaved changes; cancelling leaves the session running.
+
+Opening malformed JSON or an unrecognized solution structure reports a load
+error and retains any open solution. Only a recognized V1 structure opens the
+migration wizard.
+
 - Opening solutions in development requires the interpreter from
   `submodules/datam8-generator/.venv`; the frontend and update simulation can
   start without it.

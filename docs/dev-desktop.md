@@ -240,12 +240,13 @@ macOS uses the configured keyring; Linux uses a temporary encrypted file backend
 The installed-package CI requires this roundtrip. Local packaged tests can opt in
 with `DATAM8_RUNTIME_TEST_SECRETS=1`; otherwise this case is reported as skipped.
 
-The `Python runtime and desktop acceptance` workflow runs on pushes to
-`codex/python-runtime-slimming-all-platforms` and supports manual dispatch once
-registered on the default branch. It first builds/tests only the runtime on
-Windows x64, macOS ARM64/x64 and Linux x64, without an Electron build or release
-credentials. After all four pass, it runs the existing unsigned desktop matrix.
-Both stages upload diagnostics even on failure.
+Full native acceptance runs only through the manual desktop workflow or a release
+tag. The manual workflow defaults to unsigned acceptance and can run on a feature
+branch. Signed candidates require main. Each platform builds/tests its runtime
+before packaging and verifies the installed distributions on a fresh runner;
+there is no additional runtime matrix before the same desktop matrix.
+PR/Main CI retains the short Linux checks, including workspace switching,
+save barriers, stale-write rejection, generation and shutdown with a real backend.
 
 Each runtime report counts regular files, bytes and symlinks separately and
 compares regular files with the published v2.0.1 runtimes (Windows x64: 8,698;

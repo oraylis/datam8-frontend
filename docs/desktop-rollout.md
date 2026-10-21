@@ -2,14 +2,14 @@
 
 The maintained [release process](release.md) replaces the former desktop build
 and publishing process. This checklist covers the one-time transition; it is
-not a requirement to operate two product generations indefinitely. During the
-current test phase, changes stay on `feature/external_refresh`; no public release
-or change to `main` is made by manual verification.
+not a requirement to operate two product generations indefinitely. Manual
+verification does not publish a public release or change main.
 
 ## Register the workflows and retire superseded triggers
 
-1. Complete a signed four-platform manual run at the final candidate commit.
-   Keep its workflow URL, package checksums and build manifest as evidence.
+1. Use unsigned manual acceptance for a feature branch when native verification
+   is needed before merging. Signed manual candidates run from main; a protected
+   release tag always performs the complete final verification.
 2. Integrate the reviewed changes into the default branch as a separate rollout
    step. Replace the former .NET/MSI publishing workflow with the maintained
    desktop workflow; do not leave an independent old release trigger active.
@@ -19,22 +19,17 @@ or change to `main` is made by manual verification.
    [GitHub's manual workflow documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
 4. Manual signed builds on `main` are allowed in the GitHub signing environment
    and the trusted-ref guards in `desktop.yml`. Keep these lists aligned;
-   `feature/external_refresh` remains available for candidate verification.
+   remove historical feature-branch signing exceptions.
    Require reviewed changes on the production branch and keep PR refs excluded.
 5. Configure active protection for release tags. The signing environment's
    `v*` allowlist alone does not protect tags. The workflow checks
    `github.ref_protected` and the package version before publishing.
-6. Choose one normal manual entry point. The registered
-   `ci-push-and-pull-request-merged.yml` wrapper currently also provides the
-   `windows_update_fixture_run` diagnostic input. Retain or move that diagnostic
-   explicitly before retiring the wrapper. Once `build-desktop.yml` is registered,
-   retire the temporary wrapper and its fixture-reuse diagnostic; this feature
-   branch keeps it to preserve the currently registered manual entry. Both wrappers call the same reusable
-   desktop workflow; neither creates a separate build/signing process.
-7. Check required status names in branch protection after the first PR run.
-   Quality now runs through the reusable `ci.yml` job instead of two independent
-   workflows; require its reported status and the four packaged verification
-   statuses, and remove requirements for superseded jobs.
+6. Keep `build-desktop.yml` as the single manual entry point. Retire the old
+   rollout wrapper, fixture-reuse diagnostic and runtime-optimization workflow.
+   Full package checks run only manually or for release tags.
+7. First run the new required `CI result` alongside the existing required checks.
+   After it passes, update branch protection to require it, then remove the old
+   packaged PR trigger and its required status names. Review rules remain intact.
 
 ## Replace installed applications and preserve user data
 

@@ -19,6 +19,8 @@ const old = files(path.join(fixtures, 'old')).find(name => name.endsWith('.exe')
 const next = files(path.join(fixtures, 'next')).find(name => name.endsWith('.exe'));
 const metadataFile = files(path.join(fixtures, 'next')).find(name => /\.yml$/.test(name));
 if (!old || !next || !metadataFile) throw new Error('Two signed update fixtures and metadata are required');
+const nextVersion = yaml.load(fs.readFileSync(metadataFile, 'utf8')).version;
+if (typeof nextVersion !== 'string' || !nextVersion) throw new Error('Next update version missing');
 // NSIS can expand the runner's 8.3 temp path when relaunching the app. Use the
 // canonical path throughout so process discovery compares the same executable.
 const temp = fs.mkdtempSync(path.join(fs.realpathSync.native(os.tmpdir()), 'DataM8 updates '));
@@ -101,7 +103,7 @@ try {
   phase('Old version opened solution and saved model and profile state');
   prepare(next);
   const downloaded = await updateEvent();
-  if (downloaded.kind !== 'downloaded' || downloaded.version !== '2.0.0-beta.6-ci.1') throw new Error(`Valid signed update failed: ${JSON.stringify(downloaded)}`);
+  if (downloaded.kind !== 'downloaded' || downloaded.version !== nextVersion) throw new Error(`Valid signed update failed: ${JSON.stringify(downloaded)}`);
   phase('Expected signed update downloaded and accepted by the real updater');
   await app.evaluate(({ dialog }) => {
     dialog.showMessageBox = async (...args) => { const options = args.at(-1); return { response: options.buttons[0] === 'Restart and Install' ? 0 : options.cancelId, checkboxChecked: false }; };
@@ -116,7 +118,7 @@ try {
   await app.close(); app = null;
   const asar = require('@electron/asar');
   await until(() => {
-    try { return JSON.parse(asar.extractFile(path.join(target, 'resources', 'app.asar'), 'package.json')).version === '2.0.0-beta.6-ci.1'; } catch { return false; }
+    try { return JSON.parse(asar.extractFile(path.join(target, 'resources', 'app.asar'), 'package.json')).version === nextVersion; } catch { return false; }
   }, 'signed update installation');
   // Require the production installer's real automatic restart, then close that
   // isolated copy through its native window before launching it with Playwright.

@@ -29,21 +29,20 @@ manifest. The reusable workflow is `.github/workflows/desktop.yml`.
 
 | Entry point | Purpose | Result |
 | --- | --- | --- |
-| `ci.yml` | Push/PR quality checks and compilation | No distribution |
-| `desktop-pr.yml` | Four-platform packaging and installed-app checks on PRs | Test artifacts without release signing or Vault access |
-| `ci-push-and-pull-request-merged.yml` | Currently registered manual entry point | Verified four-platform artifact; no public release |
-| `build-desktop.yml` | Manual entry point once registered on the default branch | Same verified four-platform artifact; no public release |
+| `ci.yml` | PRs against main, main pushes and explicit quality checks | Documentation checks or short Linux quality checks; no distribution |
+| `build-desktop.yml` | Explicit four-platform acceptance | Unsigned diagnostics, or a signed candidate from main; no public release |
 | `release.yml` | Protected version-tag push | Rebuild, verify and publish all distributions to a GitHub release |
 
-For the current feature-branch test phase, start the registered manual workflow:
+For an optional signed candidate from main:
 
 ```sh
-gh workflow run ci-push-and-pull-request-merged.yml \
-  --repo oraylis/datam8-frontend --ref feature/external_refresh
+gh workflow run build-desktop.yml \
+  --repo oraylis/datam8-frontend --ref main -f signed=true
 ```
 
-Leave `windows_update_fixture_run` empty for full acceptance. Download
-`DataM8-verified-four-platforms` only after all required jobs pass. The artifact
+For unsigned acceptance on a feature branch, select that ref and use
+`-f signed=false` (the default). Unsigned runs do not access release signing.
+Download `DataM8-verified-four-platforms` from a signed run only after all required jobs pass. The artifact
 includes seven platform packages, signatures, checksums, the public GPG key,
 `BUILD-MANIFEST.json` and `INSTALL-AND-VERIFY.md`.
 
@@ -51,17 +50,16 @@ Release filenames must remain unchanged on GitHub. The Windows installer uses
 `DataM8-Setup-<version>.exe`; delivery rejects unsafe filenames before signing
 checksums, so download names, update URLs and checksum entries stay consistent.
 
-The signed workflow and GitHub environment permit `main`,
-`feature/external_refresh` and protected `v*` tags. PR refs cannot use release
-signing or Vault access. macOS PR packages still receive local ad-hoc bundle
+The signed workflow and GitHub environment permit `main` and protected `v*` tags.
+PR refs cannot use release signing or Vault access. Unsigned macOS packages still receive local ad-hoc bundle
 signatures (`identity: '-'`) so the same strict bundle verification applies.
 Local packaging commands such as `npm run build:desktop` use the local host
 and architecture; they do not substitute for four-platform signed acceptance.
 
 Before publication, set and commit the intended package version, keep the lockfile
 consistent, and complete the rollout and Windows clean-VM checks. The release
-tag must be protected and exactly match `v` plus `apps/desktop/package.json`'s
-version. Pushing it triggers a new full build and public release, so do not create
+tag must be protected, refer to a commit from main and exactly match `v` plus
+`apps/desktop/package.json`'s version. Pushing it triggers a new full build and public release, so do not create
 test release tags during manual verification. Versions containing a prerelease
 suffix publish as GitHub prereleases; other versions publish as normal releases.
 Windows update metadata and blockmaps are published with the verified packages.
@@ -74,22 +72,18 @@ commit and verification URL to the description. The manifest also records the
 Generator and schema commits, so the reissued backend's version label alone is
 not used as build provenance.
 
-Release preparation stops before the main merge and public tag until approval.
-Run the registered manual wrapper with an empty `windows_update_fixture_run`
-on the final candidate, retain its verified artifact and review PR #51. A
-candidate run does not publish a draft release or reserve a tag. After approval,
-tag the actual main merge commit; the tag workflow performs a fresh full build
-and verification before publishing.
+Manual candidate acceptance is optional; it does not publish a release or reserve
+a tag. The protected tag performs one complete build and verification. Publication
+first uploads all verified files to a draft release, then makes it public. Failed
+uploads leave a draft for inspection instead of exposing incomplete release assets.
 
 CodeQL uses the repository workflow for Actions, JavaScript/TypeScript and Python.
-Default setup must be disabled when activating this workflow; the old default
-branch does not contain the React application and cannot enable its JavaScript
-analysis through default setup before the migration is merged.
+Default setup is disabled so that a second security workflow does not duplicate it.
 
 ## Signing configuration
 
 Create the GitHub environment `desktop-signing-v2`. Restrict deployment refs to
-`main`, `feature/external_refresh` and protected `v*` release tags. Do not permit PR refs.
+`main` and protected `v*` release tags. Do not permit PR or feature refs.
 The signing configuration uses a dedicated Azure application/service principal
 with GitHub OIDC. Its application has a federated credential whose issuer is
 `https://token.actions.githubusercontent.com`, audience is
@@ -331,12 +325,8 @@ npm run test:desktop:updates -- artifacts/update-fixtures
 npm run test:desktop:updates:ui
 ```
 
-To diagnose only the Windows update test, the manual entry workflow accepts the
-optional `windows_update_fixture_run` input with the ID of a previous successful
-Windows fixture build (within its two-day artifact retention). This downloads the
-already signed fixtures onto a fresh Windows runner and executes the current test
-code without Vault access or final delivery. A diagnostic pass does not count as
-four-platform acceptance. Leave the input empty for the required final full run.
+Use GitHub's failed-job rerun for diagnostics. A partial rerun does not replace
+the requirement that the final release run passes all four platforms.
 
 `installed.json` is generated by `scripts/desktop-distributions.mjs install`.
 The [runtime acceptance suite](dev-desktop.md#verify-an-existing-runtime) runs
@@ -344,8 +334,9 @@ against each installed distribution, covering all four desktop CLI commands,
 local connectors, plugin resources/reload and secret roundtrips. Its report is
 included in the platform diagnostics even on successful runs. These checks do
 not establish connectivity to real cloud services.
-Windows update tests use two signed private fixture versions and an HTTP loopback
-feed. They verify installation and restart, and reject unsigned or incorrectly
+Windows update tests use one older signed fixture and the exact release installer
+as the next version, served by an HTTP loopback feed. The target version comes
+from the release update metadata. They verify installation and restart, and reject unsigned or incorrectly
 signed updates through the UI's download and installation paths, including a
 focused edit immediately before installation and a real installer restart. The
 internal `DATAM8_UPDATE_TEST_FEED` and `DATAM8_UPDATE_TEST_RELEASES` overrides
@@ -374,8 +365,9 @@ final delivery. `BUILD-MANIFEST.json` records the commit, workflow URL, public
 Windows identity, GPG fingerprint and file sizes.
 
 A successful final run at one commit must cover all four platforms. Failed runs
-retain JUnit, screenshots, traces and redacted logs for 30 days; large intermediate
-packages are kept for 2 days and the verified final download for 14 days.
+retain screenshots, traces and redacted logs for seven days; small runtime/test
+reports for 14 days. Large intermediate packages are kept for two days and the
+verified manual download for seven days. Published release assets remain available.
 GitHub-hosted runners contain development tools, so static native-dependency
 checks complement runtime tests. Windows Server runners do not fully represent
 Windows 11 or SmartScreen reputation. Ad-hoc Mac signatures do not satisfy
@@ -383,10 +375,14 @@ Gatekeeper's Developer ID/notarization checks.
 
 ## Shared quality checks and local commands
 
-`ci.yml` owns the quality checks and is reused by the desktop workflow. Pull
-requests enter through `desktop-pr.yml` and run those checks once before the
-four native builds. Pushes to `main` and explicit quality dispatches run quality
-only. Manual desktop builds and protected release tags use the same checks.
+`ci.yml` owns quality checks for PRs against main and main pushes. Feature pushes
+and merged-PR events do not trigger duplicate copies. PR/Main changes consisting
+only of root Markdown or Markdown/images under `docs/` run documentation checks.
+Signing files under `docs/signing/`, workflows, scripts, schemas, dependency files
+and submodule pins always run the full short checks. The required `CI result`
+rejects failures, cancellations and unexpected skips. Explicit quality dispatches,
+manual desktop builds and release tags always run the full checks.
+PR/Main runs supersede stale runs; releases are not automatically cancelled.
 Generated schema types are checked for consistency; the backend wheel is built
 once as a quality gate. Native runtime builds install the pinned Generator source
 and do not build an additional unused wheel.
@@ -396,8 +392,8 @@ Use `npm run build:desktop` on the native host. CI uses the single workspace
 installed by `npm ci`; it does not reinstall or prune the shared workspace. Installed-package tests also
 smoke-test each bundled interpreter, so a separate installed-runtime loop is not
 needed. The standalone `test:runtime:packaged` command remains useful for diagnosis.
-The separate runtime-optimization workflow first exercises all four native
-runtimes, then calls the unsigned desktop matrix; see
+Native builds run only on explicit manual dispatch or release tags; there is no
+scheduled package build or separate runtime matrix. See
 [runtime checks and inventories](dev-desktop.md#native-packaging-and-ci).
 
 `npm run test:e2e:sample -- [Playwright options or a test filename]` is optional

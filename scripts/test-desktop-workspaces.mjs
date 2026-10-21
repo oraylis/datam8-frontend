@@ -110,6 +110,7 @@ try {
   await expect(page.getByRole('heading', { name: /Starting backend|Opening solution/ })).toHaveCount(0);
   await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toContain(second);
   expect(await pids()).toEqual(originalPids);
+  await expect.poll(() => page.locator('.app').evaluate(element => element.inert)).toBe(false);
   // Clear surfaced failure by successfully opening the original solution.
   await open(first);
   expect(await pids()).toEqual(originalPids);

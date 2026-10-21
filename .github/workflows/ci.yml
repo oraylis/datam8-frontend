@@ -3,6 +3,8 @@ name: CI
 on:
   workflow_dispatch:
   workflow_call:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -10,32 +12,55 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  ci:
+  scope:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - run: node --test scripts/ci-scope.test.mjs scripts/check-docs.test.mjs
+      - run: node scripts/check-docs.mjs
+      - id: scope
+        run: node scripts/ci-scope.mjs
+
+  ci:
+    needs: scope
+    if: needs.scope.outputs.docs_only != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           submodules: recursive
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: npm
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
-          cache: pip
 
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: '0.11.0'
+          enable-cache: true
+          cache-dependency-glob: submodules/datam8-generator/uv.lock
 
       - name: Install
         run: npm ci
@@ -58,9 +83,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-      - name: Documentation links, images and Markdown checks
-        run: npm run docs:check
 
       - name: Typecheck
         run: npm run typecheck
@@ -86,10 +108,11 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0t64 libasound2t64
           xvfb-run -a npm run test:desktop:functions
+          xvfb-run -a npm run test:desktop:workspaces
           xvfb-run -a npm run test:desktop:dev
           xvfb-run -a npm run test:desktop:updates:ui
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: quality-diagnostics
@@ -98,4 +121,22 @@ jobs:
             apps/web/playwright-report
             artifacts/desktop-update-ui-results
             artifacts/desktop-dev-results
-          retention-days: 30
+            artifacts/desktop-workspace-results
+          retention-days: 7
+
+  result:
+    name: CI result
+    if: always()
+    needs: [scope, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - run: node scripts/ci-scope.mjs result
+        env:
+          NEEDS: ${{ toJSON(needs) }}

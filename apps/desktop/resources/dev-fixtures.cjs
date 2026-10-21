@@ -1,20 +1,24 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
+const { parseVersion } = require('./update-policy.cjs');
 function releaseFixture(version = '2.1.0', body = '# Changes\n\n- Safer desktop updates\n- Python runtime fixes\n\n[Full details](https://github.com/oraylis/datam8-frontend)') {
   const packages = ['x64', 'arm64'].flatMap(arch => ['dmg', 'zip'].map(ext => `DataM8-${version}-mac-${arch}.${ext}`));
   packages.push(`DataM8-${version}.AppImage`, `datam8_${version}_amd64.deb`);
   return { tag_name: `v${version}`, draft: false, prerelease: version.includes('-'), body,
     assets: [...packages, ...packages.map(name => `${name}.asc`), `DataM8 Setup ${version}.exe`, 'latest.yml', 'beta.yml', 'SHA256SUMS', 'SHA256SUMS.asc', 'datam8-release-public.asc'].map(name => ({ name })) };
 }
-function demoReleaseServer() {
+function demoReleaseServer(currentVersion = require('../package.json').version) {
+  const numbers = parseVersion(currentVersion).numbers;
+  numbers[2] += 1n;
+  const nextVersion = numbers.join('.');
   return http.createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
     const scenario = url.searchParams.get('scenario') || 'available';
     if (scenario === 'network-error' || (scenario === 'notes-error' && url.pathname.includes('/tags/'))) { response.writeHead(503); response.end(); return; }
     let body = scenario === 'long' ? '# Long release notes\n' + Array.from({ length: 35 }, (_, i) => `- Change ${i + 1}: **Markdown** and [a link](https://example.com)`).join('\n') : undefined;
     if (scenario === 'empty') body = '';
-    const release = releaseFixture(scenario === 'current' ? '1.0.0' : undefined, body);
+    const release = releaseFixture(scenario === 'current' ? currentVersion : nextVersion, body);
     if (scenario === 'incompatible') release.assets = [];
     response.setHeader('Content-Type', 'application/json');
     response.end(JSON.stringify(url.pathname.includes('/tags/') ? release : [release]));

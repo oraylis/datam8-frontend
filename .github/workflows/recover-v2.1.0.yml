@@ -1,0 +1,213 @@
+# One-time recovery: no build jobs, no tag writes, no selectable source inputs.
+name: Recover immutable v2.1.0 release
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: Release-refs/tags/v2.1.0
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version: 24
+    - name: Require unchanged protected release sources and successful original builds
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REF_PROTECTED: ${{ github.ref_protected }}
+      run: |-
+        node --test scripts/recover-v2.1.0.test.mjs
+        node scripts/recover-v2.1.0.mjs validate
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: recovery-source
+        path: artifacts/recovery-source
+        retention-days: 7
+        if-no-files-found: error
+  verify:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: windows-2025
+          platform: win
+          arch: x64
+        - os: macos-15-intel
+          platform: mac
+          arch: x64
+        - os: macos-15
+          platform: mac
+          arch: arm64
+        - os: ubuntu-24.04
+          platform: linux
+          arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      DATAM8_REQUIRE_SIGNING: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version: 24
+        cache: npm
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: recovery-source
+        path: artifacts/recovery-source
+    - run: npm ci
+    - name: Install Linux desktop dependencies
+      if: matrix.platform == 'linux'
+      run: sudo apt-get update && sudo apt-get install -y xvfb libfuse2t64 libnss3 libatk-bridge2.0-0 libgtk-3-0t64 libasound2t64
+    - name: Download and verify original internal-platform-${{ matrix.platform }}-${{ matrix.arch }}
+      run: node scripts/recover-v2.1.0.mjs download internal-platform-${{ matrix.platform }}-${{ matrix.arch }} artifacts/distributions
+    - name: Configure explicit corporate CA trust for signature and update tests
+      if: matrix.platform == 'win'
+      run: node scripts/windows-test-trust.mjs install
+    - name: Read expected Windows identity
+      if: matrix.platform == 'win'
+      shell: bash
+      run: node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('artifacts/distributions/windows.json'));fs.appendFileSync(process.env.GITHUB_ENV,'DATAM8_WINDOWS_THUMBPRINT='+c.thumbprint+'\n');"
+    - name: Verify downloaded Windows installer
+      if: matrix.platform == 'win'
+      run: npm run test:desktop:signatures -- artifacts/distributions
+    - run: node scripts/desktop-distributions.mjs install artifacts/distributions artifacts/installed
+    - if: matrix.platform != 'win'
+      name: Download and verify original internal-manual-${{ matrix.platform }}-${{ matrix.arch }}
+      run: node scripts/recover-v2.1.0.mjs download internal-manual-${{ matrix.platform }}-${{ matrix.arch }} artifacts/manual-fixture
+    - name: Prepare previous version for manual replacement test
+      if: matrix.platform != 'win'
+      run: node scripts/desktop-manual-version.mjs install
+    - name: Test installed desktop and runtime
+      shell: bash
+      run: |
+        if [[ "${{ matrix.platform }}" == linux ]]; then
+          xvfb-run -a npm run test:desktop:packaged
+        else
+          npm run test:desktop:packaged
+        fi
+    - name: Uninstall
+      run: node scripts/desktop-distributions.mjs uninstall artifacts/distributions artifacts/installed
+    - if: matrix.platform == 'win'
+      name: Download and verify original internal-update-fixtures
+      run: node scripts/recover-v2.1.0.mjs download internal-update-fixtures artifacts/update-fixtures
+    - name: Signed Windows updates and negative signature cases
+      if: matrix.platform == 'win'
+      run: npm run test:desktop:updates -- artifacts/update-fixtures
+    - name: Remove temporary Windows CA trust
+      if: always() && matrix.platform == 'win'
+      run: node scripts/windows-test-trust.mjs remove
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      if: always()
+      with:
+        name: diagnostics-${{ matrix.platform }}-${{ matrix.arch }}
+        path: |
+          artifacts/desktop-test-results
+          artifacts/desktop-junit.xml
+          artifacts/desktop-update-results
+        retention-days: ${{ job.status == 'success' && 14 || 7 }}
+  deliver:
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: desktop-signing-v2
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    env:
+      AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
+      DATAM8_GPG_FINGERPRINT: ${{ vars.DATAM8_GPG_FINGERPRINT }}
+      DATAM8_GPG_KEY_SECRET: datam8-v2-gpg-private
+      DATAM8_GPG_PASSPHRASE_SECRET: datam8-v2-gpg-passphrase
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        submodules: recursive
+        persist-credentials: false
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version: 24
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: recovery-source
+        path: artifacts/recovery-source
+    - name: Restore the exact four verified source archives
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |-
+        for artifact in internal-platform-win-x64 internal-platform-mac-x64 internal-platform-mac-arm64 internal-platform-linux-x64; do
+          node scripts/recover-v2.1.0.mjs download "$artifact" artifacts/desktop-final
+        done
+    - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6
+      with:
+        client-id: ${{ vars.AZURE_V2_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_KEY_VAULT_TENANT }}
+        allow-no-subscriptions: true
+    - name: Import GPG signing key from Vault
+      run: node scripts/signing-vault.mjs gpg "$RUNNER_TEMP/datam8-gpg"
+    - name: Record original build and corrected test provenance
+      run: node scripts/recover-v2.1.0.mjs manifest artifacts/desktop-final
+    - name: Sign final distributions
+      run: node scripts/desktop-signatures.mjs sign artifacts/desktop-final
+    - name: Verify signatures and reject tampering and wrong keys
+      run: node scripts/desktop-signatures.mjs verify-gpg artifacts/desktop-final
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: DataM8-verified-four-platforms
+        path: artifacts/desktop-final
+        retention-days: 7
+        compression-level: 0
+        if-no-files-found: error
+    - name: Remove signing key and Azure login
+      if: always()
+      run: |
+        gpgconf --homedir "$RUNNER_TEMP/datam8-gpg" --kill all || true
+        rm -rf "$RUNNER_TEMP/datam8-gpg"
+        az account clear
+  publish:
+    needs: deliver
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: DataM8-verified-four-platforms
+        path: verified
+    - name: Publish the original v2.1.0 packages only after complete recovery verification
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |-
+        test "$(git rev-parse 'v2.1.0^{commit}')" = fd8ef498c4a87dfd49f36a7e5ebd0f6a38d04b42
+        jq -e --arg tests "$GITHUB_SHA" '.commit == "fd8ef498c4a87dfd49f36a7e5ebd0f6a38d04b42" and .version == "2.1.0" and .recovery.verification.commit == $tests and .recovery.build.run == 39659653648' verified/BUILD-MANIFEST.json
+        git show v2.1.0:docs/releases/2.1.0.md > "$RUNNER_TEMP/release-notes.md"
+        printf '\n\nBuild: [fd8ef498](https://github.com/oraylis/datam8-frontend/commit/fd8ef498c4a87dfd49f36a7e5ebd0f6a38d04b42) · [Original build](https://github.com/oraylis/datam8-frontend/actions/runs/39659653648) · [Corrected acceptance tests](https://github.com/%s/commit/%s) · [Four-platform recovery verification](https://github.com/%s/actions/runs/%s)\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/release-notes.md"
+        gh release create v2.1.0 --repo "$GITHUB_REPOSITORY" --verify-tag --draft --notes-file "$RUNNER_TEMP/release-notes.md" verified/*
+        gh release edit v2.1.0 --repo "$GITHUB_REPOSITORY" --draft=false --latest

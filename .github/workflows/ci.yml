@@ -89,7 +89,7 @@ jobs:
 
       - name: Unit tests (workspaces)
         run: |
-          node --test scripts/final-desktop-manifest.test.mjs
+          node --test scripts/final-desktop-manifest.test.mjs scripts/recover-v2.1.0.test.mjs
           npm --workspaces run test --if-present
 
       - name: Install Playwright Chromium

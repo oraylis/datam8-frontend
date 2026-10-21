@@ -77,6 +77,20 @@ a tag. The protected tag performs one complete build and verification. Publicati
 first uploads all verified files to a draft release, then makes it public. Failed
 uploads leave a draft for inspection instead of exposing incomplete release assets.
 
+### One-time v2.1.0 recovery
+
+The v2.1.0 builds completed, but native manual-update acceptance still expected a
+fixed demo URL. The corrected test uses the update controller's selected version.
+`recover-v2.1.0.yml` is a one-time manual recovery from protected main, pinned to
+the original release run and tag commit. It verifies original quality/build jobs,
+rejects changed package inputs, checks every source archive against its recorded
+GitHub SHA-256 digest, and repeats all four native acceptance jobs without rebuilding.
+Only the reviewed URL expectation changes in the native test. Successful acceptance
+allows the existing signing and draft-publication stages to finish v2.1.0.
+The signed manifest records both the original build and recovery test identities.
+The tag and package bytes stay unchanged; expired or missing source artifacts stop
+recovery. This workflow cannot select other sources or overwrite an existing release.
+
 CodeQL uses the repository workflow for Actions, JavaScript/TypeScript and Python.
 Default setup is disabled so that a second security workflow does not duplicate it.
 

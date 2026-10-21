@@ -1,12 +1,20 @@
 name: Build Desktop (Artifacts)
 on:
   workflow_dispatch:
+    inputs:
+      signed:
+        description: 'Sign a release candidate (main only); unsigned acceptance can run on feature branches'
+        type: boolean
+        default: false
 permissions:
   contents: read
   id-token: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   desktop:
     uses: ./.github/workflows/desktop.yml
     with:
-      signed: true
+      signed: ${{ inputs.signed }}
     secrets: inherit

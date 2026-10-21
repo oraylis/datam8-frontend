@@ -28,8 +28,7 @@ jobs:
       id-token: write
     env:
       DATAM8_REQUIRE_SIGNING: ${{ inputs.signed && '1' || '0' }}
-      # mac.identity is '-' (local ad-hoc): PRs need bundle seals too, without
-      # any Apple identity or Vault access. Windows release signing stays gated.
+      # Unsigned manual acceptance still seals macOS bundles with ad-hoc signatures.
       CSC_FOR_PULL_REQUEST: ${{ matrix.platform == 'mac' && 'true' || 'false' }}
       AZURE_KEY_VAULT_URL: ${{ secrets.AZURE_KEY_VAULT_URL }}
       AZURE_KEY_VAULT_NAME: ${{ secrets.AZURE_KEY_VAULT_NAME }}
@@ -42,7 +41,7 @@ jobs:
         shell: bash
         run: |
           if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch && "$GITHUB_EVENT_NAME" != push ]]; then exit 1; fi
-          if [[ "$GITHUB_REF" != refs/heads/main && "$GITHUB_REF" != refs/heads/feature/external_refresh && "$GITHUB_REF" != refs/tags/v* ]]; then exit 1; fi
+          if [[ "$GITHUB_REF" != refs/heads/main && "$GITHUB_REF" != refs/tags/v* ]]; then exit 1; fi
           if [[ "$GITHUB_REF" == refs/tags/v* && "${{ github.ref_protected }}" != true ]]; then exit 1; fi
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -52,6 +51,10 @@ jobs:
         with:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: '0.11.0'
+          enable-cache: true
+          cache-dependency-glob: submodules/datam8-generator/uv.lock
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         if: inputs.signed && matrix.platform == 'win'
         with:
@@ -83,6 +86,7 @@ jobs:
         with:
           name: runtime-build-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/runtime-test-results
+          retention-days: 14
           if-no-files-found: ignore
       - run: npm --workspace apps/desktop run package -- --${{ matrix.platform }}
       - name: Verify Windows signatures before upload
@@ -98,6 +102,7 @@ jobs:
           name: internal-platform-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/distributions
           retention-days: 2
+          compression-level: 0
           if-no-files-found: error
       - name: Build a previous version for manual macOS/Linux replacement
         if: matrix.platform != 'win'
@@ -111,18 +116,17 @@ jobs:
           name: internal-manual-${{ matrix.platform }}-${{ matrix.arch }}
           path: artifacts/manual-fixture
           retention-days: 2
+          compression-level: 0
           if-no-files-found: error
-      - name: Build signed update fixtures
+      - name: Build the old update fixture and reuse the signed release installer as next
         if: inputs.signed && matrix.platform == 'win'
         shell: bash
         run: |
-          node scripts/signing-vault.mjs windows artifacts/signing-public
           npm --workspace apps/desktop exec -- electron-builder --config build.config.cjs --win --publish never --config.extraMetadata.version=2.0.0-beta.6-ci.0 --config.directories.output=../../artifacts/update-old
-          npm --workspace apps/desktop exec -- electron-builder --config build.config.cjs --win --publish never --config.extraMetadata.version=2.0.0-beta.6-ci.1 --config.directories.output=../../artifacts/update-next
           npm run test:desktop:signatures -- artifacts/update-old
-          npm run test:desktop:signatures -- artifacts/update-next
           node scripts/desktop-distributions.mjs collect artifacts/update-old artifacts/update-fixtures/old
-          node scripts/desktop-distributions.mjs collect artifacts/update-next artifacts/update-fixtures/next
+          mkdir -p artifacts/update-fixtures/next
+          cp artifacts/distributions/* artifacts/update-fixtures/next/
           cp artifacts/signing-public/windows.json artifacts/update-fixtures/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: inputs.signed && matrix.platform == 'win'
@@ -130,6 +134,7 @@ jobs:
           name: internal-update-fixtures
           path: artifacts/update-fixtures
           retention-days: 2
+          compression-level: 0
           if-no-files-found: error
       - name: Remove temporary Windows CA trust
         if: always() && inputs.signed && matrix.platform == 'win'
@@ -216,7 +221,7 @@ jobs:
             artifacts/desktop-test-results
             artifacts/desktop-junit.xml
             artifacts/desktop-update-results
-          retention-days: 30
+          retention-days: ${{ job.status == 'success' && 14 || 7 }}
   deliver:
     needs: [build, verify]
     if: inputs.signed && needs.build.result == 'success' && needs.verify.result == 'success'
@@ -261,7 +266,8 @@ jobs:
         with:
           name: DataM8-verified-four-platforms
           path: artifacts/desktop-final
-          retention-days: 14
+          retention-days: 7
+          compression-level: 0
           if-no-files-found: error
       - name: Remove signing key and Azure login
         if: always()

@@ -5,8 +5,30 @@ on:
 permissions:
   contents: read
   id-token: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Require a protected version tag from main
+        env:
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          test "$REF_PROTECTED" = true
+          git merge-base --is-ancestor HEAD origin/main
+          node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync('apps/desktop/package.json')).version;if(process.env.GITHUB_REF_NAME!=='v'+v)throw new Error('Release tag must match desktop package version');if(!fs.statSync('docs/releases/'+v+'.md').isFile())throw new Error('Release notes missing');"
   verified:
+    needs: validate
     uses: ./.github/workflows/desktop.yml
     with:
       signed: true
@@ -14,15 +36,18 @@ jobs:
   publish:
     needs: verified
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: DataM8-verified-four-platforms
           path: verified
-      - name: Publish only verified distributions
+      - name: Publish only complete verified distributions
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -34,6 +59,10 @@ jobs:
           cp "$notes" "$RUNNER_TEMP/release-notes.md"
           printf '\n\nBuild: [%s](https://github.com/%s/commit/%s) · [Verification](https://github.com/%s/actions/runs/%s)\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/release-notes.md"
           case "$GITHUB_REF_NAME" in
-            *-*) gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --notes-file "$RUNNER_TEMP/release-notes.md" verified/* ;;
-            *) gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --latest --notes-file "$RUNNER_TEMP/release-notes.md" verified/* ;;
+            *-*) gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --notes-file "$RUNNER_TEMP/release-notes.md" verified/* ;;
+            *) gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --notes-file "$RUNNER_TEMP/release-notes.md" verified/* ;;
+          esac
+          case "$GITHUB_REF_NAME" in
+            *-*) gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false ;;
+            *) gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest ;;
           esac

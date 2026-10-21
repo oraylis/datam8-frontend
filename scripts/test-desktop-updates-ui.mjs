@@ -113,7 +113,7 @@ try {
   await scenario('Manual download on this system');
   await expect.poll(async () => (await status()).phase).toBe('available');
   if (process.platform !== 'win32') {
-    await expect.poll(() => app.evaluate(() => globalThis.__updateLinks.at(-1))).toBe('https://github.com/oraylis/datam8-frontend/releases/tag/v2.1.0');
+    await expect.poll(() => app.evaluate(() => globalThis.__updateLinks.at(-1))).toBe(`https://github.com/oraylis/datam8-frontend/releases/tag/v${(await status()).version}`);
   }
   const details = await app.evaluate(() => globalThis.__updateDialogs.at(-1).detail);
   expect(details).toContain('Safer desktop updates'); expect(details).not.toContain('**');

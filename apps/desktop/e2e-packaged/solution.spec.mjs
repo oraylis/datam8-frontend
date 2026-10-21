@@ -10,6 +10,8 @@ import { desktopFixture as fixture } from '../../../scripts/desktop-fixture.mjs'
 import { checked } from '../../../scripts/mac-runtime.mjs';
 import { unusedLoopbackPort } from '../../../scripts/test-port.mjs';
 import { demoReleaseServer } from '../resources/dev-fixtures.cjs';
+import { legacyRuntimeFixture, runtimePluginArchive } from '../../../scripts/runtime-test-fixtures.mjs';
+import { assertRuntimeUnchanged, snapshotRuntime } from '../../../scripts/runtime-test-support.mjs';
 const manifest = process.env.DATAM8_INSTALLED_MANIFEST || 'artifacts/installed/installed.json';
 const distributions = JSON.parse(fs.readFileSync(manifest, 'utf8'));
 if (!distributions.length) throw new Error('No installed distributions');
@@ -25,6 +27,7 @@ for (const distribution of distributions) {
   test(`${distribution.format}: solution, persistence, generation, switching and shutdown`, async ({}, testInfo) => {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'DataM8 desktop tests '));
     const first = fixture(temp, 'First solution'); const second = fixture(temp, 'Second solution');
+    const runtimeBefore = snapshotRuntime(distribution.runtimeRoot);
     const backendPort = await unusedLoopbackPort();
     const logs = []; let app; let page;
     const verify = () => {
@@ -73,7 +76,9 @@ for (const distribution of distributions) {
       return description;
     }
     try {
-      checked(process.execPath, ['scripts/smoke-python-runtime.mjs', '--runtime-root', distribution.runtimeRoot], { stdio: 'inherit' });
+      checked(process.execPath, ['scripts/smoke-python-runtime.mjs', '--runtime-root', distribution.runtimeRoot,
+        '--report', testInfo.outputPath('runtime.json'),
+        ...(process.env.CI === 'true' || process.env.DATAM8_RUNTIME_TEST_SECRETS === '1' ? ['--secrets-roundtrip'] : [])], { stdio: 'inherit' });
       const entries = listPackage(path.join(path.dirname(distribution.runtimeRoot), 'app.asar'));
       expect(entries.some(entry => /developerSimulation|dev-fixtures|cleanup-dev-profile|\/resources\/.*\.d\.cts$/.test(entry))).toBe(false);
       verify(); await launch(Boolean(distribution.previousExecutable));
@@ -98,8 +103,46 @@ for (const distribution of distributions) {
       await expect(page.locator('.generator-panel').getByRole('button', { name: 'Generate', exact: true })).toBeEnabled();
       const oldPids = await app.evaluate(() => process._getActiveHandles().filter(handle => handle.constructor.name === 'ChildProcess' && handle.spawnargs?.includes('serve')).map(handle => handle.pid));
       const newPids = await open(second); expect(newPids.length).toBeGreaterThan(0);
-      expect(newPids.some(pid => !oldPids.includes(pid))).toBe(true);
+      expect(newPids).toEqual(oldPids);
       await expect(await editEntity()).toHaveValue('Packaged fixture');
+
+      // Exercise the packaged main process's actual CLI bridges, using its own
+      // runtime selection rather than injecting an external Python interpreter.
+      const createdDir = path.join(temp, 'Created ü'); fs.mkdirSync(createdDir);
+      const created = await page.evaluate(saveDir => window.desktop.solution.createNew({ saveDir, solutionName: 'Created' }), createdDir);
+      const createdPath = path.join(createdDir, 'Created.dm8s');
+      expect(created.solutionPath).toBe(createdPath);
+      expect(JSON.parse(fs.readFileSync(createdPath, 'utf8')).schemaVersion).toBe('2.0.0');
+      expect((await page.evaluate(file => window.desktop.solution.load(file), createdPath)).path).toBe(createdPath);
+
+      const legacy = legacyRuntimeFixture(temp);
+      const sourceBefore = snapshotRuntime(path.dirname(legacy));
+      const targetDir = path.join(temp, 'Migrated ü');
+      fs.mkdirSync(targetDir); // The desktop directory picker supplies an existing directory.
+      const migrated = await page.evaluate(payload => window.desktop.solution.migrateV1ToV2(payload), { sourceSolutionPath: legacy, targetDir });
+      assertRuntimeUnchanged(sourceBefore, snapshotRuntime(path.dirname(legacy)));
+      expect(migrated.solutionPath).toBe(path.join(targetDir, 'Legacy.dm8s'));
+      const migratedEntity = JSON.parse(fs.readFileSync(path.join(targetDir, 'Model/Core/Sales/Customers/Customer.json'), 'utf8'));
+      expect(migratedEntity.description).toBe('Migrated runtime fixture');
+      expect(migratedEntity.attributes[0].name).toBe('CustomerId');
+      expect((await page.evaluate(file => window.desktop.solution.load(file), migrated.solutionPath)).path).toBe(migrated.solutionPath);
+
+      const archive = runtimePluginArchive(temp);
+      const imported = await page.evaluate(payload => window.desktop.solution.importPlugins(payload), { solutionPath: second, artifactPaths: [archive] });
+      expect(imported.imported).toBe(1);
+      expect(imported.plugins.items.some(plugin => plugin.id === 'runtime_fixture')).toBe(true);
+      const session = await page.evaluate(async file => {
+        const loaded = await window.desktop.solution.load(file);
+        return { base: window.desktop.apiBase, token: window.desktop.token, id: loaded.workspaceId };
+      }, second);
+      const pluginProperties = await app.evaluate(async (_electron, { base, token, id }) => {
+        const response = await fetch(`${base}/plugins/runtime_fixture/connection-properties`, {
+          headers: { Authorization: `Bearer ${token}`, 'X-DataM8-Workspace': id },
+        });
+        if (!response.ok) throw new Error(`Plugin load failed: ${response.status}`);
+        return response.json();
+      }, session);
+      expect(pluginProperties.items.at(-1).default).toBe('first');
       await page.context().tracing.stop();
       await app.evaluate(({ app }) => { app.quit(); app.quit(); });
       await app.close(); app = null;
@@ -108,6 +151,7 @@ for (const distribution of distributions) {
         expect(() => process.kill(pid, 0)).toThrow();
       }
       verify();
+      assertRuntimeUnchanged(runtimeBefore, snapshotRuntime(distribution.runtimeRoot));
     } catch (error) {
       if (page) {
         await page.screenshot({ path: testInfo.outputPath('failure.png') }).catch(() => {});

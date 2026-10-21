@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
 import type { BaseEntity, FolderEntity, ModelEntity } from "../model/model-types";
 import type { Solution } from "./solution-types";
-import { loadSolution as loadSolutionFromSource, type SolutionSource } from "./solutionLoader";
+import { loadSolution as loadSolutionFromSource, loadCurrentSolution, type SolutionSource } from "./solutionLoader";
 import { V1SolutionDetectedError } from "./errors";
 import { compactErrorMessage } from "../../shared/api/errorMessage";
 
@@ -30,6 +30,8 @@ type SolutionContextValue = {
   openMigration: (sourcePath: string) => void;
   closeMigration: () => void;
   loadSolution: (source: SolutionSource) => Promise<LoadSolutionResult | void>;
+  refreshSolution: () => Promise<LoadSolutionResult>;
+  beforeLoad: React.MutableRefObject<(() => Promise<void>) | null>;
 };
 
 const SolutionContext = createContext<SolutionContextValue | undefined>(undefined);
@@ -39,6 +41,8 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
   const [solutionSource, setSolutionSource] = useState<SolutionSource | null>(null);
   const [solutionPath, setSolutionPath] = useState("");
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
+  const beforeLoad = useRef<(() => Promise<void>) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [migrationSourcePath, setMigrationSourcePath] = useState<string | null>(null);
@@ -58,10 +62,13 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
 
   const loadSolution = useCallback(
     async (source: SolutionSource) => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
       setLoading(true);
       setError(null);
       setPickerError(null);
       try {
+        if (source.kind === "electron-path") await beforeLoad.current?.();
         const result = await loadSolutionFromSource(source);
         setSolution(result.solution);
         setSolutionSource(source);
@@ -81,6 +88,7 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
         closeMigration();
         return result;
       } catch (err) {
+        if (/Backend startup cancel(?:led|ed)/i.test((err as Error).message)) return;
         if (err instanceof V1SolutionDetectedError) {
           setPickerOpen(false);
           setPickerError(null);
@@ -95,6 +103,7 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
           setPickerOpen(true);
         }
       } finally {
+        loadingRef.current = false;
         setLoading(false);
       }
     },
@@ -104,6 +113,12 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
   const clearError = useCallback(() => {
     setError(null);
     setPickerError(null);
+  }, []);
+
+  const refreshSolution = useCallback(async () => {
+    const result = await loadCurrentSolution();
+    setSolution(result.solution);
+    return result;
   }, []);
 
   return (
@@ -126,6 +141,8 @@ export function SolutionProvider({ children }: { children: React.ReactNode }) {
         openMigration,
         closeMigration,
         loadSolution,
+        refreshSolution,
+        beforeLoad,
       }}
     >
       {children}

@@ -20,6 +20,7 @@ import { FolderEditor } from "../features/model/components/workspace/folder-edit
 import { GeneratorPanel } from "../features/generator/GeneratorPanel";
 import { RefreshSchemasDialog } from "../features/model/components/workspace/base-editor/RefreshSchemasDialog";
 import { SolutionDialog } from "./SolutionDialog";
+import { SolutionLoadingDialog } from "./SolutionLoadingDialog";
 import { CreateModelEntityWizard } from "../features/model/components/CreateModelEntityWizard";
 import { MoveEntitiesDialog } from "../features/model/components/MoveEntitiesDialog";
 import { NewProjectDialog } from "./NewProjectDialog";
@@ -29,7 +30,7 @@ import { useDesktopUpdates } from "../features/updates/useDesktopUpdates";
 import { flushSync } from "react-dom";
 import { useSolution } from "../features/solution/SolutionContext";
 import { MigrateSolutionV1Wizard } from "../features/migration/components/MigrateSolutionV1Wizard";
-import type { ElectronSolutionBridge, SolutionSource } from "../features/solution/solutionLoader";
+import type { ElectronSolutionBridge } from "../features/solution/solutionLoader";
 import { useModelEditor } from "../features/model/ModelEditorContext";
 import { useGenerator } from "../features/generator/GeneratorContext";
 import { useConfirm } from "../shared/hooks/useConfirm";
@@ -258,9 +259,10 @@ const uniqueScopeTargets = (targets: PropertyRefactorScopeTarget[]): PropertyRef
 export function AppShell() {
   const {
     solution,
-    solutionSource,
     solutionPath,
     loading: solutionLoading,
+    beforeLoad,
+    refreshSolution,
     error,
     migrationOpen,
     migrationSourcePath,
@@ -860,14 +862,14 @@ export function AppShell() {
 
   const handleProjectCreated = useCallback(
     async (createdSolutionPath: string) => {
-      const result = await loadSolution({ kind: "server-path", path: createdSolutionPath });
+      const result = await loadSolution({ kind: electronLike ? "electron-path" : "server-path", path: createdSolutionPath });
       if (!result) {
         throw new Error("Failed to load created solution");
       }
-      applyLoadedSolution(result);
+      applyLoadedSolution(result, { resetWorkspace: true });
       setNewProjectOpen(false);
     },
-    [applyLoadedSolution, loadSolution],
+    [applyLoadedSolution, loadSolution, electronLike],
   );
 
   const handleToggle = useCallback(
@@ -1734,34 +1736,45 @@ export function AppShell() {
     return true;
   }, [activeWorkTab]);
 
-  const updateSnapshotRef = useRef({ hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch });
+  const workspaceSnapshotRef = useRef({ hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch });
+  const [workspaceSaving, setWorkspaceSaving] = useState(false);
   useEffect(() => {
-    updateSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
+    workspaceSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
   }, [hasAnyDirty, generatorRunning, solutionLoading, persistActiveEditorBeforeSwitch]);
+  const persistWorkspaceEdits = useCallback(async () => {
+    flushSync(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      setWorkspaceSaving(true);
+    });
+    try {
+      const saved = await workspaceSnapshotRef.current.persist();
+      const baseSaved = await Promise.all(
+        [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
+      );
+      flushSync(() => {});
+      return saved && !baseSaved.includes(false) && !workspaceSnapshotRef.current.hasAnyDirty;
+    } finally {
+      setWorkspaceSaving(false);
+    }
+  }, [flushPatchedBaseAutosave]);
+  useEffect(() => {
+    beforeLoad.current = async () => {
+      if (workspaceSnapshotRef.current.generatorRunning) throw new Error("Wait for generation to finish before opening another solution.");
+      if (!await persistWorkspaceEdits()) throw new Error("Some changes are still unsaved. Save them before opening another solution.");
+    };
+    return () => { beforeLoad.current = null; };
+  }, [beforeLoad, persistWorkspaceEdits]);
   const updateStatus = useDesktopUpdates(async () => {
-    const snapshot = updateSnapshotRef.current;
+    const snapshot = workspaceSnapshotRef.current;
     if (snapshot.generatorRunning || snapshot.solutionLoading) return { ok: false, reason: "Wait for generation or solution loading to finish." };
     if (Array.from(document.querySelectorAll('[role="dialog"]')).some(element => element.getClientRects().length)) return { ok: false, reason: "Finish or cancel the open editor dialog before installing an update." };
-    // Blur commits local input drafts before inert prevents any further editing.
-    flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
-    if (appRootRef.current) appRootRef.current.inert = true;
-    const saved = await updateSnapshotRef.current.persist();
-    const baseSaved = await Promise.all(
-      [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])]
-        .map(flushPatchedBaseAutosave),
-    );
-    flushSync(() => {});
-    if (!saved || baseSaved.includes(false) || updateSnapshotRef.current.hasAnyDirty || updateSnapshotRef.current.generatorRunning || updateSnapshotRef.current.solutionLoading) {
+    if (!await persistWorkspaceEdits() || workspaceSnapshotRef.current.generatorRunning || workspaceSnapshotRef.current.solutionLoading) {
       return { ok: false, reason: "Some changes are still unsaved. Resolve the save errors in the open tabs and try again." };
     }
     return { ok: true };
   });
-  useEffect(() => {
-    if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing";
-  }, [updateStatus?.phase]);
-
-  const handleReload = useCallback(async () => {
-    if (!solution) return;
+  const handleReload = useCallback(async (force = false) => {
+    if (!solution && !force) return;
     if (hasAnyDirty) {
       const proceed = await confirm({
         title: "Reload solution?",
@@ -1772,6 +1785,10 @@ export function AppShell() {
       if (!proceed) return;
     }
     try {
+      if (force) {
+        await window.desktop?.solution?.forceReload?.();
+        return;
+      }
       const reloadResponse = await fetch(`${apiBase}/model/reload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1808,16 +1825,15 @@ export function AppShell() {
     }
     void refreshConnectorCatalog();
 
-    const fallbackSource: SolutionSource | null = solutionSource
-      ? solutionSource
-      : electronLike && solutionPath
-        ? { kind: "electron-path", path: solutionPath }
-        : { kind: "server-path", path: solutionPath || "" };
-    const result = fallbackSource ? await loadSolution(fallbackSource) : undefined;
-    if (result) {
+    try {
+      const result = await refreshSolution();
       applyLoadedSolution(result);
+    } catch (err) {
+      showAppError("Reload failed", (err as Error).message);
     }
-  }, [applyLoadedSolution, confirm, electronLike, hasAnyDirty, loadSolution, showAppError, solution, solutionPath, solutionSource]);
+  }, [applyLoadedSolution, confirm, hasAnyDirty, refreshSolution, showAppError, solution]);
+
+  useEffect(() => window.desktop?.solution?.onReload?.((force) => { void handleReload(force); }), [handleReload]);
 
   const activeTabId =
     activeWorkTab?.startsWith("base:")
@@ -2170,7 +2186,7 @@ export function AppShell() {
   return (
     <div
       ref={appRootRef}
-      inert={updateStatus?.phase === "preparing"}
+      inert={updateStatus?.phase === "preparing" || solutionLoading || workspaceSaving}
       className={`app ${sidebarOpen ? "" : "app--sidebar-collapsed"} ${isWindowsElectron ? "app--windows-titlebar" : ""}`}
       style={{ "--sidebar-size": sidebarOpen ? `${sidebarSize}px` : "68px" } as CSSProperties}
     >
@@ -2183,6 +2199,7 @@ export function AppShell() {
       />
 
       {import.meta.env.DEV && <DeveloperTools status={updateStatus} />}
+      <SolutionLoadingDialog open={electronLike && solutionLoading} />
       <SolutionDialog
         open={dialogOpen}
         onLoaded={(model, base, folders) => {
@@ -2216,7 +2233,7 @@ export function AppShell() {
         onConfirm={confirmMoveEntities}
       />
       <Dialog open={newFolderDialogOpen} onOpenChange={setNewFolderDialogOpen}>
-        <DialogContent className="new-folder-dialog max-w-md">
+        <DialogContent className="new-folder-dialog max-w-md" onEnter={() => void submitCreateFolder()}>
           <DialogHeader>
             <DialogTitle>Create Folder</DialogTitle>
             <DialogDescription>{`Create a folder under ${newFolderParentPath}.`}</DialogDescription>

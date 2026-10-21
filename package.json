@@ -32,7 +32,8 @@
     "test:desktop:updates": "node scripts/test-desktop-updates.mjs",
     "test:desktop:updates:ui": "npm --workspace apps/desktop run build && node scripts/test-desktop-updates-ui.mjs",
     "test:desktop:dev": "node scripts/test-dev-desktop.mjs",
-    "test:desktop:functions": "npm --workspace apps/desktop run build && node --test scripts/function-files.test.mjs",
+    "test:desktop:workspaces": "npm --workspace apps/desktop run build && npm run build:web:electron && node scripts/test-desktop-workspaces.mjs",
+    "test:desktop:functions": "npm --workspace apps/desktop run build && npm run build:web:electron && node --test scripts/function-files.test.mjs",
     "test:e2e:sample": "node scripts/test-sample.mjs"
   },
   "devDependencies": {

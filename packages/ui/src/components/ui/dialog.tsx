@@ -25,12 +25,26 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onInteractOutside, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { onEnter?: () => void }
+>(({ className, children, onInteractOutside, onKeyDown, onEnter, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        if (
+          !onEnter || event.defaultPrevented || event.key !== "Enter" || event.repeat ||
+          event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+        ) return;
+        const target = event.target as HTMLElement;
+        if (
+          target.closest('[role="dialog"]') !== event.currentTarget ||
+          target.closest('button, a, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="combobox"], [role="listbox"], [role="option"], [role="tree"], [role="menu"], input[type="checkbox"], input[type="radio"]')
+        ) return;
+        event.preventDefault();
+        onEnter();
+      }}
       onInteractOutside={(event) => {
         event.preventDefault();
         onInteractOutside?.(event);

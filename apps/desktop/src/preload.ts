@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld("desktop", {
   solution: {
     requestFunctionApi: (payload: {
       path: string;
+      workspaceId?: string | null;
       method?: "GET" | "POST";
       body?: unknown;
       legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
@@ -74,7 +75,20 @@ contextBridge.exposeInMainWorld("desktop", {
     pickDirectory: () => ipcRenderer.invoke("solution:pick-directory"),
     pickPluginArtifacts: () => ipcRenderer.invoke("solution:pick-plugin-artifacts"),
     detectVersion: (solutionPath: string) => ipcRenderer.invoke("solution:detect-version", solutionPath),
+    cancelStart: () => ipcRenderer.invoke("solution:cancel-start"),
+    isStarting: () => ipcRenderer.invoke("solution:is-starting"),
+    onStartupChanged: (callback: (starting: boolean) => void) => {
+      const handler = (_event: IpcRendererEvent, starting: boolean) => callback(starting);
+      ipcRenderer.on("solution:startup-changed", handler);
+      return () => ipcRenderer.off("solution:startup-changed", handler);
+    },
     load: (solutionPath: string) => ipcRenderer.invoke("solution:load", solutionPath),
+    forceReload: () => ipcRenderer.invoke("solution:force-reload"),
+    onReload: (callback: (force: boolean) => void) => {
+      const handler = (_event: IpcRendererEvent, force: boolean) => callback(force);
+      ipcRenderer.on("solution:reload", handler);
+      return () => ipcRenderer.off("solution:reload", handler);
+    },
     createNew: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) =>
       ipcRenderer.invoke("solution:create-new", payload),
     migrateV1ToV2: (payload: { sourceSolutionPath: string; targetDir: string }) =>

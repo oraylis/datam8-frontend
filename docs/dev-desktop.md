@@ -5,7 +5,7 @@ Frontend starts a local FastAPI backend process via Python module execution.
 ## Backend start contract
 
 ```bash
-python -u -m datam8 serve --host 127.0.0.1 --port 4318 --token <random>
+python -u -m datam8 serve --host 127.0.0.1 --port 4318 --token <random> --solution <path> --workspace-switch
 ```
 
 Readiness line:
@@ -16,11 +16,41 @@ Readiness line:
 
 The launcher waits for readiness from its own child process before checking HTTP
 health. Python runs unbuffered so the readiness line reaches the launcher promptly.
+The first solution starts the process on demand with a shared 60-second startup
+budget. The loading dialog allows cancelling startup and waits for owned process
+termination before another attempt. Subsequent solutions use the
+[workspace switching contract](../submodules/datam8-generator/docs/backend-contract.md#desktop-workspace-switching)
+in the same process. Editor saves are drained first; failed opens keep the old
+workspace. Changing the Python interpreter or backend module requires a restart.
+Frontend **Reload** refreshes the current model, plugins and editor data without
+reopening the solution or resolving the Python runtime. Runtime selection is logged
+when a process actually starts, including the interpreter path and configuration
+source (`DATAM8_PYTHON_PATH`, solution settings, bundled runtime or development
+environment). The window's bearer token remains stable across startup retries.
 An occupied backend port reports a startup error; unrelated listeners are retained.
 
 Renderer uses root endpoints (`/config`, `/solution/*`, `/model/*`, `/model/generate`, ...), no `/api/*` and no `/jobs`.
 
+## Dialog keyboard actions
+
+Enter runs the main action in confirmation, Create Folder, Move, and Load Solution
+dialogs. Confirmation dialogs initially focus their main button, including Delete.
+Tab to Cancel and press Enter, or use Escape, to cancel. Input dialogs retain their
+input focus; text areas, selections, and the folder picker's search keep their own
+Enter behavior. Shared `DialogContent` provides an optional `onEnter` callback;
+callers use the same handler and enabled conditions as their main button.
+
 ## Runtime configuration
+
+**View > Reload** (`Ctrl/Cmd+R`) runs the same solution/model and plugin refresh
+as the frontend Reload button, keeping the renderer and backend running.
+**View > Force Reload** (`Ctrl/Cmd+Shift+R`) restarts the backend and renderer and
+reopens the active solution. Both use the frontend's existing confirmation when
+there are unsaved changes; cancelling leaves the session running.
+
+Opening malformed JSON or an unrecognized solution structure reports a load
+error and retains any open solution. Only a recognized V1 structure opens the
+migration wizard.
 
 - Opening solutions in development requires the interpreter from
   `submodules/datam8-generator/.venv`; the frontend and update simulation can
@@ -73,6 +103,10 @@ are missing after a branch switch, run `npm ci` in the repository root; the
 launcher reports that setup step instead of opening a broken editor.
 
 ## Developer tools and update simulation
+
+`npm run test:desktop:workspaces` exercises editor autosave, workspace switching
+with the same backend PID, failure recovery, stale requests, generation and
+shutdown using disposable local fixtures and the prepared Generator environment.
 
 With Node 24 and installed npm dependencies, use the normal desktop start:
 
@@ -152,6 +186,80 @@ integrity with `codesign --verify --deep --strict /path/to/datam8.app`. Follow t
 [installation guide](desktop-installation.md) if Gatekeeper requires approval.
 
 ## Native packaging and CI
+
+The runtime build installs dependencies into clean `site-packages`, without
+inheriting packages from the build interpreter. `scripts/prepare-python-runtime.py`
+removes development-only components and package tests, bundles the standard
+library and an explicit allowlist of pure Python dependencies into bytecode ZIPs,
+and precompiles remaining external packages. Native libraries, package metadata,
+licenses, certificates and required package resources are retained. All existing
+connector extras remain installed. `runtime-manifest.json` records the reduction.
+Windows uses a relative `._pth` file to isolate imports from registry and host
+Python paths. Archives are imported directly without extraction at application
+start. On macOS/Linux the preparation also removes Python headers, build config,
+manuals, unused launchers and Tcl/Tk scripts/extensions. Shared native libraries
+are conservatively retained.
+PyCryptodome's `Crypto/SelfTest` and C/C++ development inputs are removed on all
+platforms. The pure-package allowlist also bundles Polars' Python frontend,
+Pydantic and resource-aware helpers; their separate native engines stay on disk.
+Python sources remain inside the ZIPs for introspection.
+
+### Verify an existing runtime
+
+Run against the runtime attached to an installed app or a native build:
+
+```sh
+npm run test:runtime:packaged -- --runtime-root "/absolute/path/python-runtime" --report artifacts/runtime-test-results/local.json
+```
+
+This command uses only that runtime's interpreter and installed Python packages;
+it does not build, install dependencies or require the Generator checkout/.venv.
+Use the host matching the runtime's OS and architecture. If automatic discovery
+finds multiple runtimes, select one explicitly. `--python`, if supplied, must
+resolve inside the selected runtime. A ZIP layout or runtime manifest is not
+required for the functional checks.
+
+The suite runs `init`, `migrate v1-to-v2`, `generate` (including a custom Python
+payload and Jinja template), and `serve` with desktop workspace authentication.
+It checks loaded/persisted state, source-preserving migration, CSV/ODCS imports,
+custom plugin resources/reload, native Parquet IO and builtin connector loading.
+It also checks Polars execution, Pydantic/Polars source introspection, JSON Schema
+resources and encrypted-keyring entry-point metadata after ZIP import.
+Solutions are disposable local fixtures; no cloud connections are exercised.
+Content hashes and file/link inventories verify that running the tests does not
+change the runtime. Results distinguish passes, failures and skips; failures
+return a nonzero exit code. Reports must be written outside the runtime.
+
+Secret backend availability and a temporary encrypted-file secret roundtrip are
+always checked on every platform, without modifying the user's keyring. This
+exercises the crypto backend after removing its bundled self-tests.
+Add `--secrets-roundtrip` on a
+disposable test account to exercise set/read/overwrite/delete using uniquely
+named test entries that are cleaned afterward. Windows uses Credential Vault;
+macOS uses the configured keyring; Linux uses a temporary encrypted file backend.
+The installed-package CI requires this roundtrip. Local packaged tests can opt in
+with `DATAM8_RUNTIME_TEST_SECRETS=1`; otherwise this case is reported as skipped.
+
+Full native acceptance runs only through the manual desktop workflow or a release
+tag. The manual workflow defaults to unsigned acceptance and can run on a feature
+branch. Signed candidates require main. Each platform builds/tests its runtime
+before packaging and verifies the installed distributions on a fresh runner;
+there is no additional runtime matrix before the same desktop matrix.
+PR/Main CI retains the short Linux checks, including workspace switching,
+save barriers, stale-write rejection, generation and shutdown with a real backend.
+
+Each runtime report counts regular files, bytes and symlinks separately and
+compares regular files with the published v2.0.1 runtimes (Windows x64: 8,698;
+macOS ARM64: 4,945; macOS x64: 4,963; Linux x64: 11,697). Dependency and interpreter
+versions can differ from that release. The preparation manifest records the
+pruning/archive stages; the test report contains the final inventory including
+the manifest itself. A 60% reduction is a comparison target, not a functional
+gate or a reason to remove required dependencies.
+
+The build runs the same suite after relocating the runtime and records results
+under `artifacts/runtime-test-results`. Installed-package tests run it again on
+each distribution, then exercise desktop persistence/generation plus the real
+create/migrate/plugin-import IPC bridges and verify bundle integrity afterward.
 
 Use `npm run build:desktop` on a suitable native host for local packaging.
 The launcher directly starts Vite and the compilation-aware Electron watcher;

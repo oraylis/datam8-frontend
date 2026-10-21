@@ -160,6 +160,9 @@ export const FolderHierarchyPicker = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search folders…"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
           />
           <ScrollArea className={cn("codex-popup-scroll h-48", scrollClassName)}>
             <div className="divide-y divide-border/60">

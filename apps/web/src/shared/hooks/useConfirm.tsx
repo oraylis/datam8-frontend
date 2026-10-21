@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@datam8/ui";
 
 type ConfirmOptions = {
@@ -21,6 +21,7 @@ const ConfirmContext = createContext<ConfirmContextValue | undefined>(undefined)
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = useState<Pending>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
@@ -42,7 +43,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
       <Dialog open={!!pending} onOpenChange={(open) => !open && resolve(false)}>
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className="max-w-md"
+          onEnter={() => resolve(true)}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            confirmButtonRef.current?.focus();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{pending?.options.title || "Are you sure?"}</DialogTitle>
             {pending?.options.description ? <DialogDescription>{pending.options.description}</DialogDescription> : null}
@@ -51,7 +59,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" onClick={() => resolve(false)}>
               {pending?.options.cancelText || "Cancel"}
             </Button>
-            <Button onClick={() => resolve(true)}>{pending?.options.confirmText || "Confirm"}</Button>
+            <Button ref={confirmButtonRef} onClick={() => resolve(true)}>{pending?.options.confirmText || "Confirm"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

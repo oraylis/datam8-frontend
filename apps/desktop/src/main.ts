@@ -1183,7 +1183,9 @@ async function createWindow() {
 
   let iconPath: string | undefined = undefined;
   if (process.platform === "win32") {
-    iconPath = path.join(process.resourcesPath, "assets", "icons", "icon.ico");
+    iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, "assets", "icons", "icon.ico")
+      : path.join(app.getAppPath(), "build", "icons", "icon.ico");
   } else if (process.platform === "linux") {
     iconPath = path.join(process.resourcesPath, "assets", "icons", "linux", "icon.png");
   }

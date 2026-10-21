@@ -78,3 +78,5 @@ The workflow supplies the target to the single desktop `package` command.
 See [installation and verification](docs/desktop-installation.md),
 [release checks](docs/release.md), [troubleshooting](docs/troubleshooting.md)
 and [opt-in screenshot maintenance](docs/user-guide/capture.md).
+
+<!-- Temporary documentation-only CI acceptance reference. -->

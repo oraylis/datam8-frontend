@@ -1737,18 +1737,25 @@ export function AppShell() {
   }, [activeWorkTab]);
 
   const workspaceSnapshotRef = useRef({ hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch });
+  const [workspaceSaving, setWorkspaceSaving] = useState(false);
   useEffect(() => {
     workspaceSnapshotRef.current = { hasAnyDirty, generatorRunning, solutionLoading, persist: persistActiveEditorBeforeSwitch };
   }, [hasAnyDirty, generatorRunning, solutionLoading, persistActiveEditorBeforeSwitch]);
   const persistWorkspaceEdits = useCallback(async () => {
-    flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
-    if (appRootRef.current) appRootRef.current.inert = true;
-    const saved = await workspaceSnapshotRef.current.persist();
-    const baseSaved = await Promise.all(
-      [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
-    );
-    flushSync(() => {});
-    return saved && !baseSaved.includes(false) && !workspaceSnapshotRef.current.hasAnyDirty;
+    flushSync(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      setWorkspaceSaving(true);
+    });
+    try {
+      const saved = await workspaceSnapshotRef.current.persist();
+      const baseSaved = await Promise.all(
+        [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
+      );
+      flushSync(() => {});
+      return saved && !baseSaved.includes(false) && !workspaceSnapshotRef.current.hasAnyDirty;
+    } finally {
+      setWorkspaceSaving(false);
+    }
   }, [flushPatchedBaseAutosave]);
   useEffect(() => {
     beforeLoad.current = async () => {
@@ -1766,10 +1773,6 @@ export function AppShell() {
     }
     return { ok: true };
   });
-  useEffect(() => {
-    if (appRootRef.current) appRootRef.current.inert = updateStatus?.phase === "preparing" || solutionLoading;
-  }, [updateStatus?.phase, solutionLoading]);
-
   const handleReload = useCallback(async (force = false) => {
     if (!solution && !force) return;
     if (hasAnyDirty) {
@@ -2183,7 +2186,7 @@ export function AppShell() {
   return (
     <div
       ref={appRootRef}
-      inert={updateStatus?.phase === "preparing"}
+      inert={updateStatus?.phase === "preparing" || solutionLoading || workspaceSaving}
       className={`app ${sidebarOpen ? "" : "app--sidebar-collapsed"} ${isWindowsElectron ? "app--windows-titlebar" : ""}`}
       style={{ "--sidebar-size": sidebarOpen ? `${sidebarSize}px` : "68px" } as CSSProperties}
     >

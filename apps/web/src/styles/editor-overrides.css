@@ -749,7 +749,7 @@
 
 .editor-panel .panel__body .table.entity-attributes-table > .value-row:not(:first-child):not(:last-child) {
   border-bottom: 1px solid;
-  border-color: color-mix(in srgb, var(--editor-form-border) 60%, transparent) !important;
+  border-color: color-mix(in srgb, var(--editor-form-border) 30%, transparent) !important;
 }
 
 .editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row {

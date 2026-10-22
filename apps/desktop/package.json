@@ -21,7 +21,7 @@
     "appId": "com.datam8",
     "productName": "DataM8",
     "executableName": "datam8",
-    "electronVersion": "42.4.0",
+    "electronVersion": "45.0.0",
     "deb": {
       "packageName": "datam8",
       "artifactName": "datam8_${version}_${arch}.${ext}"
@@ -97,7 +97,8 @@
       "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "artifactName": "DataM8-${version}-mac-${arch}.${ext}"
+      "artifactName": "DataM8-${version}-mac-${arch}.${ext}",
+      "minimumSystemVersion": "13.0.0"
     },
     "linux": {
       "target": [
@@ -118,14 +119,13 @@
     "afterPack": "../../scripts/desktop-after-pack.cjs"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.8",
     "cross-env": "^10.1.0",
-    "electron": "^42.4.0",
+    "electron": "45.0.0",
     "electron-builder": "^26.15.3",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "adm-zip": "^0.5.17",
+    "adm-zip": "^0.6.1",
     "electron-updater": "^6.8.9",
     "zod": "^4.4.3"
   }

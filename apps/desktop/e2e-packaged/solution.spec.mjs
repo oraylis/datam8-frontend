@@ -38,6 +38,10 @@ for (const distribution of distributions) {
       if (previous && distribution.previousAppRoot && process.platform === 'darwin') verifyMac(distribution.previousAppRoot);
       app = await _electron.launch({ executablePath: previous && distribution.previousExecutable ? distribution.previousExecutable : distribution.executable, args: [`--user-data-dir=${path.join(temp, 'Profile')}`, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
         env: { ...process.env, DATAM8_BACKEND_TEST_PORT: backendPort, APPIMAGE_EXTRACT_AND_RUN: '1', PYTHONHOME: '/deliberately/invalid/host-python', PYTHONPATH: '/deliberately/invalid/host-modules' }, timeout: 60_000 });
+      if (!previous) {
+        const expectedElectron = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).build.electronVersion;
+        expect(await app.evaluate(() => process.versions.electron)).toBe(expectedElectron);
+      }
       app.process().stdout?.on('data', chunk => logs.push(redact(chunk)));
       app.process().stderr?.on('data', chunk => logs.push(redact(chunk)));
       page = await app.firstWindow();
@@ -128,6 +132,16 @@ for (const distribution of distributions) {
       expect((await page.evaluate(file => window.desktop.solution.load(file), migrated.solutionPath)).path).toBe(migrated.solutionPath);
 
       const archive = runtimePluginArchive(temp);
+      const unsafeArchive = path.join(temp, 'unsafe-plugin.zip');
+      const AdmZip = createRequire(import.meta.url)('adm-zip');
+      const unsafeZip = new AdmZip(archive);
+      unsafeZip.updateFile('plugin.json', Buffer.from(JSON.stringify({ id: '..' })));
+      unsafeZip.writeZip(unsafeArchive);
+      const solutionBeforeImport = snapshotRuntime(path.dirname(second));
+      await expect(page.evaluate(payload => window.desktop.solution.importPlugins(payload), {
+        solutionPath: second, artifactPaths: [unsafeArchive],
+      })).rejects.toThrow(/Unsafe plugin/);
+      assertRuntimeUnchanged(solutionBeforeImport, snapshotRuntime(path.dirname(second)));
       const imported = await page.evaluate(payload => window.desktop.solution.importPlugins(payload), { solutionPath: second, artifactPaths: [archive] });
       expect(imported.imported).toBe(1);
       expect(imported.plugins.items.some(plugin => plugin.id === 'runtime_fixture')).toBe(true);

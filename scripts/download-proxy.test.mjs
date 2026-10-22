@@ -12,8 +12,10 @@ test('the builder downloader supports the updated proxy agent and NO_PROXY', asy
   let proxied = 0, received = 0;
   const target = http.createServer((_request, response) => { received++; response.end('local artifact'); });
   const proxy = http.createServer((request, response) => {
+    const targetUrl = `http://127.0.0.1:${target.address().port}/probe.zip`;
+    if (request.url !== targetUrl) { response.writeHead(400).end(); return; }
     proxied++;
-    const upstream = http.get(request.url, result => result.pipe(response));
+    const upstream = http.get(targetUrl, result => result.pipe(response));
     upstream.on('error', error => { response.statusCode = 502; response.end(error.message); });
   });
   t.after(() => {

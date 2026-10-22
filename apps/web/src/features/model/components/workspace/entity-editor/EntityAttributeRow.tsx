@@ -139,7 +139,7 @@ export const EntityAttributeRow = memo(
               property,
               value: `${p?.value ?? ""}`,
               inherited: false,
-              title: "Column property",
+              title: `${property}: ${p?.value ?? ""}`,
               removeKey: pIdx,
             };
           })
@@ -389,7 +389,9 @@ export const EntityAttributeRow = memo(
             <input
               ref={nameInputRef}
               value={draftName}
-              className={cn(nameError ? "input--error" : "")}
+              className={cn("attribute-row__input", nameError ? "input--error" : "")}
+              aria-label={`Attribute name: ${attr.name}`}
+              aria-invalid={!!nameError}
               data-explicit-autosave="true"
               onChange={(e) => setDraftName(e.target.value)}
               onBlur={handleCommitName}
@@ -404,6 +406,7 @@ export const EntityAttributeRow = memo(
           </div>
           <div>
             <FormSelect
+              className="attribute-row__select"
               value={attr.dataType?.type || ""}
               onChange={(val) => {
                 onPatch(index, (a) => ({
@@ -441,13 +444,14 @@ export const EntityAttributeRow = memo(
           </div>
           <div>
             <FormSelect
+              className="attribute-row__select"
               value={attr.history || ""}
               onChange={(val) => {
                 onPatch(index, (a) => ({ ...a, history: val || undefined }));
                 onCommit("dropdown-change");
               }}
               options={[{ value: "", label: "None" }, ...historyOptions.map((h) => ({ value: h, label: h }))]}
-              placeholder="Select history"
+              placeholder="None"
             />
           </div>
           <div>
@@ -494,16 +498,16 @@ export const EntityAttributeRow = memo(
             )}
           </div>
           <div>
-            <div className="actions actions--tight">
+            <div className="actions actions--tight attribute-row__actions">
+              <IconBtn active={detailsOpen} title="Open details" data-no-attribute-select="true" onClick={() => onToggleDetails(rowKey)}>
+                <Pencil className="h-4 w-4" />
+              </IconBtn>
               <IconBtn
                 title="Remove attribute"
                 data-no-attribute-select="true"
                 onClick={() => onRemove(index, rowKey)}
               >
                 <Trash2 className="h-4 w-4" />
-              </IconBtn>
-              <IconBtn active={detailsOpen} title="Open details" data-no-attribute-select="true" onClick={() => onToggleDetails(rowKey)}>
-                <Pencil className="h-4 w-4" />
               </IconBtn>
             </div>
           </div>

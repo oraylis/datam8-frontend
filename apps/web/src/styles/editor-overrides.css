@@ -82,7 +82,7 @@
 
 .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:not(:first-child) {
   content-visibility: auto;
-  contain-intrinsic-size: 72px;
+  contain-intrinsic-size: 40px;
 }
 
 .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child {
@@ -731,4 +731,179 @@
 .dark .generator-panel__output {
   background: #212121;
   border-color: #3f3f3f;
+}
+
+/* Compact attribute list. Scope controls to the main row so dialogs and menus
+   retain their regular form styling. */
+.editor-panel .panel__body .table.entity-attributes-table {
+  min-width: 858px;
+  padding: 0;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row {
+  padding: 0;
+  margin-bottom: 0;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row:not(:first-child):not(:last-child) {
+  border-bottom: 1px solid;
+  border-color: color-mix(in srgb, var(--editor-form-border) 60%, transparent) !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row {
+  min-height: 40px;
+  padding: 4px 8px;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-head {
+  min-height: 36px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--ui-muted-foreground));
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row:not(:first-child):is(:hover, :focus-within, .value-row--active) {
+  background: color-mix(in srgb, hsl(var(--ui-foreground)) 3%, transparent) !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row.value-row--selected {
+  background: color-mix(in srgb, hsl(var(--ui-ring)) 9%, transparent) !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row > div {
+  min-width: 0;
+}
+
+.editor-panel .panel__body.panel__body--entity-editor .table.entity-attributes-table > .value-row > .table-row :is(input.attribute-row__input, button.attribute-row__select) {
+  width: 100%;
+  height: 30px;
+  min-height: 30px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: hsl(var(--ui-foreground));
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.editor-panel .panel__body.panel__body--entity-editor .table.entity-attributes-table > .value-row > .table-row :is(input.attribute-row__input, button.attribute-row__select):focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 hsl(var(--ui-ring)) !important;
+}
+
+.editor-panel .panel__body.panel__body--entity-editor .table.entity-attributes-table > .value-row > .table-row input.attribute-row__input.input--error {
+  box-shadow: inset 0 -2px 0 var(--danger) !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .attribute-row__select > svg {
+  width: 14px;
+  height: 14px;
+  color: hsl(var(--ui-muted-foreground));
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .attribute-row__select > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .icon-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 5px;
+  border: none;
+  border-radius: 4px;
+  color: hsl(var(--ui-muted-foreground));
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .attribute-row__selector--header {
+  margin-top: 0;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .attribute-row__selector {
+  position: relative;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .attribute-row__selector::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid var(--editor-form-border);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .attribute-row__selector--selected {
+  color: hsl(var(--ui-ring));
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .icon-btn:hover {
+  color: hsl(var(--ui-foreground));
+  background: color-mix(in srgb, hsl(var(--ui-foreground)) 6%, transparent) !important;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row .icon-btn:focus-visible {
+  outline: 2px solid hsl(var(--ui-ring));
+  outline-offset: 1px;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table .attribute-row__actions {
+  gap: 2px;
+  justify-content: flex-end;
+  opacity: 0.75;
+  transition: opacity var(--ui-transition-fast);
+}
+
+.editor-panel .panel__body .table.entity-attributes-table > .value-row:is(:hover, :focus-within) .attribute-row__actions {
+  opacity: 1;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table .chips {
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table .chip:not(.chip--add) {
+  min-width: 0;
+  max-width: calc(100% - 32px);
+  padding: 3px 6px;
+  border: none;
+  border-radius: 4px;
+  background: color-mix(in srgb, hsl(var(--ui-ring)) 8%, transparent);
+  font-size: 11px;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table .chip :is(.chip__label, .chip__value) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table .chip__remove {
+  flex-shrink: 0;
+}
+
+.editor-panel .panel__body .table.entity-attributes-table .chip--add {
+  padding: 4px;
+  border-color: transparent;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-panel .panel__body .table.entity-attributes-table .attribute-row__actions {
+    transition: none;
+  }
 }

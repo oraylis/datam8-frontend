@@ -155,7 +155,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
   const dragAttrIndexRef = useRef<number | null>(null);
 
   const dataTypeOptions = useMemo(() => dataTypes.map((dt) => ({ value: dt, label: dt })), [dataTypes]);
-  const attributeColumns = "0.4fr 1.4fr 0.95fr 0.46fr 0.7fr 0.78fr 1.56fr 0.6fr";
+  const attributeColumns = "28px minmax(140px, 1.4fr) minmax(90px, 0.9fr) 64px 88px 72px minmax(140px, 1.5fr) 64px";
   const historyOptions: HistoryType[] = ["SCD0", "SCD1", "SCD2", "SCD3", "SCD4"];
   const expressionLanguageOptions = ["sql", "dax", "python"];
   const currentEntityAttributeNames = useMemo(
@@ -770,7 +770,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                       <div className="boolean-cell">Business Key</div>
                       <div>History</div>
                       <div>Column Properties</div>
-                      <div>Actions</div>
+                      <div><span className="sr-only">Actions</span></div>
                     </div>
                   </div>
                   {attributes.map((attr, idx) => {

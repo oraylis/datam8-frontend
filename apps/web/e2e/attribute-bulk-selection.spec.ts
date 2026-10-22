@@ -34,7 +34,7 @@ function createMockSolutionPayload() {
       {
         name: "Properties",
         relPath: "Base/Properties.json",
-        content: { properties: [] },
+        content: { properties: [{ name: "data_layout", values: ["liquid_clustering"] }] },
       },
       {
         name: "DataSources",
@@ -56,6 +56,7 @@ function createMockSolutionPayload() {
               attributeType: "ID",
               dataType: { type: "int", nullable: false },
               ordinalNumber: 1,
+              properties: [{ property: "data_layout", value: "liquid_clustering" }],
             },
             {
               name: "CustomerName",
@@ -111,7 +112,7 @@ async function mockApi(page: import("@playwright/test").Page) {
     await route.fulfill({ json: { entries: [] } });
   });
 
-  await page.route("**/plugins/**", async (route) => {
+  await page.route(/\/plugins(?:[/?].*)?$/, async (route) => {
     await route.fulfill({ json: { items: [] } });
   });
 
@@ -186,7 +187,7 @@ test("attribute details commit only when dialog save is clicked", async ({ page 
   await page.getByRole("button", { name: "Customer" }).click();
   await page.getByRole("button", { name: "Attributes" }).click();
 
-  await page.getByTitle("Details").first().click();
+  await page.getByTitle("Open details", { exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Attribute Details" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("CustomerId")).toBeVisible();
@@ -202,4 +203,52 @@ test("attribute details commit only when dialog save is clicked", async ({ page 
   await expect.poll(api.getModelSaves, { timeout: 10_000 }).toBeGreaterThan(0);
   await expect(dialog).toBeHidden();
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`compact attribute list stays editable and keyboard accessible in ${theme} mode`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addInitScript((value) => localStorage.setItem("datam8-ui-theme-v2", value), theme);
+    const api = await mockApi(page);
+    await loadSolutionFromDialog(page);
+    await page.getByRole("button", { name: "Customer", exact: true }).click();
+    await page.getByRole("button", { name: "Attributes", exact: true }).click();
+
+    const table = page.locator(".entity-attributes-table");
+    const firstRow = table.locator(".value-row").nth(1);
+    const name = page.getByRole("textbox", { name: "Attribute name: CustomerId", exact: true });
+    await expect(name).toHaveValue("CustomerId");
+    await expect(firstRow.locator(".chip:not(.chip--add)")).toHaveAttribute("title", "data_layout: liquid_clustering");
+    await expect.poll(() => firstRow.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(42);
+    await expect(name).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(name).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
+    await expect(firstRow).toHaveCSS("border-bottom-style", "solid");
+
+    await name.focus();
+    await expect(name).toBeFocused();
+    await expect(name).not.toHaveCSS("box-shadow", "none");
+    await name.press("Tab");
+    const dataType = firstRow.getByRole("combobox").first();
+    await expect(dataType).toBeFocused();
+    await expect(dataType).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
+    await dataType.press("Enter");
+    await page.getByRole("option", { name: "string", exact: true }).click();
+    await expect(dataType).toHaveText("string");
+    await expect.poll(api.getEntityWrites).toBeGreaterThan(0);
+
+    const nullable = firstRow.getByRole("checkbox").first();
+    await expect(nullable).not.toBeChecked();
+    const writesBeforeNullable = api.getEntityWrites();
+    await nullable.click();
+    await expect(nullable).toBeChecked();
+    await expect.poll(api.getEntityWrites).toBeGreaterThan(writesBeforeNullable);
+
+    await table.screenshot({ path: testInfo.outputPath(`attributes-compact-${theme}.png`) });
+    await firstRow.getByTitle("Open details", { exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Attribute Details" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator(".attribute-textarea--description")).not.toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(name).toHaveValue("CustomerId");
+  });
+}
 

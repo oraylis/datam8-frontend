@@ -11,8 +11,17 @@ shell backed by the Python DataM8 Generator.
 
 ## Local development
 
-Use Node **24** (25+ unsupported), Python compatible with Generator **v2.0.1**,
-and `uv`. Initialize nested submodules and install locked dependencies:
+### Prerequisites
+
+- Node.js **24** with npm (25+ unsupported).
+- Python compatible with the checked-out Generator; see `requires-python` in its
+  [project configuration](submodules/datam8-generator/pyproject.toml).
+- `uv` to create the backend's virtual environment and install its dependencies.
+
+### 1. Set up the repository
+
+From the repository root, initialize all nested submodules and install dependencies.
+Run this once after cloning:
 
 ```sh
 git submodule update --init --recursive
@@ -20,36 +29,77 @@ npm ci
 cd submodules/datam8-generator
 uv sync --all-extras
 cd ../..
+```
+
+### 2. Start the app
+
+Choose **Desktop** or **Browser**. Run the commands below from the repository root.
+
+#### Desktop
+
+Use one terminal:
+
+```sh
 npm run dev:desktop
 ```
 
-Desktop starts the backend and UI. See [Desktop development](docs/dev-desktop.md)
-for interpreter overrides. Browser development needs a backend bound to a working
-copy of a solution, then Vite in another terminal:
+This starts the Electron app and the UI development server. Load a solution in
+the app; Desktop starts and manages the backend automatically when needed.
+See [Desktop development](docs/dev-desktop.md) for Python interpreter overrides.
+
+#### Browser
+
+Use two terminals: one for the backend and one for the UI development server.
+Before starting, prepare a **working copy of a solution**, including its referenced
+files and folders. Replace the example `.dm8s` path below with the path to that copy.
+
+**Windows (PowerShell)**
+
+Terminal 1 — start the backend and keep it running:
 
 ```powershell
-# Terminal 1, Windows, repo root
+& .\submodules\datam8-generator\.venv\Scripts\python.exe -m datam8 serve `
+  --host 127.0.0.1 `
+  --port 4318 `
+  --solution 'C:\DataM8\working-copy\MySolution.dm8s'
+```
 
-& .\submodules\datam8-generator\.venv\Scripts\python.exe -m datam8 serve --host 127.0.0.1 --port 4318 --solution C:\DataM8\sample\ORAYLISDatabricksSample.dm8s
-# Terminal 2
+Terminal 2 — start the UI and keep it running:
 
+```powershell
 $env:VITE_API_URL = 'http://127.0.0.1:4318'
 npm run dev:web
 ```
 
+**macOS / Linux (shell)**
+
+Terminal 1 — start the backend and keep it running:
+
 ```sh
-# Terminal 1, macOS/Linux
+submodules/datam8-generator/.venv/bin/python -m datam8 serve \
+  --host 127.0.0.1 \
+  --port 4318 \
+  --solution '/path/to/working-copy/MySolution.dm8s'
+```
 
-submodules/datam8-generator/.venv/bin/python -m datam8 serve --host 127.0.0.1 --port 4318 --solution /path/to/copy/ORAYLISDatabricksSample.dm8s
-# Terminal 2
+Terminal 2 — start the UI and keep it running:
 
+```sh
 VITE_API_URL=http://127.0.0.1:4318 npm run dev:web
 ```
 
-Open `http://localhost:4320`. Vite proxies root API requests to `VITE_API_URL`; its
-fallback is `http://127.0.0.1:51092`. The local browser example binds to loopback
-without a token. Desktop always supplies a token. Browser **Load** reads the bound
-solution; changing the dialog path does not switch backend workspaces.
+Open **http://localhost:4320** in your browser, then use **Load** to read the
+solution selected by `--solution`.
+
+**Switching solutions:** Browser mode uses the solution selected when the backend
+starts. Changing the path in the Load dialog does not switch solutions. To use
+another solution, restart the backend in Terminal 1 with a different `--solution`
+path, then load it again in the UI.
+
+**Ports and authentication:** The UI runs on port `4320` and forwards API requests
+to the backend at `VITE_API_URL` (port `4318` in these examples). If the variable
+is unset, Vite defaults to `http://127.0.0.1:51092`. These browser commands run the
+backend on loopback without a token; Desktop supplies a token automatically.
 
 ## Repository layout
 

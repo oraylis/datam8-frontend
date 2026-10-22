@@ -156,8 +156,8 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const dataTypeOptions = useMemo(() => dataTypes.map((dt) => ({ value: dt, label: dt })), [dataTypes]);
   const attributeColumns = "28px minmax(140px, 1.4fr) minmax(90px, 0.9fr) 64px 88px 72px minmax(140px, 1.5fr) 64px";
-  const historyOptions: HistoryType[] = ["SCD0", "SCD1", "SCD2", "SCD3", "SCD4"];
-  const expressionLanguageOptions = ["sql", "dax", "python"];
+  const historyOptions = useMemo<HistoryType[]>(() => ["SCD0", "SCD1", "SCD2", "SCD3", "SCD4"], []);
+  const expressionLanguageOptions = useMemo(() => ["sql", "dax", "python"], []);
   const currentEntityAttributeNames = useMemo(
     () =>
       (attributes || [])

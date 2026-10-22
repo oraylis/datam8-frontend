@@ -146,7 +146,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
   const pendingScrollIndexRef = useRef<number | null>(null);
   const [dragAttrIndex, setDragAttrIndex] = useState<number | null>(null);
   const [dragOverState, setDragOverState] = useState<{ index: number; position: "before" | "after" } | null>(null);
-  const [pendingFocusName, setPendingFocusName] = useState<string | null>(null);
   const [selectedAttributeIds, setSelectedAttributeIds] = useState<Set<string>>(new Set());
   const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
@@ -341,7 +340,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
     setDragOverState((prev) => (prev?.index === idx ? null : prev));
   }, []);
 
-  const clearPendingFocus = useCallback(() => setPendingFocusName(null), []);
   const sourcesEditorRef = useRef<EntitySourcesEditorHandle | null>(null);
   const relationshipsEditorRef = useRef<EntityRelationshipsEditorHandle | null>(null);
   const handleTextFieldBlurCapture = useCallback(
@@ -393,7 +391,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
         }
         return next;
       });
-      setPendingFocusName(newName);
       return null;
     },
     [normalizeAttributeName, setOpenAttributeDetails, updateAttributeAtNoOrdinals],
@@ -811,8 +808,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
                         onSelect={handleSelectAttribute}
                         rowRef={setRowRef}
                         nameRef={setNameRef}
-                        pendingFocus={pendingFocusName === rowKey}
-                        clearPendingFocus={clearPendingFocus}
                       />
                     );
                   })}

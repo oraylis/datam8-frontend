@@ -46,8 +46,6 @@ export type AttributeRowProps = {
   onSelect: (idx: number, event: React.MouseEvent<HTMLElement>) => void;
   rowRef: (idx: number, el: HTMLDivElement | null) => void;
   nameRef: (name: string, el: HTMLInputElement | null) => void;
-  pendingFocus: boolean;
-  clearPendingFocus: () => void;
 };
 
 export const EntityAttributeRow = memo(
@@ -78,8 +76,6 @@ export const EntityAttributeRow = memo(
     onSelect,
     rowRef,
     nameRef,
-    pendingFocus,
-    clearPendingFocus,
   }: AttributeRowProps) => {
     const [draftName, setDraftName] = useState(attr?.name || "");
     const [detailsDraft, setDetailsDraft] = useState<EntityAttribute | null>(null);
@@ -95,14 +91,6 @@ export const EntityAttributeRow = memo(
         nameRef(attr?.name || "", null);
       };
     }, [attr?.name, nameRef]);
-
-    useEffect(() => {
-      if (pendingFocus && nameInputRef.current) {
-        nameInputRef.current.focus();
-        nameInputRef.current.select();
-        clearPendingFocus();
-      }
-    }, [pendingFocus, clearPendingFocus]);
 
     useEffect(() => {
       if (detailsOpen) {

@@ -78,8 +78,16 @@ function createMockSolutionPayload() {
   };
 }
 
-async function mockApi(page: import("@playwright/test").Page) {
+async function mockApi(page: import("@playwright/test").Page, attributeCount = 3) {
   const solutionPayload = createMockSolutionPayload();
+  solutionPayload.modelEntities[0].content.attributes.push(
+    ...Array.from({ length: Math.max(0, attributeCount - 3) }, (_, index) => ({
+      name: `ExtraColumn${index + 1}`,
+      attributeType: "Text",
+      dataType: { type: "string", nullable: true },
+      ordinalNumber: index + 4,
+    })),
+  );
   let entityWrites = 0;
   let modelSaves = 0;
 
@@ -179,6 +187,44 @@ test("attribute selection mode replaces drag handles and restores them on clear"
   await expect(page.getByLabel("Clear selection")).toHaveCount(0);
   await expect(page.getByLabel("Select all attributes")).toBeVisible();
   await expect(page.getByTitle("Click to select or drag to reorder")).toHaveCount(3);
+});
+
+test("renaming attributes preserves click, Tab and Enter focus in a long list", async ({ page }) => {
+  const api = await mockApi(page, 50);
+  await loadSolutionFromDialog(page);
+  await page.getByRole("button", { name: "Customer", exact: true }).click();
+  await page.getByRole("button", { name: "Attributes", exact: true }).click();
+
+  const rows = page.locator(".entity-attributes-table > .value-row");
+  await expect(rows).toHaveCount(51);
+  await page.getByRole("textbox", { name: "Attribute name: CustomerId", exact: true }).fill("CustomerIdRenamed");
+  const nextName = page.getByRole("textbox", { name: "Attribute name: CustomerName", exact: true });
+  await nextName.click();
+  await expect(nextName).toBeFocused();
+  await expect.poll(api.getEntityWrites).toBeGreaterThan(0);
+  await expect(nextName).toBeFocused();
+
+  const writesBeforeTab = api.getEntityWrites();
+  await nextName.fill("CustomerNameRenamed");
+  await nextName.press("Tab");
+  const nextDataType = rows.nth(2).getByRole("combobox").first();
+  await expect(nextDataType).toBeFocused();
+  await expect.poll(api.getEntityWrites).toBeGreaterThan(writesBeforeTab);
+  await expect(nextDataType).toBeFocused();
+
+  await page.getByRole("textbox", { name: "Attribute name: CustomerIdRenamed", exact: true }).fill("CustomerIdFinal");
+  const writesBeforeEnter = api.getEntityWrites();
+  await page.getByRole("textbox", { name: "Attribute name: CustomerIdRenamed", exact: true }).press("Enter");
+  const renamedInput = page.getByRole("textbox", { name: "Attribute name: CustomerIdFinal", exact: true });
+  await expect(renamedInput).toBeFocused();
+  await expect.poll(api.getEntityWrites).toBeGreaterThan(writesBeforeEnter);
+  await expect(renamedInput).toBeFocused();
+
+  await page.getByRole("button", { name: "Add Attribute", exact: true }).click();
+  const newName = page.getByRole("textbox", { name: "Attribute name: new_column", exact: true });
+  await expect(newName).toBeFocused();
+  await expect(newName).toHaveValue("new_column");
+  await expect.poll(() => newName.evaluate((el: HTMLInputElement) => el.selectionEnd! - el.selectionStart!)).toBe("new_column".length);
 });
 
 test("attribute details commit only when dialog save is clicked", async ({ page }) => {

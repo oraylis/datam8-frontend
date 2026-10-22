@@ -2,7 +2,7 @@
 
 Use packages from a successful verified GitHub workflow or an official release.
 Choose Windows x64 (NSIS), macOS ARM64 (Apple Silicon) or x64 (Intel), or Linux
-x64 (AppImage/DEB). `BUILD-MANIFEST.json` records the build commit, workflow and
+x64 (AppImage/DEB). macOS requires version 13 (Ventura) or later. `BUILD-MANIFEST.json` records the build commit, workflow and
 Windows signer. Download the package and its verification files together.
 
 ## Public signing identities

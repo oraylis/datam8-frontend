@@ -13,7 +13,8 @@ existing installations and retirement of superseded infrastructure.
 
 ## Build and release process
 
-All native builds use Node 24 and the pinned Generator submodule. Each target
+All native builds use Node 24 and the pinned Generator submodule.
+Electron 45 requires macOS 13 (Ventura) or later. Each target
 bundles its own Python runtime and backend dependencies:
 
 | Target | GitHub runner | Distribution |

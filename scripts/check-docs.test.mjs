@@ -63,3 +63,10 @@ test("excludes packaged runtime licences and generated test reports", () => {
     assert.deepEqual(documentationFiles(root), [path.join(root, "README.md")]);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("heading anchors remove nested tags to a fixed point and handle incomplete tags", () => {
+  assert.ok(headingAnchors("# <scr<script>ipt>Save</script>\n").has("save"));
+  assert.ok(headingAnchors("# <<b>em>Save</em>\n").has("save"));
+  assert.ok(headingAnchors("# <script Save\n").has("script-save"));
+  assert.ok(headingAnchors("# Save\n\n## Save\n").has("save-1"));
+});

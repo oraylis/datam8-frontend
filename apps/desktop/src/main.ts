@@ -5,6 +5,7 @@ import { terminateChild } from "../resources/backend-lifecycle.cjs";
 import { buildPythonEnv } from "../resources/backend-env.cjs";
 import { loopback, parseVersion, REPOSITORY, releaseUrl, requireWindowsPublisher } from "../resources/update-policy.cjs";
 import { DesktopUpdates } from "./updates";
+import { importPluginZipArtifact } from "./pluginArtifacts";
 import type { UpdatePreparation } from "../../../packages/types/src/desktop-updates";
 import crypto from "crypto";
 import fs from "fs";
@@ -573,74 +574,6 @@ function importPluginArtifacts(params: { solutionPath: string; artifactPaths: st
     imported += 1;
   }
   return imported;
-}
-
-type ZipEntry = {
-  entryName: string;
-  isDirectory: boolean;
-};
-
-type ZipArchive = {
-  getEntries: () => ZipEntry[];
-  readAsText: (entry: ZipEntry) => string;
-  extractAllTo: (targetPath: string, overwrite?: boolean) => void;
-};
-
-type ZipArchiveCtor = new (zipPath: string) => ZipArchive;
-
-function importPluginZipArtifact(zipPath: string, pluginsTargetDir: string): void {
-  const AdmZipModule = (() => {
-    try {
-      // Lazy-load ZIP support so a missing optional module cannot crash app startup.
-      return require("adm-zip");
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      throw new Error(`Cannot import ZIP plugin artifacts because 'adm-zip' is unavailable. ${detail}`);
-    }
-  })();
-  const AdmZipCtor = (AdmZipModule?.default || AdmZipModule) as ZipArchiveCtor | undefined;
-  if (typeof AdmZipCtor !== "function") {
-    throw new Error("Cannot import ZIP plugin artifacts because 'adm-zip' did not export a constructor.");
-  }
-  const zip = new AdmZipCtor(zipPath);
-  const entries = zip.getEntries();
-  if (!entries.length) {
-    throw new Error(`Plugin ZIP is empty: ${zipPath}`);
-  }
-
-  const pluginJsonEntry = entries.find((entry) => {
-    const normalized = entry.entryName.replace(/\\/g, "/").toLowerCase();
-    return !entry.isDirectory && normalized.endsWith("plugin.json");
-  });
-  if (!pluginJsonEntry) {
-    throw new Error(`Plugin ZIP does not contain plugin.json: ${zipPath}`);
-  }
-
-  let pluginId = "";
-  try {
-    const manifest = JSON.parse(zip.readAsText(pluginJsonEntry));
-    pluginId = `${manifest?.id || ""}`.trim();
-  } catch {
-    throw new Error(`Invalid plugin.json in ZIP: ${zipPath}`);
-  }
-
-  const fallbackName = path.basename(zipPath, path.extname(zipPath));
-  const folderName = sanitizePathSegment(pluginId || fallbackName);
-  if (!folderName) {
-    throw new Error(`Could not derive plugin folder name from ZIP: ${zipPath}`);
-  }
-
-  for (const entry of entries) {
-    const normalized = entry.entryName.replace(/\\/g, "/");
-    if (normalized.includes("..") || normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized)) {
-      throw new Error(`Unsafe ZIP entry path detected: ${entry.entryName}`);
-    }
-  }
-
-  const destinationDir = path.join(pluginsTargetDir, folderName);
-  fs.rmSync(destinationDir, { recursive: true, force: true });
-  fs.mkdirSync(destinationDir, { recursive: true });
-  zip.extractAllTo(destinationDir, true);
 }
 
 function getSolutionRootDir(solutionPath?: string | null): string {

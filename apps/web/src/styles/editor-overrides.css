@@ -877,12 +877,7 @@
 
 .editor-panel .panel__body .table.entity-attributes-table .chip:not(.chip--add) {
   min-width: 0;
-  max-width: calc(100% - 32px);
-  padding: 3px 6px;
-  border: none;
-  border-radius: 4px;
-  background: color-mix(in srgb, hsl(var(--ui-ring)) 8%, transparent);
-  font-size: 11px;
+  max-width: calc(100% - 36px);
 }
 
 .editor-panel .panel__body .table.entity-attributes-table .chip :is(.chip__label, .chip__value) {
@@ -894,12 +889,6 @@
 
 .editor-panel .panel__body .table.entity-attributes-table .chip__remove {
   flex-shrink: 0;
-}
-
-.editor-panel .panel__body .table.entity-attributes-table .chip--add {
-  padding: 4px;
-  border-color: transparent;
-  background: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

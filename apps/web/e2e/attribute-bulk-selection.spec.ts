@@ -50,6 +50,7 @@ function createMockSolutionPayload() {
         content: {
           id: 1001,
           name: "Customer",
+          properties: [{ property: "data_layout", value: "liquid_clustering" }],
           attributes: [
             {
               name: "CustomerId",
@@ -218,6 +219,17 @@ for (const theme of ["light", "dark"]) {
     const name = page.getByRole("textbox", { name: "Attribute name: CustomerId", exact: true });
     await expect(name).toHaveValue("CustomerId");
     await expect(firstRow.locator(".chip:not(.chip--add)")).toHaveAttribute("title", "data_layout: liquid_clustering");
+    // Properties use the same appearance in the entity header and compact rows.
+    const headerChips = page.locator(".panel__chips");
+    for (const selector of [".chip:not(.chip--add)", ".chip--add"]) {
+      const appearance = await headerChips.locator(selector).evaluate((el) => {
+        const style = getComputedStyle(el);
+        return Object.fromEntries(["border-radius", "border-color", "border-style", "background-color", "font-size"].map((key) => [key, style.getPropertyValue(key)]));
+      });
+      for (const [property, value] of Object.entries(appearance)) {
+        await expect(firstRow.locator(selector)).toHaveCSS(property, value);
+      }
+    }
     await expect.poll(() => firstRow.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(42);
     await expect(name).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(name).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");

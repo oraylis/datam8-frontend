@@ -752,6 +752,20 @@
   border-color: color-mix(in srgb, var(--editor-form-border) 30%, transparent) !important;
 }
 
+.entity-attributes-table > .row--drop-before::before,
+.entity-attributes-table > .row--drop-after::after {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.entity-attributes-table > .row--drop-before::before {
+  top: 0;
+}
+
+.entity-attributes-table > .row--drop-after::after {
+  bottom: 0;
+}
+
 .editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row {
   min-height: 44px;
   padding: 4px 8px;

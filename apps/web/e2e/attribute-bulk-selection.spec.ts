@@ -252,6 +252,51 @@ test("attribute details commit only when dialog save is clicked", async ({ page 
 });
 
 for (const theme of ["light", "dark"]) {
+  test(`attribute drop markers remain visible and rows reorder in ${theme} mode`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem("datam8-ui-theme-v2", value), theme);
+    const api = await mockApi(page);
+    await loadSolutionFromDialog(page);
+    await page.getByRole("button", { name: "Customer", exact: true }).click();
+    await page.getByRole("button", { name: "Attributes", exact: true }).click();
+
+    const table = page.locator(".entity-attributes-table");
+    const rows = table.locator(".value-row");
+    const source = rows.nth(1).getByTitle("Click to select or drag to reorder");
+    const target = rows.nth(2);
+    const bounds = (await target.boundingBox())!;
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    await source.dispatchEvent("dragstart", { dataTransfer });
+    await target.dispatchEvent("dragover", { dataTransfer, clientY: bounds.y + 3 });
+    await expect(target).toHaveClass(/row--drop-before/);
+    await expect(target).toHaveCSS("content-visibility", "auto");
+    await expect.poll(() => target.evaluate((el) => getComputedStyle(el, "::before").top)).toBe("0px");
+    await table.screenshot({ path: testInfo.outputPath(`drop-before-${theme}.png`) });
+
+    await target.locator("input").dispatchEvent("dragleave", {
+      dataTransfer,
+      relatedTarget: await target.getByRole("combobox").first().elementHandle(),
+    });
+    await expect(target).toHaveClass(/row--drop-before/);
+
+    await target.dispatchEvent("dragover", { dataTransfer, clientY: bounds.y + bounds.height - 3 });
+    await expect(target).toHaveClass(/row--drop-after/);
+    await expect(target).not.toHaveClass(/row--drop-before/);
+    await expect.poll(() => target.evaluate((el) => getComputedStyle(el, "::after").bottom)).toBe("0px");
+    await table.screenshot({ path: testInfo.outputPath(`drop-after-${theme}.png`) });
+
+    await target.dispatchEvent("dragleave", { dataTransfer, relatedTarget: await rows.first().elementHandle() });
+    await expect(table.locator(".row--drop-before, .row--drop-after")).toHaveCount(0);
+    await source.dispatchEvent("dragend", { dataTransfer });
+
+    await source.dragTo(target, { targetPosition: { x: 150, y: bounds.height - 3 } });
+    await expect.poll(() => table.locator(".attribute-row__input").evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value),
+    )).toEqual(["CustomerName", "CustomerId", "Revenue"]);
+    await expect.poll(api.getEntityWrites).toBeGreaterThan(0);
+    await expect.poll(api.getModelSaves).toBeGreaterThan(0);
+    await expect(table.locator(".row--drop-before, .row--drop-after")).toHaveCount(0);
+  });
+
   test(`compact attribute list stays editable and keyboard accessible in ${theme} mode`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((value) => localStorage.setItem("datam8-ui-theme-v2", value), theme);

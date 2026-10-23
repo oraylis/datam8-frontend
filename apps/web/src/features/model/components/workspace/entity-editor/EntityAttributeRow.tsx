@@ -341,7 +341,10 @@ export const EntityAttributeRow = memo(
                 onDrop(index, position);
               }
         }
-        onDragLeave={showSelectionUi ? undefined : () => onDragLeave(index)}
+        onDragLeave={showSelectionUi ? undefined : (e) => {
+          if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
+          onDragLeave(index);
+        }}
       >
         <div
           className="table-row"

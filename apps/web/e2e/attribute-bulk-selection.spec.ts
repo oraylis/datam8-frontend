@@ -276,7 +276,8 @@ for (const theme of ["light", "dark"]) {
         await expect(firstRow.locator(selector)).toHaveCSS(property, value);
       }
     }
-    await expect.poll(() => firstRow.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(42);
+    await expect.poll(() => firstRow.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    await expect.poll(() => firstRow.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(46);
     await expect(name).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(name).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
     await expect(firstRow).toHaveCSS("border-bottom-style", "solid");

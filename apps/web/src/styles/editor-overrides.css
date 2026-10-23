@@ -82,7 +82,7 @@
 
 .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:not(:first-child) {
   content-visibility: auto;
-  contain-intrinsic-size: 40px;
+  contain-intrinsic-size: 44px;
 }
 
 .editor-panel .panel__body--entity-editor .entity-attributes-table > .value-row:first-child {
@@ -753,7 +753,7 @@
 }
 
 .editor-panel .panel__body .table.entity-attributes-table > .value-row > .table-row {
-  min-height: 40px;
+  min-height: 44px;
   padding: 4px 8px;
   border-radius: 0;
   background: transparent !important;

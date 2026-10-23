@@ -1,7 +1,9 @@
 # Connectors in the Frontend
 
 See the [user workflow](user-guide/sources.md) for operating the editor.
-These connector details describe DataM8 2.0.0 and its backend integration.
+These connector details describe the frontend/backend integration in this checkout.
+For an installed app, read them at its version tag and use the backend revision
+recorded in its build manifest.
 
 - **Data Source Types** may set an explicit `pluginId` to bind connection definitions
   and type mappings to a plugin.

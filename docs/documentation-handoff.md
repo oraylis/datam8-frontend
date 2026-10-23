@@ -1,8 +1,13 @@
-# Frontend Documentation Handoff
+# Historical Frontend Documentation Handoff
+
+This page preserves the original documentation transfer. The branch and workspace
+states below describe that task, not the current checkout. Maintained redirects
+now target the central handbook on `main`; screenshot evidence retains its exact
+capture commits. Current downloads start at [installation](desktop-installation.md).
 
 The central handbook, original 22 images and acceptance evidence have moved to
 `datam8` on `codex/documentation-v2`. This checkout remains on
-`feature/external_refresh`. [Central handoff](https://github.com/oraylis/datam8/blob/codex/documentation-v2/docs/handoff.md) records
+`feature/external_refresh`. [Central handoff](https://github.com/oraylis/datam8/blob/main/docs/handoff.md) records
 the five packages and manual merge order.
 
 Frontend retains developer references, chapter redirect pages, screenshot tooling

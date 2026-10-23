@@ -5,7 +5,9 @@ shell backed by the Python DataM8 Generator.
 
 ## Start here
 
-- **Using DataM8:** [illustrated sample-solution guide](docs/user-guide/README.md).
+- **Using DataM8:** [current stable app release](https://github.com/oraylis/datam8-frontend/releases/latest),
+  [installation and verification](docs/desktop-installation.md), then the
+  [illustrated sample-solution guide](docs/user-guide/README.md).
 - **Contributing:** [AGENTS.md](AGENTS.md) and [documentation index](docs/index.md).
 - **System:** [architecture](ARCHITECTURE.md) and [backend integration](docs/backend-contract.md).
 

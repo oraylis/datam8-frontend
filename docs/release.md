@@ -262,10 +262,11 @@ gpg --import datam8-release-public.asc
 gpg --fingerprint A8987DFCDEC1DEA028294BCACFF392232DB6BB4B
 # Verify the signed manifest, then verify the downloaded package bytes.
 gpg --verify SHA256SUMS.asc SHA256SUMS
-gpg --verify DataM8-2.0.0-mac-arm64.dmg.asc DataM8-2.0.0-mac-arm64.dmg
+gpg --verify "DataM8-<version>-mac-arm64.dmg.asc" "DataM8-<version>-mac-arm64.dmg"
 ```
 
-Use the filename for your release. On Linux use `sha256sum --check SHA256SUMS`;
+Replace `<version>` and use the filename from your selected release.
+On Linux use `sha256sum --check SHA256SUMS`;
 on macOS use `shasum -a 256 --check SHA256SUMS` when all listed downloads are
 present. Detached signatures do not automatically run when opening an AppImage
 or installing a downloaded DEB. Verify before installation.

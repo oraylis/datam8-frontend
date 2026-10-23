@@ -21,6 +21,12 @@ For desktop downloads, use the [installation and signature-verification guide](d
 
 ## Reference
 
+Technical references describe this checkout and its pinned backend. For an
+installed app, open the same documents at the matching release tag. General setup
+links follow the stable release; exact versions remain in release notes and
+historical evidence.
+
+- [Version-specific release notes](releases/)
 - [Backend consumer constraints](backend-contract.md)
 - [Connectors](connectors.md) and [plugin documentation](plugins_spec_v1.md)
 - [Troubleshooting](troubleshooting.md)

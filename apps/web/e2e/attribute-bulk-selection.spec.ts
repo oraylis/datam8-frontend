@@ -234,6 +234,7 @@ test("attribute details commit only when dialog save is clicked", async ({ page 
   await page.getByRole("button", { name: "Customer" }).click();
   await page.getByRole("button", { name: "Attributes" }).click();
 
+  await page.locator(".entity-attributes-table > .value-row").nth(1).hover();
   await page.getByTitle("Open details", { exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Attribute Details" });
   await expect(dialog).toBeVisible();
@@ -309,6 +310,19 @@ for (const theme of ["light", "dark"]) {
     const firstRow = table.locator(".value-row").nth(1);
     const name = page.getByRole("textbox", { name: "Attribute name: CustomerId", exact: true });
     await expect(name).toHaveValue("CustomerId");
+    const actions = firstRow.locator(".attribute-row__actions");
+    await page.getByRole("button", { name: "Attributes", exact: true }).focus();
+    await page.mouse.move(0, 0);
+    await expect(actions).toHaveCSS("opacity", "0");
+    await expect(actions).toHaveCSS("pointer-events", "none");
+    const reservedSpace = await actions.boundingBox();
+    await firstRow.hover();
+    await expect(actions).toHaveCSS("opacity", "1");
+    await expect(actions).toHaveCSS("pointer-events", "auto");
+    await expect(table.locator(".value-row").nth(2).locator(".attribute-row__actions")).toHaveCSS("opacity", "0");
+    expect(await actions.boundingBox()).toEqual(reservedSpace);
+    await page.mouse.move(0, 0);
+    await expect(actions).toHaveCSS("opacity", "0");
     await expect(firstRow.locator(".chip:not(.chip--add)")).toHaveAttribute("title", "data_layout: liquid_clustering");
     // Properties use the same appearance in the entity header and compact rows.
     const headerChips = page.locator(".panel__chips");
@@ -329,6 +343,7 @@ for (const theme of ["light", "dark"]) {
 
     await name.focus();
     await expect(name).toBeFocused();
+    await expect(actions).toHaveCSS("opacity", "1");
     await expect(name).not.toHaveCSS("box-shadow", "none");
     await name.press("Tab");
     const dataType = firstRow.getByRole("combobox").first();
@@ -355,4 +370,25 @@ for (const theme of ["light", "dark"]) {
     await expect(name).toHaveValue("CustomerId");
   });
 }
+
+test.describe("attribute actions on touch devices", () => {
+  test.use({ hasTouch: true });
+
+  test("actions remain visible without hover", async ({ page }) => {
+    await mockApi(page);
+    await loadSolutionFromDialog(page);
+    await page.getByRole("button", { name: "Customer", exact: true }).click();
+    await page.getByRole("button", { name: "Attributes", exact: true }).click();
+    expect(await page.evaluate(() => matchMedia("(hover: none)").matches)).toBe(true);
+
+    const actions = page.locator(".entity-attributes-table .attribute-row__actions");
+    await expect(actions).toHaveCount(3);
+    for (const group of await actions.all()) {
+      await expect(group).toHaveCSS("opacity", "1");
+      await expect(group).toHaveCSS("pointer-events", "auto");
+    }
+    await actions.first().getByTitle("Open details", { exact: true }).tap();
+    await expect(page.getByRole("dialog", { name: "Attribute Details" })).toBeVisible();
+  });
+});
 

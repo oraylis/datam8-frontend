@@ -876,12 +876,21 @@
 .editor-panel .panel__body .table.entity-attributes-table .attribute-row__actions {
   gap: 2px;
   justify-content: flex-end;
-  opacity: 0.75;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity var(--ui-transition-fast);
 }
 
 .editor-panel .panel__body .table.entity-attributes-table > .value-row:is(:hover, :focus-within) .attribute-row__actions {
   opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .editor-panel .panel__body .table.entity-attributes-table .attribute-row__actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .editor-panel .panel__body .table.entity-attributes-table .chips {

@@ -15,7 +15,7 @@ drifted from their own `.dm8s` configuration and CLI generation.
 
 Changes in this patch are frontend-owned documentation and maintenance scripts;
 Generator and Sample files are not edited, and the pre-existing submodule revision
-change is preserved. The [capture manifest](https://github.com/oraylis/datam8/blob/codex/documentation-v2/docs/user-guide/assets/manifest.json) records
+change is preserved. The [capture manifest](https://github.com/oraylis/datam8/blob/17c2e0dcf5f03d9ebdb3e4416306df6eacd90842/docs/user-guide/assets/manifest.json) records
 the actual runtime revisions used for evidence.
 
 ## Frontend inventory and disposition

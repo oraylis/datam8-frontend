@@ -1,9 +1,13 @@
 # Install and verify DataM8 Desktop
 
-Use packages from a successful verified GitHub workflow or an official release.
-Choose Windows x64 (NSIS), macOS ARM64 (Apple Silicon) or x64 (Intel), or Linux
-x64 (AppImage/DEB). macOS requires version 13 (Ventura) or later. `BUILD-MANIFEST.json` records the build commit, workflow and
-Windows signer. Download the package and its verification files together.
+For normal installation, download packages from the
+[current stable app release](https://github.com/oraylis/datam8-frontend/releases/latest).
+Use the [release history](https://github.com/oraylis/datam8-frontend/releases) when
+you need an older compatible version. Verified workflow artifacts are development
+or acceptance inputs. Choose Windows x64 (NSIS), macOS ARM64 (Apple Silicon) or
+x64 (Intel), or Linux x64 (AppImage/DEB). macOS requires version 13 (Ventura) or
+later. `BUILD-MANIFEST.json` records the build commit, workflow and Windows signer.
+Download the package and its verification files together.
 
 ## Public signing identities
 
@@ -39,11 +43,12 @@ fingerprint, and verify the signed checksums and your package:
 gpg --import datam8-release-public.asc
 gpg --fingerprint A8987DFCDEC1DEA028294BCACFF392232DB6BB4B
 gpg --verify SHA256SUMS.asc SHA256SUMS
-gpg --verify DataM8-2.0.0-mac-arm64.dmg.asc DataM8-2.0.0-mac-arm64.dmg
+gpg --verify "DataM8-<version>-mac-arm64.dmg.asc" "DataM8-<version>-mac-arm64.dmg"
 ```
 
-Replace the example filename with your DMG, ZIP, AppImage or DEB. All four formats
-have detached `.asc` signatures. Windows EXE files use embedded Authenticode
+Replace `<version>` with the selected release number and use your DMG, ZIP,
+AppImage or DEB filename. All four formats have detached `.asc` signatures.
+Windows EXE files use embedded Authenticode
 signatures and are covered by the signed checksum list.
 
 When all files listed in `SHA256SUMS` are present, run `shasum -a 256 --check

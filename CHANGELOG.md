@@ -1,11 +1,27 @@
 # Changelog
 
+The [published releases](https://github.com/oraylis/datam8-frontend/releases) record
+version-specific changes and build provenance. For installation, use the
+[current stable release](https://github.com/oraylis/datam8-frontend/releases/latest).
+The entries below retain release history; older beta notes are not current setup
+instructions.
+
+## v2.1.0
+
+- See the [2.1.0 release notes](docs/releases/2.1.0.md) for solution switching,
+  reload, bundled CLI improvements and compatibility.
+
 ## v2.0.1
 
 - Bundle Generator 2.0.1 to preserve Unicode in model JSON and generated output.
 - Automatically convert legacy Windows-1252 solution JSON to UTF-8 when opening
   solutions, without retaining backup files.
 - See the [2.0.1 release notes](docs/releases/2.0.1.md) for compatibility details.
+
+## v2.0.0
+
+- First regular v2 desktop release. See the [2.0.0 release notes](docs/releases/2.0.0.md)
+  for the editor, bundled runtime and migration requirements.
 
 ## v2.0.0-beta.6
 

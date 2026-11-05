@@ -128,9 +128,6 @@ Behavior:
 - Scoped error surfaces for other operations may expose Retry when a callback is
   registered; dismissing a message never persists a draft.
 
-The missing persistent editor error detail/retry affordance is a product gap,
-recorded in the [documentation review](documentation-review.md).
-
 ## Base side effects: follow-up actions
 
 Some base saves create follow-up actions to keep model structure consistent.

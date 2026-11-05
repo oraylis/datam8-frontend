@@ -64,9 +64,9 @@ patch records the current behavior and tests recovery through context switching.
 | --- | --- |
 | Generator `AGENTS.md` | Good task-specific routing and generated-schema boundaries; retain |
 | Generator `README.md` | Old datam8-cli clone/release URLs and Python range need reconciliation with actual project metadata |
-| Generator `docs/backend-contract.md` | Current/historical separation is valuable; old Neon naming and extensive parity appendix still invite accidental reuse |
+| Generator `docs/backend-contract.md` | Current/historical separation is valuable; old frontend naming and extensive parity appendix still invite accidental reuse |
 | Generator `docs/server.md` | Mostly aligned startup/auth/CORS documentation; keep linked to implemented route surface |
-| Generator `docs/neon-cli-mapping.md` | February parity matrix and hard-coded code line numbers are obsolete; archive or regenerate from supported interfaces |
+| Generator frontend/CLI integration reference | February parity matrix and hard-coded code line numbers are obsolete; archive or regenerate from supported interfaces |
 | Generator `docs/connectors.md` | Current plugin interface/ownership guidance is useful; frontend duplication removed |
 | Generator `tests/README.md` | Good self-contained-regression guidance; distinguish legacy sample-dependent full suite from new fixture policy |
 | Generator `tests/db/README.md` | Useful local AdventureWorks fixture; clarify OS driver setup and reproducible image/sample pins upstream |

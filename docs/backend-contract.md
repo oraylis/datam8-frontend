@@ -38,7 +38,7 @@ for ownership and verification requirements.
 
 ## Compatibility boundaries
 
-The canonical document includes a **historical Neon parity surface**. Do not treat
+The canonical document includes a **historical endpoint parity surface**. Do not treat
 `/generate`, `/fs/list`, `/connectors/*`, `/solution/inspect`, `/solution/new-project`,
 `/validate` or migration parity routes as available based on historical docs.
 

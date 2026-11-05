@@ -1,17 +1,32 @@
-# DataM8
+# DataM8 Frontend
 
-DataM8 2.0 is a metadata editor: a React 19/Vite web app and an Electron desktop
-shell backed by the Python DataM8 Generator.
+The DataM8 app lets you explore and edit solution metadata, inspect source
+definitions and generate the outputs configured by your solution. This repository
+owns the visual editor and desktop application: a React/Vite web app and an
+Electron shell using the DataM8 Python backend.
 
-## Start here
+## Start with your task
 
-- **Using DataM8:** [current stable app release](https://github.com/oraylis/datam8-frontend/releases/latest),
-  [installation and verification](docs/desktop-installation.md), then the
-  [illustrated sample-solution guide](docs/user-guide/README.md).
-- **Contributing:** [AGENTS.md](AGENTS.md) and [documentation index](docs/index.md).
-- **System:** [architecture](ARCHITECTURE.md) and [backend integration](docs/backend-contract.md).
+| I want to… | Begin here | First result |
+| --- | --- | --- |
+| Model data using the app | [Download the stable app](https://github.com/oraylis/datam8-frontend/releases/latest) and [verify/install it](docs/desktop-installation.md) | Open a complete solution copy without a source build or separate Python installation |
+| Learn the editing workflow | [Illustrated user guide](docs/user-guide/README.md) | Edit a sample description, check save/reload and generate `docs` |
+| Change the editor or desktop shell | [Local development](#local-development), then [contributor instructions](AGENTS.md) | Run the app from this checkout and verify a focused change |
+| Integrate a backend or connector | [Backend integration](docs/backend-contract.md) and [connector developer notes](docs/connectors_dev.md) | Identify the supported contract and which component owns your change |
+
+For a first product exercise, use the installed app and the sample guide. The
+development tools below are for changing this repository. The app bundles its
+backend; source connectivity and generated targets have their own prerequisites.
+For product concepts and other components, see the
+[central handbook](https://github.com/oraylis/datam8/blob/main/docs/index.md).
 
 ## Local development
+
+These instructions describe this checkout and its pinned backend. Use release
+artifacts for normal installation and the matching tag for release-specific
+technical references. Follow [the contribution workflow](https://github.com/oraylis/datam8/blob/main/docs/contribution.md)
+when preparing a change; [troubleshooting](docs/troubleshooting.md) covers setup
+and persistence problems.
 
 ### Prerequisites
 

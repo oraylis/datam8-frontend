@@ -16,8 +16,6 @@ For desktop downloads, use the [installation and signature-verification guide](d
 - [Release](release.md) and [Windows release checklist](windows-defender-release-checklist.md)
 - [Desktop process rollout and previous-installation migration](desktop-rollout.md)
 - [Screenshot maintenance](user-guide/capture.md)
-- [Documentation review and external follow-ups](documentation-review.md)
-- [Documentation integration handoff](documentation-handoff.md)
 
 ## Reference
 
@@ -32,11 +30,9 @@ historical evidence.
 - [Troubleshooting](troubleshooting.md)
 - [Changelog](../CHANGELOG.md)
 
-## Acceptance and historical evidence
+## Acceptance
 
 - [Computer-use acceptance procedure](e2e-computer-use-full-workflows.md)
-- [Historical UI matrix](computer-use-ui-test-matrix.md)
-- [Historical Order performance report](computer-use-ui-performance-order.md)
 
-Historical results describe the recorded versions/environment. They are not
-current API specifications or evidence that every workflow works today.
+Record the tested runtime and environment with each acceptance run. The
+[illustrated guide](user-guide/README.md) retains its own capture provenance.

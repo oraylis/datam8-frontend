@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cloneEntity, createEntity, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity } from "./v2Client";
+import { cloneEntity, createEntity, createModelEntityByRelPath, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity, saveModelEntityByRelPath } from "./v2Client";
 
 describe("v2Client.moveEntities", () => {
   const originalFetch = globalThis.fetch;
@@ -216,5 +216,32 @@ describe("v2Client collection creation", () => {
       expect.stringMatching(/\/entities\/propertyValues\/Priority\/Existing$/),
       expect.objectContaining({ method: "PATCH", body: JSON.stringify({ displayName: "Changed" }) }),
     );
+  });
+});
+
+describe("model entity IDs", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns the actual backend entity with a safe ID and saves once", async () => {
+    const entity = { id: Number.MAX_SAFE_INTEGER, name: "New", sources: [] };
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ item: { entity } }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await createModelEntityByRelPath("Model/Raw/New.json", { name: "New" })).toEqual(entity);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toMatch(/\/model\/save$/);
+  });
+
+  it.each([undefined, 0, -1, Number.MAX_SAFE_INTEGER + 1, "42"])("rejects invalid returned ID %s", async (id) => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ item: { entity: { name: "New", id } } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(createModelEntityByRelPath("Model/Raw/New.json", {})).rejects.toThrow("valid model entity ID");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([400, 404, 500])("does not create a replacement entity when an update fails with %s", async (status) => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ message: "Update failed" }, { status }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(saveModelEntityByRelPath("Model/Raw/Existing.json", { id: 42 })).rejects.toThrow("Update failed");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

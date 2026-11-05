@@ -327,17 +327,6 @@ export function buildTree(
   return sortTree(root);
 }
 
-export function generateModelEntityId(entities: ModelEntity[]): number {
-  let maxId = 0;
-  for (const entity of entities) {
-    const id = entity.content?.id;
-    if (typeof id === "number" && !isNaN(id)) {
-      if (id > maxId) maxId = id;
-    }
-  }
-  return maxId > 0 ? maxId + 1 : 1001;
-}
-
 export type DataType = {
   type: string;
   nullable: boolean;

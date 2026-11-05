@@ -70,7 +70,11 @@ export function useModelActions({
         const newLocator = modelLocatorFromRelPath(newRelPath);
 
         const clonedWrapper = await cloneEntity(ent.locator || modelLocatorFromRelPath(ent.relPath), newLocator, { save: false });
-        const clonedContent = structuredClone((clonedWrapper?.entity as ModelEntity["content"] | undefined) ?? ent.content);
+        const returnedContent = clonedWrapper?.entity as ModelEntity["content"] | undefined;
+        if (!returnedContent || typeof returnedContent.id !== "number" || !Number.isSafeInteger(returnedContent.id) || returnedContent.id <= 0) {
+          throw new Error("The backend did not return a valid model entity ID.");
+        }
+        const clonedContent = structuredClone(returnedContent);
         clonedContent.name = newName;
         let shouldPatchClone = false;
         if (typeof ent.content.displayName === "string") {

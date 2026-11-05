@@ -14,7 +14,7 @@ import {
 import { modelLocatorFromRelPath } from "../../locator-utils";
 import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
-import { createModelEntityByRelPath, saveModel } from "../../../../shared/api/v2Client";
+import { createModelEntityByRelPath, deleteEntity, patchEntity, saveModel } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
 import { resolveSourceOverride } from "./sourceOverride";
 import { buildSourceMetadataEndpoint } from "./sourcePreview";
@@ -35,12 +35,11 @@ type SubmitDeps = {
 export function applyDescribedImport<T extends Record<string, any>>(
   imported: T,
   entityName: string,
-  id: number,
   overrides: { description?: string; properties?: PropertyAssignment[] } = {},
 ) {
+  const { id: _id, ...content } = imported;
   return {
-    ...imported,
-    id,
+    ...content,
     name: entityName,
     ...overrides,
   };
@@ -293,6 +292,45 @@ function mapRelationship(rel: WizardRelationship, modelEntities: ModelEntity[]):
   };
 }
 
+export async function persistWizardEntities(
+  entities: ModelEntity[],
+  existing: ModelEntity[],
+  metadataByRelPath = new Map<string, TableMetadata>(),
+): Promise<void> {
+  const created: ModelEntity[] = [];
+  try {
+    for (const entity of entities) {
+      entity.content = await createModelEntityByRelPath(entity.relPath, entity.content, { save: false });
+      created.push(entity);
+    }
+
+    const resolveTarget = buildEntityNameResolver([...existing, ...created]);
+    for (const entity of created) {
+      const metadata = metadataByRelPath.get(entity.relPath);
+      if (!metadata) continue;
+      const relationships = toMappedRelationshipsFromMetadata(metadata, resolveTarget);
+      await patchEntity(modelLocatorFromRelPath(entity.relPath), { relationships }, { save: false });
+      entity.content.relationships = relationships;
+    }
+    for (const entity of created) await saveModel(modelLocatorFromRelPath(entity.relPath));
+  } catch (error) {
+    const cleanupErrors: string[] = [];
+    for (const entity of [...created].reverse()) {
+      const locator = modelLocatorFromRelPath(entity.relPath);
+      try {
+        await deleteEntity(locator, { save: false });
+        await saveModel(locator);
+      } catch (cleanupError) {
+        cleanupErrors.push(`${entity.name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+      }
+    }
+    if (cleanupErrors.length) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}. Cleanup failed: ${cleanupErrors.join("; ")}`);
+    }
+    throw error;
+  }
+}
+
 export function useWizardSubmit(deps: SubmitDeps) {
   const {
     modelEntities,
@@ -337,11 +375,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
         if (values.creationMode === "manual") {
           const folderPath = normalizeFolderPath(values.folderPath || "");
           if (!folderPath) throw new Error("Folder path is required");
-
-          const nextId =
-            modelEntities.length === 0
-              ? 1
-              : Math.max(...modelEntities.map((entity) => Number(entity.content.id) || 0)) + 1;
 
           const relPath = `Model/${folderPath}/${values.name}.json`;
           const locator = modelLocatorFromRelPath(relPath);
@@ -402,7 +435,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
             relPath,
             name: values.name || "Unknown",
             content: {
-              id: nextId,
               name: values.name,
               displayName: values.displayName || values.name,
               description: values.description || "",
@@ -427,15 +459,11 @@ export function useWizardSubmit(deps: SubmitDeps) {
           const folderPath = normalizeFolderPath(values.folderPath || "");
           if (!folderPath) throw new Error("Folder path is required");
 
-          let currentMaxId =
-            modelEntities.length === 0 ? 0 : Math.max(...modelEntities.map((entity) => Number(entity.content.id) || 0));
-
           if (selectedSourceKind === "internal") {
             for (const relPathRef of values.selectedInternalEntities || []) {
               const sourceEntity = modelEntities.find((entity) => entity.relPath === relPathRef);
               if (!sourceEntity) continue;
 
-              currentMaxId += 1;
               const sourceId = Number(sourceEntity.content.id);
               const entityName = values.tableRenames?.[relPathRef] || sourceEntity.name;
               const relPath = `Model/${folderPath}/${entityName}.json`;
@@ -457,7 +485,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 relPath,
                 name: entityName,
                 content: {
-                  id: currentMaxId,
                   name: entityName,
                   displayName: entityName,
                   description:
@@ -479,7 +506,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
             const sourceMappings = toDataTypeMappings(dsObj?.dataTypeMapping);
             const typeMapper = createSourceTypeMapper(typeMappings, sourceMappings, selectedSource);
             for (const tableName of values.selectedTables || []) {
-              currentMaxId += 1;
               const listed = values.tableLocations?.[tableName] as SourceLocationItem | undefined;
               const importParams = new URLSearchParams({ source_location: tableName });
               const importResponse = await fetch(
@@ -502,7 +528,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
                   relPath,
                   name: entityName,
                   content: {
-                    ...applyDescribedImport(imported, entityName, currentMaxId, {
+                    ...applyDescribedImport(imported, entityName, {
                       ...(values.tableDescriptions?.[tableName] !== undefined
                         ? { description: values.tableDescriptions[tableName] } : {}),
                       ...(values.tableProperties?.[tableName] !== undefined
@@ -549,7 +575,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 relPath,
                 name: entityName,
                 content: {
-                  id: currentMaxId,
                   name: entityName,
                   displayName: entityName,
                   description:
@@ -571,19 +596,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
           }
         }
 
-        if (metadataByRelPath.size > 0) {
-          const resolveInternalTarget = buildEntityNameResolver([...modelEntities, ...createdEntities]);
-          createdEntities.forEach((entity) => {
-            const metadata = metadataByRelPath.get(entity.relPath);
-            if (!metadata) return;
-            entity.content.relationships = toMappedRelationshipsFromMetadata(metadata, resolveInternalTarget);
-          });
-        }
-
-        for (const entity of createdEntities) {
-          await createModelEntityByRelPath(entity.relPath, entity.content as Record<string, unknown>, { save: false });
-        }
-        if (createdEntities.length > 0) await saveModel();
+        await persistWizardEntities(createdEntities, modelEntities, metadataByRelPath);
 
         setModelEntities((prev) => [...prev, ...createdEntities]);
 

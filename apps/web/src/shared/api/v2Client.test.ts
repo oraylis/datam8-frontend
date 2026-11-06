@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cloneEntity, createEntity, createModelEntitiesByRelPath, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity } from "./v2Client";
+import { cloneEntity, createEntity, createModelEntityByRelPath, entityContentWithId, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity } from "./v2Client";
 
 describe("v2Client.moveEntities", () => {
   const originalFetch = globalThis.fetch;
@@ -219,22 +219,26 @@ describe("v2Client collection creation", () => {
   });
 });
 
-describe("model entity IDs", () => {
+describe("backend entity IDs", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("returns the actual backend entity from one batch request", async () => {
+  it("returns the actual backend model entity without a client ID", async () => {
     const entity = { id: Number.MAX_SAFE_INTEGER, name: "New", sources: [] };
-    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ items: [{ entity }] }));
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ item: { entity } }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await createModelEntitiesByRelPath([{ relPath: "Model/Raw/New.json", content: { name: "New" } }])).toEqual([entity]);
+    expect(await createModelEntityByRelPath("Model/Raw/New.json", { name: "New" }, { save: false })).toEqual(entity);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toMatch(/\/entities\/batch$/);
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/entities\/modelEntities\/Raw\/New$/);
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ name: "New" });
+  });
+
+  it("returns the authoritative folder content", () => {
+    const content = { id: 42, name: "Folder", path: "Raw/Folder" };
+    expect(entityContentWithId({ entity: content })).toEqual(content);
   });
 
   it.each([undefined, 0, -1, Number.MAX_SAFE_INTEGER + 1, "42"])("rejects invalid returned ID %s", async (id) => {
-    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({ items: [{ entity: { name: "New", id } }] }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(createModelEntitiesByRelPath([{ relPath: "Model/Raw/New.json", content: {} }])).rejects.toThrow("Reload the solution");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({ item: { entity: { name: "New", id } } })));
+    await expect(createModelEntityByRelPath("Model/Raw/New.json", {}, { save: false })).rejects.toThrow("valid entity ID");
   });
 });

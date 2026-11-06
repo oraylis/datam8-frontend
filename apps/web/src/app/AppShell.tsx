@@ -71,7 +71,7 @@ import { apiBase } from "../config";
 import { deepEqual } from "../shared/utils/deepEqual";
 import { humanize, toLower } from "../shared/utils/strings";
 import { config, isBrowserLike, isElectronMode, shouldUseServerDialog, syncConfigFromServer, type RuntimeAppMode } from "../config";
-import { createEntity, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
+import { createEntity, entityContentWithId, deleteEntity, moveEntities, moveSingleEntity, patchEntity, renameEntity, saveModel } from "../shared/api/v2Client";
 import { ErrorSurfaceHost, InfoSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
 import { subscribeAppErrors } from "../shared/ui/appErrorBridge";
 import { refresh as refreshConnectorCatalog } from "../shared/connectors/connectorCatalog";
@@ -1967,11 +1967,10 @@ export function AppShell() {
         name: currentFolderName,
       };
 
-      if (folderExists) {
-        await patchEntity(effectiveLocator, nextContent as Record<string, unknown>);
-      } else {
-        await createEntity(effectiveLocator, nextContent as Record<string, unknown>);
-      }
+      const response = folderExists
+        ? await patchEntity(effectiveLocator, nextContent as Record<string, unknown>)
+        : await createEntity(effectiveLocator, nextContent as Record<string, unknown>);
+      const savedContent = entityContentWithId(response);
 
       setFolderEntities((prev) => {
         const normalizedPath = normalizeFolderPath(effectiveFolderPath);
@@ -1980,7 +1979,7 @@ export function AppShell() {
           name: targetFolderName,
           relPath: effectiveRelPath,
           folderPath: normalizedPath,
-          content: nextContent,
+          content: savedContent,
         };
         const idx = prev.findIndex((entry) => normalizeFolderPath(entry.folderPath) === normalizedPath);
         if (idx < 0) return [...prev, nextEntity];
@@ -2045,7 +2044,6 @@ export function AppShell() {
     }
 
     const content = {
-      id: Date.now(),
       name: folderName,
       path: newFolderPath,
       properties: [],

@@ -15,6 +15,14 @@ function isJsonRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+export function entityContentWithId(item: EntityResponseItem | undefined): JsonRecord & { id: number } {
+  const content = item?.entity;
+  if (!isJsonRecord(content) || typeof content.id !== "number" || !Number.isSafeInteger(content.id) || content.id <= 0) {
+    throw new Error("The backend did not return a valid entity ID.");
+  }
+  return content as JsonRecord & { id: number };
+}
+
 function friendlyHttpError(status: number): string {
   if (status === 400) return "The request was invalid. Please check your input and try again.";
   if (status === 401 || status === 403) return "Access denied. Check your authentication settings.";
@@ -180,19 +188,9 @@ export async function saveModelEntityByRelPath(relPath: string, content: JsonRec
   }
 }
 
-export async function createModelEntitiesByRelPath(entities: Array<{ relPath: string; content: JsonRecord }>): Promise<ModelEntityContent[]> {
-  if (!entities.length) return [];
-  const response = await fetch(`${apiBase}/entities/batch`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items: entities.map(({ relPath, content }) => ({ locator: modelLocatorFromRelPath(relPath), content })) }),
-  });
-  const payload = await parseResponse(response);
-  const contents = payload.items?.map((item) => item.entity);
-  if (contents?.length !== entities.length || contents.some((entity) => !isJsonRecord(entity) || typeof entity.id !== "number" || !Number.isSafeInteger(entity.id) || entity.id <= 0)) {
-    throw new Error("The backend did not return the created entities. Reload the solution before retrying.");
-  }
-  return contents as ModelEntityContent[];
+export async function createModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<ModelEntityContent & { id: number }> {
+  const locator = modelLocatorFromRelPath(relPath);
+  return entityContentWithId(await createEntity(locator, content, opts));
 }
 
 export async function deleteModelEntityByRelPath(relPath: string): Promise<void> {

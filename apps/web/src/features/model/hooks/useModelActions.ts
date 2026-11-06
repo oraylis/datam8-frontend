@@ -4,7 +4,7 @@ import { useConfirm } from "../../../shared/hooks/useConfirm";
 import { ModelEntity } from "../model-types";
 import { findModelEntityDependents } from "../model-deps";
 import { locatorToClientString, modelLocatorFromRelPath } from "../locator-utils";
-import { cloneEntity, deleteModelEntityByRelPath, patchEntity, saveModel, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
+import { cloneEntity, entityContentWithId, deleteModelEntityByRelPath, patchEntity, saveModel, saveModelEntityByRelPath } from "../../../shared/api/v2Client";
 
 export function useModelActions({
   onSaveNotification,
@@ -70,11 +70,7 @@ export function useModelActions({
         const newLocator = modelLocatorFromRelPath(newRelPath);
 
         const clonedWrapper = await cloneEntity(ent.locator || modelLocatorFromRelPath(ent.relPath), newLocator, { save: false });
-        const returnedContent = clonedWrapper?.entity as ModelEntity["content"] | undefined;
-        if (!returnedContent || typeof returnedContent.id !== "number" || !Number.isSafeInteger(returnedContent.id) || returnedContent.id <= 0) {
-          throw new Error("The backend did not return a valid model entity ID.");
-        }
-        const clonedContent = structuredClone(returnedContent);
+        const clonedContent = structuredClone(entityContentWithId(clonedWrapper));
         clonedContent.name = newName;
         let shouldPatchClone = false;
         if (typeof ent.content.displayName === "string") {

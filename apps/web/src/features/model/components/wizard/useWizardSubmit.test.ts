@@ -22,18 +22,18 @@ describe("authoritative import descriptions", () => {
   };
 
   it("keeps backend types, business names and opaque source locations when renaming the target", () => {
-    const result = applyDescribedImport(imported, "Customers", 42);
-    expect(result).toEqual({ ...imported, id: 42, name: "Customers" });
+    const result = applyDescribedImport({ ...imported, id: 42 }, "Customers");
+    expect(result).toEqual({ ...imported, name: "Customers" });
     expect(imported.name).toBe("crm_customers");
   });
 
   it("keeps a missing business name empty", () => {
-    expect(applyDescribedImport({ ...imported, displayName: null }, "Customers", 42).displayName).toBeNull();
+    expect(applyDescribedImport({ ...imported, displayName: null }, "Customers").displayName).toBeNull();
   });
 
   it("applies only explicitly supplied edits, including empty values", () => {
-    expect(applyDescribedImport(imported, "Customers", 42, { description: "", properties: [] })).toEqual({
-      ...imported, id: 42, name: "Customers", description: "", properties: [],
+    expect(applyDescribedImport(imported, "Customers", { description: "", properties: [] })).toEqual({
+      ...imported, name: "Customers", description: "", properties: [],
     });
   });
 });

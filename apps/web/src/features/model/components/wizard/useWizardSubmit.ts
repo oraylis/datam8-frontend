@@ -35,12 +35,11 @@ type SubmitDeps = {
 export function applyDescribedImport<T extends Record<string, any>>(
   imported: T,
   entityName: string,
-  id: number,
   overrides: { description?: string; properties?: PropertyAssignment[] } = {},
 ) {
+  const { id: _id, ...content } = imported;
   return {
-    ...imported,
-    id,
+    ...content,
     name: entityName,
     ...overrides,
   };
@@ -331,17 +330,12 @@ export function useWizardSubmit(deps: SubmitDeps) {
       setIsSubmitting(true);
       try {
         const createdEntities: ModelEntity[] = [];
-        const metadataByRelPath = new Map<string, TableMetadata>();
+        const resolveInternalTarget = buildEntityNameResolver(modelEntities);
         let firstRelPath = "";
 
         if (values.creationMode === "manual") {
           const folderPath = normalizeFolderPath(values.folderPath || "");
           if (!folderPath) throw new Error("Folder path is required");
-
-          const nextId =
-            modelEntities.length === 0
-              ? 1
-              : Math.max(...modelEntities.map((entity) => Number(entity.content.id) || 0)) + 1;
 
           const relPath = `Model/${folderPath}/${values.name}.json`;
           const locator = modelLocatorFromRelPath(relPath);
@@ -402,7 +396,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
             relPath,
             name: values.name || "Unknown",
             content: {
-              id: nextId,
               name: values.name,
               displayName: values.displayName || values.name,
               description: values.description || "",
@@ -427,15 +420,11 @@ export function useWizardSubmit(deps: SubmitDeps) {
           const folderPath = normalizeFolderPath(values.folderPath || "");
           if (!folderPath) throw new Error("Folder path is required");
 
-          let currentMaxId =
-            modelEntities.length === 0 ? 0 : Math.max(...modelEntities.map((entity) => Number(entity.content.id) || 0));
-
           if (selectedSourceKind === "internal") {
             for (const relPathRef of values.selectedInternalEntities || []) {
               const sourceEntity = modelEntities.find((entity) => entity.relPath === relPathRef);
               if (!sourceEntity) continue;
 
-              currentMaxId += 1;
               const sourceId = Number(sourceEntity.content.id);
               const entityName = values.tableRenames?.[relPathRef] || sourceEntity.name;
               const relPath = `Model/${folderPath}/${entityName}.json`;
@@ -457,7 +446,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 relPath,
                 name: entityName,
                 content: {
-                  id: currentMaxId,
                   name: entityName,
                   displayName: entityName,
                   description:
@@ -479,7 +467,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
             const sourceMappings = toDataTypeMappings(dsObj?.dataTypeMapping);
             const typeMapper = createSourceTypeMapper(typeMappings, sourceMappings, selectedSource);
             for (const tableName of values.selectedTables || []) {
-              currentMaxId += 1;
               const listed = values.tableLocations?.[tableName] as SourceLocationItem | undefined;
               const importParams = new URLSearchParams({ source_location: tableName });
               const importResponse = await fetch(
@@ -502,7 +489,7 @@ export function useWizardSubmit(deps: SubmitDeps) {
                   relPath,
                   name: entityName,
                   content: {
-                    ...applyDescribedImport(imported, entityName, currentMaxId, {
+                    ...applyDescribedImport(imported, entityName, {
                       ...(values.tableDescriptions?.[tableName] !== undefined
                         ? { description: values.tableDescriptions[tableName] } : {}),
                       ...(values.tableProperties?.[tableName] !== undefined
@@ -549,7 +536,6 @@ export function useWizardSubmit(deps: SubmitDeps) {
                 relPath,
                 name: entityName,
                 content: {
-                  id: currentMaxId,
                   name: entityName,
                   displayName: entityName,
                   description:
@@ -562,26 +548,16 @@ export function useWizardSubmit(deps: SubmitDeps) {
                       : (metadata.properties ?? []),
                   attributes,
                   sources: [source],
-                  relationships: [],
+                  relationships: toMappedRelationshipsFromMetadata(metadata, resolveInternalTarget),
                   transformations: [],
                 },
               });
-              metadataByRelPath.set(relPath, metadata);
             }
           }
         }
 
-        if (metadataByRelPath.size > 0) {
-          const resolveInternalTarget = buildEntityNameResolver([...modelEntities, ...createdEntities]);
-          createdEntities.forEach((entity) => {
-            const metadata = metadataByRelPath.get(entity.relPath);
-            if (!metadata) return;
-            entity.content.relationships = toMappedRelationshipsFromMetadata(metadata, resolveInternalTarget);
-          });
-        }
-
         for (const entity of createdEntities) {
-          await createModelEntityByRelPath(entity.relPath, entity.content as Record<string, unknown>, { save: false });
+          entity.content = await createModelEntityByRelPath(entity.relPath, entity.content, { save: false });
         }
         if (createdEntities.length > 0) await saveModel();
 

@@ -1,5 +1,6 @@
 import { apiBase } from "../../config";
 import { folderPathFromRelPath, modelLocatorFromRelPath } from "../../features/model/locator-utils";
+import type { ModelEntityContent } from "../../features/model/model-types";
 
 type JsonRecord = Record<string, unknown>;
 type EntityResponseItem = JsonRecord;
@@ -12,6 +13,14 @@ type EntityResponsePayload = {
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+export function entityContentWithId(item: EntityResponseItem | undefined): JsonRecord & { id: number } {
+  const content = item?.entity;
+  if (!isJsonRecord(content) || typeof content.id !== "number" || !Number.isSafeInteger(content.id) || content.id <= 0) {
+    throw new Error("The backend did not return a valid entity ID.");
+  }
+  return content as JsonRecord & { id: number };
 }
 
 function friendlyHttpError(status: number): string {
@@ -179,9 +188,9 @@ export async function saveModelEntityByRelPath(relPath: string, content: JsonRec
   }
 }
 
-export async function createModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<void> {
+export async function createModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<ModelEntityContent & { id: number }> {
   const locator = modelLocatorFromRelPath(relPath);
-  await createEntity(locator, content, opts);
+  return entityContentWithId(await createEntity(locator, content, opts));
 }
 
 export async function deleteModelEntityByRelPath(relPath: string): Promise<void> {

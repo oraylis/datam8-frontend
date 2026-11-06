@@ -25,15 +25,6 @@ type FolderProperty = { property: string; value: string };
 const PRODUCT_NONE = "__none_product__";
 const MODULE_NONE = "__none_module__";
 
-function defaultFolderId(folderPath: string) {
-  let hash = 0;
-  for (let i = 0; i < folderPath.length; i += 1) {
-    hash = (hash << 5) - hash + folderPath.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash) + 1;
-}
-
 function extractFolderMeta(content: any): any | null {
   if (!content || typeof content !== "object") return null;
 
@@ -165,13 +156,9 @@ export function FolderEditor({
 
   const buildUiContent = useCallback(() => {
     const cleanName = name.trim();
-    const folderId =
-      typeof currentMeta?.id === "number" && Number.isFinite(currentMeta.id)
-        ? currentMeta.id
-        : defaultFolderId(selectedFolderPath);
 
     const folder: any = {
-      id: folderId,
+      ...(typeof currentMeta?.id === "number" ? { id: currentMeta.id } : {}),
       name: cleanName,
       properties: properties
         .map((item) => ({
@@ -267,12 +254,8 @@ export function FolderEditor({
     setSaveStatus("idle");
     setSaveError(null);
 
-    const folderId =
-      typeof currentMeta?.id === "number" && Number.isFinite(currentMeta.id)
-        ? currentMeta.id
-        : defaultFolderId(selectedFolderPath);
     const initialFolder: any = {
-      id: folderId,
+      ...(typeof currentMeta?.id === "number" ? { id: currentMeta.id } : {}),
       name: nextName,
       properties: nextProperties
         .map((item) => ({

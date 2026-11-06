@@ -148,7 +148,10 @@ async function mockApi(page: import("@playwright/test").Page) {
     if (route.request().method() === "DELETE") {
       deletes.push(route.request().url());
     } else {
-      folderWrites.push(JSON.parse(route.request().postData() || "{}"));
+      const content = JSON.parse(route.request().postData() || "{}");
+      folderWrites.push(content);
+      await route.fulfill({ json: { item: { entity: { ...content, id: Number.MAX_SAFE_INTEGER } } } });
+      return;
     }
     await route.fulfill({ json: {} });
   });
@@ -242,6 +245,7 @@ test("folder Enter creates once; confirmation Enter, Cancel and Escape follow fo
   await expect(page.getByRole("dialog")).toBeHidden();
   expect(folderWrites).toHaveLength(1);
   expect(folderWrites[0]).toMatchObject({ name: "KeyboardFolder", path: "ZoneX/KeyboardFolder" });
+  expect(folderWrites[0]).not.toHaveProperty("id");
 
   for (const action of ["cancel", "escape", "confirm"]) {
     await page.getByRole("button", { name: "KeyboardFolder", exact: true }).click({ button: "right" });

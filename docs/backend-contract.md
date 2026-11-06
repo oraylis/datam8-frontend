@@ -16,8 +16,8 @@ frontend checkout; matching version numbers alone do not establish compatibility
   path is retained for UI state but does not select another server workspace.
 - Editor updates use `/entities/*` and `/model/save`; Reload uses `/model/reload`.
 - Creation and wizard imports use the backend-assigned model entity IDs. The wizard
-  resolves imported relationships after creation and rolls back its own creations
-  on failure. See the canonical [entity invariants](../submodules/datam8-generator/docs/backend-contract.md#entity-and-function-invariants).
+  submits the complete batch with locator references in one request. See the
+  canonical [entity invariants](../submodules/datam8-generator/docs/backend-contract.md#entity-and-function-invariants).
 - Browser generation uses synchronous `POST /model/generate`. Desktop delegates
   generation to the CLI through preload. There is no Jobs/SSE layer.
 - Connector forms/discovery use `/plugins/*`; navigation/import/refresh use `/sources/*`;

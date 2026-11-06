@@ -173,18 +173,26 @@ export async function saveModel(locator?: string): Promise<void> {
 
 export async function saveModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<void> {
   const locator = modelLocatorFromRelPath(relPath);
-  await patchEntity(locator, content, opts);
+  try {
+    await patchEntity(locator, content, opts);
+  } catch {
+    await createEntity(locator, content, opts);
+  }
 }
 
-export async function createModelEntityByRelPath(relPath: string, content: JsonRecord, opts?: { save?: boolean }): Promise<ModelEntityContent & { id: number }> {
-  const locator = modelLocatorFromRelPath(relPath);
-  const item = await createEntity(locator, content, { save: false });
-  const entity = item?.entity;
-  if (!isJsonRecord(entity) || typeof entity.id !== "number" || !Number.isSafeInteger(entity.id) || entity.id <= 0) {
-    throw new Error("The backend did not return a valid model entity ID.");
+export async function createModelEntitiesByRelPath(entities: Array<{ relPath: string; content: JsonRecord }>): Promise<ModelEntityContent[]> {
+  if (!entities.length) return [];
+  const response = await fetch(`${apiBase}/entities/batch`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: entities.map(({ relPath, content }) => ({ locator: modelLocatorFromRelPath(relPath), content })) }),
+  });
+  const payload = await parseResponse(response);
+  const contents = payload.items?.map((item) => item.entity);
+  if (contents?.length !== entities.length || contents.some((entity) => !isJsonRecord(entity) || typeof entity.id !== "number" || !Number.isSafeInteger(entity.id) || entity.id <= 0)) {
+    throw new Error("The backend did not return the created entities. Reload the solution before retrying.");
   }
-  if (opts?.save !== false) await saveModel();
-  return entity as ModelEntityContent & { id: number };
+  return contents as ModelEntityContent[];
 }
 
 export async function deleteModelEntityByRelPath(relPath: string): Promise<void> {

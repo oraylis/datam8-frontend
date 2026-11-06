@@ -14,7 +14,7 @@ import {
 import { modelLocatorFromRelPath } from "../../locator-utils";
 import type { WizardFormValues } from "./schema";
 import type { ResolvedWizardDataSource } from "./useWizardBaseData";
-import { createModelEntityByRelPath, deleteEntity, patchEntity, saveModel } from "../../../../shared/api/v2Client";
+import { createModelEntitiesByRelPath } from "../../../../shared/api/v2Client";
 import { useErrorSurface } from "../../../../shared/ui/ErrorSurface";
 import { resolveSourceOverride } from "./sourceOverride";
 import { buildSourceMetadataEndpoint } from "./sourcePreview";
@@ -241,12 +241,15 @@ function entityNameCandidates(entity: ModelEntity): string[] {
   return Array.from(names);
 }
 
-export function buildEntityNameResolver(entities: ModelEntity[]): (targetEntityName: string) => string | number | undefined {
+export function buildEntityNameResolver(
+  entities: ModelEntity[],
+  reference = (entity: ModelEntity) => entity.content?.id,
+): (targetEntityName: string) => string | number | undefined {
   const byName = new Map<string, Array<string | number | undefined>>();
   entities.forEach((entity) => {
     entityNameCandidates(entity).forEach((name) => {
       const ids = byName.get(name) || [];
-      ids.push(entity.content?.id);
+      ids.push(reference(entity));
       byName.set(name, ids);
     });
   });
@@ -297,38 +300,14 @@ export async function persistWizardEntities(
   existing: ModelEntity[],
   metadataByRelPath = new Map<string, TableMetadata>(),
 ): Promise<void> {
-  const created: ModelEntity[] = [];
-  try {
-    for (const entity of entities) {
-      entity.content = await createModelEntityByRelPath(entity.relPath, entity.content, { save: false });
-      created.push(entity);
-    }
-
-    const resolveTarget = buildEntityNameResolver([...existing, ...created]);
-    for (const entity of created) {
-      const metadata = metadataByRelPath.get(entity.relPath);
-      if (!metadata) continue;
-      const relationships = toMappedRelationshipsFromMetadata(metadata, resolveTarget);
-      await patchEntity(modelLocatorFromRelPath(entity.relPath), { relationships }, { save: false });
-      entity.content.relationships = relationships;
-    }
-    for (const entity of created) await saveModel(modelLocatorFromRelPath(entity.relPath));
-  } catch (error) {
-    const cleanupErrors: string[] = [];
-    for (const entity of [...created].reverse()) {
-      const locator = modelLocatorFromRelPath(entity.relPath);
-      try {
-        await deleteEntity(locator, { save: false });
-        await saveModel(locator);
-      } catch (cleanupError) {
-        cleanupErrors.push(`${entity.name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
-      }
-    }
-    if (cleanupErrors.length) {
-      throw new Error(`${error instanceof Error ? error.message : String(error)}. Cleanup failed: ${cleanupErrors.join("; ")}`);
-    }
-    throw error;
+  const resolveTarget = buildEntityNameResolver([...existing, ...entities],
+    (entity) => entity.content.id ?? modelLocatorFromRelPath(entity.relPath));
+  for (const entity of entities) {
+    const metadata = metadataByRelPath.get(entity.relPath);
+    if (metadata) entity.content.relationships = toMappedRelationshipsFromMetadata(metadata, resolveTarget);
   }
+  const contents = await createModelEntitiesByRelPath(entities);
+  entities.forEach((entity, index) => { entity.content = contents[index]; });
 }
 
 export function useWizardSubmit(deps: SubmitDeps) {

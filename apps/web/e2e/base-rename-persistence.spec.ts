@@ -22,7 +22,13 @@ test.beforeAll(async () => {
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, JSON.stringify(content), "utf8");
   };
-  writeJson("Base/Zones.json", { type: "zones", zones: [{ name: "Core", targetName: "core", displayName: "Core" }] });
+  writeJson("Base/Zones.json", {
+    type: "zones",
+    zones: [
+      { name: "Core", targetName: "core", displayName: "Core", localFolderName: "Core" },
+      { name: "Extra", targetName: "extra", displayName: "Extra" },
+    ],
+  });
   writeJson("Base/DataTypes.json", { type: "dataTypes", dataTypes: [{ name: "int", targets: {} }] });
   writeJson("Base/AttributeTypes.json", {
     type: "attributeTypes", attributeTypes: [{ name: "ID", displayName: "Identifier", defaultType: "int" }],
@@ -314,6 +320,45 @@ test("failed function creation leaves the transformation and existing file uncha
   await page.getByRole("button", { name: "Customer", exact: true }).first().click();
   expect(readFileSync(entityFile, "utf8")).toBe(original);
   expect(readFileSync(path.join(root, "Model/Core/existing.py"), "utf8")).toBe("# keep existing content");
+  expect(serverErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test("zone local folders load as entities and can be maintained from the tree", async ({ page, request }) => {
+  const { serverErrors, pageErrors } = await openFixture(page);
+  await expect.poll(() => existsSync(path.join(root, "Model/Core/.properties.json"))).toBe(true);
+
+  await page.getByRole("tab", { name: "Base", exact: true }).click();
+  await page.getByRole("button", { name: "Zones", exact: true }).click();
+  await page.locator(".base-list-table__row").filter({ hasText: "Extra" }).click();
+  const localFolderName = page.locator(".base-editor label").filter({ hasText: "Local Folder Name" }).locator("..").getByRole("textbox");
+  const baseSave = page.waitForResponse((response) => response.url().endsWith("/model/save") && response.ok());
+  await localFolderName.fill("ExtraLocal");
+  await localFolderName.press("Tab");
+  await baseSave;
+  await expect.poll(() => readJson("Base/Zones.json").zones[1].localFolderName).toBe("ExtraLocal");
+  await expect.poll(() => existsSync(path.join(root, "Model/ExtraLocal/.properties.json"))).toBe(true);
+
+  await page.getByRole("tab", { name: "Model", exact: true }).click();
+  await page.getByRole("button", { name: "ExtraLocal", exact: true }).click();
+  const folderName = page.getByPlaceholder("Folder name", { exact: true });
+  await expect(folderName).toHaveValue("ExtraLocal");
+
+  await page.getByRole("button", { name: "ExtraLocal", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New Folder..." }).click();
+  await page.getByPlaceholder("New folder", { exact: true }).fill("Child");
+  await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
+  await expect.poll(() => existsSync(path.join(root, "Model/ExtraLocal/Child/.properties.json"))).toBe(true);
+
+  await page.getByRole("button", { name: "ExtraLocal", exact: true }).click();
+  await folderName.fill("ExtraRenamed");
+  await folderName.press("Tab");
+  await expect.poll(() => existsSync(path.join(root, "Model/ExtraRenamed/Child/.properties.json"))).toBe(true);
+  await expect.poll(() => readJson("Base/Zones.json").zones[1].localFolderName).toBe("ExtraRenamed");
+
+  const renamedChild = await request.get(`${baseUrl}/entities/folders/ExtraRenamed/Child`);
+  expect(renamedChild.ok()).toBe(true);
+  expect((await renamedChild.json()).items[0].entity).toMatchObject({ name: "Child", path: "ExtraRenamed/Child" });
   expect(serverErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

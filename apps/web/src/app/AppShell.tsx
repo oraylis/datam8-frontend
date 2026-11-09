@@ -66,6 +66,7 @@ import {
 import type { PluginManifest } from "../features/model/generated-schema-types.ts";
 import type { BaseAttributeType, BaseDataProduct, BaseDataTypeDefinition, BaseEntity, BaseZone, EntityWrapper, FolderEntity, ModelEntity, Tab } from "../features/model/model-types";
 import { buildPropertyOptionsFromBaseEntities } from "../features/model/property-options";
+import { createMissingZoneFolderEntities } from "../features/model/zoneFolderEntities";
 import { apiBase } from "../config";
 import { deepEqual } from "../shared/utils/deepEqual";
 import { humanize, toLower } from "../shared/utils/strings";
@@ -475,7 +476,7 @@ export function AppShell() {
   const applyLoadedSolution = useCallback(
     (
       result?: { modelEntities: ModelEntity[]; baseEntities: BaseEntity[]; folderEntities?: FolderEntity[] } | null,
-      options?: { resetWorkspace?: boolean },
+      options?: { resetWorkspace?: boolean; persistZoneMetadata?: boolean },
     ) => {
       if (!result) return;
       if (options?.resetWorkspace) {
@@ -486,6 +487,48 @@ export function AppShell() {
       setModelEntities(result.modelEntities);
       setBaseEntities(result.baseEntities);
       setFolderEntities(result.folderEntities || []);
+      if (options?.persistZoneMetadata !== false) {
+        const missingZoneFolders = createMissingZoneFolderEntities(
+          result.baseEntities,
+          result.folderEntities || [],
+        );
+        if (missingZoneFolders.length > 0) {
+          void (async () => {
+            try {
+              for (const folder of missingZoneFolders) {
+                const existing = (result.folderEntities || []).find(
+                  (entry) => normalizeFolderPath(entry.folderPath || "") === normalizeFolderPath(folder.folderPath),
+                );
+                if (existing) {
+                  await patchEntity(folder.locator, folder.content as Record<string, unknown>, { save: false });
+                } else {
+                  await createEntity(folder.locator, folder.content as Record<string, unknown>, { save: false });
+                }
+              }
+              await saveModel();
+              setFolderEntities((current) => {
+                const missingByPath = new Map(missingZoneFolders.map((entry) => [normalizeFolderPath(entry.folderPath), entry]));
+                const replacedPaths = new Set<string>();
+                const next = current.map((entry) => {
+                  const path = normalizeFolderPath(entry.folderPath || "");
+                  const replacement = missingByPath.get(path);
+                  if (!replacement) return entry;
+                  replacedPaths.add(path);
+                  return replacement;
+                });
+                missingZoneFolders.forEach((entry) => {
+                  const path = normalizeFolderPath(entry.folderPath);
+                  if (!replacedPaths.has(path)) next.push(entry);
+                });
+                return next;
+              });
+            } catch (err) {
+              console.error("[DataM8] Failed to create zone folder metadata:", err);
+              showAppError("Zone folder metadata could not be created", (err as Error).message);
+            }
+          })();
+        }
+      }
       setDirtyFolderPaths(new Set());
       patchedBaseTimerRef.current.forEach((timer) => clearTimeout(timer));
       patchedBaseTimerRef.current.clear();
@@ -494,7 +537,7 @@ export function AppShell() {
       setBaseItemSelectionRequest(null);
       setSelectedFolderPath(null);
     },
-    [clearAllDrafts, closeAllTabs, setBaseEntities, setFolderEntities, setModelEntities, setSelectedFolderPath],
+    [clearAllDrafts, closeAllTabs, setBaseEntities, setFolderEntities, setModelEntities, setSelectedFolderPath, showAppError],
   );
 
   const formatBaseTitle = useCallback((name: string) => {
@@ -806,7 +849,7 @@ export function AppShell() {
       const file = event.target.files?.[0];
       if (!file) return;
       const result = await loadSolution({ kind: "uploaded-file", file });
-      if (result) applyLoadedSolution(result, { resetWorkspace: true });
+      if (result) applyLoadedSolution(result, { resetWorkspace: true, persistZoneMetadata: false });
       event.target.value = "";
     },
     [applyLoadedSolution, loadSolution],
@@ -1390,6 +1433,7 @@ export function AppShell() {
       try {
         let hadMutation = false;
         let notificationStatus: BaseSaveResult["notificationStatus"] = "saved";
+        const renamedZoneFolderPaths = new Set<string>();
         const detectedUpdated = detectBaseType(updated.content, updated.relPath);
         const detectedPrevious = detectBaseType(previous?.content || {}, previous?.relPath || updated.relPath);
         const baseType = detectedUpdated.type !== "unknown" ? detectedUpdated.type : detectedPrevious.type;
@@ -1470,6 +1514,7 @@ export function AppShell() {
             const zoneRenames = collectZoneFolderRenames(refactorPreviousContent, updated.content);
             for (const rename of zoneRenames) {
               if (!hasFolderSource(rename.fromFolder)) continue;
+              renamedZoneFolderPaths.add(normalizeFolderPath(rename.toFolder.replace(/^Model\//i, "")));
               nextActions.push({
                 kind: "renameFolder",
                 fromFolder: rename.fromFolder,
@@ -1617,6 +1662,42 @@ export function AppShell() {
                 sourceBaseRelPath: updated.relPath,
               });
             }
+          }
+        }
+        if (detected === "zones") {
+          const retainedFolders = [
+            ...folderEntities,
+            ...Array.from(renamedZoneFolderPaths, (folderPath) => ({ folderPath } as FolderEntity)),
+          ];
+          const newZoneFolders = createMissingZoneFolderEntities([updated], retainedFolders);
+          if (newZoneFolders.length > 0) {
+            for (const folder of newZoneFolders) {
+              const existing = folderEntities.find(
+                (entry) => normalizeFolderPath(entry.folderPath || "") === normalizeFolderPath(folder.folderPath),
+              );
+              if (existing || renamedZoneFolderPaths.has(normalizeFolderPath(folder.folderPath))) {
+                await patchEntity(folder.locator, folder.content as Record<string, unknown>, { save: false });
+              } else {
+                await createEntity(folder.locator, folder.content as Record<string, unknown>, { save: false });
+              }
+            }
+            setFolderEntities((current) => {
+              const foldersByPath = new Map(newZoneFolders.map((entry) => [normalizeFolderPath(entry.folderPath), entry]));
+              const replacedPaths = new Set<string>();
+              const next = current.map((entry) => {
+                const path = normalizeFolderPath(entry.folderPath || "");
+                const replacement = foldersByPath.get(path);
+                if (!replacement) return entry;
+                replacedPaths.add(path);
+                return replacement;
+              });
+              newZoneFolders.forEach((entry) => {
+                const path = normalizeFolderPath(entry.folderPath);
+                if (!replacedPaths.has(path)) next.push(entry);
+              });
+              return next;
+            });
+            hadMutation = true;
           }
         }
         patchedBasePayloadRef.current.delete(updated.relPath);
@@ -1888,14 +1969,14 @@ export function AppShell() {
   );
 
   const selectableFolderPaths = useMemo(() => {
-    const set = new Set<string>();
-    modelFolderPaths.forEach((path) => {
-      if (path.split("/").filter(Boolean).length > 1) {
-        set.add(path);
-      }
+    const set = new Set<string>(modelFolderPaths);
+    zoneFolderPaths.forEach((path) => set.add(path));
+    folderEntities.forEach((entry) => {
+      const path = normalizeFolderPath(entry.folderPath || "");
+      if (path) set.add(path);
     });
     return set;
-  }, [modelFolderPaths]);
+  }, [folderEntities, modelFolderPaths, zoneFolderPaths]);
 
   const selectedFolderEntity = useMemo(() => {
     const key = normalizeFolderPath(selectedFolderPath || "");
@@ -1933,6 +2014,13 @@ export function AppShell() {
         parentFolderPath ? `${parentFolderPath}/${targetFolderName}` : targetFolderName,
       );
       const renameRequested = !!(currentFolderPath && targetFolderPath && currentFolderPath !== targetFolderPath);
+      const zonesBaseEntity = baseEntities.find(
+        (entry) => detectBaseType(entry.content, entry.relPath).type === "zones",
+      );
+      const zoneContent = zonesBaseEntity?.content as (BaseEntity["content"] & { zones?: BaseZone[] }) | undefined;
+      const matchingZone = zoneContent?.zones?.find(
+        (zone) => normalizeFolderPath(zone.localFolderName || "") === currentFolderPath,
+      );
 
       if (renameRequested) {
         if (folderEntityByPath.has(targetFolderPath)) {
@@ -1976,6 +2064,20 @@ export function AppShell() {
       setActiveWorkTab(`folder:${normalizeFolderPath(effectiveFolderPath)}`);
 
       if (renameRequested) {
+        if (zonesBaseEntity && matchingZone && zoneContent?.zones) {
+          const updatedBaseEntity: BaseEntity = {
+            ...zonesBaseEntity,
+            content: {
+              ...zoneContent,
+              zones: zoneContent.zones.map((zone) =>
+                zone === matchingZone ? { ...zone, localFolderName: targetFolderPath } : zone,
+              ),
+            },
+          };
+          await handleSaveBase(updatedBaseEntity);
+          return;
+        }
+
         const actionResult = await executePendingBaseActions([
           {
             kind: "renameFolder",
@@ -1991,7 +2093,7 @@ export function AppShell() {
         });
       }
     },
-    [clearDraftsForBulkSave, executePendingBaseActions, folderEntityByPath, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
+    [baseEntities, clearDraftsForBulkSave, executePendingBaseActions, folderEntityByPath, handleSaveBase, setActiveWorkTab, setFolderEntities, setSelectedFolderPath],
   );
 
   const setFolderDirty = useCallback((folderPath: string, dirty: boolean) => {

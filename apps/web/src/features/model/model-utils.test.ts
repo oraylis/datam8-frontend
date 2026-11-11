@@ -72,7 +72,7 @@ describe("model-utils folder tree and inheritance", () => {
     expect(domainFolder?.label).toBe("Sales Domain");
   });
 
-  it("does not inject unrelated folder metadata into the model tree", () => {
+  it("shows empty folder entities even outside a configured zone", () => {
     const entities: ModelEntity[] = [
       {
         locator: "/Model/040-Consumer/Sales/Dim/Customer",
@@ -100,7 +100,7 @@ describe("model-utils folder tree and inheritance", () => {
     ];
 
     const tree = buildTree(entities, folderEntities, ["040-Consumer"]);
-    expect(findFolder(tree, "business_area")).toBeNull();
+    expect(findFolder(tree, "business_area")).not.toBeNull();
     expect(findFolder(tree, "040-Consumer/Sales/Dim")).not.toBeNull();
   });
 

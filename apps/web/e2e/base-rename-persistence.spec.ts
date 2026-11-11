@@ -1,5 +1,5 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -333,13 +333,18 @@ test("zone local folders load as entities and can be maintained from the tree", 
   await page.locator(".base-list-table__row").filter({ hasText: "Extra" }).click();
   const localFolderName = page.locator(".base-editor label").filter({ hasText: "Local Folder Name" }).locator("..").getByRole("textbox");
   const baseSave = page.waitForResponse((response) => response.url().endsWith("/model/save") && response.ok());
-  await localFolderName.fill("ExtraLocal");
+  await localFolderName.fill("Nested/ExtraLocal");
   await localFolderName.press("Tab");
   await baseSave;
-  await expect.poll(() => readJson("Base/Zones.json").zones[1].localFolderName).toBe("ExtraLocal");
-  await expect.poll(() => existsSync(path.join(root, "Model/ExtraLocal/.properties.json"))).toBe(true);
+  await expect.poll(() => readJson("Base/Zones.json").zones[1].localFolderName).toBe("Nested/ExtraLocal");
+  await expect.poll(() => existsSync(path.join(root, "Model/Nested/ExtraLocal/.properties.json"))).toBe(true);
+
+  expect(statSync(path.join(root, "Model/Nested/ExtraLocal")).isDirectory()).toBe(true);
+  expect(existsSync(path.join(root, "Model/Nested/.properties.json"))).toBe(true);
+  expect(existsSync(path.join(root, "Model/.properties.json"))).toBe(false);
 
   await page.getByRole("tab", { name: "Model", exact: true }).click();
+  await page.getByRole("button", { name: "Nested", exact: true }).click();
   await page.getByRole("button", { name: "ExtraLocal", exact: true }).click();
   const folderName = page.getByPlaceholder("Folder name", { exact: true });
   await expect(folderName).toHaveValue("ExtraLocal");
@@ -348,17 +353,39 @@ test("zone local folders load as entities and can be maintained from the tree", 
   await page.getByRole("menuitem", { name: "New Folder..." }).click();
   await page.getByPlaceholder("New folder", { exact: true }).fill("Child");
   await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
-  await expect.poll(() => existsSync(path.join(root, "Model/ExtraLocal/Child/.properties.json"))).toBe(true);
+  await expect.poll(() => existsSync(path.join(root, "Model/Nested/ExtraLocal/Child/.properties.json"))).toBe(true);
 
   await page.getByRole("button", { name: "ExtraLocal", exact: true }).click();
   await folderName.fill("ExtraRenamed");
   await folderName.press("Tab");
-  await expect.poll(() => existsSync(path.join(root, "Model/ExtraRenamed/Child/.properties.json"))).toBe(true);
-  await expect.poll(() => readJson("Base/Zones.json").zones[1].localFolderName).toBe("ExtraRenamed");
+  await expect.poll(() => existsSync(path.join(root, "Model/Nested/ExtraRenamed/Child/.properties.json"))).toBe(true);
+  await expect.poll(() => readJson("Base/Zones.json").zones[1].localFolderName).toBe("Nested/ExtraRenamed");
 
-  const renamedChild = await request.get(`${baseUrl}/entities/folders/ExtraRenamed/Child`);
+  const renamedChild = await request.get(`${baseUrl}/entities/folders/Nested/ExtraRenamed/Child`);
   expect(renamedChild.ok()).toBe(true);
-  expect((await renamedChild.json()).items[0].entity).toMatchObject({ name: "Child", path: "ExtraRenamed/Child" });
+  expect((await renamedChild.json()).items[0].entity).toMatchObject({ name: "Child", path: "Nested/ExtraRenamed/Child" });
+  expect(serverErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+
+test("creates and reloads an empty folder at the model root from the context menu", async ({ page, request }) => {
+  const { serverErrors, pageErrors } = await openFixture(page);
+  await page.getByRole("button", { name: "Core", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New Root Folder...", exact: true }).click();
+  await expect(page.getByText("Create a folder at the model root.")).toBeVisible();
+  await page.getByPlaceholder("New folder", { exact: true }).fill("Standalone");
+  await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
+  await expect.poll(() => existsSync(path.join(root, "Model/Standalone/.properties.json"))).toBe(true);
+  expect(statSync(path.join(root, "Model/Standalone")).isDirectory()).toBe(true);
+  expect(existsSync(path.join(root, "Model/.properties.json"))).toBe(false);
+  await expect(page.getByRole("button", { name: "Standalone", exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder("Folder name", { exact: true })).toHaveValue("Standalone");
+  const reloaded = await request.post(`${baseUrl}/model/reload`);
+  expect(reloaded.ok()).toBe(true);
+  await page.getByRole("button", { name: "Reload", exact: true }).click();
+  await page.getByRole("button", { name: "Standalone", exact: true }).click();
+  await expect(page.getByPlaceholder("Folder name", { exact: true })).toHaveValue("Standalone");
   expect(serverErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

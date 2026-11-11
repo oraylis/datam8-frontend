@@ -226,31 +226,7 @@ export function buildTree(
 ): TreeNode[] {
   const root: TreeNode[] = [];
   const normalizePath = (value: string) => normalizeFolderPath(value).split("/").filter(Boolean).join("/");
-  const isSameOrChild = (candidate: string, rootPath: string) =>
-    candidate === rootPath || candidate.startsWith(`${rootPath}/`);
-
-  const modelFolderPaths = new Set<string>();
-  entities.forEach((ent) => {
-    const path = normalizePath(ent.relPath.split("/").slice(1, -1).join("/"));
-    if (path) modelFolderPaths.add(path);
-  });
-  const placeholderRoots = new Set(
-    (placeholderFolders || [])
-      .map((value) => normalizePath(value))
-      .filter(Boolean),
-  );
-
-  const visibleFolderEntities = (folderEntities || []).filter((entry) => {
-    const folderPath = normalizePath(entry.folderPath || "");
-    if (!folderPath) return false;
-    for (const modelPath of modelFolderPaths) {
-      if (isSameOrChild(modelPath, folderPath) || isSameOrChild(folderPath, modelPath)) return true;
-    }
-    for (const zoneRoot of placeholderRoots) {
-      if (isSameOrChild(folderPath, zoneRoot) || isSameOrChild(zoneRoot, folderPath)) return true;
-    }
-    return false;
-  });
+  const visibleFolderEntities = folderEntities.filter((entry) => normalizePath(entry.folderPath || ""));
 
   const folderMetaByPath = indexFolderEntities(visibleFolderEntities);
 

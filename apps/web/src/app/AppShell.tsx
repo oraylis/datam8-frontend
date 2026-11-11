@@ -2109,7 +2109,6 @@ export function AppShell() {
 
   const createFolder = useCallback((parentFolderPath: string) => {
     const parent = normalizeFolderPath(parentFolderPath);
-    if (!parent) return;
     setNewFolderParentPath(parent);
     setNewFolderName("");
     setNewFolderDialogOpen(true);
@@ -2118,13 +2117,12 @@ export function AppShell() {
   const submitCreateFolder = useCallback(async () => {
     const parent = normalizeFolderPath(newFolderParentPath);
     const folderName = (newFolderName || "").replace(/[\\/]/g, "").trim();
-    if (!parent) return;
     if (!folderName) {
       showAppError("Folder creation failed", "Folder name is required.");
       return;
     }
 
-    const newFolderPath = normalizeFolderPath(`${parent}/${folderName}`);
+    const newFolderPath = normalizeFolderPath(parent ? `${parent}/${folderName}` : folderName);
     if (folderEntityByPath.has(newFolderPath)) {
       showAppError("Folder creation failed", "A folder with this path already exists.");
       return;
@@ -2321,7 +2319,7 @@ export function AppShell() {
         <DialogContent className="new-folder-dialog max-w-md">
           <DialogHeader>
             <DialogTitle>Create Folder</DialogTitle>
-            <DialogDescription>{`Create a folder under ${newFolderParentPath}.`}</DialogDescription>
+            <DialogDescription>{newFolderParentPath ? `Create a folder under ${newFolderParentPath}.` : "Create a folder at the model root."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="new-folder-name">Folder name</Label>

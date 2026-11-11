@@ -226,13 +226,15 @@ export function ModelTree({
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem
-              disabled={!node.path || !onCreateFolder}
+              disabled={!onCreateFolder}
               onClick={() => {
-                if (!node.path) return;
-                onCreateFolder?.(node.path);
+                onCreateFolder?.(node.path || "");
               }}
             >
               New Folder...
+            </ContextMenuItem>
+            <ContextMenuItem disabled={!onCreateFolder} onClick={() => onCreateFolder?.("")}>
+              New Root Folder...
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -253,13 +255,22 @@ export function ModelTree({
   const filteredTree = useMemo(() => tree.filter(matchesFilter), [tree, matchesFilter]);
 
   return (
-    <div className="tree tree--model">
-      {showFilter ? (
-        <div className="sidebar__filter">
-          <input placeholder="Filter model..." value={filter} onChange={(e) => onFilterChange(e.target.value)} />
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className="tree tree--model">
+          {showFilter ? (
+            <div className="sidebar__filter">
+              <input placeholder="Filter model..." value={filter} onChange={(e) => onFilterChange(e.target.value)} />
+            </div>
+          ) : null}
+          {filteredTree.length === 0 ? <div className="muted">No entities loaded</div> : renderNodes(filteredTree)}
         </div>
-      ) : null}
-      {filteredTree.length === 0 ? <div className="muted">No entities loaded</div> : renderNodes(filteredTree)}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem disabled={!onCreateFolder} onClick={() => onCreateFolder?.("")}>
+          New Folder...
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

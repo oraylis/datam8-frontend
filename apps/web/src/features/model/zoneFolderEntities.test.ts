@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BaseEntity, FolderEntity } from "./model-types";
-import { createMissingZoneFolderEntities, hasFolderPropertiesFile } from "./zoneFolderEntities";
+import { createMissingZoneFolderEntities } from "./zoneFolderEntities";
+import { hasFolderPropertiesFile } from "./model-utils";
 
 const zonesEntity: BaseEntity = {
   name: "Zones.json",

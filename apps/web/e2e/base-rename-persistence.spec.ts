@@ -381,6 +381,7 @@ test("zone local folders load as entities and can be maintained from the tree", 
 
 test("creates and reloads an empty folder at the model root from the context menu", async ({ page, request }) => {
   const { serverErrors, pageErrors } = await openFixture(page);
+  await expect(page.locator(".tree__node-label").filter({ hasText: /^(write_mode|status|destination)$/ })).toHaveCount(0);
   const tree = page.locator(".tree--model");
   const bounds = await tree.boundingBox();
   expect(bounds).not.toBeNull();

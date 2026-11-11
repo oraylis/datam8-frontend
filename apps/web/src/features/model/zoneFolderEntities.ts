@@ -1,5 +1,5 @@
 import type { BaseEntity, BaseZone, FolderEntity } from "./model-types";
-import { detectBaseType, getFolderMeta, normalizeFolderPath } from "./model-utils";
+import { detectBaseType, hasFolderPropertiesFile, normalizeFolderPath } from "./model-utils";
 
 function stableFolderId(folderPath: string): number {
   let hash = 0;
@@ -8,23 +8,6 @@ function stableFolderId(folderPath: string): number {
     hash |= 0;
   }
   return Math.abs(hash) + 1;
-}
-
-export function hasFolderPropertiesFile(entry: FolderEntity | undefined): boolean {
-  if (!entry) return false;
-  const meta = getFolderMeta(entry) as Record<string, unknown> | null;
-  if (!meta) return false;
-  const folderPath = normalizeFolderPath(entry.folderPath || "");
-  if (normalizeFolderPath(typeof meta.path === "string" ? meta.path : "") === folderPath && folderPath) {
-    return true;
-  }
-  return (
-    Array.isArray(meta.properties) ||
-    Boolean(meta.displayName) ||
-    Boolean(meta.description) ||
-    Boolean(meta.dataProduct) ||
-    Boolean(meta.dataModule)
-  );
 }
 
 export function createMissingZoneFolderEntities(

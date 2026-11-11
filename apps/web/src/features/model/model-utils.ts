@@ -219,6 +219,23 @@ export const detectBaseType = (content: unknown, relPath: string): BaseTypeDetec
   return { type: detected, items, propertyValues };
 };
 
+export function hasFolderPropertiesFile(entry: FolderEntity | undefined): boolean {
+  if (!entry) return false;
+  const meta = getFolderMeta(entry) as Record<string, unknown> | null;
+  if (!meta) return false;
+  const folderPath = normalizeFolderPath(entry.folderPath || "");
+  if (normalizeFolderPath(typeof meta.path === "string" ? meta.path : "") === folderPath && folderPath) {
+    return true;
+  }
+  return (
+    Array.isArray(meta.properties) ||
+    Boolean(meta.displayName) ||
+    Boolean(meta.description) ||
+    Boolean(meta.dataProduct) ||
+    Boolean(meta.dataModule)
+  );
+}
+
 export function buildTree(
   entities: ModelEntity[],
   folderEntities: FolderEntity[] = [],
@@ -226,7 +243,19 @@ export function buildTree(
 ): TreeNode[] {
   const root: TreeNode[] = [];
   const normalizePath = (value: string) => normalizeFolderPath(value).split("/").filter(Boolean).join("/");
-  const visibleFolderEntities = folderEntities.filter((entry) => normalizePath(entry.folderPath || ""));
+  const contextPaths = [
+    ...entities.map((entry) => entry.relPath.split("/").slice(1, -1).join("/")),
+    ...placeholderFolders,
+  ].map(normalizePath).filter(Boolean);
+  const visibleFolderEntities = folderEntities.filter((entry) => {
+    const folderPath = normalizePath(entry.folderPath || "");
+    if (!folderPath) return false;
+    // Base namespaces also produce virtual folder wrappers. Only show placeholders
+    // related to the model; explicit metadata keeps standalone empty folders visible.
+    return hasFolderPropertiesFile(entry) || contextPaths.some((path) =>
+      path === folderPath || path.startsWith(`${folderPath}/`) || folderPath.startsWith(`${path}/`),
+    );
+  });
 
   const folderMetaByPath = indexFolderEntities(visibleFolderEntities);
 

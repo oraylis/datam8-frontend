@@ -72,7 +72,7 @@ describe("model-utils folder tree and inheritance", () => {
     expect(domainFolder?.label).toBe("Sales Domain");
   });
 
-  it("shows empty folder entities even outside a configured zone", () => {
+  it("shows explicit empty folders outside zones while hiding unrelated Base placeholders", () => {
     const entities: ModelEntity[] = [
       {
         locator: "/Model/040-Consumer/Sales/Dim/Customer",
@@ -97,10 +97,18 @@ describe("model-utils folder tree and inheritance", () => {
         folderPath: "business_area",
         content: { id: 2, name: "business_area", properties: [] },
       },
+      {
+        locator: "/folders/cluster",
+        name: "cluster",
+        relPath: "Model/cluster/.properties.json",
+        folderPath: "cluster",
+        content: { id: 3, name: "cluster", properties: null, path: null },
+      } as unknown as FolderEntity,
     ];
 
     const tree = buildTree(entities, folderEntities, ["040-Consumer"]);
     expect(findFolder(tree, "business_area")).not.toBeNull();
+    expect(findFolder(tree, "cluster")).toBeNull();
     expect(findFolder(tree, "040-Consumer/Sales/Dim")).not.toBeNull();
   });
 

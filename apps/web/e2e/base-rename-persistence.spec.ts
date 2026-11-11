@@ -278,6 +278,11 @@ test("entity rename retains functions and entity deletion removes them with a re
     expect(loaded.ok()).toBe(true);
     expect((await loaded.json()).item.source_code).toBe(original);
     await page.getByRole("button", { name: renamed, exact: true }).click({ button: "right" });
+    const contextEntity = page.locator(".tree__child--entity").filter({ hasText: new RegExp(`^${renamed}$`) });
+    await expect(contextEntity.locator("..")).toHaveAttribute("data-state", "open");
+    await page.getByRole("menuitem", { name: /^Delete/ }).hover();
+    await expect(contextEntity).not.toHaveCSS("box-shadow", "none");
+    await expect(page.locator('.tree__item--folder[data-state="open"]')).toHaveCount(0);
     await page.getByRole("menuitem", { name: /^Delete/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
     await expect.poll(() => existsSync(path.join(root, `Model/Core/${renamed}.json`))).toBe(false);

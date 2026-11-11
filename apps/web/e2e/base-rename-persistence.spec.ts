@@ -429,6 +429,7 @@ test("creates and reloads an empty folder at the model root from the context men
   await page.getByPlaceholder("New folder", { exact: true }).fill("EmptyChild");
   await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
   await expect.poll(() => existsSync(path.join(root, "Model/Standalone/EmptyChild/.properties.json"))).toBe(true);
+  mkdirSync(path.join(root, "Model/Standalone/UntrackedEmpty/Nested"), { recursive: true });
   await page.getByRole("button", { name: "Standalone", exact: true }).click({ button: "right" });
   await page.getByRole("menuitem", { name: "Delete Folder", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();

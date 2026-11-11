@@ -368,6 +368,17 @@ body {
   margin-bottom: 16px;
 }
 
+.sidebar__section--model {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__section--model > .tree--model {
+  flex: 1;
+  padding-bottom: 32px;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -544,6 +555,11 @@ body {
 .tree--model .tree__child--entity,
 .tree--model .tree__node-toggle {
   padding-left: calc(var(--tree-base-indent) + (var(--tree-depth, 1) - 1) * var(--tree-indent-step));
+}
+
+.tree--model .tree__item--folder[data-state="open"] > .tree__node-label {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .tree__child--entity[data-dragging="true"] {

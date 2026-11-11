@@ -188,7 +188,7 @@ export function Sidebar({
               </div>
             </div>
           ) : (
-            <div className="sidebar__section">
+            <div className="sidebar__section sidebar__section--model">
               {modelTreeLoading ? (
                 <div className="muted flex items-center gap-2 px-2 py-2" role="status" aria-live="polite">
                   <Loader2 className="h-4 w-4 animate-spin" />

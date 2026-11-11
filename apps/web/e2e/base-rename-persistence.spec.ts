@@ -350,6 +350,11 @@ test("zone local folders load as entities and can be maintained from the tree", 
   await expect(folderName).toHaveValue("ExtraLocal");
 
   await page.getByRole("button", { name: "ExtraLocal", exact: true }).click({ button: "right" });
+  const targetFolder = page.locator(".tree__node-label").filter({ hasText: /^ExtraLocal$/ });
+  await expect(targetFolder.locator("..")).toHaveAttribute("data-state", "open");
+  await page.getByRole("menuitem", { name: "New Folder...", exact: true }).hover();
+  await expect(targetFolder).not.toHaveCSS("box-shadow", "none");
+  await expect(page.getByRole("menuitem", { name: "New Root Folder...", exact: true })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "New Folder..." }).click();
   await page.getByPlaceholder("New folder", { exact: true }).fill("Child");
   await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
@@ -371,8 +376,13 @@ test("zone local folders load as entities and can be maintained from the tree", 
 
 test("creates and reloads an empty folder at the model root from the context menu", async ({ page, request }) => {
   const { serverErrors, pageErrors } = await openFixture(page);
-  await page.getByRole("button", { name: "Core", exact: true }).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "New Root Folder...", exact: true }).click();
+  const tree = page.locator(".tree--model");
+  const bounds = await tree.boundingBox();
+  expect(bounds).not.toBeNull();
+  await tree.click({ button: "right", position: { x: 4, y: bounds!.height - 8 } });
+  await expect(tree).toHaveAttribute("data-state", "open");
+  await expect(tree.locator('.tree__item--folder[data-state="open"]')).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "New Folder...", exact: true }).click();
   await expect(page.getByText("Create a folder at the model root.")).toBeVisible();
   await page.getByPlaceholder("New folder", { exact: true }).fill("Standalone");
   await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();

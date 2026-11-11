@@ -233,9 +233,6 @@ export function ModelTree({
             >
               New Folder...
             </ContextMenuItem>
-            <ContextMenuItem disabled={!onCreateFolder} onClick={() => onCreateFolder?.("")}>
-              New Root Folder...
-            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               disabled={!node.path || !onDeleteFolder || (node.path.split("/").filter(Boolean).length <= 1)}

@@ -235,7 +235,7 @@ export function ModelTree({
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
-              disabled={!node.path || !onDeleteFolder || (node.path.split("/").filter(Boolean).length <= 1)}
+              disabled={!node.path || !onDeleteFolder}
               onClick={() => {
                 if (!node.path) return;
                 onDeleteFolder?.(node.path);

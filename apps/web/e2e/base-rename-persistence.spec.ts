@@ -27,6 +27,7 @@ test.beforeAll(async () => {
     zones: [
       { name: "Core", targetName: "core", displayName: "Core", localFolderName: "Core" },
       { name: "Extra", targetName: "extra", displayName: "Extra" },
+      { name: "Disposable", targetName: "disposable", displayName: "Disposable", localFolderName: "DeleteRoot" },
     ],
   });
   writeJson("Base/DataTypes.json", { type: "dataTypes", dataTypes: [{ name: "int", targets: {} }] });
@@ -47,6 +48,19 @@ test.beforeAll(async () => {
     sources: [], relationships: [], transformations: [],
     properties: [{ property: "write_mode", value: "merge" }, { property: "status", value: "merge" }],
   });
+  writeJson("Model/Core/.properties.json", {
+    type: "folders", folders: [{ id: 200, name: "Core", path: "Core", properties: [] }],
+  });
+  writeJson("Model/DeleteRootArchive/.properties.json", {
+    type: "folders", folders: [{ id: 199, name: "DeleteRootArchive", path: "DeleteRootArchive", properties: [] }],
+  });
+  writeJson("Model/DeleteRoot/.properties.json", {
+    type: "folders", folders: [{ id: 301, name: "DeleteRoot", path: "DeleteRoot", properties: [] }],
+  });
+  writeJson("Model/DeleteRoot/Child/.properties.json", {
+    type: "folders", folders: [{ id: 302, name: "Child", path: "DeleteRoot/Child", properties: [] }],
+  });
+  writeJson("Model/DeleteRoot/Child/Customer.json", { ...readJson("Model/Core/Customer.json"), id: 30 });
   writeJson("Base/DataProducts.json", {
     type: "dataProducts", dataProducts: [{ name: "Product", dataModules: [{ name: "Module" }] }],
   });
@@ -124,7 +138,8 @@ test.afterAll(async () => {
 });
 
 test.afterEach(async ({ page }) => {
-  await page.unrouteAll({ behavior: "wait" });
+  // Keep the disposable backend route installed until pending editor work stops.
+  await page.close();
 });
 
 async function openFixture(page: Page) {
@@ -137,9 +152,13 @@ async function openFixture(page: Page) {
       await route.continue();
       return;
     }
-    const response = await route.fetch({ url: `${baseUrl}${url.pathname}${url.search}` });
-    if (response.status() >= 500) serverErrors.push(`${response.status()} ${url.pathname}`);
-    await route.fulfill({ response });
+    try {
+      const response = await route.fetch({ url: `${baseUrl}${url.pathname}${url.search}` });
+      if (response.status() >= 500) serverErrors.push(`${response.status()} ${url.pathname}`);
+      await route.fulfill({ response });
+    } catch (error) {
+      if (!page.isClosed()) throw error;
+    }
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("Absolute path to .dm8s").fill(path.join(root, "TestSolution.dm8s"));
@@ -399,9 +418,63 @@ test("creates and reloads an empty folder at the model root from the context men
   await expect(page.getByPlaceholder("Folder name", { exact: true })).toHaveValue("Standalone");
   const reloaded = await request.post(`${baseUrl}/model/reload`);
   expect(reloaded.ok()).toBe(true);
+  const loaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/solution/full" && response.ok());
   await page.getByRole("button", { name: "Reload", exact: true }).click();
+  await loaded;
+  await expect(page.getByPlaceholder("Folder name", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Standalone", exact: true }).click();
   await expect(page.getByPlaceholder("Folder name", { exact: true })).toHaveValue("Standalone");
+  await page.getByRole("button", { name: "Standalone", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New Folder...", exact: true }).click();
+  await page.getByPlaceholder("New folder", { exact: true }).fill("EmptyChild");
+  await page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }).click();
+  await expect.poll(() => existsSync(path.join(root, "Model/Standalone/EmptyChild/.properties.json"))).toBe(true);
+  await page.getByRole("button", { name: "Standalone", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete Folder", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(existsSync(path.join(root, "Model/Standalone/EmptyChild/.properties.json"))).toBe(true);
+  await page.getByRole("button", { name: "Standalone", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete Folder", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect.poll(() => existsSync(path.join(root, "Model/Standalone"))).toBe(false);
+  const loadedAfterDelete = page.waitForResponse((response) => new URL(response.url()).pathname === "/solution/full" && response.ok());
+  await page.getByRole("button", { name: "Reload", exact: true }).first().click();
+  await loadedAfterDelete;
+  await expect(page.getByText("Loading model tree...", { exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Standalone", exact: true })).toHaveCount(0);
+  expect(serverErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test("deleting a zone root removes its tree without changing Zones or recreating it on reload", async ({ page }) => {
+  const { serverErrors, pageErrors } = await openFixture(page);
+  const zonesBefore = readJson("Base/Zones.json");
+  await page.getByRole("button", { name: "DeleteRoot", exact: true }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete Folder", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect.poll(() => existsSync(path.join(root, "Model/DeleteRoot"))).toBe(false);
+  await expect(page.getByRole("button", { name: "DeleteRoot", exact: true })).toHaveCount(0);
+  expect(readJson("Base/Zones.json")).toEqual(zonesBefore);
+  expect(existsSync(path.join(root, "Model/DeleteRootArchive/.properties.json"))).toBe(true);
+  const loaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/solution/full" && response.ok());
+  await page.getByRole("button", { name: "Reload", exact: true }).first().click();
+  await loaded;
+  await expect(page.getByText("Loading model tree...", { exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "DeleteRootArchive", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "DeleteRoot", exact: true })).toHaveCount(0);
+  expect(existsSync(path.join(root, "Model/DeleteRoot"))).toBe(false);
+  expect(readJson("Base/Zones.json")).toEqual(zonesBefore);
+  await page.getByRole("tab", { name: "Base", exact: true }).click();
+  await page.getByRole("button", { name: "Zones", exact: true }).click();
+  await page.locator(".base-list-table__row").filter({ hasText: "Disposable" }).click();
+  const displayName = page.locator(".base-editor label").filter({ hasText: "Display Name" }).locator("..").getByRole("textbox");
+  const baseSave = page.waitForResponse((response) => response.url().endsWith("/model/save") && response.ok());
+  await displayName.fill("Disposable Updated");
+  await displayName.press("Tab");
+  await baseSave;
+  await expect.poll(() => readJson("Base/Zones.json").zones[2].displayName).toBe("Disposable Updated");
+  expect(readJson("Base/Zones.json").zones[2].localFolderName).toBe("DeleteRoot");
+  expect(existsSync(path.join(root, "Model/DeleteRoot"))).toBe(false);
   expect(serverErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

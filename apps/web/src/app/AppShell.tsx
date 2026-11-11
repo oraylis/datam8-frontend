@@ -476,7 +476,7 @@ export function AppShell() {
   const applyLoadedSolution = useCallback(
     (
       result?: { modelEntities: ModelEntity[]; baseEntities: BaseEntity[]; folderEntities?: FolderEntity[] } | null,
-      options?: { resetWorkspace?: boolean; persistZoneMetadata?: boolean },
+      options?: { resetWorkspace?: boolean },
     ) => {
       if (!result) return;
       if (options?.resetWorkspace) {
@@ -487,48 +487,6 @@ export function AppShell() {
       setModelEntities(result.modelEntities);
       setBaseEntities(result.baseEntities);
       setFolderEntities(result.folderEntities || []);
-      if (options?.persistZoneMetadata !== false) {
-        const missingZoneFolders = createMissingZoneFolderEntities(
-          result.baseEntities,
-          result.folderEntities || [],
-        );
-        if (missingZoneFolders.length > 0) {
-          void (async () => {
-            try {
-              for (const folder of missingZoneFolders) {
-                const existing = (result.folderEntities || []).find(
-                  (entry) => normalizeFolderPath(entry.folderPath || "") === normalizeFolderPath(folder.folderPath),
-                );
-                if (existing) {
-                  await patchEntity(folder.locator, folder.content as Record<string, unknown>, { save: false });
-                } else {
-                  await createEntity(folder.locator, folder.content as Record<string, unknown>, { save: false });
-                }
-              }
-              await saveModel();
-              setFolderEntities((current) => {
-                const missingByPath = new Map(missingZoneFolders.map((entry) => [normalizeFolderPath(entry.folderPath), entry]));
-                const replacedPaths = new Set<string>();
-                const next = current.map((entry) => {
-                  const path = normalizeFolderPath(entry.folderPath || "");
-                  const replacement = missingByPath.get(path);
-                  if (!replacement) return entry;
-                  replacedPaths.add(path);
-                  return replacement;
-                });
-                missingZoneFolders.forEach((entry) => {
-                  const path = normalizeFolderPath(entry.folderPath);
-                  if (!replacedPaths.has(path)) next.push(entry);
-                });
-                return next;
-              });
-            } catch (err) {
-              console.error("[DataM8] Failed to create zone folder metadata:", err);
-              showAppError("Zone folder metadata could not be created", (err as Error).message);
-            }
-          })();
-        }
-      }
       setDirtyFolderPaths(new Set());
       patchedBaseTimerRef.current.forEach((timer) => clearTimeout(timer));
       patchedBaseTimerRef.current.clear();
@@ -537,7 +495,7 @@ export function AppShell() {
       setBaseItemSelectionRequest(null);
       setSelectedFolderPath(null);
     },
-    [clearAllDrafts, closeAllTabs, setBaseEntities, setFolderEntities, setModelEntities, setSelectedFolderPath, showAppError],
+    [clearAllDrafts, closeAllTabs, setBaseEntities, setFolderEntities, setModelEntities, setSelectedFolderPath],
   );
 
   const formatBaseTitle = useCallback((name: string) => {
@@ -822,7 +780,7 @@ export function AppShell() {
       .filter((path: string) => !!path);
   }, [baseEntities]);
 
-  const tree = useMemo(() => buildTree(modelEntities, folderEntities, zoneFolderPaths), [folderEntities, modelEntities, zoneFolderPaths]);
+  const tree = useMemo(() => buildTree(modelEntities, folderEntities), [folderEntities, modelEntities]);
 
   useEffect(() => {
     if (tree.length && expanded.size === 0) {
@@ -849,7 +807,7 @@ export function AppShell() {
       const file = event.target.files?.[0];
       if (!file) return;
       const result = await loadSolution({ kind: "uploaded-file", file });
-      if (result) applyLoadedSolution(result, { resetWorkspace: true, persistZoneMetadata: false });
+      if (result) applyLoadedSolution(result, { resetWorkspace: true });
       event.target.value = "";
     },
     [applyLoadedSolution, loadSolution],
@@ -1246,16 +1204,11 @@ export function AppShell() {
   const deleteFolderTree = useCallback(
     async (
       folderPath: string,
-      options?: { confirm?: boolean; allowZoneRoot?: boolean; notifySuccess?: boolean; notifyFailure?: boolean },
+      options?: { confirm?: boolean; notifySuccess?: boolean; notifyFailure?: boolean },
     ): Promise<boolean> => {
       const normalizedRaw = normalizeFolderPath(folderPath);
-      const normalized = normalizedRaw.replace(/^Model\/?/i, "");
+      const normalized = normalizedRaw.replace(/^Model\//i, "");
       if (!normalized) return true;
-      if (!options?.allowZoneRoot && normalized.split("/").filter(Boolean).length <= 1) {
-        showSaveNotification("failed");
-        return false;
-      }
-
       const inFolder = (path: string) => path === normalized || path.startsWith(`${normalized}/`);
 
       const entitiesToDelete = modelEntities.filter((entity) => {
@@ -1275,7 +1228,7 @@ export function AppShell() {
       }
 
       try {
-        if (entitiesToDelete.length > 0) {
+        if (entitiesToDelete.length > 0 || folderMetadataToDelete.some((entry) => normalizeFolderPath(entry.folderPath || "") !== normalized)) {
           await deleteEntity(modelFolderLocatorFromFolderPath(normalized), { save: false });
         }
         if (folderMetadataToDelete.some((entry) => normalizeFolderPath(entry.folderPath || "") === normalized)) {
@@ -1386,7 +1339,6 @@ export function AppShell() {
             .forEach((entity) => updatedModelRelPaths.add(entity.relPath));
           await deleteFolderTree(action.folderPath, {
             confirm: false,
-            allowZoneRoot: true,
             notifySuccess: false,
             notifyFailure: false,
           });
@@ -1669,7 +1621,15 @@ export function AppShell() {
             ...folderEntities,
             ...Array.from(renamedZoneFolderPaths, (folderPath) => ({ folderPath } as FolderEntity)),
           ];
-          const newZoneFolders = createMissingZoneFolderEntities([updated], retainedFolders);
+          const previousZones = (previous?.content.zones || []) as BaseZone[];
+          const assignedZones = ((updated.content.zones || []) as BaseZone[]).filter((zone) =>
+            normalizeFolderPath(zone.localFolderName || "") !== normalizeFolderPath(
+              previousZones.find((entry) => entry.name === zone.name)?.localFolderName || "",
+            ),
+          );
+          const newZoneFolders = createMissingZoneFolderEntities([
+            { ...updated, content: { ...updated.content, zones: assignedZones } },
+          ], retainedFolders);
           if (newZoneFolders.length > 0) {
             for (const folder of newZoneFolders) {
               const existing = folderEntities.find(
@@ -2160,7 +2120,6 @@ export function AppShell() {
       try {
         await deleteFolderTree(folderPath, {
           confirm: true,
-          allowZoneRoot: false,
           notifySuccess: true,
           notifyFailure: true,
         });

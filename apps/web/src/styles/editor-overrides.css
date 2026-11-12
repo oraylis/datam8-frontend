@@ -1,5 +1,44 @@
 /* Base/Model editor data-entry normalization (match folder form language) */
 
+.panel__title-row--entity {
+  display: flex;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.panel__title-row--entity .panel__title-text {
+  max-width: 100%;
+}
+
+.entity-view-switch {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.entity-view-switch .entity-view-switch__button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: hsl(var(--ui-muted-foreground));
+}
+
+.entity-view-switch .entity-view-switch__button[aria-pressed="true"] {
+  background: hsl(var(--ui-primary));
+  color: hsl(var(--ui-primary-foreground));
+}
+
+@media (pointer: coarse) {
+  .entity-view-switch .entity-view-switch__button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 .editor-panel .base-editor {
   border: none;
   border-radius: 0;
@@ -60,6 +99,12 @@
   position: relative;
   isolation: isolate;
   padding-top: 0;
+}
+
+.editor-panel .panel__body--lineage {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .editor-panel .panel__body--entity-editor .entity-section-nav-row {

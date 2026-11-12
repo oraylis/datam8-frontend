@@ -88,4 +88,84 @@ describe("entity source lineage", () => {
     expect(labels(graph)).toEqual(["Alone"]);
     expect(graph.edges).toEqual([]);
   });
+
+  it("adds incoming and outgoing relationships without treating them as source dependencies", () => {
+    const current = entity(10, "Order");
+    current.content.relationships = [{ targetLocation: 11, attributes: [{ sourceName: "CustomerId", targetName: "Id" }] }];
+    const customer = entity(11, "Customer", [{ sourceLocation: 12 }]);
+    const hidden = entity(12, "CustomerSource");
+    customer.content.relationships = [{ targetLocation: 12 }];
+    const incoming = entity(13, "Invoice");
+    incoming.content.relationships = [{ targetLocation: 10 }];
+    const graph = buildLineageGraph([current, customer, hidden, incoming], current, "downstream", 3, 80, { includeRelationships: true });
+    expect(labels(graph)).toEqual(["Customer", "Invoice", "Order"]);
+    expect(graph.edges.every((edge) => edge.kind === "relationship")).toBe(true);
+    expect(graph.edges.find((edge) => edge.source === `entity:${current.relPath}`)?.mappings).toEqual([{ sourceName: "CustomerId", targetName: "Id" }]);
+  });
+
+  it("supports draft relationship fields and external relationships independently of sources", () => {
+    const current = entity(1, "Order", [{ sourceLocation: 2 }]);
+    current.content.relationships = [
+      { targetModelEntityId: 2, mappings: [{ source: "CustomerId", target: "Id" }] },
+      { dataSource: "CRM", targetLocation: "dbo.Customer", alias: "Billing customer", attributes: [{ sourceName: "BillingId", targetName: "Id" }] },
+    ];
+    const graph = buildLineageGraph([current, entity(2, "Customer")], current, "both", 1, 80, { includeSources: false, includeRelationships: true });
+    expect(labels(graph)).toEqual(["Customer", "Order", "dbo.Customer"]);
+    expect(graph.edges).toHaveLength(2);
+    expect(graph.edges.every((edge) => edge.kind === "relationship")).toBe(true);
+    expect(graph.edges.find((edge) => edge.label === "Billing customer")?.mappings).toEqual([{ sourceName: "BillingId", targetName: "Id" }]);
+    expect(graph.edges.find((edge) => edge.label === "Relationship")?.mappings).toEqual([{ sourceName: "CustomerId", targetName: "Id" }]);
+  });
+
+  it("keeps source and relationship edges between the same entities distinct and merges source mappings", () => {
+    const current = entity(1, "Order", [
+      { sourceLocation: 2, mapping: [{ sourceName: "Id", targetName: "CustomerId" }] },
+      { sourceLocation: 2, mapping: [{ sourceName: "Name", targetName: "CustomerName" }] },
+    ]);
+    current.content.relationships = [{ targetLocation: 2 }];
+    const graph = buildLineageGraph([current, entity(2, "Customer")], current, "both", 1, 80, { includeRelationships: true });
+    expect(graph.edges.map((edge) => edge.kind).sort()).toEqual(["relationship", "source"]);
+    expect(graph.edges.find((edge) => edge.kind === "source")?.mappings).toHaveLength(2);
+  });
+
+  it("marks missing relationship targets and respects the shared rendering cap", () => {
+    const current = entity(1, "Order");
+    current.content.relationships = [{ targetLocation: 404 }, { targetLocation: 405 }];
+    const graph = buildLineageGraph([current], current, "both", 1, 2, { includeRelationships: true });
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.nodes.find((node) => node.data.kind === "missing")?.data.context).toBe("Entity not found");
+    expect(graph.truncated).toBe(true);
+    expect(graph.edges).toHaveLength(1);
+  });
+
+  it.each([null, undefined, "", "   "])("resolves internal relationships when dataSource is %s", (dataSource) => {
+    const current = entity(10, "DimCustomer");
+    const consumer = entity(20, "Customer", [{ sourceLocation: 10 }]);
+    consumer.content.relationships = [{ dataSource, targetLocation: 3000 }];
+    const target = entity(3000, "RelatedCustomer");
+    const graph = buildLineageGraph([current, consumer, target], current, "both", 1, 80, { includeRelationships: true });
+    expect(labels(graph)).toEqual(["Customer", "DimCustomer", "RelatedCustomer"]);
+    expect(graph.nodes.every((node) => node.data.kind === "entity")).toBe(true);
+    const relationship = graph.edges.find((edge) => edge.kind === "relationship");
+    expect(relationship?.target).toBe(`entity:${target.relPath}`);
+  });
+
+  it("keeps real external numeric targets external even if an entity has that ID", () => {
+    const current = entity(1, "Order");
+    current.content.relationships = [{ dataSource: "CRM", targetLocation: "3000" }];
+    const graph = buildLineageGraph([current, entity(3000, "Customer")], current, "both", 1, 80, { includeRelationships: true });
+    expect(graph.nodes.find((node) => node.data.kind === "external")?.data).toMatchObject({ label: "3000", context: "CRM" });
+    expect(labels(graph)).not.toContain("Customer");
+  });
+
+  it("resolves numeric sources with an empty dataSource and preserves explicit incomplete external sources", () => {
+    const current = entity(1, "Order", [
+      { dataSource: null, sourceLocation: 2 },
+      { type: "external", dataSource: "", sourceLocation: "dbo.Order" },
+    ]);
+    const graph = buildLineageGraph([current, entity(2, "RawOrder")], current);
+    expect(labels(graph)).toEqual(["Order", "RawOrder", "dbo.Order"]);
+    expect(graph.nodes.find((node) => node.data.label === "RawOrder")?.data.kind).toBe("entity");
+    expect(graph.nodes.find((node) => node.data.label === "dbo.Order")?.data.context).toBe("Missing data source");
+  });
 });

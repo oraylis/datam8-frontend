@@ -62,12 +62,23 @@ Frontend uses root endpoints. There is no `/api/*` namespace and no Jobs/SSE lay
 The [consumer constraints](docs/backend-contract.md) distinguish implemented routes
 from historical parity entries. Do not infer route availability from old docs.
 
-## Entity Lineage (Overview)
+## Entity Lineage
 
-The entity Overview embeds a read-only React Flow graph below its identity fields.
+The single Lineage icon beside the entity name toggles between the section editor
+and a read-only React Flow graph. It is filled with the theme accent while active;
+another click restores the previous section and its navigation. The entity
+header/properties, sidebar and workspace tabs remain visible.
+Inline Direction / Depth controls are anchored inside the flow at the top right; the
+interactive Sources / Relationships legend is anchored inside the flow at the
+bottom right, above attribution and clear of the zoom controls. The active
+mode icon has an accessible label, pressed state and action tooltip.
+View switches use the existing autosave gate.
 `features/model/lineage/buildLineageGraph.ts` derives design-time data flow from
 loaded `sources[].sourceLocation` references and external data source/location
-pairs. Relationships are excluded. The current entity overlays its form draft;
+pairs. A separate, independently switchable relationship layer shows direct
+incoming and outgoing relationships around the visible source graph as dashed
+connections without data-flow arrows. Relationships never expand source traversal.
+The current entity overlays its form, attribute, source and relationship drafts;
 other entities use the loaded model state. This needs no additional HTTP route or
 schema field.
 
@@ -77,6 +88,9 @@ Missing or ambiguous internal references remain visible without navigation.
 A simple breadth-first column layout handles cycles without a layout dependency.
 Opening an internal node uses the existing entity navigation and autosave gate.
 Zoom, pan and filters do not modify model metadata or persist diagram positions.
+The current node has a collapsible Schema without an attribute count. Selecting
+an attribute highlights explicit source/relationship mappings and lists their
+endpoints. These interactions are read-only and do not infer SQL/Python lineage.
 
 ## Build & Runtime Notes
 

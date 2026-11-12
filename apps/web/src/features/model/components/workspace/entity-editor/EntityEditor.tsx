@@ -2,7 +2,7 @@ import type React from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyAssignment } from "@datam8/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Textarea } from "@datam8/ui";
-import { Check, ChevronDown, Minus, X } from "lucide-react";
+import { Check, ChevronDown, GitBranch, Minus, X } from "lucide-react";
 import type { EntitySection, ModelEntity, PropertyOption } from "../../../model-types";
 import { ActionButton } from "../common/ActionButton";
 import { EditorPanelHeader } from "../common/EditorPanelHeader";
@@ -85,6 +85,7 @@ type EntityEditorProps = {
   dataSourceDetails: Record<string, unknown>;
   attributeTypeOptions: { value: string; label: string }[];
   dataTypeDefinitions: Record<string, { hasCharLen?: boolean; hasPrecision?: boolean; hasScale?: boolean }>;
+  saveNow: () => Promise<boolean>;
   persistNow: (
     reason: "text-blur" | "dropdown-change" | "tab-switch" | "add-item" | "delete-item" | "undo-delete",
   ) => Promise<boolean>;
@@ -96,6 +97,7 @@ type EntityEditorProps = {
 export const EntityEditor = (props: EntityEditorProps) => {
   const { selectedEntity, mode, setMode, entitySection, setEntitySection, formState, setFormState, jsonText, setJsonText, setSaveError, attributes, setAttributes, sources, setSources, relationships, setRelationships, transformations, setTransformations, properties, setProperties, openAttributeDetails, setOpenAttributeDetails, openMappingDetails, setOpenMappingDetails, collapsedMappings, setCollapsedMappings, relationshipZones, setRelationshipZones, openTransformSources, setOpenTransformSources, transformSourceCache, setTransformSourceCache, transformSourceDirty, setTransformSourceDirty, markEntityDirty, propertyOptions, dataSourceOptions, dataSourceDetails, entityPropertyRows, entityInheritedProps, effectiveDataProduct, effectiveDataModule, zones, zoneFromRelPath, modelEntities, resolveEntityMetaById, resolveEntityNameById, transformKinds, normalizeTransformations, updateTransformation, reorderTransformations, dragTransformIndex, onJumpToEntity, onJumpToDataSource, dataTypes, solutionPath, attributeTypeOptions, dataTypeDefinitions, persistNow, persistAfterStateFlush } = props;
 
+  const [lineageOpen, setLineageOpen] = useState(false);
   const inheritedFolderSet = useMemo(
     () => new Set((entityInheritedProps?.folderProps || []).map((p) => `${p?.property || ""}`).filter(Boolean)),
     [entityInheritedProps],
@@ -103,8 +105,8 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const lineageEntity = useMemo(() => selectedEntity ? {
     ...selectedEntity,
-    content: { ...selectedEntity.content, ...formState, sources },
-  } : null, [selectedEntity, formState, sources]);
+    content: { ...selectedEntity.content, ...formState, sources, attributes, relationships },
+  } : null, [selectedEntity, formState, sources, attributes, relationships]);
 
   const entityPropertyChipItems = useMemo(
     (): PropertyChipItem[] =>
@@ -537,8 +539,28 @@ export const EntityEditor = (props: EntityEditorProps) => {
       <EditorPanelHeader
         eyebrow={selectedEntity.relPath}
         title={
-          <div className="panel__title-row">
+          <div className="panel__title-row panel__title-row--entity">
             <span className="panel__title-text panel__title-text--entity">{selectedEntity.name}</span>
+            {mode === "form" ? (
+              <div className="entity-view-switch">
+                <IconBtn
+                  type="button"
+                  className="entity-view-switch__button"
+                  aria-label="Lineage"
+                  title={lineageOpen ? "Back to editor" : "Show lineage"}
+                  aria-pressed={lineageOpen}
+                  aria-controls="entity-lineage-view"
+                  onClick={() => {
+                    void (async () => {
+                      if (!await props.saveNow()) return;
+                      setLineageOpen((open) => !open);
+                    })();
+                  }}
+                >
+                  <GitBranch size={15} fill={lineageOpen ? "currentColor" : "none"} aria-hidden="true" />
+                </IconBtn>
+              </div>
+            ) : null}
           </div>
         }
         meta={
@@ -573,21 +595,22 @@ export const EntityEditor = (props: EntityEditorProps) => {
           ) : null
         }
       />
-      <div className="panel__body panel__body--entity-editor" onBlurCapture={handleTextFieldBlurCapture}>
+      <div className={`panel__body panel__body--entity-editor ${mode === "form" && lineageOpen ? "panel__body--lineage" : ""}`} onBlurCapture={handleTextFieldBlurCapture}>
         {mode === "form" ? (
           <>
-            <div className="section-nav-row entity-section-nav-row">
+            {!lineageOpen ? <div className="section-nav-row entity-section-nav-row">
               <div className="section-nav">
                 {(["overview", "attributes", "sources", "relationships", "transformations"] as EntitySection[]).map((sec) => (
                   <button
                     key={sec}
-                    className={`section-nav__btn ${entitySection === sec ? "section-nav__btn--active" : ""}`}
+                    className={`section-nav__btn ${!lineageOpen && entitySection === sec ? "section-nav__btn--active" : ""}`}
                     onClick={() => {
-                      if (sec === entitySection) return;
+                      if (sec === entitySection && !lineageOpen) return;
                       void (async () => {
-                        const canSwitch = await persistNow("tab-switch");
+                        const canSwitch = await props.saveNow();
                         if (!canSwitch) return;
                         setEntitySection(sec);
+                        setLineageOpen(false);
                       })();
                     }}
                   >
@@ -705,7 +728,12 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   </ActionButton>
                 ) : null}
               </div>
-            </div>
+            </div> : null}
+            {lineageOpen && lineageEntity ? (
+              <Suspense fallback={<p role="status">Loading entity lineage…</p>}>
+                <EntityLineage key={selectedEntity.relPath} entities={modelEntities} current={lineageEntity} onOpenEntity={onJumpToEntity} />
+              </Suspense>
+            ) : <>
             {entitySection === "overview" && (
               <div className="stack">
                 <div className="form-shell form-shell--identity entity-overview-shell">
@@ -748,11 +776,6 @@ export const EntityEditor = (props: EntityEditorProps) => {
                 </div>
               </div>
             )}
-            {entitySection === "overview" && lineageEntity ? (
-              <Suspense fallback={<p role="status">Loading entity lineage…</p>}>
-                <EntityLineage key={selectedEntity.relPath} entities={modelEntities} current={lineageEntity} onOpenEntity={onJumpToEntity} />
-              </Suspense>
-            ) : null}
             {entitySection === "attributes" && (
               <div>
                 <div className="table entity-attributes-table">
@@ -902,6 +925,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   onDeleteTransformation={() => persistAfterStateFlush("delete-item")}
                 />
               )}
+            </>}
             </>
           ) : (
             <div>

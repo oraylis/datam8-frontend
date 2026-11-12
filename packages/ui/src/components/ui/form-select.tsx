@@ -10,6 +10,7 @@ export interface FormSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  "aria-label"?: string;
   allowUnknownValue?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   placeholder,
   disabled,
   className,
+  "aria-label": ariaLabel,
   allowUnknownValue = true,
 }) => {
   const [open, setOpen] = React.useState(false);
@@ -56,7 +58,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 
   return (
     <Select value={stringValue} onValueChange={handleValueChange} disabled={disabled} open={open} onOpenChange={setOpen}>
-      <SelectTrigger className={className}>
+      <SelectTrigger className={className} aria-label={ariaLabel}>
         <SelectValue placeholder={placeholder}>{selectedLabel || undefined}</SelectValue>
       </SelectTrigger>
       {open ? (

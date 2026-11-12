@@ -62,6 +62,22 @@ Frontend uses root endpoints. There is no `/api/*` namespace and no Jobs/SSE lay
 The [consumer constraints](docs/backend-contract.md) distinguish implemented routes
 from historical parity entries. Do not infer route availability from old docs.
 
+## Entity Lineage (Overview)
+
+The entity Overview embeds a read-only React Flow graph below its identity fields.
+`features/model/lineage/buildLineageGraph.ts` derives design-time data flow from
+loaded `sources[].sourceLocation` references and external data source/location
+pairs. Relationships are excluded. The current entity overlays its form draft;
+other entities use the loaded model state. This needs no additional HTTP route or
+schema field.
+
+The view defaults to one level upstream and downstream, offers direction and
+depth (1–3) filters, and caps rendering at 80 nodes with a truncation notice.
+Missing or ambiguous internal references remain visible without navigation.
+A simple breadth-first column layout handles cycles without a layout dependency.
+Opening an internal node uses the existing entity navigation and autosave gate.
+Zoom, pan and filters do not modify model metadata or persist diagram positions.
+
 ## Build & Runtime Notes
 
 - Dev: `npm run dev:desktop` expects the `submodules/datam8-generator/.venv` Python interpreter; an override must point to that environment's interpreter.

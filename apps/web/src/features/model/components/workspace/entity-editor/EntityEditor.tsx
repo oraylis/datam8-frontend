@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyAssignment } from "@datam8/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Textarea } from "@datam8/ui";
 import { Check, ChevronDown, Minus, X } from "lucide-react";
@@ -23,6 +23,8 @@ import type {
   EntityTransformation,
 } from "./types";
 import { HistoryType } from "../../../generated-schema-types.ts";
+
+const EntityLineage = lazy(() => import("../../../lineage/EntityLineage"));
 
 type EntityEditorProps = {
   selectedEntity: ModelEntity | null;
@@ -98,6 +100,11 @@ export const EntityEditor = (props: EntityEditorProps) => {
     () => new Set((entityInheritedProps?.folderProps || []).map((p) => `${p?.property || ""}`).filter(Boolean)),
     [entityInheritedProps],
   );
+
+  const lineageEntity = useMemo(() => selectedEntity ? {
+    ...selectedEntity,
+    content: { ...selectedEntity.content, ...formState, sources },
+  } : null, [selectedEntity, formState, sources]);
 
   const entityPropertyChipItems = useMemo(
     (): PropertyChipItem[] =>
@@ -741,6 +748,11 @@ export const EntityEditor = (props: EntityEditorProps) => {
                 </div>
               </div>
             )}
+            {entitySection === "overview" && lineageEntity ? (
+              <Suspense fallback={<p role="status">Loading entity lineage…</p>}>
+                <EntityLineage key={selectedEntity.relPath} entities={modelEntities} current={lineageEntity} onOpenEntity={onJumpToEntity} />
+              </Suspense>
+            ) : null}
             {entitySection === "attributes" && (
               <div>
                 <div className="table entity-attributes-table">

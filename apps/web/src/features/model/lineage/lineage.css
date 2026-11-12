@@ -1,0 +1,73 @@
+.entity-lineage {
+  min-width: 0;
+  margin-top: 6px;
+}
+
+.entity-lineage__toolbar,
+.entity-lineage__filters,
+.entity-lineage__caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.entity-lineage__toolbar { margin-bottom: 12px; }
+.entity-lineage__toolbar h3 { margin: 0 0 4px; font: var(--font-section-title); }
+.entity-lineage__toolbar p,
+.entity-lineage__caption { margin: 0; color: var(--muted); font: var(--font-helper); }
+.entity-lineage__filters label { display: grid; gap: 4px; font: var(--font-label); }
+.entity-lineage__filters select { min-height: 32px; width: auto; }
+.entity-lineage__caption { margin-top: 8px; }
+
+.entity-lineage__canvas {
+  height: 370px;
+  overflow: hidden;
+  border: 1px solid var(--editor-form-border);
+  border-radius: 8px;
+  background: var(--editor-form-surface-subtle);
+}
+
+.entity-lineage .react-flow {
+  --xy-background-color: var(--editor-form-surface-subtle);
+  --xy-edge-stroke: var(--muted);
+  --xy-edge-stroke-selected: var(--accent-strong);
+  --xy-controls-button-background-color: var(--panel);
+  --xy-controls-button-background-color-hover: var(--surface);
+  --xy-controls-button-color: var(--text);
+  --xy-controls-button-color-hover: var(--text);
+  --xy-controls-button-border-color: var(--border);
+  --xy-attribution-background-color: var(--panel);
+}
+
+.entity-lineage .react-flow__attribution a { color: var(--muted); }
+.entity-lineage .react-flow__controls-button { border-radius: 0; padding: 5px; }
+.entity-lineage .react-flow__node:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+
+.lineage-node {
+  width: 228px;
+  padding: 12px 14px;
+  border: 1px solid var(--editor-form-border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--editor-form-surface);
+  font: var(--font-body);
+  box-shadow: 0 2px 6px #0000000d;
+}
+
+.lineage-node--focus { border: 2px solid var(--accent-strong); padding: 11px 13px; }
+.lineage-node--external { border-style: dashed; }
+.lineage-node--missing { border-color: var(--danger); }
+.lineage-node__context,
+.lineage-node strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lineage-node__context { font: var(--font-helper); color: var(--muted); margin-bottom: 4px; }
+.lineage-node__footer { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 22px; margin-top: 6px; font: var(--font-helper); color: var(--muted); }
+.lineage-node__open { display: inline-flex; align-items: center; gap: 3px; border: 0; padding: 2px 4px; background: transparent; color: var(--text); font: var(--font-helper); cursor: pointer; }
+.lineage-node__open:hover { background: var(--accent-subtle); }
+.lineage-node .react-flow__handle { width: 7px; height: 7px; background: var(--muted); border: 1px solid var(--panel); }
+
+@media (max-width: 760px) {
+  .entity-lineage__filters { width: 100%; justify-content: flex-start; }
+  .entity-lineage__canvas { height: 320px; }
+}

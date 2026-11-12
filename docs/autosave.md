@@ -170,7 +170,9 @@ For base types with follow-up actions (`zones`, `dataProducts`, `properties`), l
 Entity section navigation and the Lineage toggle use the editor's `saveNow`
 callback. They await an in-flight blur save and any queued newer revision before
 replacing section content. A failed save leaves the current section and draft open.
-Lineage filters, schema expansion and attribute inspection do not write metadata.
+Lineage filters, folder grouping, highlighting, schema expansion and
+attribute inspection do not write metadata. Layout runs in a worker and only
+caches geometry; closing the view cancels pending layout work.
 
 If tabs remain dirty due to save errors:
 - closing a tab asks for confirmation (`Pending Sync`),

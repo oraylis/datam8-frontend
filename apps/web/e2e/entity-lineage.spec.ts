@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { ModelEntity } from "../src/features/model/model-types";
+import { createDenseLineage, createMixedLineage, lineageEntity } from "../src/features/model/lineage/testing/fixtures";
 
-async function loadLineageFixture(page: Page, failSave = false, openLineage = true) {
+async function loadLineageFixture(page: Page, failSave = false, openLineage = true, fixture?: { entities: ModelEntity[]; focus: string }) {
   const entity = (id: number, name: string, sources: Record<string, unknown>[] = []) => ({
     locator: `/Model/Stage/${name}`, relPath: `Model/Stage/${name}.json`, name,
     content: { id, name, displayName: name, sources, attributes: [] },
@@ -20,6 +22,7 @@ async function loadLineageFixture(page: Page, failSave = false, openLineage = tr
         attributes: [
           { name: "OrderId", dataType: { type: "int", nullable: false }, isBusinessKey: true, history: "SCD1" },
           { name: "CustomerId", dataType: { type: "int", nullable: true } },
+          { name: "Comment", dataType: { type: "string", nullable: true } },
         ],
         relationships: [{ targetLocation: 5, attributes: [{ sourceName: "CustomerId", targetName: "Id" }] }],
       } },
@@ -32,6 +35,8 @@ async function loadLineageFixture(page: Page, failSave = false, openLineage = tr
     ],
     folderEntities: [],
   };
+  if (fixture) payload.modelEntities = fixture.entities as typeof payload.modelEntities;
+  const focus = fixture?.focus ?? "Orders";
   const writes: unknown[] = [];
   await page.route("**/config", (route) => route.fulfill({ json: { mode: "server" } }));
   await page.route("**/solution/inspect**", (route) => route.fulfill({ json: { version: "v2" } }));
@@ -51,11 +56,12 @@ async function loadLineageFixture(page: Page, failSave = false, openLineage = tr
   await page.getByPlaceholder("Absolute path to .dm8s").fill("C:/disposable/Lineage.dm8s");
   await page.getByRole("button", { name: "Load", exact: true }).click();
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
-  await page.getByRole("textbox", { name: "Filter model entities" }).fill("Orders");
-  await page.getByRole("button", { name: "Orders", exact: true }).first().click();
+  await page.getByRole("textbox", { name: "Filter model entities" }).fill(focus);
+  await page.getByRole("button", { name: focus, exact: true }).first().click();
   if (openLineage) {
     await page.getByRole("button", { name: "Lineage", exact: true }).click();
     await expect(page.getByRole("region", { name: "Entity lineage" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Entity lineage" })).toHaveAttribute("aria-busy", "false");
   }
   return writes;
 }
@@ -72,6 +78,9 @@ test("Lineage replaces the editor content with direction/depth filters and read-
   const lineage = page.getByRole("region", { name: "Entity lineage" });
   await expect(page.getByRole("button", { name: "Lineage", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByPlaceholder("Entity name", { exact: true })).toHaveCount(0);
+  await expect(lineage.getByText("Model entity", { exact: true })).toHaveCount(0);
+  await expect(lineage.getByText("Current entity", { exact: true })).toHaveCount(0);
+  await expect(lineage.locator(".lineage-node--focus")).toHaveCSS("border-top-width", "3px");
   await lineage.getByRole("checkbox", { name: "Relationships", exact: true }).uncheck();
   await expect(lineage.getByRole("button", { name: "Open entity RawOrders", exact: true })).toBeVisible();
   await expect(lineage.getByRole("button", { name: "Open entity OrderMart", exact: true })).toBeVisible();
@@ -84,6 +93,7 @@ test("Lineage replaces the editor content with direction/depth filters and read-
   await page.screenshot({ path: "output/playwright/entity-lineage-depth-menu.png" });
   await page.getByRole("option", { name: "2 levels", exact: true }).click();
   await expect(lineage.getByText("dbo.Orders", { exact: true })).toBeVisible();
+  await expect(lineage.getByText("External source", { exact: true })).toBeVisible();
   await selectLineageOption(page, "Lineage direction", "Upstream");
   await expect(lineage.getByRole("button", { name: "Open entity OrderMart" })).toHaveCount(0);
   await selectLineageOption(page, "Lineage direction", "Downstream");
@@ -219,7 +229,7 @@ test("Schema stays clean and attribute selection highlights explicit relationshi
   const lineage = page.getByRole("region", { name: "Entity lineage" });
   await expect(lineage.getByRole("button", { name: "Open entity Customer", exact: true })).toBeVisible();
   const relationship = lineage.locator(".lineage-edge--relationship");
-  await expect(relationship).toHaveCount(2);
+  await expect(relationship).toHaveCount(1);
   await expect(relationship.locator(".react-flow__edge-path").first()).toHaveCSS("stroke-dasharray", "6px, 4px");
   await expect(relationship.locator(".react-flow__edge-path").first()).not.toHaveAttribute("marker-end");
   await expect(lineage.getByText("Missing data source", { exact: true })).toHaveCount(0);
@@ -230,10 +240,26 @@ test("Schema stays clean and attribute selection highlights explicit relationshi
   await expect(schema).toHaveText("Schema");
   await expect(lineage.getByRole("button", { name: "Inspect attribute CustomerId", exact: true })).toBeVisible();
   await lineage.getByRole("button", { name: "Inspect attribute CustomerId", exact: true }).click();
-  await expect(lineage.getByText("Orders.CustomerId → Customer.Id (Relationship)", { exact: true })).toBeVisible();
+  await expect(relationship.locator(".react-flow__edge-path")).toHaveCSS("stroke-width", "3px");
+  await expect(lineage.locator(".lineage-edge--source .react-flow__edge-path").first()).toHaveCSS("opacity", "0.15");
+  const expectNoMappingArea = async () => {
+    await expect(lineage.getByText(/No explicit mappings|\(Source mapping\)|\(Relationship\)/)).toHaveCount(0);
+    const section = (await lineage.boundingBox())!;
+    const canvas = (await lineage.locator(".entity-lineage__canvas").boundingBox())!;
+    expect(Math.abs(section.y + section.height - canvas.y - canvas.height)).toBeLessThan(1);
+  };
+  await expectNoMappingArea();
   await page.screenshot({ path: "output/playwright/entity-lineage-schema-mapping.png" });
   await lineage.getByRole("button", { name: "Inspect attribute OrderId", exact: true }).click();
-  await expect(lineage.getByText("RawOrders.Id → Orders.OrderId (Source mapping)", { exact: true })).toBeVisible();
+  await expect.poll(() => lineage.locator(".lineage-edge--source .react-flow__edge-path").evaluateAll((paths) => paths.filter((path) => (path as SVGElement).style.strokeWidth === "3").length)).toBe(1);
+  await expect(relationship.locator(".react-flow__edge-path")).toHaveCSS("opacity", "0.15");
+  await expectNoMappingArea();
+  const unmapped = lineage.getByRole("button", { name: "Inspect attribute Comment", exact: true });
+  await unmapped.click();
+  await expect(unmapped).toHaveAttribute("aria-pressed", "true");
+  await expectNoMappingArea();
+  await unmapped.click();
+  await expect(relationship.locator(".react-flow__edge-path")).toHaveCSS("opacity", "1");
   await lineage.getByRole("checkbox", { name: "Relationships", exact: true }).uncheck();
   await expect(lineage.getByRole("button", { name: "Open entity Customer", exact: true })).toHaveCount(0);
   await lineage.getByRole("checkbox", { name: "Sources", exact: true }).uncheck();
@@ -243,5 +269,183 @@ test("Schema stays clean and attribute selection highlights explicit relationshi
   await expect(lineage.locator(".react-flow__node")).toHaveCount(2);
   await schema.click();
   await expect(lineage.getByRole("button", { name: "Inspect attribute CustomerId", exact: true })).toHaveCount(0);
+  expect(writes).toHaveLength(0);
+});
+
+test("Mixed lineage uses depth for scope, shows only current relationships and keeps orthogonal routing and highlighting", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const entities = createMixedLineage();
+  const delivery = lineageEntity(9, "Delivery", "Consumer/Sales");
+  delivery.content.sources = [{ sourceLocation: 8 }];
+  entities.push(delivery);
+  entities[3].content.attributes = Array.from({ length: 20 }, (_, index) => ({ name: `Column${index}`, dataType: { type: "int", nullable: true }, history: "SCD2" }));
+  const writes = await loadLineageFixture(page, false, true, { entities, focus: "DimCustomer" });
+  const lineage = page.getByRole("region", { name: "Entity lineage" });
+  await expect(lineage.getByRole("button", { name: "Open entity Delivery", exact: true })).toHaveCount(0);
+  await expect(lineage.getByRole("button", { name: /(?:Expand|Collapse) dependencies for/ })).toHaveCount(0);
+  await expect(lineage.getByRole("button", { name: "Open entity SalesOrder", exact: true })).toHaveCount(0);
+  await selectLineageOption(page, "Lineage depth", "3 levels");
+  await expect(lineage.getByRole("button", { name: "Open entity Delivery", exact: true })).toBeVisible();
+  await selectLineageOption(page, "Lineage depth", "2 levels");
+  await expect(lineage.getByRole("button", { name: "Open entity Delivery", exact: true })).toHaveCount(0);
+  await expect(lineage.getByRole("button", { name: "Open entity SalesOrder", exact: true })).toBeVisible();
+  await expect(lineage.getByRole("button", { name: "Open entity DimDate", exact: true })).toHaveCount(0);
+  await expect(lineage.locator(".lineage-edge--relationship")).toHaveCount(2);
+  const focusId = `entity:${entities[3].relPath}`;
+  expect(await lineage.locator(".lineage-edge--relationship").evaluateAll((edges, focus) => edges.every((edge) => {
+    const [source, target] = JSON.parse(edge.getAttribute("data-id")!.slice("relationship:".length));
+    return source === focus || target === focus;
+  }), focusId)).toBe(true);
+  // Layout completion must not detach an already-open menu.
+  await selectLineageOption(page, "Lineage direction", "Upstream");
+  await selectLineageOption(page, "Lineage direction", "Downstream");
+  await selectLineageOption(page, "Lineage direction", "Upstream & downstream");
+  await expect(lineage).toHaveAttribute("aria-busy", "false");
+  await expect(lineage.locator(".react-flow__node")).toHaveCount(7);
+  const assertRoutes = async () => {
+    const geometry = await lineage.evaluate((root) => {
+      const nodes = [...root.querySelectorAll<HTMLElement>(".react-flow__node")].map((node) => {
+        const match = node.style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/)!;
+        return { x: Number(match[1]), y: Number(match[2]), width: node.offsetWidth, height: node.offsetHeight,
+          ports: [...node.querySelectorAll<HTMLElement>(".react-flow__handle")].map((port) => ({ x: Number(match[1]) + parseFloat(port.style.left), y: Number(match[2]) + parseFloat(port.style.top) })) };
+      });
+      const paths = [...root.querySelectorAll<SVGPathElement>(".react-flow__edge-path")].map((path) => [...path.getAttribute("d")!.matchAll(/[ML]([-\d.]+),([-\d.]+)/g)].map((match) => ({ x: Number(match[1]), y: Number(match[2]) })));
+      return { nodes, paths };
+    });
+    expect(geometry.paths).toHaveLength(8);
+    const ports = geometry.nodes.flatMap((node) => node.ports);
+    for (const points of geometry.paths) {
+      for (const endpoint of [points[0], points.at(-1)!]) expect(ports.some((port) => Math.hypot(endpoint.x - port.x, endpoint.y - port.y) < 0.1)).toBe(true);
+      for (let index = 1; index < points.length; index++) {
+        const a = points[index - 1]; const b = points[index];
+        expect(a.x === b.x || a.y === b.y).toBe(true);
+        for (const node of geometry.nodes) {
+          const crosses = a.x === b.x
+            ? a.x > node.x + 0.1 && a.x < node.x + node.width - 0.1 && Math.max(a.y, b.y) > node.y + 0.1 && Math.min(a.y, b.y) < node.y + node.height - 0.1
+            : a.y > node.y + 0.1 && a.y < node.y + node.height - 0.1 && Math.max(a.x, b.x) > node.x + 0.1 && Math.min(a.x, b.x) < node.x + node.width - 0.1;
+          expect(crosses).toBe(false);
+        }
+      }
+    }
+  };
+  await assertRoutes();
+  const canvas = lineage.locator(".entity-lineage__canvas");
+  await expect.poll(async () => {
+    const box = (await canvas.boundingBox())!;
+    const cards = await lineage.locator(".react-flow__node").all();
+    for (const card of cards) {
+      const bounds = (await card.boundingBox())!;
+      if (bounds.x < box.x || bounds.y < box.y || bounds.x + bounds.width > box.x + box.width || bounds.y + bounds.height > box.y + box.height) return false;
+    }
+    return true;
+  }).toBe(true);
+  await page.screenshot({ path: "output/playwright/entity-lineage-elk-mixed.png" });
+  await lineage.getByRole("button", { name: "Highlight connections for Address", exact: true }).click();
+  const paths = lineage.locator(".react-flow__edge-path");
+  await expect.poll(async () => paths.evaluateAll((items) => items.filter((item) => (item as SVGElement).style.opacity === "0.15").length)).toBeGreaterThan(0);
+  await expect.poll(async () => paths.evaluateAll((items) => items.filter((item) => (item as SVGElement).style.strokeWidth === "3").length)).toBe(1);
+  await lineage.getByRole("button", { name: "Schema", exact: true }).click();
+  await expect(lineage.getByRole("button", { name: "Inspect attribute Column0", exact: true })).toBeVisible();
+  await assertRoutes();
+  expect(await lineage.locator(".lineage-node__schema").evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await page.screenshot({ path: "output/playwright/entity-lineage-elk-schema.png" });
+  await selectLineageOption(page, "Lineage direction", "Downstream");
+  await expect(lineage.getByRole("button", { name: "Highlight connections for Address", exact: true })).toHaveCount(0);
+  await expect.poll(async () => paths.evaluateAll((items) => items.filter((item) => (item as SVGElement).style.opacity === "0.15").length)).toBe(0);
+  expect(writes).toHaveLength(0);
+});
+
+test("Dense neighborhoods start grouped, expand in bounded pages and reset without writing metadata", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const writes = await loadLineageFixture(page, false, true, { entities: createDenseLineage(100), focus: "Entity99" });
+  const lineage = page.getByRole("region", { name: "Entity lineage" });
+  const groups = lineage.locator(".lineage-node--group");
+  const initialNodes = await lineage.locator(".react-flow__node").count();
+  expect(initialNodes).toBeLessThan(20);
+  await expect(groups.first()).toBeVisible();
+  await groups.first().getByRole("button", { name: /Show entities in/ }).click();
+  await expect(lineage).toHaveAttribute("aria-busy", "false", { timeout: 16_000 });
+  await expect.poll(() => lineage.locator(".react-flow__node").count()).toBeGreaterThan(initialNodes);
+  expect(await lineage.locator(".react-flow__node").count()).toBeLessThanOrEqual(80);
+  expect(await lineage.locator(".react-flow__edge-path").count()).toBeLessThanOrEqual(160);
+  console.log(`Dense browser layout: ${await lineage.getAttribute("data-layout-ms")} ms`);
+  await page.screenshot({ path: "output/playwright/entity-lineage-elk-dense.png" });
+  await lineage.getByRole("button", { name: "Reset groups", exact: true }).click();
+  await expect(lineage.locator(".react-flow__node")).toHaveCount(initialNodes);
+  expect(writes).toHaveLength(0);
+});
+
+test("A worker startup failure offers a retry and leaves the editor available", async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    const failures = { enabled: true };
+    Object.assign(window, { lineageWorkerFailures: failures });
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        if (failures.enabled) throw new Error("Fixture worker startup failure");
+        super(url, options);
+      }
+    };
+  });
+  const writes = await loadLineageFixture(page);
+  const lineage = page.getByRole("region", { name: "Entity lineage" });
+  await expect(lineage.getByRole("alert")).toContainText("Could not arrange lineage");
+  await page.evaluate(() => { (window as unknown as { lineageWorkerFailures: { enabled: boolean } }).lineageWorkerFailures.enabled = false; });
+  await lineage.getByRole("button", { name: "Retry layout", exact: true }).click();
+  await expect(lineage.getByRole("button", { name: "Open entity RawOrders", exact: true })).toBeVisible();
+  await expect(lineage.getByRole("alert")).toHaveCount(0);
+  await page.getByRole("button", { name: "Lineage", exact: true }).click();
+  await expect(page.getByPlaceholder("Entity name", { exact: true })).toHaveValue("Orders");
+  expect(writes).toHaveLength(0);
+});
+
+test("Recalculation keeps the graph visible, reuses the warm worker and restores cached views immediately", async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    const runtime = { starts: 0, slow: false, emptyGraphObserved: false };
+    Object.assign(window, { lineageTestRuntime: runtime });
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) { super(url, options); runtime.starts++; }
+      postMessage(message: unknown) {
+        if (runtime.slow && (message as { cmd?: string }).cmd === "layout") setTimeout(() => super.postMessage(message), 500);
+        else super.postMessage(message);
+      }
+    };
+  });
+  const writes = await loadLineageFixture(page);
+  const lineage = page.getByRole("region", { name: "Entity lineage" });
+  const initialCount = await lineage.locator(".react-flow__node").count();
+  await page.evaluate(() => {
+    const runtime = (window as unknown as { lineageTestRuntime: { slow: boolean; emptyGraphObserved: boolean } }).lineageTestRuntime;
+    runtime.slow = true;
+    const root = document.querySelector("#entity-lineage-view")!;
+    new MutationObserver(() => {
+      if (!root.querySelector(".react-flow__node")) runtime.emptyGraphObserved = true;
+    }).observe(root, { childList: true, subtree: true });
+  });
+  await selectLineageOption(page, "Lineage depth", "2 levels");
+  await expect(lineage).toHaveAttribute("aria-busy", "true");
+  await expect(lineage.locator(".react-flow__node")).toHaveCount(initialCount);
+  await expect(lineage.getByText("Updating lineage…", { exact: true })).toBeVisible();
+  await expect(lineage.getByText("dbo.Orders", { exact: true })).toBeVisible();
+  await expect(lineage).toHaveAttribute("aria-busy", "false");
+  expect(await page.evaluate(() => (window as unknown as { lineageTestRuntime: { starts: number } }).lineageTestRuntime.starts)).toBe(1);
+  // Superseded work must not replace the final filter selection.
+  await selectLineageOption(page, "Lineage direction", "Upstream");
+  await selectLineageOption(page, "Lineage direction", "Downstream");
+  await expect(lineage).toHaveAttribute("aria-busy", "false");
+  await expect(lineage.getByRole("button", { name: "Open entity OrderMart", exact: true })).toBeVisible();
+  await expect(lineage.getByRole("button", { name: "Open entity RawOrders", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { lineageTestRuntime: { emptyGraphObserved: boolean } }).lineageTestRuntime.emptyGraphObserved)).toBe(false);
+  await selectLineageOption(page, "Lineage direction", "Upstream & downstream");
+  await selectLineageOption(page, "Lineage depth", "1 level");
+  await expect(lineage).toHaveAttribute("aria-busy", "false");
+  await expect(lineage.locator(".react-flow__node")).toHaveCount(initialCount);
+  const starts = await page.evaluate(() => (window as unknown as { lineageTestRuntime: { starts: number } }).lineageTestRuntime.starts);
+  await page.getByRole("button", { name: "Lineage", exact: true }).click();
+  await page.getByRole("button", { name: "Lineage", exact: true }).click();
+  await expect(lineage).toHaveAttribute("aria-busy", "false");
+  await expect(lineage.getByText("Arranging lineage…", { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { lineageTestRuntime: { starts: number } }).lineageTestRuntime.starts)).toBe(starts);
   expect(writes).toHaveLength(0);
 });

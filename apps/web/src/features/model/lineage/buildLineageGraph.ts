@@ -4,10 +4,13 @@ export type LineageDirection = "both" | "upstream" | "downstream";
 export type LineageNodeData = {
   label: string;
   context: string;
-  kind: "entity" | "external" | "missing";
+  kind: "entity" | "external" | "missing" | "group";
   relPath?: string;
   focused?: boolean;
   schema?: ModelEntity["content"]["attributes"];
+  level?: number;
+  groupId?: string;
+  memberCount?: number;
 };
 export type LineageNode = {
   id: string;
@@ -15,7 +18,29 @@ export type LineageNode = {
   position: { x: number; y: number };
 };
 export type LineageMapping = { sourceName: string; targetName: string };
-export type LineageEdge = { id: string; source: string; target: string; kind: "source" | "relationship"; label?: string; mappings: LineageMapping[] };
+export type LineageEdge = { id: string; source: string; target: string; kind: "source" | "relationship"; label?: string; mappings: LineageMapping[]; members?: LineageEdge[] };
+export type LineageIndex = {
+  focus: string;
+  nodes: Map<string, LineageNode>;
+  edges: Map<string, LineageEdge>;
+  incoming: Map<string, string[]>;
+  outgoing: Map<string, string[]>;
+  relationships: Map<string, LineageEdge[]>;
+};
+export type LineageViewOptions = {
+  includeSources?: boolean;
+  includeRelationships?: boolean;
+  groupExpansion?: Readonly<Record<string, number>>;
+  autoGroup?: boolean;
+  maxEdges?: number;
+};
+export type LineageGraph = {
+  nodes: LineageNode[];
+  edges: LineageEdge[];
+  truncated: boolean;
+  omittedNodes: number;
+  omittedEdges: number;
+};
 
 function readMappings(value: unknown): LineageMapping[] {
   if (!Array.isArray(value)) return [];
@@ -29,15 +54,8 @@ function readMappings(value: unknown): LineageMapping[] {
 const entityKey = (entity: ModelEntity) => `entity:${entity.relPath}`;
 const normalizePath = (path: string) => path.replace(/\\/g, "/").replace(/^\//, "").replace(/\.json$/i, "");
 
-/** Design-time source lineage with a separate, non-transitive relationship layer. */
-export function buildLineageGraph(
-  entities: ModelEntity[],
-  current: ModelEntity,
-  direction: LineageDirection = "both",
-  depth = 1,
-  maxNodes = 80,
-  options: { includeSources?: boolean; includeRelationships?: boolean } = {},
-) {
+/** Index loaded metadata once; filters and folder grouping only query this index. */
+export function createLineageIndex(entities: ModelEntity[], current: ModelEntity): LineageIndex {
   // The open editor owns the latest draft of the current entity.
   const all = [...entities.filter((entity) => entity.relPath !== current.relPath), current];
   const byId = new Map<string, ModelEntity[]>();
@@ -46,6 +64,7 @@ export function buildLineageGraph(
   const edges = new Map<string, LineageEdge>();
   const incoming = new Map<string, string[]>();
   const outgoing = new Map<string, string[]>();
+  const relationships = new Map<string, LineageEdge[]>();
   const focus = entityKey(current);
 
   for (const entity of all) {
@@ -111,12 +130,14 @@ export function buildLineageGraph(
         continue;
       }
       edges.set(id, { id, source: sourceId, target, kind: "source", mappings });
-      incoming.set(target, [...(incoming.get(target) ?? []), sourceId]);
-      outgoing.set(sourceId, [...(outgoing.get(sourceId) ?? []), target]);
+      if (!incoming.has(target)) incoming.set(target, []);
+      if (!outgoing.has(sourceId)) outgoing.set(sourceId, []);
+      incoming.get(target)!.push(sourceId);
+      outgoing.get(sourceId)!.push(target);
     }
   }
 
-  if (options.includeRelationships) for (const entity of all) {
+  for (const entity of all) {
     for (const [index, relationship] of (entity.content.relationships ?? []).entries()) {
       if (!relationship || typeof relationship !== "object") continue;
       const owner = entityKey(entity);
@@ -147,12 +168,21 @@ export function buildLineageGraph(
         label: typeof relationship.alias === "string" && relationship.alias ? relationship.alias : "Relationship",
         mappings: readMappings(relationship.mappings ?? relationship.attributes),
       });
+      for (const endpoint of new Set([owner, target])) {
+        if (!relationships.has(endpoint)) relationships.set(endpoint, []);
+        relationships.get(endpoint)!.push(edges.get(id)!);
+      }
     }
   }
 
-  // Independent breadth-first walks keep upstream/downstream scope precise and terminate on cycles.
+  return { focus, nodes, edges, incoming, outgoing, relationships };
+}
+
+/** Depth controls source traversal; relationships connect only to the current entity. */
+export function selectLineageGraph(index: LineageIndex, direction: LineageDirection = "both", depth = 1, maxNodes = 80, options: LineageViewOptions = {}): LineageGraph {
+  const { focus, nodes, edges, incoming, outgoing, relationships } = index;
+  const budget = Math.max(1, maxNodes);
   const levels = new Map<string, number>([[focus, 0]]);
-  let truncated = false;
   const walk = (adjacency: Map<string, string[]>, sign: number) => {
     const visited = new Set([focus]);
     let frontier = [focus];
@@ -163,10 +193,6 @@ export function buildLineageGraph(
           if (visited.has(neighbor)) continue;
           visited.add(neighbor);
           if (!levels.has(neighbor)) {
-            if (levels.size >= Math.max(1, maxNodes)) {
-              truncated = true;
-              continue;
-            }
             levels.set(neighbor, sign * distance);
           }
           next.push(neighbor);
@@ -180,25 +206,87 @@ export function buildLineageGraph(
     if (direction !== "upstream") walk(outgoing, 1);
   }
 
-  // Relationships add immediate context around the source graph, never new source traversal paths.
+  // Capture the source scope before adding direct relationships, so relationship
+  // neighbors never become traversal anchors or add unrelated source connections.
   const sourceScope = new Map(levels);
-  const visibleRelationshipIds = new Set<string>();
-  for (const edge of edges.values()) {
-    if (edge.kind !== "relationship") continue;
-    const anchor = sourceScope.has(edge.source) ? edge.source : sourceScope.has(edge.target) ? edge.target : null;
-    if (!anchor) continue;
-    const neighbor = anchor === edge.source ? edge.target : edge.source;
-    if (!levels.has(neighbor)) {
-      if (levels.size >= Math.max(1, maxNodes)) { truncated = true; continue; }
-      const anchorLevel = sourceScope.get(anchor)!;
-      levels.set(neighbor, anchorLevel === 0 ? (anchor === edge.source ? 1 : -1) : anchorLevel + Math.sign(anchorLevel));
-    }
-    visibleRelationshipIds.add(edge.id);
+  const visibleRelationships = options.includeRelationships ? relationships.get(focus) ?? [] : [];
+  for (const edge of visibleRelationships) {
+    const neighbor = edge.source === focus ? edge.target : edge.source;
+    if (!levels.has(neighbor)) levels.set(neighbor, edge.source === focus ? 1 : -1);
   }
 
-  const columns = new Map<number, LineageNode[]>();
+  const rawEdges: LineageEdge[] = [];
+  if (options.includeSources !== false) for (const target of sourceScope.keys()) {
+    for (const source of incoming.get(target) ?? []) if (sourceScope.has(source)) rawEdges.push(edges.get(JSON.stringify([source, target]))!);
+  }
+  rawEdges.push(...visibleRelationships);
+  const renderIds = new Map<string, string>();
+  const candidates = new Map<string, LineageNode>();
+  const buckets = new Map<string, string[]>();
   for (const [id, level] of levels) {
     const node = nodes.get(id)!;
+    const key = `folder:${JSON.stringify([level, node.data.context])}`;
+    if (!node.data.focused && node.data.kind === "entity" && options.autoGroup && levels.size > 40) {
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(id);
+    }
+  }
+  for (const [groupId, members] of buckets) {
+    if (members.length < 4) continue;
+    members.sort((a, b) => nodes.get(a)!.data.label.localeCompare(nodes.get(b)!.data.label) || a.localeCompare(b));
+    const shown = Math.max(0, options.groupExpansion?.[groupId] ?? 0);
+    const hidden = members.slice(shown);
+    if (!hidden.length) continue;
+    const first = nodes.get(hidden[0])!;
+    candidates.set(groupId, {
+      id: groupId, position: { x: 0, y: 0 },
+      data: { kind: "group", label: first.data.context.split(" / ").at(-1) || "Model", context: first.data.context, level: levels.get(hidden[0]), groupId, memberCount: hidden.length },
+    });
+    for (const id of hidden) renderIds.set(id, groupId);
+  }
+  for (const [id, level] of levels) {
+    if (renderIds.has(id)) continue;
+    renderIds.set(id, id);
+    const node = nodes.get(id)!;
+    candidates.set(id, { ...node, data: { ...node.data, level }, position: { x: level * 360, y: 0 } });
+  }
+  const ranked = [...candidates.values()].sort((a, b) => Number(!!b.data.focused) - Number(!!a.data.focused)
+    || Math.abs(a.data.level ?? 0) - Math.abs(b.data.level ?? 0)
+    || Number(!!b.data.groupId) - Number(!!a.data.groupId)
+    || a.id.localeCompare(b.id));
+  const retained = new Set(ranked.slice(0, budget).map((node) => node.id));
+  const groupedEdges = new Map<string, LineageEdge>();
+  for (const edge of rawEdges) {
+    const source = renderIds.get(edge.source)!;
+    const target = renderIds.get(edge.target)!;
+    if (!retained.has(source) || !retained.has(target)) continue;
+    if (source === target && source !== edge.source) continue;
+    const grouped = source !== edge.source || target !== edge.target;
+    const id = grouped ? `grouped:${JSON.stringify([edge.kind, source, target])}` : edge.id;
+    if (groupedEdges.has(id)) groupedEdges.get(id)!.members!.push(edge);
+    else groupedEdges.set(id, { ...edge, id, source, target, ...(grouped ? { members: [edge], mappings: [] } : {}) });
+  }
+  const allVisibleEdges = [...groupedEdges.values()].sort((a, b) => Number(b.source === focus || b.target === focus) - Number(a.source === focus || a.target === focus)
+    || Number(a.kind === "relationship") - Number(b.kind === "relationship") || a.id.localeCompare(b.id));
+  // Folder summaries can still form a dense mesh. Keep a focused view sparse
+  // enough to inspect, prioritizing the current entity before other context.
+  const edgeBudget = Math.max(1, Math.min(options.maxEdges ?? 160, options.autoGroup ? Math.max(24, retained.size * 2) : Infinity));
+  const boundedEdges = allVisibleEdges.slice(0, edgeBudget);
+  const connected = new Set([focus]);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const edge of boundedEdges) {
+      if (connected.has(edge.source) === connected.has(edge.target)) continue;
+      connected.add(edge.source);
+      connected.add(edge.target);
+      changed = true;
+    }
+  }
+  const visibleEdges = boundedEdges.filter((edge) => connected.has(edge.source) && connected.has(edge.target));
+  const visibleNodes = ranked.slice(0, budget).filter((node) => connected.has(node.id));
+  const columns = new Map<number, LineageNode[]>();
+  for (const node of visibleNodes) {
+    const level = node.data.level ?? 0;
     columns.set(level, [...(columns.get(level) ?? []), node]);
   }
   for (const [level, column] of columns) {
@@ -207,9 +295,11 @@ export function buildLineageGraph(
       node.position = { x: level * 310, y: (index - (column.length - 1) / 2) * 112 };
     });
   }
-  const visibleNodes = [...columns.values()].flat();
-  const visibleEdges = [...edges.values()].filter((edge) => edge.kind === "relationship"
-    ? visibleRelationshipIds.has(edge.id)
-    : options.includeSources !== false && sourceScope.has(edge.source) && sourceScope.has(edge.target));
-  return { nodes: visibleNodes, edges: visibleEdges, truncated };
+  const omittedNodes = ranked.length - visibleNodes.length;
+  const omittedEdges = allVisibleEdges.length - visibleEdges.length;
+  return { nodes: visibleNodes, edges: visibleEdges, truncated: omittedNodes > 0 || omittedEdges > 0, omittedNodes, omittedEdges };
+}
+
+export function buildLineageGraph(entities: ModelEntity[], current: ModelEntity, direction: LineageDirection = "both", depth = 1, maxNodes = 80, options: LineageViewOptions = {}): LineageGraph {
+  return selectLineageGraph(createLineageIndex(entities, current), direction, depth, maxNodes, options);
 }

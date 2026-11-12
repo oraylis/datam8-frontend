@@ -25,6 +25,10 @@ import type {
 import { HistoryType } from "../../../generated-schema-types.ts";
 
 const EntityLineage = lazy(() => import("../../../lineage/EntityLineage"));
+const prepareLineage = () => {
+  void import("../../../lineage/EntityLineage").catch(() => {});
+  void import("../../../lineage/lineageLayoutRuntime").then(({ warmLineageLayout }) => warmLineageLayout()).catch(() => {});
+};
 
 type EntityEditorProps = {
   selectedEntity: ModelEntity | null;
@@ -550,7 +554,10 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   title={lineageOpen ? "Back to editor" : "Show lineage"}
                   aria-pressed={lineageOpen}
                   aria-controls="entity-lineage-view"
+                  onMouseEnter={prepareLineage}
+                  onFocus={prepareLineage}
                   onClick={() => {
+                    if (!lineageOpen) prepareLineage();
                     void (async () => {
                       if (!await props.saveNow()) return;
                       setLineageOpen((open) => !open);

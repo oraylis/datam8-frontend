@@ -143,7 +143,7 @@ describe("entity source lineage", () => {
     const consumer = entity(20, "Customer", [{ sourceLocation: 10 }]);
     consumer.content.relationships = [{ dataSource, targetLocation: 3000 }];
     const target = entity(3000, "RelatedCustomer");
-    const graph = buildLineageGraph([current, consumer, target], current, "both", 1, 80, { includeRelationships: true });
+    const graph = buildLineageGraph([current, consumer, target], consumer, "both", 1, 80, { includeRelationships: true });
     expect(labels(graph)).toEqual(["Customer", "DimCustomer", "RelatedCustomer"]);
     expect(graph.nodes.every((node) => node.data.kind === "entity")).toBe(true);
     const relationship = graph.edges.find((edge) => edge.kind === "relationship");

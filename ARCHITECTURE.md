@@ -76,21 +76,49 @@ View switches use the existing autosave gate.
 `features/model/lineage/buildLineageGraph.ts` derives design-time data flow from
 loaded `sources[].sourceLocation` references and external data source/location
 pairs. A separate, independently switchable relationship layer shows direct
-incoming and outgoing relationships around the visible source graph as dashed
-connections without data-flow arrows. Relationships never expand source traversal.
+incoming and outgoing relationships of the current entity as dashed connections
+without data-flow arrows. Relationships between other entities are omitted even
+when both endpoints are visible. Relationships never expand source traversal.
 The current entity overlays its form, attribute, source and relationship drafts;
 other entities use the loaded model state. This needs no additional HTTP route or
 schema field.
 
-The view defaults to one level upstream and downstream, offers direction and
-depth (1–3) filters, and caps rendering at 80 nodes with a truncation notice.
+Loaded metadata is indexed by reference and adjacency once per model/draft update;
+direction, depth, layer and folder grouping changes query the index. The view
+defaults to one level upstream and downstream; Direction and Depth (1–3) are the
+only controls for source traversal. Entity nodes have no Explore/Collapse action.
+Large neighborhoods (over 40 entities) summarize folders within each
+level when at least four members share a folder. Show entities reveals up to 12
+members at a time; Reset groups restores the folder summaries without changing
+direction or depth.
+Rendering is bounded at 80 nodes and 160 edges with a truncation notice. The focus
+and its incident edges have priority; disconnected fragments are omitted. The
+interactive view also limits edge density to twice the node count (at least 24,
+at most 160 connections), so folder summaries cannot create an unrestricted mesh.
 Missing or ambiguous internal references remain visible without navigation.
-A simple breadth-first column layout handles cycles without a layout dependency.
+`layoutLineageGraph.ts` prepares an ELK layered, orthogonal layout with separate
+ports per edge: sources connect east/west and relationships south/north. React Flow
+renders ELK's actual bend points rather than independently calculating edge paths.
+Node dimensions include schema expansion and port spacing. The initial viewport
+includes routed edge extents. `useLineageLayout.ts` runs ELK in a Vite worker,
+terminates superseded requests and ignores late results. `LineageLayoutRunner`
+reuses the worker across completed requests, releases it after 60 seconds idle,
+and caches 32 geometry results without drafts or navigation callbacks. Hovering or
+focusing the mode button preloads the view and warms the worker. Cached layouts
+render immediately; rapid changes are coalesced for 40 ms. During recalculation,
+the previous graph and its matching schema geometry remain visible. A progress
+hint appears only after 250 ms. Layout failure/timeout offers a retry; filters and
+the editor toggle remain available during layout.
 Opening an internal node uses the existing entity navigation and autosave gate.
 Zoom, pan and filters do not modify model metadata or persist diagram positions.
+Selecting an entity name highlights its incident connections and dims other paths.
 The current node has a collapsible Schema without an attribute count. Selecting
-an attribute highlights explicit source/relationship mappings and lists their
-endpoints. These interactions are read-only and do not infer SQL/Python lineage.
+an attribute highlights explicit source/relationship mappings in the graph;
+no mapping detail panel is shown below it. These interactions are read-only and
+do not infer SQL/Python lineage.
+Self-contained routing fixtures cover branching, cycles, parallel edges, self loops,
+expanded schemas and dense bounded views. Selection tests include a 10,000-entity
+index; this is coverage of bounded exploration, not an unlimited-size guarantee.
 
 ## Build & Runtime Notes
 

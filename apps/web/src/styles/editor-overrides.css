@@ -32,6 +32,10 @@
   color: hsl(var(--ui-primary-foreground));
 }
 
+.entity-view-switch__button[aria-pressed="true"] svg circle {
+  fill: currentColor;
+}
+
 @media (pointer: coarse) {
   .entity-view-switch .entity-view-switch__button {
     width: 44px;

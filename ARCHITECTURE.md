@@ -65,7 +65,8 @@ from historical parity entries. Do not infer route availability from old docs.
 ## Entity Lineage
 
 The single Lineage icon beside the entity name toggles between the section editor
-and a read-only React Flow graph. It is filled with the theme accent while active;
+and a read-only React Flow graph. Its button uses the theme accent while active,
+with filled circular nodes and unfilled connecting paths;
 another click restores the previous section and its navigation. The entity
 header/properties, sidebar and workspace tabs remain visible.
 Inline Direction / Depth controls are anchored inside the flow at the top right; the

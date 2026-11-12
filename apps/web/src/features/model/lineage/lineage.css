@@ -1,4 +1,5 @@
 .entity-lineage {
+  --lineage-canvas-bg: var(--workspace-main-bg, var(--editor-form-surface-subtle));
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
@@ -19,7 +20,7 @@
 .entity-lineage__legend,
 .entity-lineage__filter-panel {
   padding: 8px 10px;
-  background: var(--editor-form-surface);
+  background: var(--lineage-canvas-bg);
   color: var(--text);
   font: var(--font-helper);
 }
@@ -41,19 +42,19 @@
   overflow: hidden;
   border: 1px solid var(--editor-form-border);
   border-radius: 8px;
-  background: var(--editor-form-surface-subtle);
+  background: var(--lineage-canvas-bg);
 }
 
 .entity-lineage .react-flow {
-  --xy-background-color: var(--editor-form-surface-subtle);
+  --xy-background-color: var(--lineage-canvas-bg);
   --xy-edge-stroke: var(--muted);
   --xy-edge-stroke-selected: var(--accent-strong);
-  --xy-controls-button-background-color: var(--panel);
+  --xy-controls-button-background-color: var(--lineage-canvas-bg);
   --xy-controls-button-background-color-hover: var(--surface);
   --xy-controls-button-color: var(--text);
   --xy-controls-button-color-hover: var(--text);
   --xy-controls-button-border-color: var(--border);
-  --xy-attribution-background-color: var(--panel);
+  --xy-attribution-background-color: var(--lineage-canvas-bg);
 }
 
 .entity-lineage .react-flow__attribution a { color: var(--muted); }
@@ -102,7 +103,7 @@
 .lineage-node__attribute-type { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lineage-node__attribute-flags { grid-column: 1 / -1; }
 .lineage-node__empty { height: 30px; margin: 0; font: var(--font-helper); color: var(--muted); }
-.entity-lineage__status { max-width: calc(100% - 24px); padding: 6px 8px; background: var(--editor-form-surface); color: var(--muted); font: var(--font-helper); }
+.entity-lineage__status { max-width: calc(100% - 24px); padding: 6px 8px; background: var(--lineage-canvas-bg); color: var(--muted); font: var(--font-helper); }
 .entity-lineage__status button { padding: 3px 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--editor-form-surface); color: var(--text); font: var(--font-helper); cursor: pointer; }
 
 @media (max-width: 760px) {

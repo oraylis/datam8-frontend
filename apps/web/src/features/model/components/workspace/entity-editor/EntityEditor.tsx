@@ -564,7 +564,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                     })();
                   }}
                 >
-                  <GitBranch size={15} fill={lineageOpen ? "currentColor" : "none"} aria-hidden="true" />
+                  <GitBranch size={15} fill="none" aria-hidden="true" />
                 </IconBtn>
               </div>
             ) : null}

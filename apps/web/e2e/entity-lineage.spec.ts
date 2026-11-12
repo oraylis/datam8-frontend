@@ -109,6 +109,11 @@ test("Lineage replaces the editor content with direction/depth filters and read-
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(lineage.locator(".react-flow")).toHaveClass(/dark/);
   await expect(lineage.locator(".lineage-node--focus")).toHaveCSS("background-color", "rgb(39, 39, 39)");
+  const surroundingColor = await page.locator(".editor-panel").evaluate((element) => getComputedStyle(element).backgroundColor);
+  await expect(lineage.locator(".entity-lineage__canvas")).toHaveCSS("background-color", surroundingColor);
+  await expect(lineage.locator(".react-flow")).toHaveCSS("background-color", surroundingColor);
+  await expect(lineage.getByRole("group", { name: "Lineage filters", exact: true })).toHaveCSS("background-color", surroundingColor);
+  await expect(lineage.getByRole("group", { name: "Lineage legend", exact: true })).toHaveCSS("background-color", surroundingColor);
   await expect(lineage.getByRole("button", { name: "Open entity OrderMart" })).toBeVisible();
   await selectLineageOption(page, "Lineage direction", "Upstream & downstream");
   await expect(lineage.getByText("dbo.Orders", { exact: true })).toBeVisible();
@@ -173,7 +178,11 @@ test("Lineage keeps the entity header, properties, sidebar and work tabs in plac
   await expect(lineage).toBeVisible();
   await expect(button).toHaveAttribute("aria-pressed", "true");
   await expect(button).toHaveAttribute("title", "Back to editor");
-  await expect(button.locator("svg")).toHaveAttribute("fill", "currentColor");
+  await expect(button.locator("svg")).toHaveAttribute("fill", "none");
+  await expect(button.locator("svg path")).toHaveCSS("fill", "none");
+  await expect(button.locator("svg circle")).toHaveCount(2);
+  await expect(button.locator("svg circle").first()).toHaveCSS("fill", await button.evaluate((element) => getComputedStyle(element).color));
+  await button.screenshot({ path: "output/playwright/entity-lineage-icon-active.png" });
   expect(await button.evaluate((element) => getComputedStyle(element).color)).not.toBe(inactiveColor);
   expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(inactiveBackground);
   await expect(page.locator(".entity-section-nav-row")).toHaveCount(0);
@@ -213,6 +222,7 @@ test("Lineage keeps the entity header, properties, sidebar and work tabs in plac
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "false");
   await expect(button.locator("svg")).toHaveAttribute("fill", "none");
+  await expect(button.locator("svg circle").first()).toHaveCSS("fill", "none");
   await expect(page.getByRole("button", { name: "Add Attribute", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Attributes", exact: true })).toHaveClass(/active/);
   await button.click();
@@ -396,6 +406,36 @@ test("A worker startup failure offers a retry and leaves the editor available", 
   await expect(lineage.getByRole("alert")).toHaveCount(0);
   await page.getByRole("button", { name: "Lineage", exact: true }).click();
   await expect(page.getByPlaceholder("Entity name", { exact: true })).toHaveValue("Orders");
+  expect(writes).toHaveLength(0);
+});
+
+test("Returning to a failed filter clears the stale error while arranging the requested view", async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    const failures = { enabled: true };
+    Object.assign(window, { lineageWorkerFailures: failures });
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        if (failures.enabled) throw new Error("Fixture worker startup failure");
+        super(url, options);
+      }
+      postMessage(message: unknown) {
+        if ((message as { cmd?: string }).cmd === "layout") setTimeout(() => super.postMessage(message), 1500);
+        else super.postMessage(message);
+      }
+    };
+  });
+  const writes = await loadLineageFixture(page);
+  const lineage = page.getByRole("region", { name: "Entity lineage" });
+  await expect(lineage.getByRole("alert")).toBeVisible();
+  await page.evaluate(() => { (window as unknown as { lineageWorkerFailures: { enabled: boolean } }).lineageWorkerFailures.enabled = false; });
+  await selectLineageOption(page, "Lineage direction", "Upstream");
+  await expect(lineage).toHaveAttribute("aria-busy", "true");
+  await selectLineageOption(page, "Lineage direction", "Upstream & downstream");
+  await expect(lineage).toHaveAttribute("aria-busy", "true");
+  await expect(lineage.getByRole("alert")).toHaveCount(0);
+  await expect(lineage.getByRole("button", { name: "Open entity OrderMart", exact: true })).toBeVisible();
+  await expect(lineage).toHaveAttribute("aria-busy", "false");
   expect(writes).toHaveLength(0);
 });
 

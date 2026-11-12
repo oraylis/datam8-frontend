@@ -21,6 +21,10 @@ export function useLineageLayout(graph: LineageGraph, schemaOpen: boolean) {
   }, [graph, schemaOpen, layout]);
   useEffect(() => {
     if (lineageLayoutRunner.peek(key)) return;
+    // Returning to a failed view starts fresh work; its old error must not
+    // suppress aria-busy or remain visible during the new request.
+    setState({ key });
+    setIndicatorKey("");
     let active = true;
     let cancel: (() => void) | undefined;
     // Coalesce rapid changes and React StrictMode's initial effect replay.

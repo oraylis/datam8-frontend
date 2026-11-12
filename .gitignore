@@ -5,6 +5,7 @@ node_modules
 .cache
 .playwright-cli/
 output/playwright/
+apps/web/test-results/
 dist
 artifacts
 

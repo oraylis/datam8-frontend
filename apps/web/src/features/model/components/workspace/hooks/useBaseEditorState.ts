@@ -107,6 +107,7 @@ export const useBaseEditorState = ({
   const draftRelPathRef = useRef<string | null>(null);
   const lastBaseRelRef = useRef<string | null>(null);
   const lastBaseContentKeyRef = useRef<string>("");
+  const submittedBaseRef = useRef<{ relPath: string; contentKey: string } | null>(null);
   const lastHandledBaseItemRequestRef = useRef<number | null>(null);
   const selectedItemByRelPathRef = useRef<Record<string, string | null>>({});
   const hydratingSelectionRef = useRef<boolean>(false);
@@ -217,8 +218,13 @@ export const useBaseEditorState = ({
       return;
     }
 
-    const isSyncedPatch = !relChanged && baseChanged && baseDraft && deepEqual(combinedContent, baseDraft);
+    // Our save can publish an older snapshot while the user is already editing a newer draft.
+    const isSaveAcknowledgement = submittedBaseRef.current?.relPath === selectedBase.relPath &&
+      submittedBaseRef.current.contentKey === baseContentKey;
+    const isSyncedPatch = !relChanged && baseChanged &&
+      (isSaveAcknowledgement || (baseDraft && deepEqual(combinedContent, baseDraft)));
     if (isSyncedPatch) {
+      if (isSaveAcknowledgement) submittedBaseRef.current = null;
       draftRelPathRef.current = selectedBase.relPath;
       lastBaseRelRef.current = selectedBase.relPath;
       lastBaseContentKeyRef.current = baseContentKey;
@@ -654,23 +660,27 @@ export const useBaseEditorState = ({
         return false;
       }
 
+      const saveStartedRevision = changeRevisionRef.current;
+      submittedBaseRef.current = { relPath: selectedBase.relPath, contentKey: JSON.stringify(content || {}) };
       const saveResult = await onSaveBase({ ...latest, content });
+      const hasNewerChanges = changeRevisionRef.current !== saveStartedRevision;
       originalBaseRef.current = cloneDeep(content);
       lastBaseContentKeyRef.current = JSON.stringify(content || {});
-      if (usedLatestFallback) {
+      if (usedLatestFallback && !hasNewerChanges) {
         setBaseDraft(content);
         setBaseJsonText(JSON.stringify(content, null, 2));
         draftRelPathRef.current = selectedBase.relPath;
       }
       setBaseSaveStatus("success");
-      skipNextDirtyRef.current = true;
-      baseDirtyRef.current = false;
-      onDirtyBase(selectedBase.relPath, false);
+      skipNextDirtyRef.current = !hasNewerChanges;
+      baseDirtyRef.current = hasNewerChanges;
+      onDirtyBase(selectedBase.relPath, hasNewerChanges);
       setTimeout(() => setBaseSaveStatus("idle"), 1500);
       console.log(`[DataM8] Base entity saved: ${selectedBase.relPath}`);
       onSaveNotification?.(saveResult?.notificationStatus ?? "saved");
       return true;
     } catch (err) {
+      submittedBaseRef.current = null;
       console.error("[DataM8] Base entity save failed:", err);
       setBaseSaveStatus("error");
       setBaseSaveError((err as Error).message);

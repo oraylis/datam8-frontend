@@ -437,6 +437,15 @@ test("typing connection values keeps secret availability stable without rechecki
     await route.fulfill({ status: 200, json: null });
   });
 
+  let releaseFirstWrite!: () => void;
+  const firstWriteWait = new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+  const savedHosts: string[] = [];
+  await page.route("**/entities/dataSources/MyDb", async (route) => {
+    savedHosts.push(route.request().postDataJSON().extendedProperties.host);
+    if (savedHosts.length === 1) await firstWriteWait;
+    await route.fulfill({ status: 200, json: { item: { ok: true } } });
+  });
+
   await loadSolutionFromDialog(page);
   await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
@@ -455,7 +464,19 @@ test("typing connection values keeps secret availability stable without rechecki
     await expect(hostInput).toBeFocused();
     await expect(availableBadge).toBeVisible();
     expect(secretChecks).toEqual([{ path: secretPath }]);
+    if (expectedHost === "db.") {
+      await expect.poll(() => savedHosts).toEqual([expectedHost]);
+    } else if (expectedHost === "db.e") {
+      // Complete an older save only after a newer character has reached the draft.
+      releaseFirstWrite();
+      await expect.poll(() => savedHosts.at(-1)).toBe(expectedHost);
+      await expect(hostInput).toHaveValue(expectedHost);
+    }
   }
+  await expect.poll(() => savedHosts.at(-1)).toBe(expectedHost);
+  await expect(hostInput).toHaveValue(expectedHost);
+  await expect(hostInput).toBeFocused();
+  expect(secretChecks).toEqual([{ path: secretPath }]);
 });
 
 test("surfaces validation errors for hidden fields (e.g. auth.mode)", async ({ page }) => {

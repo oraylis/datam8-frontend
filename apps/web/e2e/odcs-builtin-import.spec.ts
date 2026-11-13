@@ -1,5 +1,5 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
@@ -202,6 +202,27 @@ test("generic imports preserve provider descriptions and legacy mappings with a 
   });
   expect(compared.ok()).toBe(true);
   expect((await compared.json()).has_changes).toBe(false);
+
+  const contractPath = path.join(root, "contracts/nested/deeper/orders #1.yaml");
+  const applySourceDescription = async (description: string) => {
+    const updatedContract = JSON.parse(readFileSync(contractPath, "utf8"));
+    updatedContract.schema[0].description = description;
+    writeFileSync(contractPath, JSON.stringify(updatedContract), "utf8");
+
+    await page.getByRole("button", { name: "Refresh data sources" }).click();
+    const refreshDialog = page.getByRole("dialog");
+    await refreshDialog.getByRole("button", { name: "Scan selected sources" }).click();
+    await refreshDialog.getByRole("button", { name: /Apply selection/ }).click();
+    await expect(refreshDialog.getByText(/Updated 1 entities/)).toBeVisible();
+    await refreshDialog.getByRole("button", { name: "Close" }).click();
+
+    return JSON.parse(
+      readFileSync(path.join(root, "Model/Stage/Imported/Customers.json"), "utf8"),
+    );
+  };
+  expect((await applySourceDescription("Updated customer master")).description)
+    .toBe("Updated customer master");
+  expect((await applySourceDescription("")).description).toBe("");
 
   const csvDialog = await openImport("Csv");
   await expect(csvDialog.getByRole("checkbox")).toHaveCount(1);

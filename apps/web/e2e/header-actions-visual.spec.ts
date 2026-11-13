@@ -547,6 +547,7 @@ test("schema review lists only entities with generator changes and starts collap
 test("contract refresh selects one entity and applies sources only or complete", async ({ page }) => {
   const payload = createMockSolutionPayload();
   const entity = payload.modelEntities[0].content as any;
+  entity.description = "Existing entity description";
   entity.properties = [{ property: "write_mode", value: "merge" }];
   entity.sources = [
     { dataSource: "CRM", sourceLocation: "physical_a", metadataLocation: "contract_a", mapping: [] },
@@ -561,6 +562,7 @@ test("contract refresh selects one entity and applies sources only or complete",
       has_changes: true,
       wrapper: { entity: {
         attributes: [{ name: "CustomerId" }, { name: "NewAttribute" }],
+        description: null,
         properties: [{ property: "write_mode", value: "partition_replace" }],
         sources: [
           { dataSource: "CRM", sourceLocation: "new_a", metadataLocation: "contract_a", mapping: [] },
@@ -586,6 +588,7 @@ test("contract refresh selects one entity and applies sources only or complete",
   expect(modes).toEqual(["sources-only"]);
   expect(saved[0].sources.map((source: any) => source.metadataLocation)).toEqual(["contract_a", "contract_b"]);
   expect(saved[0].attributes).toEqual(entity.attributes);
+  expect(saved[0].description).toBe("Existing entity description");
   expect(saved[0].properties).toEqual(entity.properties);
   await dialog.getByRole("button", { name: "Close" }).click();
 
@@ -597,6 +600,7 @@ test("contract refresh selects one entity and applies sources only or complete",
   await expect(dialog.getByText(/Updated 1 entities/)).toBeVisible();
   expect(modes).toEqual(["sources-only", "complete"]);
   expect(saved[1].attributes.map((attribute: any) => attribute.name)).toEqual(["CustomerId", "NewAttribute"]);
+  expect(saved[1].description).toBeNull();
   expect(saved[1].properties[0].value).toBe("partition_replace");
 });
 

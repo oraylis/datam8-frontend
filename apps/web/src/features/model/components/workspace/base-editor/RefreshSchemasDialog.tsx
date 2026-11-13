@@ -511,6 +511,7 @@ export const RefreshSchemasDialog = ({
         }
         if (refreshMode === "complete" && diff.refreshedEntity) {
           nextContent.attributes = structuredClone(diff.refreshedEntity.attributes);
+          nextContent.description = structuredClone(diff.refreshedEntity.description);
           nextContent.properties = structuredClone(diff.refreshedEntity.properties);
           nextContent.sources = structuredClone(diff.refreshedEntity.sources);
           nextByEntity.set(diff.entityRelPath, nextContent);

@@ -401,6 +401,63 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
   expect(secretPuts[0]).toMatchObject({ path: "datasources/MyDb/password", value: "supersecret" });
 });
 
+test("typing connection values keeps secret availability stable without rechecking", async ({ page }) => {
+  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
+  const secretPath = "datasources/MyDb/password";
+  const solutionPayload = createMockSolutionPayload({
+    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
+    dataSources: [{
+      name: "MyDb",
+      type: "MyDbType",
+      extendedProperties: { authMode: "basic", host: "db", password: `ref://${secretPath}` },
+    }],
+  });
+
+  await mockApi(page, counters, {
+    solutionPayload,
+    connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true } }],
+    uiSchemasById: {
+      sqlserver: {
+        title: "SQL Server connection",
+        authModes: [{
+          id: "basic",
+          label: "Username/Password",
+          fields: [
+            { key: "host", label: "Host", type: "string", required: true },
+            { key: "password", label: "Password", type: "secret", required: true },
+          ],
+        }],
+      },
+    },
+  });
+
+  const secretChecks: unknown[] = [];
+  await page.route("**/secrets/check", async (route) => {
+    secretChecks.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, json: null });
+  });
+
+  await loadSolutionFromDialog(page);
+  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
+  await clickBaseItem(page, "MyDb");
+  const availableBadge = page.getByText("Secret available", { exact: true });
+  await expect(availableBadge).toBeVisible();
+  expect(secretChecks).toEqual([{ path: secretPath }]);
+
+  const hostInput = page.locator('label:has-text("Host")').locator("..").locator("input");
+  await hostInput.focus();
+  await hostInput.press("End");
+  let expectedHost = "db";
+  for (const character of ".example.invalid") {
+    await hostInput.press(character);
+    expectedHost += character;
+    await expect(hostInput).toHaveValue(expectedHost);
+    await expect(hostInput).toBeFocused();
+    await expect(availableBadge).toBeVisible();
+    expect(secretChecks).toEqual([{ path: secretPath }]);
+  }
+});
+
 test("surfaces validation errors for hidden fields (e.g. auth.mode)", async ({ page }) => {
   const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const solutionPayload = createMockSolutionPayload({

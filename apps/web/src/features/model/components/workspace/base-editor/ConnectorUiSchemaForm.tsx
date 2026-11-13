@@ -199,9 +199,12 @@ export function ConnectorUiSchemaForm(props: {
   }, [schema, selectedMode]);
 
   const secretFields = useMemo(() => modeFields.filter((field) => field.type === "secret"), [modeFields]);
+  // Keep availability checks independent of edits to unrelated connection values.
+  const secretPathsKey = JSON.stringify(secretFields.map((field) => secretPathFromRef(asString(value?.[field.key]))));
 
   useEffect(() => {
     let canceled = false;
+    const secretPaths = JSON.parse(secretPathsKey) as Array<string | null>;
     if (!secretFields.length) {
       setSecretState({});
       setSecretError({});
@@ -209,8 +212,8 @@ export function ConnectorUiSchemaForm(props: {
     }
 
     const run = async () => {
-      const checks = secretFields.map(async (field) => {
-        const refPath = secretPathFromRef(asString(value?.[field.key]));
+      const checks = secretFields.map(async (field, index) => {
+        const refPath = secretPaths[index];
         if (!refPath) {
           return { key: field.key, state: "missing" as const, error: null as string | null };
         }
@@ -237,8 +240,8 @@ export function ConnectorUiSchemaForm(props: {
     };
 
     const initial: Record<string, "checking" | "available" | "missing" | "error"> = {};
-    secretFields.forEach((field) => {
-      const hasRef = !!secretPathFromRef(asString(value?.[field.key]));
+    secretFields.forEach((field, index) => {
+      const hasRef = !!secretPaths[index];
       initial[field.key] = hasRef ? "checking" : "missing";
     });
     setSecretState(initial);
@@ -247,7 +250,7 @@ export function ConnectorUiSchemaForm(props: {
     return () => {
       canceled = true;
     };
-  }, [secretFields, value, dataSourceName]);
+  }, [secretFields, secretPathsKey, dataSourceName]);
 
   const setValueKey = useCallback(
     (key: string, nextValue: unknown) => {

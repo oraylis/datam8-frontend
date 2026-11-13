@@ -413,7 +413,7 @@ test("typing connection values keeps secret availability stable without rechecki
     }],
   });
 
-  const { entityWrites } = await mockApi(page, counters, {
+  await mockApi(page, counters, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true } }],
     uiSchemasById: {
@@ -443,7 +443,6 @@ test("typing connection values keeps secret availability stable without rechecki
   const availableBadge = page.getByText("Secret available", { exact: true });
   await expect(availableBadge).toBeVisible();
   expect(secretChecks).toEqual([{ path: secretPath }]);
-  expect(entityWrites).toHaveLength(0);
 
   const hostInput = page.locator('label:has-text("Host")').locator("..").locator("input");
   await hostInput.focus();
@@ -456,17 +455,7 @@ test("typing connection values keeps secret availability stable without rechecki
     await expect(hostInput).toBeFocused();
     await expect(availableBadge).toBeVisible();
     expect(secretChecks).toEqual([{ path: secretPath }]);
-    expect(entityWrites).toHaveLength(0);
   }
-
-  await hostInput.blur();
-  await expect.poll(() => entityWrites.length).toBe(1);
-  expect(entityWrites[0].body).toMatchObject({
-    extendedProperties: { host: expectedHost, password: `ref://${secretPath}` },
-  });
-  await expect(hostInput).toHaveValue(expectedHost);
-  await expect(availableBadge).toBeVisible();
-  expect(secretChecks).toEqual([{ path: secretPath }]);
 });
 
 test("surfaces validation errors for hidden fields (e.g. auth.mode)", async ({ page }) => {

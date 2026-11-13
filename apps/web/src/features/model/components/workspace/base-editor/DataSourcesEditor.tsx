@@ -509,8 +509,8 @@ export const DataSourcesEditor = React.memo((props: DataSourcesEditorProps) => {
                 value={connectionConfig}
                 onChange={(next) => {
                   updateField("extendedProperties", next);
+                  onCommit("dropdown-change");
                 }}
-                onCommit={() => onCommit("dropdown-change")}
               />
             </div>
           ) : (

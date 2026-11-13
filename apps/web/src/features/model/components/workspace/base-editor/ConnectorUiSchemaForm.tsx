@@ -111,9 +111,8 @@ export function ConnectorUiSchemaForm(props: {
   showSchemaVersion?: boolean;
   value: Record<string, any>;
   onChange: (next: Record<string, any>) => void;
-  onCommit?: () => void;
 }) {
-  const { connectorId, solutionPath, dataSourceName, onRegisterValidate, showSchemaTitle = true, value, onChange, onCommit } = props;
+  const { connectorId, solutionPath, dataSourceName, onRegisterValidate, showSchemaTitle = true, value, onChange } = props;
   const schemaRequestKey = useMemo(() => `${solutionPath || ""}::${connectorId || ""}`, [connectorId, solutionPath]);
   const [schemaState, setSchemaState] = useState<{ key: string; schema: ConnectorUiSchema | null }>({
     key: schemaRequestKey,
@@ -254,19 +253,20 @@ export function ConnectorUiSchemaForm(props: {
   }, [secretFields, secretPathsKey, dataSourceName]);
 
   const setValueKey = useCallback(
-    (key: string, nextValue: unknown, commit = false) => {
+    (key: string, nextValue: unknown) => {
       setValidationSummary(null);
       const current = value || {};
       const existingMode = readAuthMode(current);
       const modePatch = !existingMode && selectedMode ? { authMode: selectedMode } : {};
       const raw = asString(nextValue);
-      const next: Record<string, any> = { ...current, ...modePatch };
-      if (!raw.trim()) delete next[key];
-      else next[key] = raw;
-      onChange(next);
-      if (commit) onCommit?.();
+      if (!raw.trim()) {
+        const { [key]: _removed, ...rest } = current;
+        onChange({ ...rest, ...modePatch });
+        return;
+      }
+      onChange({ ...current, ...modePatch, [key]: raw });
     },
-    [onChange, onCommit, selectedMode, value],
+    [onChange, selectedMode, value],
   );
 
   const doValidate = useCallback(async () => {
@@ -284,7 +284,7 @@ export function ConnectorUiSchemaForm(props: {
     async (key: string) => {
       const draft = `${secretDrafts[key] ?? ""}`.trim();
       if (!draft) {
-        setValueKey(key, "", true);
+        setValueKey(key, "");
         return;
       }
       const path = secretPathFor(dataSourceName, key);
@@ -292,7 +292,7 @@ export function ConnectorUiSchemaForm(props: {
       setSecretError((prev) => ({ ...prev, [key]: null }));
       try {
         await setSecret(path, draft);
-        setValueKey(key, secretRefFromPath(path), true);
+        setValueKey(key, secretRefFromPath(path));
         setSecretDrafts((prev) => ({ ...prev, [key]: "" }));
         setSecretState((prev) => ({ ...prev, [key]: "available" }));
       } catch (err: any) {
@@ -331,7 +331,6 @@ export function ConnectorUiSchemaForm(props: {
             setValidationSummary(null);
             if (modeId === selectedMode) return;
             onChange(valueForExplicitModeChange(modeId, value));
-            onCommit?.();
           }}
           options={(schema.authModes || []).map((m) => ({ value: m.id, label: m.label || m.id }))}
           allowUnknownValue
@@ -356,7 +355,7 @@ export function ConnectorUiSchemaForm(props: {
               <div key={key}>
                 <div className="toggle-field toggle-field--inline">
                   <div className="toggle-field__label">{label}</div>
-                  <Checkbox checked={checked} onCheckedChange={(v) => setValueKey(key, v === true ? "true" : "false", true)} />
+                  <Checkbox checked={checked} onCheckedChange={(v) => setValueKey(key, v === true ? "true" : "false")} />
                 </div>
               </div>
             );
@@ -368,7 +367,7 @@ export function ConnectorUiSchemaForm(props: {
                 <label>{label}</label>
                 <FormSelect
                   value={raw}
-                  onChange={(val) => setValueKey(key, val, true)}
+                  onChange={(val) => setValueKey(key, val)}
                   options={(f.enum || []).map((v) => ({ value: v, label: v }))}
                   allowUnknownValue={false}
                 />

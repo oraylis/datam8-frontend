@@ -1751,7 +1751,8 @@ export function AppShell() {
       const baseSaved = await Promise.all(
         [...new Set([...patchedBasePayloadRef.current.keys(), ...patchedBaseInFlightRef.current.keys()])].map(flushPatchedBaseAutosave),
       );
-      flushSync(() => {});
+      // Commit the completed saves and dirty indicators before reading the snapshot.
+      flushSync(() => setWorkspaceSaving(false));
       return saved && !baseSaved.includes(false) && !workspaceSnapshotRef.current.hasAnyDirty;
     } finally {
       setWorkspaceSaving(false);
@@ -2541,7 +2542,13 @@ export function AppShell() {
                 onSelectTarget={setGeneratorTarget}
                 selectedLogLevel={generatorLogLevel}
                 onSelectLogLevel={setGeneratorLogLevel}
-                onRun={runGenerator}
+                onRun={async () => {
+                  if (!await persistWorkspaceEdits()) {
+                    showError("app", { title: "Unsaved changes", description: "Resolve unsaved changes before generating." });
+                    return;
+                  }
+                  await runGenerator();
+                }}
                 onClose={() => setActiveRunPanel(null)}
                 running={generatorRunning}
                 log={generatorLog}

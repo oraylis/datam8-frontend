@@ -212,3 +212,13 @@ When adding a new editable control:
 - `apps/web/src/shared/ui/toast-notification-behavior.test.ts`
 - `apps/web/src/features/model/refactor/baseSaveEffects.test.ts`
 
+
+## Quality fields
+
+Quality settings and confirmed rules use the same entity draft, revision and save
+queue. Rule dialogs commit only complete rules. Invalid failure percentages or
+quality references keep the entity dirty and display the error in the Quality
+section; generation flushes saves and refuses unresolved changes. Structured
+attribute references follow an attribute rename in the same draft. Deleting a
+referenced attribute is blocked until its rules are adjusted. SQL expressions
+remain authored text and must be reviewed after attribute renames.

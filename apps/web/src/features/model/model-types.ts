@@ -1,5 +1,5 @@
 import type { PropertyAssignment } from "@datam8/types";
-import { PropertyValue, Locator } from "./generated-schema-types.ts"
+import { PropertyValue, Locator, Quality } from "./generated-schema-types.ts"
 
 type LooseObject = Record<string, unknown>;
 
@@ -14,6 +14,7 @@ export type ModelEntityContent = LooseObject & {
   sources?: LooseObject[];
   relationships?: LooseObject[];
   transformations?: LooseObject[];
+  quality?: Quality;
   properties?: PropertyAssignment[];
 };
 
@@ -187,7 +188,7 @@ export type Tab = {
   kind: "entity" | "base" | "settings";
 };
 
-export type EntitySection = "overview" | "attributes" | "sources" | "relationships" | "transformations";
+export type EntitySection = "overview" | "attributes" | "sources" | "relationships" | "transformations" | "quality";
 
 export type ModelTab = { relPath: string; title: string; dirty: boolean };
 export type BaseTab = { relPath: string; title: string; dirty: boolean };

@@ -1,3 +1,6 @@
+import type { Quality } from "../../../generated-schema-types";
+import { EntityQualityEditor } from "./EntityQualityEditor";
+import { renameQualityAttribute } from "./quality";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyAssignment } from "@datam8/types";
@@ -43,6 +46,9 @@ type EntityEditorProps = {
   setRelationships: React.Dispatch<React.SetStateAction<EntityRelationship[]>>;
   transformations: EntityTransformation[];
   setTransformations: React.Dispatch<React.SetStateAction<EntityTransformation[]>>;
+  quality?: Quality;
+  setQuality: React.Dispatch<React.SetStateAction<Quality | undefined>>;
+  saveError?: string | null;
   properties: PropertyAssignment[];
   setProperties: React.Dispatch<React.SetStateAction<PropertyAssignment[]>>;
   openAttributeDetails: Record<string, boolean>;
@@ -92,7 +98,7 @@ type EntityEditorProps = {
 };
 
 export const EntityEditor = (props: EntityEditorProps) => {
-  const { selectedEntity, mode, setMode, entitySection, setEntitySection, formState, setFormState, jsonText, setJsonText, setSaveError, attributes, setAttributes, sources, setSources, relationships, setRelationships, transformations, setTransformations, properties, setProperties, openAttributeDetails, setOpenAttributeDetails, openMappingDetails, setOpenMappingDetails, collapsedMappings, setCollapsedMappings, relationshipZones, setRelationshipZones, openTransformSources, setOpenTransformSources, transformSourceCache, setTransformSourceCache, transformSourceDirty, setTransformSourceDirty, markEntityDirty, propertyOptions, dataSourceOptions, dataSourceDetails, entityPropertyRows, entityInheritedProps, effectiveDataProduct, effectiveDataModule, zones, zoneFromRelPath, modelEntities, resolveEntityMetaById, resolveEntityNameById, transformKinds, normalizeTransformations, updateTransformation, reorderTransformations, dragTransformIndex, onJumpToEntity, onJumpToDataSource, dataTypes, solutionPath, attributeTypeOptions, dataTypeDefinitions, persistNow, persistAfterStateFlush } = props;
+  const { selectedEntity, mode, setMode, entitySection, setEntitySection, formState, setFormState, jsonText, setJsonText, setSaveError, attributes, setAttributes, sources, setSources, relationships, setRelationships, transformations, setTransformations, quality, setQuality, saveError, properties, setProperties, openAttributeDetails, setOpenAttributeDetails, openMappingDetails, setOpenMappingDetails, collapsedMappings, setCollapsedMappings, relationshipZones, setRelationshipZones, openTransformSources, setOpenTransformSources, transformSourceCache, setTransformSourceCache, transformSourceDirty, setTransformSourceDirty, markEntityDirty, propertyOptions, dataSourceOptions, dataSourceDetails, entityPropertyRows, entityInheritedProps, effectiveDataProduct, effectiveDataModule, zones, zoneFromRelPath, modelEntities, resolveEntityMetaById, resolveEntityNameById, transformKinds, normalizeTransformations, updateTransformation, reorderTransformations, dragTransformIndex, onJumpToEntity, onJumpToDataSource, dataTypes, solutionPath, attributeTypeOptions, dataTypeDefinitions, persistNow, persistAfterStateFlush } = props;
 
   const inheritedFolderSet = useMemo(
     () => new Set((entityInheritedProps?.folderProps || []).map((p) => `${p?.property || ""}`).filter(Boolean)),
@@ -150,6 +156,8 @@ export const EntityEditor = (props: EntityEditorProps) => {
   const [selectedAttributeIds, setSelectedAttributeIds] = useState<Set<string>>(new Set());
   const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [qualityRenameWarning, setQualityRenameWarning] = useState<string | null>(null);
+  useEffect(() => setQualityRenameWarning(null), [selectedEntity?.relPath]);
   const attributesRef = useRef<EntityAttribute[]>([]);
   const selectedAttributeIdsRef = useRef<Set<string>>(new Set());
   const dragAttrIndexRef = useRef<number | null>(null);
@@ -264,10 +272,15 @@ export const EntityEditor = (props: EntityEditorProps) => {
 
   const handleRemoveAttribute = useCallback(
     (index: number, rowKey?: string) => {
+      const name = attributes[index]?.name;
+      if (quality?.checks.some((c) => "attribute" in c && c.attribute === name)) {
+        setSaveError(`Update quality checks referencing ${name} before deleting this attribute.`);
+        return;
+      }
       removeAttribute(index, rowKey);
       persistAfterStateFlush("delete-item");
     },
-    [persistAfterStateFlush, removeAttribute],
+    [attributes, quality, setSaveError, persistAfterStateFlush, removeAttribute],
   );
 
   const reorderAttributes = useCallback(
@@ -393,10 +406,14 @@ export const EntityEditor = (props: EntityEditorProps) => {
         }
         return next;
       });
+      setQuality((previous) => renameQualityAttribute(previous, oldName, newName));
+      if (quality?.checks.some((c) => c.type === "sql_expression")) {
+        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review SQL quality expressions and update column references manually.`);
+      }
       setPendingFocusName(newName);
       return null;
     },
-    [normalizeAttributeName, setOpenAttributeDetails, updateAttributeAtNoOrdinals],
+    [normalizeAttributeName, quality, setQuality, setOpenAttributeDetails, updateAttributeAtNoOrdinals],
   );
 
   useEffect(() => {
@@ -567,11 +584,15 @@ export const EntityEditor = (props: EntityEditorProps) => {
         }
       />
       <div className="panel__body panel__body--entity-editor" onBlurCapture={handleTextFieldBlurCapture}>
+        {qualityRenameWarning && <div role="status" className="mb-3 rounded border p-3">
+          {qualityRenameWarning}
+          <button type="button" className="ml-3 underline" onClick={() => setQualityRenameWarning(null)}>Dismiss</button>
+        </div>}
         {mode === "form" ? (
           <>
             <div className="section-nav-row entity-section-nav-row">
               <div className="section-nav">
-                {(["overview", "attributes", "sources", "relationships", "transformations"] as EntitySection[]).map((sec) => (
+                {(["overview", "attributes", "sources", "relationships", "transformations", "quality"] as EntitySection[]).map((sec) => (
                   <button
                     key={sec}
                     className={`section-nav__btn ${entitySection === sec ? "section-nav__btn--active" : ""}`}
@@ -866,6 +887,10 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
                 />
               )}
+              {entitySection === "quality" && <EntityQualityEditor quality={quality} attributes={attributes} saveError={saveError} onChange={(value) => {
+                setQuality(value); markEntityDirty(); persistAfterStateFlush("dropdown-change");
+              }} />}
+              {entitySection === "attributes" && saveError && <p role="alert">{saveError}</p>}
               {entitySection === "transformations" && (
                 <EntityTransformationsEditor
                   transformations={transformations}

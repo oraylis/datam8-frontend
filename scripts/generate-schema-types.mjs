@@ -17,6 +17,7 @@ const schemaFiles = [
   "zone.json",
   "folder.json",
   "data-product.json",
+  "quality.json",
   "model.json",
   "plugin.json",
   "solution.json",

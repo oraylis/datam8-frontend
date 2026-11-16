@@ -12,7 +12,7 @@ Feature area for browsing and editing model/base entities with tabbed editors.
 ## Entity Editor
 
 - Location: `components/workspace/entity-editor/*`.
-- Sections: overview, attributes, sources, relationships, transformations.
+- Sections: overview, attributes, sources, relationships, transformations, quality.
 - State hook: `useEntityState` (drafts, validation gates, autosave scheduling, retry/error state).
 
 ## Base Editor
@@ -51,3 +51,11 @@ Feature area for browsing and editing model/base entities with tabbed editors.
 - Keep domain behavior in feature hooks (`useEntityState`, `useBaseEditorState`, `FolderEditor`) rather than UI-only components.
 - When adding editable fields, wire them into dirty tracking and a supported autosave trigger reason.
 - If base changes introduce model follow-up operations, extend base-save effect detection and follow-up action notifications.
+
+## Quality editing
+
+The Quality section uses generated schema types and the existing entity autosave
+queue. Rule dialogs keep incomplete input local until confirmation. Quality
+settings and rules participate in tab drafts and dirty detection. Invalid quality
+blocks persistence; generation flushes editor saves first. Backend validation is
+canonical; see the [contract](../../../../../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements).

@@ -1,3 +1,5 @@
+import type { Quality } from "../../../generated-schema-types";
+import { qualityErrors } from "../entity-editor/quality";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { EntitySection, ModelEntity, PropertyOption } from "../../../model-types";
 import { mergeInheritedProps } from "../../../model-utils";
@@ -35,6 +37,7 @@ export const serializeEntityContent = ({
   relationships,
   transformations,
   properties,
+  quality,
 }: {
   baseContent: any;
   formValues: { name?: string; displayName?: string; description?: string };
@@ -43,6 +46,7 @@ export const serializeEntityContent = ({
   relationships: any[];
   transformations: any[];
   properties: any[];
+  quality?: Quality;
 }) => {
   const serializedRelationships = (relationships || []).map((rel: any) => {
     const attributes = (rel.mappings || rel.attributes || []).map((m: any) => ({
@@ -75,6 +79,7 @@ export const serializeEntityContent = ({
     transformations: serializedTransforms,
     properties,
   };
+  if (quality !== undefined) next.quality = quality;
   // effectiveProperties is read-only projection from /solution/full and must never be persisted.
   delete next.effectiveProperties;
   const name = formValues.name ?? baseContent?.name;
@@ -174,6 +179,7 @@ export type EntityEditorDraft = {
   sources: Record<string, unknown>[];
   relationships: Record<string, unknown>[];
   transformations: Record<string, unknown>[];
+  quality?: Quality;
   properties: Record<string, unknown>[];
   openAttributeDetails: Record<string, boolean>;
   openMappingDetails: Record<string, boolean>;
@@ -256,6 +262,7 @@ export const useEntityState = ({
   const [sources, setSources] = useState<any[]>([]);
   const [relationships, setRelationships] = useState<any[]>([]);
   const [transformations, setTransformations] = useState<any[]>([]);
+  const [quality, setQuality] = useState<Quality | undefined>();
   const [properties, setProperties] = useState<any[]>([]);
   const [openAttributeDetails, setOpenAttributeDetails] = useState<Record<string, boolean>>({});
   const [openMappingDetails, setOpenMappingDetails] = useState<Record<string, boolean>>({});
@@ -554,6 +561,7 @@ export const useEntityState = ({
         sources: cloneDeep(sources),
         relationships: cloneDeep(relationships),
         transformations: cloneDeep(transformations),
+        quality: quality ? cloneDeep(quality) : undefined,
         properties: cloneDeep(properties),
         openAttributeDetails: cloneDeep(openAttributeDetails),
         openMappingDetails: cloneDeep(openMappingDetails),
@@ -617,6 +625,7 @@ export const useEntityState = ({
       sources: sourceState,
       relationships: normalizedRelationships,
       transformations: normalizedTransformations,
+      quality: content?.quality,
       properties: localProperties,
     });
     if (previousRelPath === selectedEntity.relPath && pendingSelfSaveAckRelPathRef.current === selectedEntity.relPath) {
@@ -651,6 +660,7 @@ export const useEntityState = ({
       setSources(cloneDeep(restored.sources || sourceState));
       setRelationships(cloneDeep(restored.relationships || normalizedRelationships));
       setTransformations(cloneDeep(restored.transformations || normalizedTransformations));
+      setQuality(restored.quality ?? content?.quality);
       setProperties(cloneDeep(normalizePropertyAssignments(restored.properties || content?.properties || [])));
       setOpenAttributeDetails(cloneDeep(restored.openAttributeDetails || {}));
       setOpenMappingDetails(cloneDeep(restored.openMappingDetails || {}));
@@ -687,6 +697,7 @@ export const useEntityState = ({
     setSources(sourceState);
     setRelationships(normalizedRelationships);
     setTransformations(normalizedTransformations);
+    setQuality(content?.quality);
     setProperties(normalizePropertyAssignments(content?.properties || []));
     scheduleHydrationRelease();
   // This hydration effect intentionally runs when the selected entity changes. It snapshots
@@ -750,6 +761,7 @@ export const useEntityState = ({
         sources: normalizedSources,
         relationships: normalizedRelationships,
         transformations,
+        quality,
         properties: normalizePropertyAssignments(properties),
       });
     },
@@ -763,6 +775,7 @@ export const useEntityState = ({
       selectedEntity,
       sources,
       transformations,
+      quality,
       jsonText,
     ],
   );
@@ -813,6 +826,7 @@ export const useEntityState = ({
         sources: cloneDeep(sources),
         relationships: cloneDeep(relationships),
         transformations: cloneDeep(transformations),
+        quality: quality ? cloneDeep(quality) : undefined,
         properties: cloneDeep(properties),
         openAttributeDetails: cloneDeep(openAttributeDetails),
         openMappingDetails: cloneDeep(openMappingDetails),
@@ -842,6 +856,7 @@ export const useEntityState = ({
     setEntityDraft,
     sources,
     transformations,
+    quality,
     transformSourceCache,
     transformSourceDirty,
   ]);
@@ -859,6 +874,8 @@ export const useEntityState = ({
         return false;
       }
       const newContent = draft;
+      const errors = qualityErrors(newContent.quality, newContent.attributes || []);
+      if (errors.length) throw new Error(errors.join(" "));
       const functionTransforms = (transformations || [])
         .map((t, idx) => ({ t, idx }))
         .filter((item) => item.t.kind === "function" && item.t.function?.source);
@@ -1001,6 +1018,8 @@ export const useEntityState = ({
     setRelationships,
     transformations,
     setTransformations,
+    quality,
+    setQuality,
     properties,
     setProperties,
     openAttributeDetails,

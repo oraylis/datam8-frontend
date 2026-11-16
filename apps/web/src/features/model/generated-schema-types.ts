@@ -362,6 +362,111 @@ export interface DataModule {
   properties?: PropertyReference[];
 }
 
+// ---- quality.json ----
+
+export interface Quality {
+  settings?: QualitySettings;
+  checks: (NotNullCheck | RangeCheck | SqlExpressionCheck | CompletenessCheck | FreshnessCheck | RowCountCheck)[];
+}
+
+export interface QualitySettings {
+  /**
+   * Stop dependent processing after writing valid rows when the percentage of distinct error rows exceeds this value. Omit to disable threshold failure.
+   */
+  maxFailureRatePct?: number;
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "NotNullCheck".
+ */
+
+export interface NotNullCheck {
+  id: string;
+  description?: string;
+  type: "not_null";
+  execution: "enforcement" | "monitoring";
+  severity: "error" | "warning";
+  attribute: string;
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "RangeCheck".
+ */
+
+export interface RangeCheck {
+  id: string;
+  description?: string;
+  type: "range";
+  execution: "enforcement" | "monitoring";
+  severity: "error" | "warning";
+  attribute: string;
+  parameters: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "SqlExpressionCheck".
+ */
+
+export interface SqlExpressionCheck {
+  id: string;
+  description?: string;
+  type: "sql_expression";
+  execution: "enforcement" | "monitoring";
+  severity: "error" | "warning";
+  parameters: {
+    expression: string;
+  };
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "CompletenessCheck".
+ */
+
+export interface CompletenessCheck {
+  id: string;
+  description?: string;
+  type: "completeness";
+  execution: "monitoring";
+  severity: "error" | "warning";
+  attribute: string;
+  parameters: {
+    minCompleteness: number;
+  };
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "FreshnessCheck".
+ */
+
+export interface FreshnessCheck {
+  id: string;
+  description?: string;
+  type: "freshness";
+  execution: "monitoring";
+  severity: "error" | "warning";
+  attribute: string;
+  parameters: {
+    maxAgeSeconds: number;
+  };
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "RowCountCheck".
+ */
+
+export interface RowCountCheck {
+  id: string;
+  description?: string;
+  type: "row_count";
+  execution: "monitoring";
+  severity: "error" | "warning";
+  parameters: {
+    [k: string]: unknown;
+  };
+}
+
 // ---- model.json ----
 
 export type SourceAttributeMapping = ModelAttributeMapping & {
@@ -402,6 +507,7 @@ export interface ModelEntity {
    * List of entity relationships.
    */
   relationships: ModelRelationship[];
+  quality?: Quality;
 }
 /**
  * Key-Value pair parameters for customization of and entity-level attributes.
@@ -493,10 +599,7 @@ export interface ModelRelationship {
   attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
- * Describes an abstract way to point to and find entities with datam8.
- *
- * This interface was referenced by `ModelEntity`'s JSON-Schema
- * via the `definition` "Locator".
+ * Platform-neutral entity quality requirements. Enforcement always retains rejected rows in quarantine.
  */
 
 export interface Locator {

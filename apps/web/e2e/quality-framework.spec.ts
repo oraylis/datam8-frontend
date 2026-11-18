@@ -120,6 +120,23 @@ test("quality dialog persists across tabs and real backend generation", async ({
     .click();
   const dialog = page.getByRole("dialog", { name: "Add quality check" });
   await dialog.getByLabel("Check ID").fill("customer_id_required");
+  await dialog.getByLabel("Native DQX definition (JSON)").fill("{");
+  await expect(
+    dialog.getByRole("button", { name: "Save check", exact: true }),
+  ).toBeDisabled();
+  const nativeDefinition = {
+    name: "Customer ID membership",
+    criticality: "warn",
+    filter: "Id > 0",
+    check: {
+      function: "is_in_list",
+      arguments: { column: "Id", allowed: [1, 2, null] },
+    },
+    user_metadata: { owner: "test team" },
+  };
+  await dialog
+    .getByLabel("Native DQX definition (JSON)")
+    .fill(JSON.stringify(nativeDefinition));
   await dialog.getByRole("button", { name: "Save check", exact: true }).click();
   await expect
     .poll(
@@ -139,6 +156,26 @@ test("quality dialog persists across tabs and real backend generation", async ({
     path: path.join(tmpdir(), path.basename(root) + "-editor.png"),
     fullPage: true,
   });
+  await page
+    .getByRole("button", { name: "Edit full Quality JSON", exact: true })
+    .click();
+  const fullQuality = page.getByRole("dialog", {
+    name: "Edit Quality JSON",
+    exact: true,
+  });
+  const persistedQuality = JSON.parse(
+    readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
+  ).quality;
+  await fullQuality.getByRole("textbox").fill(
+    JSON.stringify({
+      ...persistedQuality,
+      settings: { dependencies: ["python-dateutil==2.9.0.post0"] },
+      referenceDatasets: { other: { entityId: 13, execution: "monitoring" } },
+    }),
+  );
+  await fullQuality
+    .getByRole("button", { name: "Save Quality", exact: true })
+    .click();
   let generationRequests = 0;
   page.on("request", (r) => {
     if (
@@ -175,9 +212,72 @@ test("quality dialog persists across tabs and real backend generation", async ({
   );
   expect(output.checks[0]).toMatchObject({
     id: "customer_id_required",
-    attribute: "Id",
+    type: "dqx",
     execution: "enforcement",
-    severity: "error",
+    definition: nativeDefinition,
   });
+  expect(output.settings.dependencies).toEqual([
+    "python-dateutil==2.9.0.post0",
+  ]);
+  expect(output.referenceDatasets).toEqual({
+    other: { entityId: 13, execution: "monitoring" },
+  });
+  await page
+    .getByRole("button", { name: "Edit customer_id_required", exact: true })
+    .click();
+  const edit = page.getByRole("dialog", { name: "Edit quality check" });
+  await edit.getByRole("combobox").filter({ hasText: "enforcement" }).click();
+  await page.getByRole("option", { name: "monitoring", exact: true }).click();
+  const editedDefinition = {
+    ...nativeDefinition,
+    check: { function: "is_unique", arguments: { columns: ["Id"] } },
+  };
+  await edit
+    .getByLabel("Native DQX definition (JSON)")
+    .fill(JSON.stringify(editedDefinition));
+  await edit.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        JSON.parse(
+          readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
+        ).quality?.checks?.[0]?.execution,
+    )
+    .toBe("monitoring");
+  await page.getByRole("button", { name: "Generate", exact: true }).click();
+  await expect
+    .poll(() => {
+      try {
+        return JSON.parse(
+          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
+        ).checks[0].definition.check.function;
+      } catch {
+        return null;
+      }
+    })
+    .toBe("is_unique");
+  await page
+    .getByRole("button", { name: "Delete customer_id_required", exact: true })
+    .click();
+  await expect
+    .poll(
+      () =>
+        JSON.parse(
+          readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
+        ).quality?.checks?.length,
+    )
+    .toBe(0);
+  await page.getByRole("button", { name: "Generate", exact: true }).click();
+  await expect
+    .poll(() => {
+      try {
+        return JSON.parse(
+          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
+        ).checks;
+      } catch {
+        return null;
+      }
+    })
+    .toEqual([]);
   expect((await request.post(`${base}/model/reload`)).ok()).toBe(true);
 });

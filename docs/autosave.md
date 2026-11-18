@@ -222,3 +222,11 @@ section; generation flushes saves and refuses unresolved changes. Structured
 attribute references follow an attribute rename in the same draft. Deleting a
 referenced attribute is blocked until its rules are adjusted. SQL expressions
 remain authored text and must be reviewed after attribute renames.
+
+Native DQX definitions are edited as JSON in the rule dialog; the full Quality
+JSON dialog also edits modelled reference datasets and dependencies. Both dialogs
+keep unconfirmed text local and commit only on Save. Native function names and
+argument keys are open-ended, with execution-time validation delegated to DQX;
+the [canonical quality contract](../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements)
+defines the shared model behavior. Attribute renames flag native definitions for
+review, since their parameters may contain arbitrary column expressions.

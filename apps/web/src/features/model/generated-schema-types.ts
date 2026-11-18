@@ -366,7 +366,21 @@ export interface DataModule {
 
 export interface Quality {
   settings?: QualitySettings;
-  checks: (NotNullCheck | RangeCheck | SqlExpressionCheck | CompletenessCheck | FreshnessCheck | RowCountCheck)[];
+  checks: (
+    | NotNullCheck
+    | RangeCheck
+    | SqlExpressionCheck
+    | CompletenessCheck
+    | FreshnessCheck
+    | RowCountCheck
+    | DqxCheck
+  )[];
+  /**
+   * Named DataFrames supplied to DQX reference checks. All bindings are declared in the model.
+   */
+  referenceDatasets?: {
+    [k: string]: QualityEntityReference | QualityTableReference;
+  };
 }
 
 export interface QualitySettings {
@@ -374,6 +388,10 @@ export interface QualitySettings {
    * Stop dependent processing after writing valid rows when the percentage of distinct error rows exceeds this value. Omit to disable threshold failure.
    */
   maxFailureRatePct?: number;
+  /**
+   * Additional PyPI requirements needed by native DQX checks, installed on the executing classic tasks.
+   */
+  dependencies?: string[];
 }
 /**
  * This interface was referenced by `Quality`'s JSON-Schema
@@ -465,6 +483,55 @@ export interface RowCountCheck {
   parameters: {
     [k: string]: unknown;
   };
+}
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "DqxCheck".
+ */
+
+export interface DqxCheck {
+  id: string;
+  description?: string;
+  type: "dqx";
+  execution: "enforcement" | "monitoring";
+  definition: DqxRuleDefinition;
+}
+
+export interface DqxRuleDefinition {
+  name?: string | null;
+  criticality?: "error" | "warn";
+  check: DqxFunctionDefinition;
+  filter?: string | null;
+  message_expr?: string | null;
+  user_metadata?: {
+    [k: string]: unknown;
+  } | null;
+  [k: string]: unknown;
+}
+
+export interface DqxFunctionDefinition {
+  function: string;
+  arguments?: {
+    [k: string]: unknown;
+  };
+  for_each_column?: string[] | null;
+  [k: string]: unknown;
+}
+
+export interface QualityEntityReference {
+  entityId: number;
+  /**
+   * Omit to supply this binding in both execution modes.
+   */
+  execution?: "enforcement" | "monitoring";
+}
+
+export interface QualityTableReference {
+  table: string;
+  /**
+   * Omit to supply this binding in both execution modes.
+   */
+  execution?: "enforcement" | "monitoring";
 }
 
 // ---- model.json ----
@@ -599,7 +666,7 @@ export interface ModelRelationship {
   attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
- * Platform-neutral entity quality requirements. Enforcement always retains rejected rows in quarantine.
+ * Entity quality requirements and declarative native DQX definitions. Enforcement retains rejected rows in quarantine.
  */
 
 export interface Locator {

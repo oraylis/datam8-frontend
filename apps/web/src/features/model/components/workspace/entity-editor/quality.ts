@@ -2,6 +2,7 @@ import type { Quality } from "../../../generated-schema-types";
 
 export type QualityCheck = Quality["checks"][number];
 export const QUALITY_TYPES = [
+  "dqx",
   "not_null",
   "range",
   "sql_expression",
@@ -37,6 +38,16 @@ const timestampTypes = new Set([
 ]);
 export const aggregateQualityType = (kind: string) =>
   ["completeness", "freshness", "row_count"].includes(kind);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+const finiteJson = (value: unknown): boolean =>
+  typeof value === "number"
+    ? Number.isFinite(value)
+    : Array.isArray(value)
+      ? value.every(finiteJson)
+      : isRecord(value)
+        ? Object.values(value).every(finiteJson)
+        : true;
 
 export function qualityErrors(
   value: unknown,
@@ -62,6 +73,38 @@ export function qualityErrors(
     (!Number.isFinite(threshold) || threshold < 0 || threshold > 100)
   )
     errors.push("Failure percentage must be between 0 and 100.");
+  if (
+    q.settings?.dependencies &&
+    (!Array.isArray(q.settings.dependencies) ||
+      q.settings.dependencies.some((v) => typeof v !== "string" || !v.trim()))
+  )
+    errors.push("Dependencies must be nonempty PyPI requirement strings.");
+  if (q.referenceDatasets !== undefined) {
+    if (!isRecord(q.referenceDatasets))
+      errors.push("Reference datasets must be an object.");
+    else
+      for (const [alias, reference] of Object.entries(q.referenceDatasets)) {
+        if (
+          !alias.trim() ||
+          !isRecord(reference) ||
+          !(
+            ("entityId" in reference &&
+              !("table" in reference) &&
+              Number.isInteger(reference.entityId) &&
+              Number(reference.entityId) >= 0) ||
+            ("table" in reference &&
+              !("entityId" in reference) &&
+              typeof reference.table === "string" &&
+              reference.table.trim())
+          ) ||
+          (reference.execution !== undefined &&
+            !["enforcement", "monitoring"].includes(
+              String(reference.execution),
+            ))
+        )
+          errors.push(`Invalid reference dataset ${alias}.`);
+      }
+  }
   const seen = new Set<string>();
   for (const raw of q.checks) {
     const c = raw as QualityCheck;
@@ -79,6 +122,49 @@ export function qualityErrors(
     seen.add(c.id);
     if (!(QUALITY_TYPES as readonly string[]).includes(c.type))
       fail("Select a supported rule type.");
+    if (c.type === "dqx") {
+      const d = c.definition;
+      if (
+        !isRecord(d) ||
+        !isRecord(d.check) ||
+        typeof d.check.function !== "string" ||
+        !d.check.function.trim()
+      )
+        fail("Enter a native DQX check.function.");
+      if (
+        d?.criticality !== undefined &&
+        !["error", "warn"].includes(d.criticality)
+      )
+        fail("DQX criticality must be error or warn.");
+      if (
+        d?.check?.arguments !== undefined &&
+        (!d.check.arguments ||
+          typeof d.check.arguments !== "object" ||
+          Array.isArray(d.check.arguments))
+      )
+        fail("DQX arguments must be a JSON object.");
+      if (
+        d?.check?.for_each_column != null &&
+        (!Array.isArray(d.check.for_each_column) ||
+          d.check.for_each_column.some((v) => typeof v !== "string"))
+      )
+        fail("DQX for_each_column must be a list of column expressions.");
+      for (const key of ["filter", "message_expr", "name"] as const)
+        if (d?.[key] != null && typeof d[key] !== "string")
+          fail(`DQX ${key} must be a string.`);
+      if (d?.user_metadata != null && !isRecord(d.user_metadata))
+        fail("DQX user_metadata must be an object.");
+      if (
+        d?.user_metadata?.datam8_check_id !== undefined &&
+        d.user_metadata.datam8_check_id !== c.id
+      )
+        fail("datam8_check_id is reserved for the rule ID.");
+      if (!finiteJson(d))
+        fail("DQX definition must contain finite JSON values.");
+      if (!["enforcement", "monitoring"].includes(c.execution))
+        fail("Select an execution mode.");
+      continue;
+    }
     if (!["error", "warning"].includes(c.severity)) fail("Select a severity.");
     if (
       !["enforcement", "monitoring"].includes(c.execution) ||

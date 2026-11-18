@@ -32,8 +32,10 @@ type Draft = {
   severity: string;
   description: string;
   parameters: Record<string, string>;
+  definitionJson: string;
 };
 const labels: Record<string, string> = {
+  dqx: "Native DQX definition",
   not_null: "Not Null",
   range: "Range",
   sql_expression: "SQL Expression",
@@ -71,6 +73,17 @@ export function EntityQualityEditor({
   saveError?: string | null;
 }) {
   const checks = quality?.checks || [];
+  const [qualityJson, setQualityJson] = useState<string | null>(null);
+  let jsonQuality: Quality | null = null;
+  let jsonErrors: string[] = [];
+  if (qualityJson !== null) {
+    try {
+      jsonQuality = JSON.parse(qualityJson) as Quality;
+      jsonErrors = qualityErrors(jsonQuality, attributes);
+    } catch {
+      jsonErrors = ["Enter valid Quality JSON."];
+    }
+  }
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [threshold, setThreshold] = useState<string | null>(null);
@@ -86,10 +99,23 @@ export function EntityQualityEditor({
     }
     setDraft({
       id,
-      type: c?.type || "not_null",
+      type: c?.type || "dqx",
       attribute: c && "attribute" in c ? c.attribute : active[0]?.name || "",
       execution: c?.execution || "enforcement",
-      severity: c?.severity || "error",
+      severity: c && "severity" in c ? c.severity : "error",
+      definitionJson: JSON.stringify(
+        c?.type === "dqx"
+          ? c.definition
+          : {
+              check: {
+                function: "is_not_null",
+                arguments: { column: active[0]?.name || "" },
+              },
+              criticality: "error",
+            },
+        null,
+        2,
+      ),
       description: c?.description || "",
       parameters:
         c && "parameters" in c
@@ -99,17 +125,28 @@ export function EntityQualityEditor({
           : {},
     });
   };
+  let nativeDefinition: unknown = null;
+  let nativeJsonError: string | null = null;
+  if (draft?.type === "dqx") {
+    try {
+      nativeDefinition = JSON.parse(draft.definitionJson);
+    } catch {
+      nativeJsonError = "Enter valid DQX JSON.";
+    }
+  }
   const candidate = draft
     ? ({
         id: draft.id.trim(),
         type: draft.type,
         execution: draft.execution,
-        severity: draft.severity,
+        ...(draft.type === "dqx"
+          ? { definition: nativeDefinition }
+          : { severity: draft.severity }),
         ...(draft.description ? { description: draft.description } : {}),
-        ...(!["sql_expression", "row_count"].includes(draft.type)
+        ...(!["dqx", "sql_expression", "row_count"].includes(draft.type)
           ? { attribute: draft.attribute }
           : {}),
-        ...(draft.type !== "not_null"
+        ...(!["not_null", "dqx"].includes(draft.type)
           ? {
               parameters: Object.fromEntries(
                 (parameterKeys[draft.type] || [])
@@ -131,7 +168,10 @@ export function EntityQualityEditor({
       : checks.map((c, i) => (i === editing ? candidate : c))
     : checks;
   const errors = candidate
-    ? qualityErrors({ ...quality, checks: nextChecks }, attributes)
+    ? [
+        ...(nativeJsonError ? [nativeJsonError] : []),
+        ...qualityErrors({ ...quality, checks: nextChecks }, attributes),
+      ]
     : [];
   const thresholdText =
     threshold ?? String(quality?.settings?.maxFailureRatePct ?? "");
@@ -164,8 +204,15 @@ export function EntityQualityEditor({
               checks,
               settings:
                 thresholdText === ""
-                  ? {}
-                  : { maxFailureRatePct: Number(thresholdText) },
+                  ? Object.fromEntries(
+                      Object.entries(quality?.settings || {}).filter(
+                        ([key]) => key !== "maxFailureRatePct",
+                      ),
+                    )
+                  : {
+                      ...quality?.settings,
+                      maxFailureRatePct: Number(thresholdText),
+                    },
             });
             setThreshold(null);
           }}
@@ -179,6 +226,14 @@ export function EntityQualityEditor({
         before dependent processing stops.
       </p>
       <Button onClick={() => open(null)}>Add quality check</Button>
+      <Button
+        variant="outline"
+        onClick={() =>
+          setQualityJson(JSON.stringify(quality || { checks: [] }, null, 2))
+        }
+      >
+        Edit full Quality JSON
+      </Button>
       {checks.length === 0 && <p>No quality checks configured.</p>}
       {checks.map((c, i) => (
         <div
@@ -189,7 +244,11 @@ export function EntityQualityEditor({
           <span>{labels[c.type]}</span>
           <span>{"attribute" in c ? c.attribute : "Entity"}</span>
           <span>{c.execution}</span>
-          <span>{c.severity}</span>
+          <span>
+            {c.type === "dqx"
+              ? c.definition.criticality || "error"
+              : c.severity}
+          </span>
           <Button
             variant="outline"
             aria-label={`Edit ${c.id}`}
@@ -218,6 +277,48 @@ export function EntityQualityEditor({
           </Button>
         </div>
       ))}
+      <Dialog
+        open={qualityJson !== null}
+        onOpenChange={(open) => {
+          if (!open) setQualityJson(null);
+        }}
+      >
+        <DialogContent data-explicit-autosave="true">
+          <DialogHeader>
+            <DialogTitle>Edit Quality JSON</DialogTitle>
+            <DialogDescription>
+              Rules, reference datasets and dependencies are stored entirely in
+              the entity model.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            className="min-h-96 font-mono"
+            value={qualityJson || ""}
+            onChange={(e) => setQualityJson(e.target.value)}
+          />
+          {jsonErrors.map((error, index) => (
+            <p role="alert" key={index}>
+              {error}
+            </p>
+          ))}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQualityJson(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={jsonErrors.length > 0 || !jsonQuality}
+              onClick={() => {
+                if (jsonQuality) {
+                  onChange(jsonQuality);
+                  setQualityJson(null);
+                }
+              }}
+            >
+              Save Quality
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={draft !== null}
         onOpenChange={(open) => {
@@ -262,7 +363,7 @@ export function EntityQualityEditor({
                   }
                 />
               </label>
-              {!["sql_expression", "row_count"].includes(draft.type) && (
+              {!["dqx", "sql_expression", "row_count"].includes(draft.type) && (
                 <label>
                   Attribute
                   <FormSelect
@@ -286,17 +387,36 @@ export function EntityQualityEditor({
                   onChange={(execution) => setDraft({ ...draft, execution })}
                 />
               </label>
-              <label>
-                Severity
-                <FormSelect
-                  value={draft.severity}
-                  options={["error", "warning"].map((value) => ({
-                    value,
-                    label: value,
-                  }))}
-                  onChange={(severity) => setDraft({ ...draft, severity })}
-                />
-              </label>
+              {draft.type !== "dqx" && (
+                <label>
+                  Severity
+                  <FormSelect
+                    value={draft.severity}
+                    options={["error", "warning"].map((value) => ({
+                      value,
+                      label: value,
+                    }))}
+                    onChange={(severity) => setDraft({ ...draft, severity })}
+                  />
+                </label>
+              )}
+              {draft.type === "dqx" && (
+                <label>
+                  Native DQX definition (JSON)
+                  <Textarea
+                    className="min-h-64 font-mono"
+                    value={draft.definitionJson}
+                    onChange={(e) =>
+                      setDraft({ ...draft, definitionJson: e.target.value })
+                    }
+                  />
+                  <span>
+                    All declarative functions and arguments supported by the
+                    deployed DQX version; no DataM8 function allow-list. Use
+                    full Quality JSON for reference datasets and dependencies.
+                  </span>
+                </label>
+              )}
               {(parameterKeys[draft.type] || []).map((key) => (
                 <label key={key}>
                   {parameterLabels[key]}

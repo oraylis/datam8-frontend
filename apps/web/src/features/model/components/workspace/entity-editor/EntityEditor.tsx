@@ -407,8 +407,8 @@ export const EntityEditor = (props: EntityEditorProps) => {
         return next;
       });
       setQuality((previous) => renameQualityAttribute(previous, oldName, newName));
-      if (quality?.checks.some((c) => c.type === "sql_expression")) {
-        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review SQL quality expressions and update column references manually.`);
+      if (quality?.checks.some((c) => (c.type === "sql_expression" || c.type === "dqx"))) {
+        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review SQL expressions and native DQX definitions and update column references manually.`);
       }
       setPendingFocusName(newName);
       return null;

@@ -18,6 +18,74 @@ const quality: Quality = {
   ],
 };
 describe("entity quality", () => {
+  it("accepts arbitrary native functions and preserves model metadata when renaming", () => {
+    const native: Quality = {
+      checks: [
+        {
+          id: "native",
+          type: "dqx",
+          execution: "monitoring",
+          definition: {
+            name: "Display name",
+            criticality: "warn",
+            filter: "Id > 0",
+            user_metadata: { owner: "team" },
+            check: {
+              function: "future_native_function",
+              arguments: { custom: { values: [1, null] } },
+              for_each_column: ["Id", "Email"],
+            },
+          },
+        },
+      ],
+      referenceDatasets: { other: { entityId: 14, execution: "monitoring" } },
+      settings: { dependencies: ["package==1.0"] },
+    };
+    expect(qualityErrors(native, attrs)).toEqual([]);
+    expect(
+      qualityErrors(
+        {
+          checks: [
+            {
+              ...native.checks[0],
+              definition: {
+                check: {
+                  function: "is_not_null",
+                  arguments: { column: "Id" },
+                  for_each_column: null,
+                },
+                name: null,
+                filter: null,
+                message_expr: null,
+                user_metadata: null,
+              },
+            },
+          ],
+        },
+        attrs,
+      ),
+    ).toEqual([]);
+    expect(renameQualityAttribute(native, "Id", "Key")).toEqual(native);
+    for (const definition of [
+      { check: { function: " " } },
+      { check: { function: "is_in_list", arguments: [] } },
+      { check: { function: "is_not_null", arguments: { limit: Infinity } } },
+      { check: { function: "is_not_null" }, user_metadata: [] },
+    ])
+      expect(
+        qualityErrors({ checks: [{ ...native.checks[0], definition }] }, attrs)
+          .length,
+      ).toBeGreaterThan(0);
+    expect(
+      qualityErrors(
+        {
+          ...native,
+          referenceDatasets: { other: { entityId: 1, table: "both" } },
+        },
+        attrs,
+      ).length,
+    ).toBeGreaterThan(0);
+  });
   it("validates references, identity and aggregate execution", () => {
     expect(qualityErrors(quality, attrs)).toEqual([]);
     expect(

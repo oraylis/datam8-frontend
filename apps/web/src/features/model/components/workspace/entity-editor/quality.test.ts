@@ -1,172 +1,64 @@
 import { describe, expect, it } from "vitest";
-import { qualityErrors, renameQualityAttribute } from "./quality";
-import type { Quality } from "../../../generated-schema-types";
+import { qualityErrors } from "./quality";
 
-const attrs = [
-  { name: "Id", dataType: { type: "int" } },
-  { name: "Email", dataType: { type: "string" } },
-];
-const quality: Quality = {
-  checks: [
-    {
-      id: "id_required",
-      type: "not_null",
-      attribute: "Id",
-      execution: "enforcement",
-      severity: "error",
-    },
-  ],
-};
-describe("entity quality", () => {
-  it("accepts arbitrary native functions and preserves model metadata when renaming", () => {
-    const native: Quality = {
-      checks: [
-        {
-          id: "native",
-          type: "dqx",
-          execution: "monitoring",
-          definition: {
-            name: "Display name",
-            criticality: "warn",
-            filter: "Id > 0",
-            user_metadata: { owner: "team" },
-            check: {
-              function: "future_native_function",
-              arguments: { custom: { values: [1, null] } },
-              for_each_column: ["Id", "Email"],
-            },
-          },
-        },
-      ],
-      referenceDatasets: { other: { entityId: 14, execution: "monitoring" } },
-      settings: { dependencies: ["package==1.0"] },
-    };
-    expect(qualityErrors(native, attrs)).toEqual([]);
-    expect(
-      qualityErrors(
-        {
-          checks: [
-            {
-              ...native.checks[0],
-              definition: {
-                check: {
-                  function: "is_not_null",
-                  arguments: { column: "Id" },
-                  for_each_column: null,
-                },
-                name: null,
-                filter: null,
-                message_expr: null,
-                user_metadata: null,
-              },
-            },
-          ],
-        },
-        attrs,
-      ),
-    ).toEqual([]);
-    expect(renameQualityAttribute(native, "Id", "Key")).toEqual(native);
+describe("tool-neutral quality", () => {
+  const check = { id: "rule", execution: "monitoring", definition: {} };
+  it("accepts unrelated dialects, target options and nulls without DQX assumptions", () => {
     for (const definition of [
-      { check: { function: " " } },
-      { check: { function: "is_in_list", arguments: [] } },
-      { check: { function: "is_not_null", arguments: { limit: Infinity } } },
-      { check: { function: "is_not_null" }, user_metadata: [] },
-    ])
+      { check: { function: "future", arguments: [null] } },
+      { assertion: { expression: "Id > 0" }, level: "fatal", nullable: null },
+      {
+        check: "not a DQX object",
+        user_metadata: { datam8_check_id: "opaque" },
+      },
+      {},
+    ]) {
       expect(
-        qualityErrors({ checks: [{ ...native.checks[0], definition }] }, attrs)
-          .length,
-      ).toBeGreaterThan(0);
-    expect(
-      qualityErrors(
-        {
-          ...native,
-          referenceDatasets: { other: { entityId: 1, table: "both" } },
-        },
-        attrs,
-      ).length,
-    ).toBeGreaterThan(0);
+        qualityErrors({
+          checks: [{ ...check, definition }],
+          settings: { dependencies: { other: true } },
+          referenceDatasets: {
+            file: { uri: "memory://fixture", nullable: null },
+          },
+        }),
+      ).toEqual([]);
+    }
   });
-  it("validates references, identity and aggregate execution", () => {
-    expect(qualityErrors(quality, attrs)).toEqual([]);
+  it("validates common structure, IDs, percentages and reference metadata", () => {
     expect(
-      qualityErrors(
-        { checks: [...quality.checks, ...quality.checks] },
-        attrs,
-      ).join(),
-    ).toContain("unique");
-    expect(qualityErrors(quality, [])).toHaveLength(1);
-    expect(
-      qualityErrors(
-        {
-          checks: [
-            {
-              id: "c",
-              type: "completeness",
-              attribute: "Email",
-              execution: "enforcement",
-              severity: "warning",
-              parameters: { minCompleteness: 0.95 },
-            },
-          ],
-        },
-        attrs,
-      ).join(),
-    ).toContain("monitoring");
+      qualityErrors({ checks: [check], settings: { maxFailureRatePct: 0 } }),
+    ).toEqual([]);
+    for (const quality of [
+      { checks: [check, check] },
+      { checks: [{ ...check, definition: [] }] },
+      { checks: [{ ...check, type: "dqx" }] },
+      { checks: [{ ...check, execution: "unknown" }] },
+      { checks: [check], settings: { maxFailureRatePct: -1 } },
+      { checks: [check], referenceDatasets: { file: { entityId: true } } },
+      { checks: [check], referenceDatasets: null },
+    ])
+      expect(qualityErrors(quality).length).toBeGreaterThan(0);
   });
-  it("checks numeric bounds, zero thresholds, blank SQL and type compatibility", () => {
+  it("rejects non-JSON values but does not interpret function names or expressions", () => {
     expect(
-      qualityErrors({ ...quality, settings: { maxFailureRatePct: 0 } }, attrs),
+      qualityErrors({
+        checks: [
+          {
+            ...check,
+            definition: { expression: "invalid SQL is a target concern" },
+          },
+        ],
+      }),
     ).toEqual([]);
     expect(
-      qualityErrors(
-        {
-          checks: [
-            {
-              id: "c",
-              type: "range",
-              attribute: "Email",
-              execution: "monitoring",
-              severity: "error",
-              parameters: { min: 2, max: 1 },
-            },
-          ],
-        },
-        attrs,
-      ),
-    ).toHaveLength(2);
+      qualityErrors({
+        checks: [{ ...check, definition: { limit: Infinity } }],
+      }).join(),
+    ).toContain("finite JSON");
     expect(
-      qualityErrors(
-        {
-          checks: [
-            {
-              id: "c",
-              type: "sql_expression",
-              execution: "monitoring",
-              severity: "error",
-              parameters: { expression: " " },
-            },
-          ],
-        },
-        attrs,
-      ),
-    ).toHaveLength(1);
-  });
-  it("renames structured references without rewriting SQL", () => {
-    const q: Quality = {
-      checks: [
-        ...quality.checks,
-        {
-          id: "sql",
-          type: "sql_expression",
-          execution: "monitoring",
-          severity: "warning",
-          parameters: { expression: "Id > 0" },
-        },
-      ],
-    };
-    const renamed = renameQualityAttribute(q, "Id", "Key")!;
-    expect(renamed.checks[0]).toMatchObject({ attribute: "Key" });
-    expect(renamed.checks[1]).toEqual(q.checks[1]);
-    expect(q.checks[0]).toMatchObject({ attribute: "Id" });
+      qualityErrors({
+        checks: [{ ...check, definition: { callback: () => true } }],
+      }).join(),
+    ).toContain("finite JSON");
   });
 });

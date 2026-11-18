@@ -1,6 +1,5 @@
 import type { Quality } from "../../../generated-schema-types";
 import { EntityQualityEditor } from "./EntityQualityEditor";
-import { renameQualityAttribute } from "./quality";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyAssignment } from "@datam8/types";
@@ -406,14 +405,13 @@ export const EntityEditor = (props: EntityEditorProps) => {
         }
         return next;
       });
-      setQuality((previous) => renameQualityAttribute(previous, oldName, newName));
-      if (quality?.checks.some((c) => (c.type === "sql_expression" || c.type === "dqx"))) {
-        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review SQL expressions and native DQX definitions and update column references manually.`);
+      if (quality?.checks.length) {
+        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review quality definitions and update column references manually.`);
       }
       setPendingFocusName(newName);
       return null;
     },
-    [normalizeAttributeName, quality, setQuality, setOpenAttributeDetails, updateAttributeAtNoOrdinals],
+    [normalizeAttributeName, quality, setOpenAttributeDetails, updateAttributeAtNoOrdinals],
   );
 
   useEffect(() => {
@@ -887,7 +885,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
                 />
               )}
-              {entitySection === "quality" && <EntityQualityEditor quality={quality} attributes={attributes} saveError={saveError} onChange={(value) => {
+              {entitySection === "quality" && <EntityQualityEditor quality={quality} saveError={saveError} onChange={(value) => {
                 setQuality(value); markEntityDirty(); persistAfterStateFlush("dropdown-change");
               }} />}
               {entitySection === "attributes" && saveError && <p role="alert">{saveError}</p>}

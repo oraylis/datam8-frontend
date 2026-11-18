@@ -874,7 +874,7 @@ export const useEntityState = ({
         return false;
       }
       const newContent = draft;
-      const errors = qualityErrors(newContent.quality, newContent.attributes || []);
+      const errors = qualityErrors(newContent.quality);
       if (errors.length) throw new Error(errors.join(" "));
       const functionTransforms = (transformations || [])
         .map((t, idx) => ({ t, idx }))

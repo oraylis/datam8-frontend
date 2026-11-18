@@ -366,172 +366,40 @@ export interface DataModule {
 
 export interface Quality {
   settings?: QualitySettings;
-  checks: (
-    | NotNullCheck
-    | RangeCheck
-    | SqlExpressionCheck
-    | CompletenessCheck
-    | FreshnessCheck
-    | RowCountCheck
-    | DqxCheck
-  )[];
+  checks: QualityCheck[];
   /**
-   * Named DataFrames supplied to DQX reference checks. All bindings are declared in the model.
+   * Named data references. Targets interpret binding details; entityId and execution are optional shared reference metadata.
    */
   referenceDatasets?: {
-    [k: string]: QualityEntityReference | QualityTableReference;
+    [k: string]: QualityReference;
   };
 }
+/**
+ * Common quality settings plus open target-specific options.
+ */
 
 export interface QualitySettings {
-  /**
-   * Stop dependent processing after writing valid rows when the percentage of distinct error rows exceeds this value. Omit to disable threshold failure.
-   */
-  maxFailureRatePct?: number;
-  /**
-   * Additional PyPI requirements needed by native DQX checks, installed on the executing classic tasks.
-   */
-  dependencies?: string[];
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "NotNullCheck".
- */
-
-export interface NotNullCheck {
-  id: string;
-  description?: string;
-  type: "not_null";
-  execution: "enforcement" | "monitoring";
-  severity: "error" | "warning";
-  attribute: string;
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "RangeCheck".
- */
-
-export interface RangeCheck {
-  id: string;
-  description?: string;
-  type: "range";
-  execution: "enforcement" | "monitoring";
-  severity: "error" | "warning";
-  attribute: string;
-  parameters: {
-    [k: string]: unknown;
-  };
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "SqlExpressionCheck".
- */
-
-export interface SqlExpressionCheck {
-  id: string;
-  description?: string;
-  type: "sql_expression";
-  execution: "enforcement" | "monitoring";
-  severity: "error" | "warning";
-  parameters: {
-    expression: string;
-  };
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "CompletenessCheck".
- */
-
-export interface CompletenessCheck {
-  id: string;
-  description?: string;
-  type: "completeness";
-  execution: "monitoring";
-  severity: "error" | "warning";
-  attribute: string;
-  parameters: {
-    minCompleteness: number;
-  };
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "FreshnessCheck".
- */
-
-export interface FreshnessCheck {
-  id: string;
-  description?: string;
-  type: "freshness";
-  execution: "monitoring";
-  severity: "error" | "warning";
-  attribute: string;
-  parameters: {
-    maxAgeSeconds: number;
-  };
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "RowCountCheck".
- */
-
-export interface RowCountCheck {
-  id: string;
-  description?: string;
-  type: "row_count";
-  execution: "monitoring";
-  severity: "error" | "warning";
-  parameters: {
-    [k: string]: unknown;
-  };
-}
-/**
- * This interface was referenced by `Quality`'s JSON-Schema
- * via the `definition` "DqxCheck".
- */
-
-export interface DqxCheck {
-  id: string;
-  description?: string;
-  type: "dqx";
-  execution: "enforcement" | "monitoring";
-  definition: DqxRuleDefinition;
-}
-
-export interface DqxRuleDefinition {
-  name?: string | null;
-  criticality?: "error" | "warn";
-  check: DqxFunctionDefinition;
-  filter?: string | null;
-  message_expr?: string | null;
-  user_metadata?: {
-    [k: string]: unknown;
-  } | null;
   [k: string]: unknown;
 }
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "QualityCheck".
+ */
 
-export interface DqxFunctionDefinition {
-  function: string;
-  arguments?: {
+export interface QualityCheck {
+  id: string;
+  execution: "enforcement" | "monitoring";
+  description?: string;
+  /**
+   * Opaque rule configuration interpreted and validated by the selected generator target. No tool-specific keys or functions are prescribed by this schema.
+   */
+  definition: {
     [k: string]: unknown;
   };
-  for_each_column?: string[] | null;
+}
+
+export interface QualityReference {
   [k: string]: unknown;
-}
-
-export interface QualityEntityReference {
-  entityId: number;
-  /**
-   * Omit to supply this binding in both execution modes.
-   */
-  execution?: "enforcement" | "monitoring";
-}
-
-export interface QualityTableReference {
-  table: string;
-  /**
-   * Omit to supply this binding in both execution modes.
-   */
-  execution?: "enforcement" | "monitoring";
 }
 
 // ---- model.json ----
@@ -666,7 +534,7 @@ export interface ModelRelationship {
   attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
- * Entity quality requirements and declarative native DQX definitions. Enforcement retains rejected rows in quarantine.
+ * Tool-neutral entity quality configuration. Generator targets interpret rule definitions and target options.
  */
 
 export interface Locator {

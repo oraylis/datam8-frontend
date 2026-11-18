@@ -120,7 +120,7 @@ test("quality dialog persists across tabs and real backend generation", async ({
     .click();
   const dialog = page.getByRole("dialog", { name: "Add quality check" });
   await dialog.getByLabel("Check ID").fill("customer_id_required");
-  await dialog.getByLabel("Native DQX definition (JSON)").fill("{");
+  await dialog.getByLabel("Definition (JSON)").fill("{");
   await expect(
     dialog.getByRole("button", { name: "Save check", exact: true }),
   ).toBeDisabled();
@@ -135,7 +135,7 @@ test("quality dialog persists across tabs and real backend generation", async ({
     user_metadata: { owner: "test team" },
   };
   await dialog
-    .getByLabel("Native DQX definition (JSON)")
+    .getByLabel("Definition (JSON)")
     .fill(JSON.stringify(nativeDefinition));
   await dialog.getByRole("button", { name: "Save check", exact: true }).click();
   await expect
@@ -212,7 +212,6 @@ test("quality dialog persists across tabs and real backend generation", async ({
   );
   expect(output.checks[0]).toMatchObject({
     id: "customer_id_required",
-    type: "dqx",
     execution: "enforcement",
     definition: nativeDefinition,
   });
@@ -233,7 +232,7 @@ test("quality dialog persists across tabs and real backend generation", async ({
     check: { function: "is_unique", arguments: { columns: ["Id"] } },
   };
   await edit
-    .getByLabel("Native DQX definition (JSON)")
+    .getByLabel("Definition (JSON)")
     .fill(JSON.stringify(editedDefinition));
   await edit.getByRole("button", { name: "Save check", exact: true }).click();
   await expect
@@ -256,6 +255,35 @@ test("quality dialog persists across tabs and real backend generation", async ({
       }
     })
     .toBe("is_unique");
+  // A second rule dialect has no DQX keys; the same editor/backend/target path preserves it.
+  await page
+    .getByRole("button", { name: "Edit customer_id_required", exact: true })
+    .click();
+  const otherDefinition = {
+    assertion: { expression: "Id IS NOT NULL" },
+    level: "fatal",
+    nullable: null,
+  };
+  await page
+    .getByRole("dialog", { name: "Edit quality check" })
+    .getByLabel("Definition (JSON)")
+    .fill(JSON.stringify(otherDefinition));
+  await page
+    .getByRole("dialog", { name: "Edit quality check" })
+    .getByRole("button", { name: "Save check", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Generate", exact: true }).click();
+  await expect
+    .poll(() => {
+      try {
+        return JSON.parse(
+          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
+        ).checks[0].definition;
+      } catch {
+        return null;
+      }
+    })
+    .toEqual(otherDefinition);
   await page
     .getByRole("button", { name: "Delete customer_id_required", exact: true })
     .click();

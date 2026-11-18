@@ -216,17 +216,12 @@ When adding a new editable control:
 ## Quality fields
 
 Quality settings and confirmed rules use the same entity draft, revision and save
-queue. Rule dialogs commit only complete rules. Invalid failure percentages or
-quality references keep the entity dirty and display the error in the Quality
-section; generation flushes saves and refuses unresolved changes. Structured
-attribute references follow an attribute rename in the same draft. Deleting a
-referenced attribute is blocked until its rules are adjusted. SQL expressions
-remain authored text and must be reviewed after attribute renames.
+queue. Rule and full-configuration dialogs keep unconfirmed JSON text local and
+commit only on Save. Invalid common structure, IDs or percentages keep the entity
+dirty; generation flushes saves and refuses unresolved changes.
 
-Native DQX definitions are edited as JSON in the rule dialog; the full Quality
-JSON dialog also edits modelled reference datasets and dependencies. Both dialogs
-keep unconfirmed text local and commit only on Save. Native function names and
-argument keys are open-ended, with execution-time validation delegated to DQX;
-the [canonical quality contract](../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements)
-defines the shared model behavior. Attribute renames flag native definitions for
-review, since their parameters may contain arbitrary column expressions.
+Definitions and target options are opaque JSON objects. The editor does not require
+DQX fields or validate a target's function signatures. The
+[canonical quality contract](../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements)
+defines the shared behavior. Attribute renames flag quality definitions for review;
+the editor cannot safely rewrite arbitrary SQL, expressions or tool dialects.

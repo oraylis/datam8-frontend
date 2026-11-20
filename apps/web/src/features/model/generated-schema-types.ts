@@ -386,7 +386,7 @@ export interface QualityCheck {
   id: string;
   execution: "enforcement" | "monitoring";
   /**
-   * Boolean SQL expression. Only TRUE passes; FALSE and NULL are violations.
+   * Boolean SQL expression passed unchanged to the target engine. Define NULL handling explicitly, for example COALESCE(Amount >= 0, FALSE).
    */
   expression: string;
   /**
@@ -399,7 +399,7 @@ export interface QualityCheck {
    */
   sql?: string;
   /**
-   * Only with sql. Defaults to evaluate; no_data reports NO_DATA when checked_rows is zero after technical validation.
+   * Only with sql. Defaults to evaluate; no_data reports NO_DATA when checked_rows is zero after result validation.
    */
   onEmpty?: "evaluate" | "no_data";
 }
@@ -544,7 +544,7 @@ export interface ModelRelationship {
   attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
- * Fixed SQL quality contract. Solutions translate expressions and queries to their target runtime.
+ * Fixed SQL quality contract. Solutions configure their target runtime and table bindings.
  */
 
 export interface Locator {

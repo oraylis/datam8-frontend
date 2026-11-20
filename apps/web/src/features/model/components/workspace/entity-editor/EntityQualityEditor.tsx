@@ -274,8 +274,8 @@ export function EntityQualityEditor({
               {editing === null ? "Add quality check" : "Edit quality check"}
             </DialogTitle>
             <DialogDescription>
-              Define a SQL condition. Only TRUE passes; FALSE and NULL are
-              violations.
+              SQL is passed unchanged to the target engine. Define NULL handling
+              explicitly, for example COALESCE(Amount &gt;= 0, FALSE).
             </DialogDescription>
           </DialogHeader>
           {draft && (

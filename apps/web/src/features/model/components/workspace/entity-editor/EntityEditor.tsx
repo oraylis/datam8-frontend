@@ -406,7 +406,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
         return next;
       });
       if (quality?.checks.length) {
-        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review quality definitions and update column references manually.`);
+        setQualityRenameWarning(`Attribute ${oldName} was renamed to ${newName}. Review quality SQL expressions and update column references manually.`);
       }
       setPendingFocusName(newName);
       return null;
@@ -885,7 +885,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
                 />
               )}
-              {entitySection === "quality" && <EntityQualityEditor quality={quality} saveError={saveError} onChange={(value) => {
+              {entitySection === "quality" && <EntityQualityEditor modelEntities={modelEntities} quality={quality} saveError={saveError} onChange={(value) => {
                 setQuality(value); markEntityDirty(); persistAfterStateFlush("dropdown-change");
               }} />}
               {entitySection === "attributes" && saveError && <p role="alert">{saveError}</p>}

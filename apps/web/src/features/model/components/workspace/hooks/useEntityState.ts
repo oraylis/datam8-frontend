@@ -80,6 +80,8 @@ export const serializeEntityContent = ({
     properties,
   };
   if (quality !== undefined) next.quality = quality;
+  // Backend read models may include an absent optional Quality as null.
+  if (next.quality == null) delete next.quality;
   // effectiveProperties is read-only projection from /solution/full and must never be persisted.
   delete next.effectiveProperties;
   const name = formValues.name ?? baseContent?.name;
@@ -625,7 +627,7 @@ export const useEntityState = ({
       sources: sourceState,
       relationships: normalizedRelationships,
       transformations: normalizedTransformations,
-      quality: content?.quality,
+      quality: content?.quality ?? undefined,
       properties: localProperties,
     });
     if (previousRelPath === selectedEntity.relPath && pendingSelfSaveAckRelPathRef.current === selectedEntity.relPath) {
@@ -660,7 +662,7 @@ export const useEntityState = ({
       setSources(cloneDeep(restored.sources || sourceState));
       setRelationships(cloneDeep(restored.relationships || normalizedRelationships));
       setTransformations(cloneDeep(restored.transformations || normalizedTransformations));
-      setQuality(restored.quality ?? content?.quality);
+      setQuality(restored.quality ?? content?.quality ?? undefined);
       setProperties(cloneDeep(normalizePropertyAssignments(restored.properties || content?.properties || [])));
       setOpenAttributeDetails(cloneDeep(restored.openAttributeDetails || {}));
       setOpenMappingDetails(cloneDeep(restored.openMappingDetails || {}));
@@ -697,7 +699,7 @@ export const useEntityState = ({
     setSources(sourceState);
     setRelationships(normalizedRelationships);
     setTransformations(normalizedTransformations);
-    setQuality(content?.quality);
+    setQuality(content?.quality ?? undefined);
     setProperties(normalizePropertyAssignments(content?.properties || []));
     scheduleHydrationRelease();
   // This hydration effect intentionally runs when the selected entity changes. It snapshots

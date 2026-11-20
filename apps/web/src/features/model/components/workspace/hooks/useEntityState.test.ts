@@ -8,6 +8,16 @@ import {
 } from "./useEntityState";
 
 describe("serializeEntityContent", () => {
+  it("normalizes absent backend quality null without blocking unrelated edits", () => {
+    const result = serializeEntityContent({
+      baseContent: { id: 1, name: "Entity", quality: null },
+      formValues: { name: "Renamed" }, attributes: [], sources: [], relationships: [],
+      transformations: [], properties: [],
+    });
+    expect(result.name).toBe("Renamed");
+    expect(result).not.toHaveProperty("quality");
+  });
+
   it("does not add description when both draft and base are undefined", () => {
     const result = serializeEntityContent({
       baseContent: { id: 2000, name: "Customer", displayName: "Customer" },

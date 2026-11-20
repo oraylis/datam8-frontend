@@ -215,13 +215,21 @@ When adding a new editable control:
 
 ## Quality fields
 
-Quality settings and confirmed rules use the same entity draft, revision and save
-queue. Rule and full-configuration dialogs keep unconfirmed JSON text local and
-commit only on Save. Invalid common structure, IDs or percentages keep the entity
-dirty; generation flushes saves and refuses unresolved changes.
+Confirmed checks, the entity-wide gate percentage and entity references use the
+same entity draft, revision and save queue. Add/Edit dialogs keep unconfirmed
+form fields local and commit only on Save. Cancel does not modify other checks.
+Invalid structure, IDs or percentages keep the entity dirty; generation flushes
+saves and refuses unresolved changes.
 
-Definitions and target options are opaque JSON objects. The editor does not require
-DQX fields or validate a target's function signatures. The
-[canonical quality contract](../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements)
-defines the shared behavior. Attribute renames flag quality definitions for review;
-the editor cannot safely rewrite arbitrary SQL, expressions or tool dialects.
+The Quality section lists multiple checks with execution, severity, row/aggregate
+kind, an expression preview and Edit/Duplicate/Delete actions. The detail dialog
+uses fixed fields; monitoring can enable an aggregate query and its on-empty
+behavior. Mode changes never silently discard SQL. SQL expressions and queries
+use monospace text inputs. Aggregate help explains the two result columns and
+that the expression checks the query result, for example `measured_value >= 0.95`.
+
+The [canonical quality contract](../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements)
+defines validation and defaults. The solution owns SQL resolution and native rule
+translation. Attribute renames flag SQL column references for review; the editor
+does not rewrite SQL automatically. There is no free definition/settings editor
+or implicit conversion of older quality formats.

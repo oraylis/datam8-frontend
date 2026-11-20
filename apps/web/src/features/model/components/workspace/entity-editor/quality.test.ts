@@ -1,64 +1,106 @@
 import { describe, expect, it } from "vitest";
 import { qualityErrors } from "./quality";
 
-describe("tool-neutral quality", () => {
-  const check = { id: "rule", execution: "monitoring", definition: {} };
-  it("accepts unrelated dialects, target options and nulls without DQX assumptions", () => {
-    for (const definition of [
-      { check: { function: "future", arguments: [null] } },
-      { assertion: { expression: "Id > 0" }, level: "fatal", nullable: null },
-      {
-        check: "not a DQX object",
-        user_metadata: { datam8_check_id: "opaque" },
-      },
-      {},
-    ]) {
-      expect(
-        qualityErrors({
-          checks: [{ ...check, definition }],
-          settings: { dependencies: { other: true } },
-          referenceDatasets: {
-            file: { uri: "memory://fixture", nullable: null },
-          },
-        }),
-      ).toEqual([]);
-    }
-  });
-  it("validates common structure, IDs, percentages and reference metadata", () => {
-    expect(
-      qualityErrors({ checks: [check], settings: { maxFailureRatePct: 0 } }),
-    ).toEqual([]);
+describe("fixed SQL quality contract", () => {
+  const check = {
+    id: "required",
+    execution: "enforcement",
+    expression: "Id IS NOT NULL",
+  };
+  it("accepts row checks, windows, aggregates and entity references", () => {
     for (const quality of [
-      { checks: [check, check] },
-      { checks: [{ ...check, definition: [] }] },
-      { checks: [{ ...check, type: "dqx" }] },
-      { checks: [{ ...check, execution: "unknown" }] },
-      { checks: [check], settings: { maxFailureRatePct: -1 } },
-      { checks: [check], referenceDatasets: { file: { entityId: true } } },
-      { checks: [check], referenceDatasets: null },
-    ])
-      expect(qualityErrors(quality).length).toBeGreaterThan(0);
-  });
-  it("rejects non-JSON values but does not interpret function names or expressions", () => {
-    expect(
-      qualityErrors({
+      { checks: [] },
+      { checks: [check], maxFailureRatePct: 0 },
+      {
         checks: [
           {
             ...check,
-            definition: { expression: "invalid SQL is a target concern" },
+            expression: "Id IS NULL OR COUNT(*) OVER (PARTITION BY Id) = 1",
           },
+        ],
+      },
+      {
+        checks: [
+          {
+            ...check,
+            execution: "monitoring",
+            sql: "SELECT COUNT(*) AS checked_rows, COUNT(*) AS measured_value FROM {target}",
+            expression: "measured_value > 0",
+            severity: "warning",
+            onEmpty: "no_data",
+          },
+        ],
+        references: { allowed: { entityId: 12 } },
+      },
+    ])
+      expect(qualityErrors(quality)).toEqual([]);
+  });
+  it("rejects obsolete and unknown fields without compatibility", () => {
+    for (const field of [
+      "definition",
+      "type",
+      "function",
+      "arguments",
+      "parameters",
+    ])
+      expect(
+        qualityErrors({ checks: [{ ...check, [field]: {} }] }).length,
+      ).toBeGreaterThan(0);
+    for (const field of ["settings", "referenceDatasets", "unknown"])
+      expect(
+        qualityErrors({ checks: [check], [field]: {} }).length,
+      ).toBeGreaterThan(0);
+  });
+  it("validates IDs and all field combinations", () => {
+    for (const patch of [
+      { id: "bad id" },
+      { execution: "other" },
+      { expression: " \n" },
+      { expression: 1 },
+      { severity: "warn" },
+      { severity: null },
+      { description: 2 },
+      { sql: "SELECT 1" },
+      { onEmpty: "evaluate" },
+      { execution: "monitoring", sql: " " },
+      { execution: "monitoring", sql: "SELECT 1", onEmpty: "skip" },
+    ])
+      expect(
+        qualityErrors({ checks: [{ ...check, ...patch }] }).length,
+      ).toBeGreaterThan(0);
+    expect(qualityErrors({ checks: [check, check] }).join()).toContain(
+      "unique",
+    );
+  });
+  it("rejects coercion and nonfinite percentages and malformed references", () => {
+    for (const maxFailureRatePct of [-1, 101, true, "5", null, Infinity, NaN])
+      expect(
+        qualityErrors({ checks: [], maxFailureRatePct }).length,
+      ).toBeGreaterThan(0);
+    for (const binding of [
+      {},
+      { entityId: true },
+      { entityId: "12" },
+      { entityId: -1 },
+      { entityId: 1, table: "x" },
+    ])
+      expect(
+        qualityErrors({ checks: [], references: { allowed: binding } }).length,
+      ).toBeGreaterThan(0);
+    expect(
+      qualityErrors({
+        checks: [],
+        references: { "bad alias": { entityId: 1 } },
+      }).length,
+    ).toBeGreaterThan(0);
+  });
+  it("leaves SQL capability and resolution checks to the solution", () => {
+    expect(
+      qualityErrors({
+        checks: [
+          { ...check, expression: "unsupported SQL is checked by the target" },
         ],
       }),
     ).toEqual([]);
-    expect(
-      qualityErrors({
-        checks: [{ ...check, definition: { limit: Infinity } }],
-      }).join(),
-    ).toContain("finite JSON");
-    expect(
-      qualityErrors({
-        checks: [{ ...check, definition: { callback: () => true } }],
-      }).join(),
-    ).toContain("finite JSON");
   });
 });

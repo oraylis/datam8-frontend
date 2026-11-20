@@ -365,21 +365,17 @@ export interface DataModule {
 // ---- quality.json ----
 
 export interface Quality {
-  settings?: QualitySettings;
+  /**
+   * Fail after valid target and metric writes when the distinct error-row percentage strictly exceeds this value. Omit to disable the gate.
+   */
+  maxFailureRatePct?: number;
   checks: QualityCheck[];
   /**
-   * Named data references. Targets interpret binding details; entityId and execution are optional shared reference metadata.
+   * Named active model entities, used in monitoring SQL as {references.alias}.
    */
-  referenceDatasets?: {
+  references?: {
     [k: string]: QualityReference;
   };
-}
-/**
- * Common quality settings plus open target-specific options.
- */
-
-export interface QualitySettings {
-  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `Quality`'s JSON-Schema
@@ -389,17 +385,31 @@ export interface QualitySettings {
 export interface QualityCheck {
   id: string;
   execution: "enforcement" | "monitoring";
+  /**
+   * Boolean SQL expression. Only TRUE passes; FALSE and NULL are violations.
+   */
+  expression: string;
+  /**
+   * Defaults to error when omitted.
+   */
+  severity?: "error" | "warning";
   description?: string;
   /**
-   * Opaque rule configuration interpreted and validated by the selected generator target. No tool-specific keys or functions are prescribed by this schema.
+   * Monitoring-only query returning exactly one row with checked_rows and measured_value. Uses {target} and declared {references.alias} relations.
    */
-  definition: {
-    [k: string]: unknown;
-  };
+  sql?: string;
+  /**
+   * Only with sql. Defaults to evaluate; no_data reports NO_DATA when checked_rows is zero after technical validation.
+   */
+  onEmpty?: "evaluate" | "no_data";
 }
+/**
+ * This interface was referenced by `Quality`'s JSON-Schema
+ * via the `definition` "QualityReference".
+ */
 
 export interface QualityReference {
-  [k: string]: unknown;
+  entityId: number;
 }
 
 // ---- model.json ----
@@ -534,7 +544,7 @@ export interface ModelRelationship {
   attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
- * Tool-neutral entity quality configuration. Generator targets interpret rule definitions and target options.
+ * Fixed SQL quality contract. Solutions translate expressions and queries to their target runtime.
  */
 
 export interface Locator {

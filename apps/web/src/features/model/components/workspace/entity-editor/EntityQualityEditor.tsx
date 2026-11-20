@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Copy, Pencil, Trash2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -12,29 +13,46 @@ import {
   Textarea,
 } from "@datam8/ui";
 import type { Quality } from "../../../generated-schema-types";
+import type { ModelEntity } from "../../../model-types";
+import { IconBtn } from "../common/IconBtn";
 import { qualityErrors, type QualityCheck } from "./quality";
 
 type Draft = {
   id: string;
-  execution: string;
+  execution: "enforcement" | "monitoring";
+  severity: "error" | "warning";
   description: string;
-  definition: string;
+  expression: string;
+  aggregate: boolean;
+  sql: string;
+  onEmpty: "evaluate" | "no_data";
+};
+type ReferenceDraft = {
+  original: string | null;
+  alias: string;
+  entityId: string;
 };
 
 export function EntityQualityEditor({
   quality,
+  modelEntities = [],
   onChange,
   saveError,
 }: {
   quality?: Quality;
+  modelEntities?: ModelEntity[];
   onChange: (value: Quality) => void;
   saveError?: string | null;
 }) {
   const checks = quality?.checks || [];
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
-  const [qualityJson, setQualityJson] = useState<string | null>(null);
+  const [referenceDraft, setReferenceDraft] = useState<ReferenceDraft | null>(
+    null,
+  );
   const [threshold, setThreshold] = useState<string | null>(null);
+  const updateDraft = (patch: Partial<Draft>) =>
+    setDraft((d) => (d ? { ...d, ...patch } : d));
   const open = (index: number | null, copy = false) => {
     const check = index === null ? undefined : checks[index];
     setEditing(copy ? null : index);
@@ -47,232 +65,347 @@ export function EntityQualityEditor({
     setDraft({
       id,
       execution: check?.execution || "enforcement",
+      severity: check?.severity || "error",
       description: check?.description || "",
-      definition: JSON.stringify(check?.definition || {}, null, 2),
+      expression: check?.expression || "",
+      aggregate: check?.sql !== undefined,
+      sql: check?.sql || "",
+      onEmpty: check?.onEmpty || "evaluate",
     });
   };
-  let candidate: QualityCheck | null = null;
-  let errors: string[] = [];
-  if (draft) {
-    try {
-      candidate = {
+  const candidate: QualityCheck | null = draft
+    ? {
         id: draft.id.trim(),
         execution: draft.execution,
-        definition: JSON.parse(draft.definition),
+        severity: draft.severity,
+        expression: draft.expression,
         ...(draft.description ? { description: draft.description } : {}),
-      } as QualityCheck;
-    } catch {
-      errors.push("Enter valid definition JSON.");
-    }
-  }
+        ...(draft.aggregate ? { sql: draft.sql, onEmpty: draft.onEmpty } : {}),
+      }
+    : null;
   const nextChecks = candidate
     ? editing === null
       ? [...checks, candidate]
-      : checks.map((c, i) => (i === editing ? candidate! : c))
+      : checks.map((c, i) => (i === editing ? candidate : c))
     : checks;
-  if (candidate)
-    errors.push(...qualityErrors({ ...quality, checks: nextChecks }));
-  let fullQuality: Quality | null = null;
-  let fullErrors: string[] = [];
-  if (qualityJson !== null) {
-    try {
-      fullQuality = JSON.parse(qualityJson) as Quality;
-      fullErrors = qualityErrors(fullQuality);
-    } catch {
-      fullErrors = ["Enter valid Quality JSON."];
-    }
-  }
-  const thresholdText =
-    threshold ?? String(quality?.settings?.maxFailureRatePct ?? "");
+  const errors = candidate
+    ? qualityErrors({ ...quality, checks: nextChecks })
+    : [];
+  const thresholdText = threshold ?? String(quality?.maxFailureRatePct ?? "");
   const thresholdValid =
     thresholdText === "" ||
     (Number.isFinite(Number(thresholdText)) &&
       Number(thresholdText) >= 0 &&
       Number(thresholdText) <= 100);
+  const references = quality?.references || {};
+  const nextReferences = { ...references };
+  if (referenceDraft) {
+    if (referenceDraft.original !== null)
+      delete nextReferences[referenceDraft.original];
+    nextReferences[referenceDraft.alias.trim()] = {
+      entityId: referenceDraft.entityId ? Number(referenceDraft.entityId) : -1,
+    };
+  }
+  const referenceErrors = referenceDraft
+    ? qualityErrors({ ...quality, checks, references: nextReferences })
+    : [];
+  if (
+    referenceDraft &&
+    referenceDraft.original !== referenceDraft.alias.trim() &&
+    referenceDraft.alias.trim() in references
+  )
+    referenceErrors.push("Reference alias must be unique.");
+  const entityOptions = modelEntities
+    .filter((e) => e.content?.id !== undefined)
+    .map((e) => ({
+      value: String(e.content.id),
+      label: `${e.content.name || e.name || e.relPath} (${e.content.id})`,
+    }));
+  const removeReference = (alias: string) => {
+    const next = { ...references };
+    delete next[alias];
+    onChange({ ...quality, checks, references: next });
+  };
   return (
     <section aria-label="Quality configuration" className="space-y-4">
-      <p>
-        Store rule definitions for the selected generator target. The target
-        validates its own rule format and executes enforcement or monitoring.
-      </p>
       {saveError && <p role="alert">{saveError}</p>}
-      <label>
-        Maximum failure rate (%)
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          value={thresholdText}
-          data-explicit-autosave="true"
-          placeholder="No threshold"
-          onChange={(e) => setThreshold(e.target.value)}
-          onBlur={() => {
-            const settings = { ...quality?.settings };
-            if (thresholdText === "") delete settings.maxFailureRatePct;
-            else settings.maxFailureRatePct = Number(thresholdText);
-            onChange({ ...quality, checks, settings });
-            setThreshold(null);
-          }}
-        />
-      </label>
-      {!thresholdValid && (
-        <p role="alert">Enter a percentage between 0 and 100.</p>
-      )}
-      <p>
-        When the error rate exceeds this threshold, valid rows are written
-        before dependent processing stops.
-      </p>
-      <Button onClick={() => open(null)}>Add quality check</Button>
-      <Button
-        variant="outline"
-        onClick={() =>
-          setQualityJson(JSON.stringify(quality || { checks: [] }, null, 2))
-        }
-      >
-        Edit full Quality JSON
-      </Button>
-      {checks.length === 0 && <p>No quality checks configured.</p>}
-      {checks.map((check, index) => (
-        <div
-          key={check.id}
-          className="flex flex-wrap items-center gap-3 rounded border p-3"
-        >
-          <strong>{check.id}</strong>
-          <span>{check.execution}</span>
-          {check.description && <span>{check.description}</span>}
+      <div className="source-block">
+        <label className="grid gap-1.5 text-foreground text-sm font-normal">
+          Maximum failure rate (%)
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={thresholdText}
+            data-explicit-autosave="true"
+            placeholder="No threshold"
+            onChange={(e) => setThreshold(e.target.value)}
+            onBlur={() => {
+              const next = { ...quality, checks };
+              if (thresholdText === "") delete next.maxFailureRatePct;
+              else next.maxFailureRatePct = Number(thresholdText);
+              onChange(next);
+              setThreshold(null);
+            }}
+          />
+        </label>
+        {!thresholdValid && (
+          <p role="alert">Enter a percentage between 0 and 100.</p>
+        )}
+        <p>
+          Valid rows and metrics are written before a strictly exceeded error
+          threshold stops dependent processing.
+        </p>
+      </div>
+      <div className="source-block">
+        <div className="section-header">
+          <h3>References</h3>
           <Button
             variant="outline"
-            aria-label={`Edit ${check.id}`}
-            onClick={() => open(index)}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            aria-label={`Duplicate ${check.id}`}
-            onClick={() => open(index, true)}
-          >
-            Duplicate
-          </Button>
-          <Button
-            variant="outline"
-            aria-label={`Delete ${check.id}`}
             onClick={() =>
-              onChange({
-                ...quality,
-                checks: checks.filter((_, i) => i !== index),
-              })
+              setReferenceDraft({ original: null, alias: "", entityId: "" })
             }
           >
-            Delete
+            Add reference
           </Button>
+        </div>
+        {Object.entries(references).map(([alias, binding]) => (
+          <div className="section-header" key={alias}>
+            <span>
+              <strong>{alias}</strong> —{" "}
+              {entityOptions.find((o) => o.value === String(binding.entityId))
+                ?.label || `Entity ${binding.entityId}`}
+            </span>
+            <div className="actions actions--tight">
+              <IconBtn
+                title={`Edit reference ${alias}`}
+                aria-label={`Edit reference ${alias}`}
+                onClick={() =>
+                  setReferenceDraft({
+                    original: alias,
+                    alias,
+                    entityId: String(binding.entityId),
+                  })
+                }
+              >
+                <Pencil className="h-4 w-4" />
+              </IconBtn>
+              <IconBtn
+                title={`Delete reference ${alias}`}
+                aria-label={`Delete reference ${alias}`}
+                onClick={() => removeReference(alias)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </IconBtn>
+            </div>
+          </div>
+        ))}
+        {!Object.keys(references).length && <p>No references configured.</p>}
+        <p>
+          Use declared references in monitoring SQL as{" "}
+          <code>{"{references.alias}"}</code>.
+        </p>
+      </div>
+      <div className="section-header">
+        <h3>Quality checks ({checks.length})</h3>
+        <Button onClick={() => open(null)}>Add quality check</Button>
+      </div>
+      {checks.length === 0 && <p>No quality checks configured.</p>}
+      {checks.map((check, index) => (
+        <div className="source-block" key={check.id}>
+          <div className="section-header">
+            <div>
+              <div className="source-eyebrow">
+                <span className="source-kind">{check.execution}</span>
+                <span>{check.severity || "error"}</span>
+                <span>
+                  {check.sql !== undefined ? "Aggregate" : "Row check"}
+                </span>
+              </div>
+              <strong className="section-title">{check.id}</strong>
+            </div>
+            <div className="actions actions--tight">
+              <IconBtn
+                title={`Edit ${check.id}`}
+                aria-label={`Edit ${check.id}`}
+                onClick={() => open(index)}
+              >
+                <Pencil className="h-4 w-4" />
+              </IconBtn>
+              <IconBtn
+                title={`Duplicate ${check.id}`}
+                aria-label={`Duplicate ${check.id}`}
+                onClick={() => open(index, true)}
+              >
+                <Copy className="h-4 w-4" />
+              </IconBtn>
+              <IconBtn
+                title={`Delete ${check.id}`}
+                aria-label={`Delete ${check.id}`}
+                onClick={() =>
+                  onChange({
+                    ...quality,
+                    checks: checks.filter((_, i) => i !== index),
+                  })
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+              </IconBtn>
+            </div>
+          </div>
+          <p className="truncate font-mono" title={check.expression}>
+            {check.expression}
+          </p>
+          {check.description && <p>{check.description}</p>}
         </div>
       ))}
       <Dialog
-        open={qualityJson !== null}
-        onOpenChange={(value) => {
-          if (!value) setQualityJson(null);
-        }}
-      >
-        <DialogContent data-explicit-autosave="true">
-          <DialogHeader>
-            <DialogTitle>Edit Quality JSON</DialogTitle>
-            <DialogDescription>
-              Rules, references and target options are stored in the entity
-              model. Tool-specific configuration is interpreted by the target.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            aria-label="Quality JSON"
-            className="min-h-96 font-mono"
-            value={qualityJson || ""}
-            onChange={(e) => setQualityJson(e.target.value)}
-          />
-          {fullErrors.map((error, i) => (
-            <p role="alert" key={i}>
-              {error}
-            </p>
-          ))}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQualityJson(null)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!fullQuality || fullErrors.length > 0}
-              onClick={() => {
-                if (fullQuality) {
-                  onChange(fullQuality);
-                  setQualityJson(null);
-                }
-              }}
-            >
-              Save Quality
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
         open={draft !== null}
-        onOpenChange={(value) => {
-          if (!value) setDraft(null);
+        onOpenChange={(open) => {
+          if (!open) setDraft(null);
         }}
       >
-        <DialogContent data-explicit-autosave="true">
+        <DialogContent
+          data-explicit-autosave="true"
+          className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        >
           <DialogHeader>
             <DialogTitle>
               {editing === null ? "Add quality check" : "Edit quality check"}
             </DialogTitle>
             <DialogDescription>
-              The definition format belongs to the selected target; DataM8 does
-              not prescribe check functions or parameters.
+              Define a SQL condition. Only TRUE passes; FALSE and NULL are
+              violations.
             </DialogDescription>
           </DialogHeader>
           {draft && (
-            <div className="space-y-3">
-              <label>
+            <div className="grid gap-4">
+              <label className="grid gap-1.5 text-foreground text-sm font-normal">
                 Check ID
                 <Input
                   value={draft.id}
-                  onChange={(e) => setDraft({ ...draft, id: e.target.value })}
+                  onChange={(e) => updateDraft({ id: e.target.value })}
                 />
               </label>
-              <label>
-                Execution
-                <FormSelect
-                  value={draft.execution}
-                  options={["enforcement", "monitoring"].map((value) => ({
-                    value,
-                    label: value,
-                  }))}
-                  onChange={(execution) => setDraft({ ...draft, execution })}
-                />
-              </label>
-              <label>
-                Definition (JSON)
-                <Textarea
-                  className="min-h-64 font-mono"
-                  value={draft.definition}
-                  onChange={(e) =>
-                    setDraft({ ...draft, definition: e.target.value })
-                  }
-                />
-              </label>
-              <label>
+              <label className="grid gap-1.5 text-foreground text-sm font-normal">
                 Description
                 <Input
                   value={draft.description}
-                  onChange={(e) =>
-                    setDraft({ ...draft, description: e.target.value })
-                  }
+                  onChange={(e) => updateDraft({ description: e.target.value })}
                 />
               </label>
-              {errors.length > 0 && (
-                <div role="alert">
-                  {errors.map((error) => (
-                    <p key={error}>{error}</p>
+              <fieldset>
+                <legend>Execution</legend>
+                <div className="flex gap-4">
+                  {(["enforcement", "monitoring"] as const).map((mode) => (
+                    <label key={mode} className="flex gap-2 items-center">
+                      <input
+                        type="radio"
+                        name="quality-execution"
+                        value={mode}
+                        checked={draft.execution === mode}
+                        disabled={mode === "enforcement" && draft.aggregate}
+                        onChange={() => updateDraft({ execution: mode })}
+                      />
+                      {mode === "enforcement" ? "Enforcement" : "Monitoring"}
+                    </label>
                   ))}
                 </div>
+                {draft.aggregate && (
+                  <p>
+                    Disable the aggregate option before switching to
+                    enforcement.
+                  </p>
+                )}
+              </fieldset>
+              <fieldset>
+                <legend>Severity</legend>
+                <div className="flex gap-4">
+                  {(["error", "warning"] as const).map((severity) => (
+                    <label key={severity} className="flex gap-2 items-center">
+                      <input
+                        type="radio"
+                        name="quality-severity"
+                        value={severity}
+                        checked={draft.severity === severity}
+                        onChange={() => updateDraft({ severity })}
+                      />
+                      {severity === "error" ? "Error" : "Warning"}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                SQL Expression
+                <Textarea
+                  aria-label="SQL Expression"
+                  className="font-mono min-h-24"
+                  value={draft.expression}
+                  placeholder={
+                    draft.aggregate
+                      ? "measured_value >= 0.95"
+                      : "CustomerId IS NOT NULL"
+                  }
+                  onChange={(e) => updateDraft({ expression: e.target.value })}
+                />
+              </label>
+              <label className="flex gap-2 items-center">
+                <input
+                  type="checkbox"
+                  checked={draft.aggregate}
+                  disabled={draft.execution !== "monitoring"}
+                  onChange={(e) => updateDraft({ aggregate: e.target.checked })}
+                />
+                Aggregated check with SQL
+              </label>
+              {draft.execution !== "monitoring" && (
+                <p>Aggregate SQL is available for monitoring.</p>
               )}
+              {draft.aggregate && (
+                <>
+                  <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                    SQL Query
+                    <Textarea
+                      aria-label="SQL Query"
+                      className="font-mono min-h-40"
+                      value={draft.sql}
+                      placeholder={
+                        "SELECT COUNT(*) AS checked_rows,\nCOUNT(Email) * 1.0 / NULLIF(COUNT(*), 0) AS measured_value\nFROM {target}"
+                      }
+                      onChange={(e) => updateDraft({ sql: e.target.value })}
+                    />
+                  </label>
+                  <p>
+                    The query must return exactly one row with{" "}
+                    <code>checked_rows</code> and <code>measured_value</code>.
+                    SQL Expression evaluates this result, for example{" "}
+                    <code>measured_value &gt;= 0.95</code>.
+                  </p>
+                  <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                    On empty input
+                    <select
+                      value={draft.onEmpty}
+                      onChange={(e) =>
+                        updateDraft({
+                          onEmpty: e.target.value as Draft["onEmpty"],
+                        })
+                      }
+                    >
+                      <option value="evaluate">Evaluate the condition</option>
+                      <option value="no_data">Report NO_DATA</option>
+                    </select>
+                  </label>
+                  <p>
+                    Empty means <code>checked_rows = 0</code>. Technical
+                    validation always runs.
+                  </p>
+                </>
+              )}
+              {errors.map((e, i) => (
+                <p role="alert" key={i}>
+                  {e}
+                </p>
+              ))}
             </div>
           )}
           <DialogFooter>
@@ -289,6 +422,75 @@ export function EntityQualityEditor({
               }}
             >
               Save check
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={referenceDraft !== null}
+        onOpenChange={(open) => {
+          if (!open) setReferenceDraft(null);
+        }}
+      >
+        <DialogContent data-explicit-autosave="true">
+          <DialogHeader>
+            <DialogTitle>
+              {referenceDraft?.original === null
+                ? "Add reference"
+                : "Edit reference"}
+            </DialogTitle>
+            <DialogDescription>
+              Select a model entity and a unique SQL reference alias.
+            </DialogDescription>
+          </DialogHeader>
+          {referenceDraft && (
+            <>
+              <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                Reference alias
+                <Input
+                  value={referenceDraft.alias}
+                  onChange={(e) =>
+                    setReferenceDraft({
+                      ...referenceDraft,
+                      alias: e.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                Reference entity
+                <FormSelect
+                  value={referenceDraft.entityId}
+                  options={[
+                    { value: "", label: "Select entity" },
+                    ...entityOptions,
+                  ]}
+                  onChange={(entityId) =>
+                    setReferenceDraft({ ...referenceDraft, entityId })
+                  }
+                />
+              </label>
+              {referenceErrors.map((e, i) => (
+                <p role="alert" key={i}>
+                  {e}
+                </p>
+              ))}
+            </>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReferenceDraft(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!referenceDraft || referenceErrors.length > 0}
+              onClick={() => {
+                if (referenceDraft && !referenceErrors.length) {
+                  onChange({ ...quality, checks, references: nextReferences });
+                  setReferenceDraft(null);
+                }
+              }}
+            >
+              Save reference
             </Button>
           </DialogFooter>
         </DialogContent>

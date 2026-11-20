@@ -90,10 +90,13 @@ test.afterAll(async () => {
   if (root?.startsWith(path.join(tmpdir(), "datam8-quality-ui-")))
     rmSync(root, { recursive: true, force: true });
 });
-test("quality dialog persists across tabs and real backend generation", async ({
+test("multiple SQL checks use structured dialogs and real backend generation", async ({
   page,
   request,
 }) => {
+  const readQuality = () =>
+    JSON.parse(readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"))
+      .quality;
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (
@@ -118,64 +121,133 @@ test("quality dialog persists across tabs and real backend generation", async ({
   await page
     .getByRole("button", { name: "Add quality check", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", { name: "Add quality check" });
-  await dialog.getByLabel("Check ID").fill("customer_id_required");
-  await dialog.getByLabel("Definition (JSON)").fill("{");
+  let dialog = page.getByRole("dialog", {
+    name: "Add quality check",
+    exact: true,
+  });
   await expect(
     dialog.getByRole("button", { name: "Save check", exact: true }),
   ).toBeDisabled();
-  const nativeDefinition = {
-    name: "Customer ID membership",
-    criticality: "warn",
-    filter: "Id > 0",
-    check: {
-      function: "is_in_list",
-      arguments: { column: "Id", allowed: [1, 2, null] },
-    },
-    user_metadata: { owner: "test team" },
-  };
+  await dialog.getByLabel("Check ID").fill("customer_id_required");
   await dialog
-    .getByLabel("Definition (JSON)")
-    .fill(JSON.stringify(nativeDefinition));
+    .getByLabel("SQL Expression", { exact: true })
+    .fill("Id IS NOT NULL");
+  await expect(
+    dialog.getByRole("checkbox", { name: "Aggregated check with SQL" }),
+  ).toBeDisabled();
   await dialog.getByRole("button", { name: "Save check", exact: true }).click();
   await expect
-    .poll(
-      () =>
-        JSON.parse(
-          readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
-        ).quality?.checks?.[0]?.id,
-    )
+    .poll(() => readQuality()?.checks?.[0]?.id)
     .toBe("customer_id_required");
+
+  await page
+    .getByRole("button", {
+      name: "Duplicate customer_id_required",
+      exact: true,
+    })
+    .click();
+  dialog = page.getByRole("dialog", { name: "Add quality check", exact: true });
+  await expect(dialog.getByLabel("Check ID")).toHaveValue(
+    "customer_id_required_1",
+  );
+  await dialog.getByLabel("Check ID").fill("id_completeness");
+  await dialog.getByRole("radio", { name: "Monitoring", exact: true }).check();
+  await dialog.getByRole("radio", { name: "Warning", exact: true }).check();
+  await dialog
+    .getByRole("checkbox", { name: "Aggregated check with SQL" })
+    .check();
+  await expect(
+    dialog.getByRole("radio", { name: "Enforcement", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByRole("button", { name: "Save check", exact: true }),
+  ).toBeDisabled();
+  const sql =
+    "SELECT COUNT(*) AS checked_rows, COUNT(Id) * 1.0 / NULLIF(COUNT(*), 0) AS measured_value FROM {target}";
+  await dialog.getByLabel("SQL Query", { exact: true }).fill(sql);
+  await dialog
+    .getByLabel("SQL Expression", { exact: true })
+    .fill("measured_value >= 0.95");
+  await dialog.getByLabel("On empty input").selectOption("no_data");
+  await page.screenshot({
+    path: path.join(
+      process.env.DATAM8_QUALITY_SCREENSHOT_DIR || tmpdir(),
+      "datam8-quality-sql-dialog.png",
+    ),
+    fullPage: true,
+  });
+  await dialog.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect.poll(() => readQuality()?.checks?.length).toBe(2);
+  expect(readQuality().checks[1]).toMatchObject({
+    id: "id_completeness",
+    severity: "warning",
+    sql,
+    onEmpty: "no_data",
+  });
+
+  await page
+    .getByRole("button", { name: "Edit id_completeness", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", {
+    name: "Edit quality check",
+    exact: true,
+  });
+  await dialog
+    .getByLabel("SQL Expression", { exact: true })
+    .fill("measured_value > 0");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(readQuality().checks[1].expression).toBe("measured_value >= 0.95");
+  await page
+    .getByRole("button", { name: "Edit customer_id_required", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", {
+    name: "Edit quality check",
+    exact: true,
+  });
+  await dialog.getByLabel("SQL Expression", { exact: true }).fill("Id >= 0");
+  await dialog.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect
+    .poll(() => readQuality()?.checks?.[0]?.expression)
+    .toBe("Id >= 0");
+  expect(readQuality().checks[1].expression).toBe("measured_value >= 0.95");
+
+  await page
+    .getByRole("button", { name: "Add reference", exact: true })
+    .click();
+  const reference = page.getByRole("dialog", {
+    name: "Add reference",
+    exact: true,
+  });
+  await reference.getByLabel("Reference alias").fill("allowed");
+  await reference.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Other (13)", exact: true }).click();
+  await reference
+    .getByRole("button", { name: "Save reference", exact: true })
+    .click();
+  await expect
+    .poll(() => readQuality()?.references?.allowed?.entityId)
+    .toBe(13);
+
   await page.getByText("Other", { exact: true }).first().dblclick();
   await page.getByText("Customer", { exact: true }).first().dblclick();
   await page.getByRole("button", { name: "Quality", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Edit customer_id_required" }),
+    page.getByRole("button", {
+      name: "Edit customer_id_required",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit id_completeness", exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: path.join(tmpdir(), path.basename(root) + "-editor.png"),
+    path: path.join(
+      process.env.DATAM8_QUALITY_SCREENSHOT_DIR || tmpdir(),
+      "datam8-quality-sql-list.png",
+    ),
     fullPage: true,
   });
-  await page
-    .getByRole("button", { name: "Edit full Quality JSON", exact: true })
-    .click();
-  const fullQuality = page.getByRole("dialog", {
-    name: "Edit Quality JSON",
-    exact: true,
-  });
-  const persistedQuality = JSON.parse(
-    readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
-  ).quality;
-  await fullQuality.getByRole("textbox").fill(
-    JSON.stringify({
-      ...persistedQuality,
-      settings: { dependencies: ["python-dateutil==2.9.0.post0"] },
-      referenceDatasets: { other: { entityId: 13, execution: "monitoring" } },
-    }),
-  );
-  await fullQuality
-    .getByRole("button", { name: "Save Quality", exact: true })
-    .click();
+
   let generationRequests = 0;
   page.on("request", (r) => {
     if (
@@ -187,7 +259,6 @@ test("quality dialog persists across tabs and real backend generation", async ({
   await page
     .getByRole("button", { name: "Toggle generator", exact: true })
     .click();
-  // Clicking Generate commits the focused field and refuses invalid drafts.
   await page.getByLabel("Maximum failure rate (%)").fill("-1");
   await page.getByRole("button", { name: "Generate", exact: true }).click();
   await expect(
@@ -201,111 +272,33 @@ test("quality dialog persists across tabs and real backend generation", async ({
       try {
         return JSON.parse(
           readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
-        ).settings?.maxFailureRatePct;
+        ).maxFailureRatePct;
       } catch {
         return null;
       }
     })
     .toBe(5);
-  const output = JSON.parse(
-    readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
-  );
-  expect(output.checks[0]).toMatchObject({
-    id: "customer_id_required",
-    execution: "enforcement",
-    definition: nativeDefinition,
-  });
-  expect(output.settings.dependencies).toEqual([
-    "python-dateutil==2.9.0.post0",
-  ]);
-  expect(output.referenceDatasets).toEqual({
-    other: { entityId: 13, execution: "monitoring" },
-  });
+  expect(
+    JSON.parse(
+      readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
+    ),
+  ).toEqual(readQuality());
   await page
-    .getByRole("button", { name: "Edit customer_id_required", exact: true })
+    .getByRole("button", { name: "Delete id_completeness", exact: true })
     .click();
-  const edit = page.getByRole("dialog", { name: "Edit quality check" });
-  await edit.getByRole("combobox").filter({ hasText: "enforcement" }).click();
-  await page.getByRole("option", { name: "monitoring", exact: true }).click();
-  const editedDefinition = {
-    ...nativeDefinition,
-    check: { function: "is_unique", arguments: { columns: ["Id"] } },
-  };
-  await edit
-    .getByLabel("Definition (JSON)")
-    .fill(JSON.stringify(editedDefinition));
-  await edit.getByRole("button", { name: "Save check", exact: true }).click();
-  await expect
-    .poll(
-      () =>
-        JSON.parse(
-          readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
-        ).quality?.checks?.[0]?.execution,
-    )
-    .toBe("monitoring");
-  await page.getByRole("button", { name: "Generate", exact: true }).click();
-  await expect
-    .poll(() => {
-      try {
-        return JSON.parse(
-          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
-        ).checks[0].definition.check.function;
-      } catch {
-        return null;
-      }
-    })
-    .toBe("is_unique");
-  // A second rule dialect has no DQX keys; the same editor/backend/target path preserves it.
-  await page
-    .getByRole("button", { name: "Edit customer_id_required", exact: true })
-    .click();
-  const otherDefinition = {
-    assertion: { expression: "Id IS NOT NULL" },
-    level: "fatal",
-    nullable: null,
-  };
-  await page
-    .getByRole("dialog", { name: "Edit quality check" })
-    .getByLabel("Definition (JSON)")
-    .fill(JSON.stringify(otherDefinition));
-  await page
-    .getByRole("dialog", { name: "Edit quality check" })
-    .getByRole("button", { name: "Save check", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Generate", exact: true }).click();
-  await expect
-    .poll(() => {
-      try {
-        return JSON.parse(
-          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
-        ).checks[0].definition;
-      } catch {
-        return null;
-      }
-    })
-    .toEqual(otherDefinition);
+  await expect.poll(() => readQuality()?.checks?.length).toBe(1);
+  expect(readQuality().checks[0].id).toBe("customer_id_required");
   await page
     .getByRole("button", { name: "Delete customer_id_required", exact: true })
     .click();
-  await expect
-    .poll(
-      () =>
-        JSON.parse(
-          readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"),
-        ).quality?.checks?.length,
-    )
-    .toBe(0);
-  await page.getByRole("button", { name: "Generate", exact: true }).click();
-  await expect
-    .poll(() => {
-      try {
-        return JSON.parse(
-          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
-        ).checks;
-      } catch {
-        return null;
-      }
-    })
-    .toEqual([]);
-  expect((await request.post(`${base}/model/reload`)).ok()).toBe(true);
+  await expect.poll(() => readQuality()?.checks?.length).toBe(0);
+  const response = await request.post(`${base}/model/generate`, {
+    data: { target: "quality", cleanOutput: true },
+  });
+  expect(response.ok()).toBeTruthy();
+  expect(
+    JSON.parse(
+      readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
+    ).checks,
+  ).toEqual([]);
 });

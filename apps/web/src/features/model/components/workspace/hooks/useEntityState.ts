@@ -155,16 +155,6 @@ export const normalizeSourcesForSave = (list: any[] | undefined) =>
     })
     .filter((src) => src !== null);
 
-export const resetAttributeSaveMarkers = <T extends { __isNew?: boolean; __modified?: boolean }>(attributes: T[]): T[] =>
-  attributes.map((attr) => {
-    if (!attr?.__isNew && !attr?.__modified) return attr;
-    return {
-      ...attr,
-      __isNew: false,
-      __modified: false,
-    };
-  });
-
 export type EntityEditorDraft = {
   mode: "form" | "json";
   entitySection: EntitySection;

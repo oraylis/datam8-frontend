@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 import { buildSourceMetadataEndpoint, buildSourcePreviewEndpoint, derivePreviewColumns, normalizePreviewRows } from "./sourcePreview";
 
 describe("sourcePreview helpers", () => {
-  it("builds preview endpoint for table without schema", () => {
-    const endpoint = buildSourcePreviewEndpoint("SalesDwh", { name: "Orders" });
-    expect(endpoint).toContain("/sources/SalesDwh/locations/preview?");
-    expect(endpoint).toContain("source_location=Orders");
-    expect(endpoint).toContain("limit=10");
-  });
+  it("uses a table name only when no opaque source handle is available", () => {
+    const fallback = new URL(buildSourcePreviewEndpoint("SalesDwh", { name: "Orders" }), "http://localhost");
+    expect(fallback.pathname).toBe("/sources/SalesDwh/locations/preview");
+    expect(fallback.searchParams.get("source_location")).toBe("Orders");
+    expect(fallback.searchParams.get("limit")).toBe("10");
 
-  it("uses the advertised opaque handle without interpreting the schema", () => {
-    const endpoint = buildSourcePreviewEndpoint("SalesDwh", { schema: "dbo", name: "Orders", sourceLocation: "opaque:/object#x" }, 25);
-    expect(endpoint).toContain("/sources/SalesDwh/locations/preview?");
-    expect(new URL(endpoint, "http://localhost").searchParams.get("source_location")).toBe("opaque:/object#x");
-    expect(endpoint).toContain("limit=25");
+    const advertised = new URL(
+      buildSourcePreviewEndpoint("SalesDwh", { schema: "dbo", name: "Orders", sourceLocation: "opaque:/object#x" }, 25),
+      "http://localhost",
+    );
+    expect(advertised.searchParams.get("source_location")).toBe("opaque:/object#x");
+    expect(advertised.searchParams.get("limit")).toBe("25");
   });
 
   it("builds metadata endpoint with URLSearchParams encoding", () => {
@@ -39,5 +39,4 @@ describe("sourcePreview helpers", () => {
     ]);
     expect(columns).toEqual(["id", "name", "createdAt"]);
   });
-
 });

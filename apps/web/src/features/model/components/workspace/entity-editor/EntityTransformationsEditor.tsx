@@ -30,22 +30,6 @@ export const derivePySourcePath = (stepName: string, prevSource?: string): strin
   return `${dir}/${filename}`;
 };
 
-export const shouldDeleteFunctionSourceOnStepRemove = (
-  transformations: any[],
-  removeIndex: number,
-  source: string,
-): boolean => {
-  const normalized = (source || "").trim();
-  if (!normalized) return false;
-  return !(transformations || []).some(
-    (item, idx) =>
-      idx !== removeIndex &&
-      item?.kind === "function" &&
-      typeof item?.function?.source === "string" &&
-      item.function.source.trim() === normalized,
-  );
-};
-
 type EntityTransformationsEditorProps = {
   transformations: any[];
   transformKinds: string[];
@@ -305,14 +289,22 @@ export const EntityTransformationsEditor = ({
                     title="Remove"
                     onClick={async () => {
                       const removed = transformations[idx];
-                      const removedSource =
-                        removed?.kind === "function" && typeof removed?.function?.source === "string"
-                          ? removed.function.source.trim()
-                          : "";
-                      const shouldDeleteSource =
-                        !!selectedEntity?.relPath &&
-                        !!removedSource &&
-                        shouldDeleteFunctionSourceOnStepRemove(transformations, idx, removedSource);
+                      if (removed?.kind === "function") {
+                        try {
+                          await deleteFunctionSource({
+                            relPath: selectedEntity?.relPath || "",
+                            source: removed.function?.source || "",
+                            modelEntityId: selectedEntity?.content?.id,
+                            stepNo: removed.stepNo ?? idx + 1,
+                            name: removed.name,
+                          });
+                        } catch (err) {
+                          const message = (err as Error).message || "Failed to delete function transformation.";
+                          setSaveError(message);
+                          publishAppError("Function deletion failed", message);
+                          return;
+                        }
+                      }
 
                       markEntityDirty();
                       setTransformations((list) => normalizeTransformations(list.filter((_, i) => i !== idx)));
@@ -320,19 +312,6 @@ export const EntityTransformationsEditor = ({
                       setTransformSourceCache((prev) => reindexRecordAfterRemove(prev, idx));
                       setTransformSourceDirty((prev) => reindexRecordAfterRemove(prev, idx));
                       onDeleteTransformation?.();
-
-                      if (shouldDeleteSource) {
-                        try {
-                          await deleteFunctionSource({
-                            relPath: selectedEntity!.relPath,
-                            source: removedSource,
-                            solutionPath: solutionPath || undefined,
-                          });
-                        } catch (err) {
-                          console.error("[DataM8] Function source delete failed:", err);
-                          setSaveError((err as Error).message || "Failed to delete function source.");
-                        }
-                      }
                     }}
                   >
                     <Trash2 className="h-4 w-4" />

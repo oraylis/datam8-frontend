@@ -437,8 +437,7 @@ function runPythonCli(
 async function createSolutionViaCli(params: {
   saveDir: string;
   solutionName: string;
-  basePath?: string;
-  modelPath?: string;
+  settings?: Record<string, unknown>;
 }): Promise<string> {
   const saveDir = normalizeDirectoryPath(params.saveDir);
   const solutionName = `${params.solutionName || ""}`.trim();
@@ -446,23 +445,11 @@ async function createSolutionViaCli(params: {
 
   const solutionDir = saveDir;
   const solutionFile = path.join(solutionDir, `${solutionName}.dm8s`);
-  fs.mkdirSync(solutionDir, { recursive: true });
-
   const runtime = resolveBackendRuntime(solutionFile);
-  runPythonCli(runtime, ["init", solutionName, "--solution", solutionFile, "--type", "empty"]);
-
-  // Optional path overrides (still v2 compliant) if user customized defaults.
-  const basePath = `${params.basePath || ""}`.trim();
-  const modelPath = `${params.modelPath || ""}`.trim();
-  if (basePath || modelPath) {
-    const raw = fs.readFileSync(solutionFile, "utf8");
-    const parsed = JSON.parse(raw);
-    if (basePath) parsed.basePath = basePath;
-    if (modelPath) parsed.modelPath = modelPath;
-    fs.writeFileSync(solutionFile, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
-    if (basePath) fs.mkdirSync(path.join(solutionDir, basePath), { recursive: true });
-    if (modelPath) fs.mkdirSync(path.join(solutionDir, modelPath), { recursive: true });
-  }
+  runPythonCli(runtime, [
+    "init", solutionName, "--solution", solutionFile, "--type", "empty",
+    ...(params.settings ? ["--settings", JSON.stringify(params.settings)] : []),
+  ]);
 
   return solutionFile;
 }
@@ -666,80 +653,6 @@ function readFunctionSourceFromDisk(payload: {
     }
   }
   return "";
-}
-
-function writeFunctionSourceToDisk(payload: {
-  relPath: string;
-  source: string;
-  content: string;
-  entityName?: string;
-  solutionPath?: string;
-  createOnly?: boolean;
-}): string {
-  const resolved = resolveFunctionSourcePaths(payload);
-  const content = typeof payload.content === "string" ? payload.content : "";
-  if (payload.createOnly && [resolved.preferredPath, resolved.fallbackPath, resolved.legacyPath].some((candidate) => fs.existsSync(candidate))) {
-    throw new Error("Function source already exists. Choose another name.");
-  }
-  fs.mkdirSync(path.dirname(resolved.preferredPath), { recursive: true });
-  fs.writeFileSync(resolved.preferredPath, content, { encoding: "utf8", flag: payload.createOnly ? "wx" : "w" });
-
-  if (resolved.legacyPath !== resolved.preferredPath && fs.existsSync(resolved.legacyPath)) {
-    try {
-      fs.unlinkSync(resolved.legacyPath);
-    } catch {
-      // ignore
-    }
-  }
-
-  return resolved.preferredPath;
-}
-
-function renameFunctionSourceOnDisk(payload: {
-  relPath: string;
-  fromSource: string;
-  toSource: string;
-  entityName?: string;
-  solutionPath?: string;
-}): { fromPath: string; toPath: string; skipped: boolean } {
-  const fromPaths = resolveFunctionSourcePaths({
-    relPath: payload.relPath,
-    source: payload.fromSource,
-    entityName: payload.entityName,
-    solutionPath: payload.solutionPath,
-  });
-  const toPaths = resolveFunctionSourcePaths({
-    relPath: payload.relPath,
-    source: payload.toSource,
-    entityName: payload.entityName,
-    solutionPath: payload.solutionPath,
-  });
-
-  const fromCandidates = [fromPaths.preferredPath, fromPaths.fallbackPath, fromPaths.legacyPath];
-  const fromPath = fromCandidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile()) || fromPaths.preferredPath;
-  if (!fs.existsSync(fromPath)) {
-    return { fromPath, toPath: toPaths.preferredPath, skipped: true };
-  }
-
-  fs.mkdirSync(path.dirname(toPaths.preferredPath), { recursive: true });
-  fs.renameSync(fromPath, toPaths.preferredPath);
-  return { fromPath, toPath: toPaths.preferredPath, skipped: false };
-}
-
-function deleteFunctionSourceOnDisk(payload: {
-  relPath: string;
-  source: string;
-  entityName?: string;
-  solutionPath?: string;
-}): string {
-  const resolved = resolveFunctionSourcePaths(payload);
-  const deleteCandidates = [resolved.preferredPath, resolved.fallbackPath, resolved.legacyPath];
-  const filePath = deleteCandidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
-  if (!filePath) {
-    throw new Error("Script not found.");
-  }
-  fs.unlinkSync(filePath);
-  return filePath;
 }
 
 function normalizeFolderRelativePath(value: string): string {
@@ -1007,6 +920,11 @@ function setupMenu() {
     ...(isMac ? [menuItem({ role: "pasteAndMatchStyle" })] : []),
     menuItem({ role: "delete" }),
     menuItem({ role: "selectAll" }),
+    menuItem({ type: "separator" }),
+    {
+      label: "Solution settings…",
+      click: () => mainWindow?.webContents.send("solution:open-settings"),
+    },
     ...(isMac ? [menuItem({ type: "separator" }), menuItem({ role: "startSpeaking" }), menuItem({ role: "stopSpeaking" })] : []),
   ];
   const viewSubmenu: MenuItemConstructorOptions[] = [
@@ -1375,7 +1293,7 @@ handleSolutionOperation("solution:load", async (_event, solutionPath: string | n
 
 handleSolutionOperation("solution:force-reload", forceReload);
 
-handleSolutionOperation("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => {
+handleSolutionOperation("solution:create-new", async (_event, payload: { saveDir: string; solutionName: string; settings?: Record<string, unknown> }) => {
   const solutionPath = await createSolutionViaCli(payload);
   return { solutionPath };
 });
@@ -1394,70 +1312,10 @@ handleSolutionOperation("solution:import-plugins", async (_event, payload: { sol
 });
 
 ipcMain.handle(
-  "backend:function-request",
-  async (_event, payload: {
-    path: string;
-    workspaceId?: string | null;
-    method?: "GET" | "POST";
-    body?: unknown;
-    legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
-  }) => {
-    const requestPath = `${payload?.path || ""}`;
-    if (backendWorkspaceId && payload.workspaceId !== backendWorkspaceId) throw new Error("Workspace changed; reload before retrying.");
-    if (!requestPath.startsWith("/functions/")) {
-      throw new Error("Only Function API requests are allowed through this bridge.");
-    }
-    const method = payload?.method || "GET";
-    const init: RequestInit = { method };
-    if (payload?.body !== undefined) {
-      init.headers = { "Content-Type": "application/json" };
-      init.body = JSON.stringify(payload.body);
-    }
-    try {
-      return await backendRequestJson<unknown>(requestPath, init);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const canMigrateLegacySource =
-        method === "POST" &&
-        !requestPath.endsWith("/move") &&
-        payload?.legacySource &&
-        /Response404NotFound|source file|not found/i.test(message);
-      if (!canMigrateLegacySource) throw error;
-
-      writeFunctionSourceToDisk(payload.legacySource!);
-      return await backendRequestJson<unknown>(requestPath, init);
-    }
-  },
-);
-
-ipcMain.handle(
   "solution:read-function-source",
   (_event, payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => {
     const content = readFunctionSourceFromDisk(payload);
     return { content };
-  },
-);
-
-ipcMain.handle(
-  "solution:save-function-source",
-  (_event, payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string; createOnly?: boolean }) => {
-    const filePath = writeFunctionSourceToDisk(payload);
-    return { path: filePath };
-  },
-);
-
-ipcMain.handle(
-  "solution:rename-function-source",
-  (_event, payload: { relPath: string; fromSource: string; toSource: string; entityName?: string; solutionPath?: string }) => {
-    return renameFunctionSourceOnDisk(payload);
-  },
-);
-
-ipcMain.handle(
-  "solution:delete-function-source",
-  (_event, payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => {
-    const filePath = deleteFunctionSourceOnDisk(payload);
-    return { path: filePath };
   },
 );
 

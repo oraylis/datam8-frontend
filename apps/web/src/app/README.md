@@ -6,9 +6,9 @@ Top-level UI composition for the web client.
 
 - `AppShell.tsx` - shell-level actions (New/Open/Reload/Add Entity), theme toggle, sidebar + workspace wiring, tab bar, generator panel.
 - `SolutionDialog.tsx` - server-side picker dialog for `.dm8s`.
-- `NewProjectDialog.tsx` - retained two-step new-project UI. Its `/solution/new-project`
-  consumer is not an implemented route in the pinned backend; do not claim an
-  end-to-end supported flow from the component alone.
+- `NewSolutionDialog.tsx` - creates an empty solution through the backend CLI with
+  initial settings; the backend contract also exposes `/solution/new-project` for
+  API clients.
 - `App.tsx` / `main.tsx` - entry wiring with providers (theme, solution/model/generator/file system contexts).
 - `toaster.tsx` - toast host; `index.css` - global styles.
 

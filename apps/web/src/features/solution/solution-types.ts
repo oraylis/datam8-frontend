@@ -3,6 +3,7 @@ export type Solution = {
   basePath: string;
   modelPath: string;
   pluginsPath?: string;
+  diagramPath?: string | null;
   generatorTargets: Array<{
     name: string;
     isDefault?: boolean;

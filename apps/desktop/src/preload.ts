@@ -62,14 +62,6 @@ contextBridge.exposeInMainWorld("desktop", {
     },
   },
   solution: {
-    requestFunctionApi: (payload: {
-      path: string;
-      workspaceId?: string | null;
-      method?: "GET" | "POST";
-      body?: unknown;
-      legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
-    }) =>
-      ipcRenderer.invoke("backend:function-request", payload),
     pickOpenPath: () => ipcRenderer.invoke("solution:pick-open-path"),
     pickSavePath: () => ipcRenderer.invoke("solution:pick-save-path"),
     pickDirectory: () => ipcRenderer.invoke("solution:pick-directory"),
@@ -89,7 +81,12 @@ contextBridge.exposeInMainWorld("desktop", {
       ipcRenderer.on("solution:reload", handler);
       return () => ipcRenderer.off("solution:reload", handler);
     },
-    createNew: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) =>
+    onOpenSettings: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on("solution:open-settings", handler);
+      return () => ipcRenderer.off("solution:open-settings", handler);
+    },
+    createNew: (payload: { saveDir: string; solutionName: string; settings?: Record<string, unknown> }) =>
       ipcRenderer.invoke("solution:create-new", payload),
     migrateV1ToV2: (payload: { sourceSolutionPath: string; targetDir: string }) =>
       ipcRenderer.invoke("solution:migrate-v1-to-v2", payload),
@@ -97,12 +94,6 @@ contextBridge.exposeInMainWorld("desktop", {
       ipcRenderer.invoke("solution:import-plugins", payload),
     readFunctionSource: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) =>
       ipcRenderer.invoke("solution:read-function-source", payload),
-    saveFunctionSource: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string; createOnly?: boolean }) =>
-      ipcRenderer.invoke("solution:save-function-source", payload),
-    renameFunctionSource: (payload: { relPath: string; fromSource: string; toSource: string; entityName?: string; solutionPath?: string }) =>
-      ipcRenderer.invoke("solution:rename-function-source", payload),
-    deleteFunctionSource: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) =>
-      ipcRenderer.invoke("solution:delete-function-source", payload),
     renameFolder: (payload: { fromFolderPath: string; toFolderPath: string; solutionPath?: string }) =>
       ipcRenderer.invoke("solution:rename-folder", payload),
     generate: (payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) =>

@@ -184,25 +184,16 @@ for (const theme of ["light", "dark"] as const) {
       const dialog = page.getByRole("dialog");
       const button = dialog.getByRole("button", { name, exact: true });
       await page.mouse.move(0, 0);
-      await dialog.screenshot({
-        path: `output/playwright/button-feedback-${theme}-${name.toLowerCase()}-idle.png`,
-      });
       await button.hover();
       await expect
         .poll(async () => (await styles(button)).overlay)
         .toContain("0.06");
-      await dialog.screenshot({
-        path: `output/playwright/button-feedback-${theme}-${name.toLowerCase()}-hover.png`,
-      });
       const dialogBox = await dialog.boundingBox();
       await page.mouse.down();
       await expect
         .poll(async () => (await styles(button)).overlay)
         .toContain("0.12");
       expect(await dialog.boundingBox()).toEqual(dialogBox);
-      await dialog.screenshot({
-        path: `output/playwright/button-feedback-${theme}-${name.toLowerCase()}-pressed.png`,
-      });
       await page.mouse.up();
       await expect(dialog).toHaveCount(0);
     }

@@ -153,7 +153,6 @@ test("External source refresh opens the shared dialog with only the clicked sour
 
   const groupToggle = dialog.getByRole("button", { name: /Collapse data source SalesDwh/ });
   await expect(groupToggle).toHaveAttribute("aria-expanded", "true");
-  await dialog.screenshot({ path: "output/playwright/external-schema-grouping-light.png" });
   await groupToggle.click();
   await expect(customerRow).toBeHidden();
   await expect(productRow).toBeHidden();
@@ -162,9 +161,6 @@ test("External source refresh opens the shared dialog with only the clicked sour
   await expect(productRow.getByRole("checkbox")).not.toBeChecked();
 
   await dialog.getByRole("button", { name: "Cancel" }).click();
-  await page.getByRole("button", { name: /switch to dark/i }).click();
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("button", { name: "Refresh external source", exact: true }).click();
-  await dialog.screenshot({ path: "output/playwright/external-schema-grouping-dark.png" });
+  await expect(dialog).toBeHidden();
 });
 

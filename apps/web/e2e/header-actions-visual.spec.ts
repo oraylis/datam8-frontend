@@ -249,22 +249,21 @@ async function expectBackground(locator: import("@playwright/test").Locator, exp
 }
 
 async function expectReviewInsideDialog(dialog: import("@playwright/test").Locator) {
-  const dialogBox = await dialog.boundingBox();
-  expect(dialogBox).toBeTruthy();
-  const rightEdge = dialogBox!.x + dialogBox!.width;
-  const elements = dialog.locator(
-    ".schema-review__toolbar, [data-testid='schema-review-group'], [data-testid='schema-review-entity'], [data-testid='schema-review-footer']",
-  );
-  const count = await elements.count();
-  expect(count).toBeGreaterThan(0);
-  for (let index = 0; index < count; index += 1) {
-    const box = await elements.nth(index).boundingBox();
-    expect(box).toBeTruthy();
-    expect(box!.x).toBeGreaterThanOrEqual(dialogBox!.x - 1);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(rightEdge + 1);
-  }
+  const reviewRegions = ".schema-review__toolbar, [data-testid='schema-review-group'], " +
+    "[data-testid='schema-review-entity'], [data-testid='schema-review-footer']";
+  await expect.poll(() => dialog.evaluate((element, selector) => {
+    const boundary = element.getBoundingClientRect();
+    const regions = [...element.querySelectorAll(selector)];
+    if (!regions.length) return ["No schema review content"];
+    return regions.flatMap((region) => {
+      const box = region.getBoundingClientRect();
+      const visible = box.width > 0 && box.height > 0;
+      return visible && box.left >= boundary.left - 1 && box.right <= boundary.right + 1
+        ? []
+        : [region.getAttribute("data-testid") || "schema review toolbar"];
+    });
+  }, reviewRegions), { message: "Schema review content fits within the dialog" }).toEqual([]);
 }
-
 test("workspace header run buttons stay vertically centered", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 768 });
   await mockApi(page);
@@ -317,11 +316,9 @@ test("workspace header run buttons stay vertically centered", async ({ page }) =
   expect(refreshBox!.x).toBeLessThan(generatorBox!.x);
   expect(editorPanelBox!.y).toBeGreaterThanOrEqual(tabsBottomY - 1);
   expect(Math.abs(editorPanelBottomY - editorColBottomY)).toBeLessThanOrEqual(2);
-
-  await page.screenshot({ path: "output/playwright/header-actions-visual.png" });
 });
 
-test("light editor surfaces are uniformly white while dark surfaces stay unchanged", async ({ page }, testInfo) => {
+test("light editor surfaces are uniformly white while dark surfaces stay unchanged", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("datam8-ui-theme-v2", "light"));
   await mockApi(page);
   await loadSolutionFromDialog(page);
@@ -352,7 +349,6 @@ test("light editor surfaces are uniformly white while dark surfaces stay unchang
   const baseFormSurface = page.locator(".base-editor .toggle-field").first();
   await expectBackground(baseFormSurface, "rgb(255, 255, 255)");
 
-  await page.screenshot({ path: testInfo.outputPath("editor-surfaces-light.png") });
   await page.getByRole("button", { name: /switch to dark/i }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expectBackground(baseFormSurface, "rgb(39, 39, 39)");
@@ -368,7 +364,6 @@ for (const theme of ["light", "dark"] as const) {
     const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
     await cancel.hover();
     await expect.poll(() => cancel.evaluate((button) => getComputedStyle(button).getPropertyValue("--ui-button-overlay"))).toContain("0.06");
-    await dialog.screenshot({ path: `output/playwright/button-refresh-${theme}-cancel-hover.png` });
     await page.mouse.down();
     await expect(cancel).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 1)");
     await page.mouse.up();
@@ -383,7 +378,6 @@ for (const theme of ["light", "dark"] as const) {
     await expect(back).toHaveCSS("outline-width", "2px");
     await back.hover();
     await expect.poll(() => back.evaluate((button) => getComputedStyle(button).getPropertyValue("--ui-button-overlay"))).toContain("0.06");
-    await dialog.screenshot({ path: `output/playwright/button-refresh-${theme}-back-hover.png` });
     await page.mouse.down();
     await expect(back).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 1)");
     await page.mouse.up();
@@ -737,8 +731,6 @@ test("schema review groups changes without overflowing or repeating source detai
   await expect(externalSources.getByTestId("diff-entry").filter({ hasText: "dbo.Customer_v2" })).toBeVisible();
 
   await expectReviewInsideDialog(dialog);
-  await crmGroupToggle.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: "output/playwright/schema-review-grouped-light.png" });
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
@@ -749,7 +741,6 @@ test("schema review groups changes without overflowing or repeating source detai
   await darkDialog.getByRole("button", { name: "Scan selected sources" }).click();
   await expect(darkDialog.getByRole("button", { name: /review group CRM, 2 entities/ })).toBeVisible();
   await expectReviewInsideDialog(darkDialog);
-  await page.screenshot({ path: "output/playwright/schema-review-grouped-dark.png" });
 
   await page.setViewportSize({ width: 900, height: 720 });
   await expectReviewInsideDialog(darkDialog);
@@ -827,7 +818,6 @@ test("schema review shows attribute and entity property diffs from the generator
   await expect(globalOperations.getByTestId("change-count-added")).toHaveClass(/text-emerald-800/);
   await expect(globalOperations.getByTestId("change-count-changed")).toHaveClass(/text-amber-800/);
   await expect(globalOperations.getByTestId("change-count-removed")).toHaveClass(/text-destructive/);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-attributes-properties.png" });
   const changedColumn = modelEntitySection.getByTestId("diff-column-group").filter({ hasText: "CustomerId" });
   await expect(changedColumn.getByLabel("Changed", { exact: true })).toHaveText("~");
   const addedColumn = modelEntitySection.getByTestId("diff-column-group").filter({ hasText: "CreatedAt" });
@@ -840,8 +830,6 @@ test("schema review shows attribute and entity property diffs from the generator
   await expect(addedColumn.getByText("Nullable", { exact: true })).toBeVisible();
   await expect(addedColumn.getByText("Properties › classification", { exact: true })).toBeVisible();
   await expect(addedColumn.locator("pre")).toHaveCount(0);
-  await modelEntitySection.getByText("Properties › write_mode", { exact: true }).scrollIntoViewIfNeeded();
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-entity-properties.png" });
 });
 
 test("schema review shows source-only and mapping diffs from the generator", async ({ page }) => {
@@ -948,7 +936,6 @@ test("schema review shows source-only and mapping diffs from the generator", asy
     "aria-label",
     "changed; values_changed; root['sources'][0]['mapping'][0]['sourceDataType']['type']",
   );
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-sources-only.png" });
   await removedColumn.scrollIntoViewIfNeeded();
   await removedColumn.locator("summary").first().click();
   await expect(removedColumn.getByTestId("diff-entry")).toHaveCount(2);
@@ -956,7 +943,6 @@ test("schema review shows source-only and mapping diffs from the generator", asy
   await expect(removedColumn.getByText("Target column", { exact: true })).toBeVisible();
   await expect(externalSourcesSection.getByText("View value", { exact: true })).toHaveCount(0);
   await expect(externalSourcesSection.locator("pre")).toHaveCount(0);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-mapping-removals.png" });
 });
 
 test("schema review combines entity and source changes and preserves expansion while filtering", async ({ page }) => {
@@ -1044,19 +1030,15 @@ test("schema review combines entity and source changes and preserves expansion w
   await expect(dialog.getByTestId("global-operation-summary").getByTestId("change-count-changed")).toHaveText("2 modified");
   await expect(dialog.getByTestId("global-operation-summary").getByTestId("change-count-added")).toHaveText("+1 added");
   await expectReviewInsideDialog(dialog);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-mixed-entity-sources.png" });
   await page.setViewportSize({ width: 900, height: 720 });
   await expectReviewInsideDialog(dialog);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-mixed-narrow.png" });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /switch to dark/i }).click();
   await page.getByRole("button", { name: "Refresh data sources" }).click();
   await dialog.getByRole("button", { name: "Scan selected sources" }).click();
   await dialog.getByRole("button", { name: "Expand all", exact: true }).click();
   await expectReviewInsideDialog(dialog);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-mixed-narrow-dark.png" });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-mixed-dark.png", animations: "disabled" });
   await expectReviewInsideDialog(dialog);
 
 });
@@ -1111,7 +1093,6 @@ test("schema review shows dictionary and type changes in dark mode", async ({ pa
   await expect(globalOperations.getByTestId("change-count-changed")).toHaveText("1 modified");
   await expect(globalOperations.getByTestId("change-count-removed")).toHaveText("−1 removed");
   await expect(globalOperations.getByTestId("change-count-added")).toHaveClass(/dark:text-emerald-300/);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-dictionary-dark.png" });
 });
 
 test("schema review extracts whole sources and mapping lists with long names without JSON", async ({ page }) => {
@@ -1160,7 +1141,6 @@ test("schema review extracts whole sources and mapping lists with long names wit
   await expect(dialog.locator("pre")).toHaveCount(0);
   const fields = dialog.getByTestId("diff-entry");
   expect(await fields.evaluateAll((rows) => rows.every((row) => row.scrollWidth <= row.clientWidth + 1))).toBe(true);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-whole-sources.png", animations: "disabled" });
   await expectReviewInsideDialog(dialog);
 });
 
@@ -1210,7 +1190,6 @@ test("schema review counts affected objects and hides mapping and column preview
   await expect(firstColumn.locator(":scope > summary")).toHaveText(/~campaign_desc1 change/);
   await expect(firstColumn.getByText("Length", { exact: true })).toBeHidden();
   await expect(columns.getByText("Changed", { exact: true })).toHaveCount(0);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-affected-counts.png" });
   await firstColumn.locator(":scope > summary").getByTestId("review-expand-icon").click();
   await expect(firstColumn.getByText("Length", { exact: true })).toBeVisible();
   const lengthRow = firstColumn.getByTestId("diff-entry");
@@ -1232,7 +1211,6 @@ test("schema review counts affected objects and hides mapping and column preview
   await expect(mapping.getByText("Properties › classification", { exact: true })).toBeHidden();
   await expect(mapping.getByText("Data type", { exact: true })).toBeHidden();
   await expect(source.getByText("Changed", { exact: true })).toHaveCount(0);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-mappings-compact.png" });
   await mapping.locator(":scope > summary").click();
   await expect(mapping.getByText("Properties › classification", { exact: true })).toBeVisible();
   await expect(mapping.getByText("Data type", { exact: true })).toBeVisible();
@@ -1244,7 +1222,6 @@ test("schema review counts affected objects and hides mapping and column preview
     const icon = summary.querySelector('[data-testid="review-expand-icon"]')!;
     return icon.getBoundingClientRect().right < summary.getBoundingClientRect().left;
   }))).toBe(true);
-  await dialog.screenshot({ path: "output/playwright/refresh-diff-compact-values.png", animations: "disabled" });
 });
 
 test("schema refresh keeps failed apply results available for retry", async ({ page }) => {
@@ -1325,7 +1302,6 @@ test("generator exposes only the generate action", async ({ page }) => {
     }
     return alignedRightEdges;
   }).toBeLessThanOrEqual(2);
-  await panel.screenshot({ path: "output/playwright/generator-toolbar-visual.png" });
   await expect(panel.getByRole("button", { name: "More generator actions" })).toHaveCount(0);
 });
 

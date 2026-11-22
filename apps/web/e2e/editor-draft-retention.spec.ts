@@ -193,7 +193,9 @@ test("base draft survives switching", async ({ page }) => {
   await expect(dataTypesTab).toBeVisible();
 
   await page.getByRole("button", { name: "Attribute Types", exact: true }).click();
+  await expect(page.locator(".tree__child--active")).toHaveText("Attribute Types");
   await page.getByRole("button", { name: "Data Types", exact: true }).click();
+  await expect(page.locator(".tree__child--active")).toHaveText("Data Types");
 
   await expect(displayNameInput).toHaveValue("String Draft");
   await expect(dataTypesTab).toBeVisible();

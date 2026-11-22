@@ -196,7 +196,9 @@ test("base draft survives switching", async ({ page }) => {
   const dataTypesTab = page.locator('.worktabs .worktab[title="Base/DataTypes.json"]').first();
   await expect(dataTypesTab).toBeVisible();
   await page.getByRole("button", { name: "Attribute Types", exact: true }).click();
+  await expect(page.locator(".tree__child--active")).toHaveText("Attribute Types");
   await page.getByRole("button", { name: "Data Types", exact: true }).click();
+  await expect(page.locator(".tree__child--active")).toHaveText("Data Types");
 
   await expect(displayNameInput).toHaveValue("Integer Draft");
   await expect(page.locator(".item-title").first()).toHaveText("int");

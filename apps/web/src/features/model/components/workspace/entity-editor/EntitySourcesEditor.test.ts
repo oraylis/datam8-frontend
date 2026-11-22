@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toPropertyChipItems, toUsedPropertyNameSet } from "./EntitySourcesEditor";
 
 describe("EntitySourcesEditor property helpers", () => {
-  it("creates chip items and filters empty property names", () => {
+  it("creates chip items only for non-empty property names", () => {
     const items = toPropertyChipItems(
       [
         { property: "PII", value: "yes" },
@@ -22,9 +22,6 @@ describe("EntitySourcesEditor property helpers", () => {
         removeKey: 0,
       },
     ]);
-  });
-
-  it("returns an empty item list for undefined properties", () => {
     expect(toPropertyChipItems(undefined, "map-2", "Mapping property")).toEqual([]);
   });
 

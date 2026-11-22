@@ -383,14 +383,21 @@ test("function creation and deletion use the backend API", async ({ page }) => {
   expect(create.postDataJSON()).toMatchObject({ stepNo: 1, name: "Step1", source: "Step1.py", sourceCode: "" });
 
   const sourceFile = path.join(root, "Model/Core/Step1.py");
+  const transformations = () => {
+    try {
+      return readJson("Model/Core/FunctionCreateEntity.json").transformations;
+    } catch {
+      return undefined;
+    }
+  };
   await expect.poll(() => existsSync(sourceFile)).toBe(true);
-  await expect.poll(() => readJson("Model/Core/FunctionCreateEntity.json").transformations[0].kind).toBe("function");
+  await expect.poll(() => transformations()?.[0]?.kind).toBe("function");
 
   const deleteRequest = page.waitForRequest((request) => request.method() === "DELETE" && new URL(request.url()).pathname === "/functions/13/1");
   await row.getByTitle("Remove").click();
   await deleteRequest;
   await expect.poll(() => existsSync(sourceFile)).toBe(false);
-  await expect.poll(() => readJson("Model/Core/FunctionCreateEntity.json").transformations).toHaveLength(0);
+  await expect.poll(() => transformations()).toEqual([]);
   expect(serverErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

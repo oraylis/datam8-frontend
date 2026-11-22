@@ -12,24 +12,32 @@ import {
 } from "@datam8/ui";
 import { FolderOpen } from "lucide-react";
 import { ErrorSurfaceHost, useErrorSurface } from "../shared/ui/ErrorSurface";
+import { SolutionSettingsFields, type SolutionSettingsValues } from "../features/solution/SolutionSettingsFields";
 
-type NewProjectDialogProps = {
+const defaultSettings: SolutionSettingsValues = {
+  basePath: "base",
+  modelPath: "model",
+  pluginsPath: "plugins",
+  diagramPath: "",
+  generatorTargets: [{ name: "default", isDefault: true, sourcePath: "generate", outputPath: "output" }],
+};
+
+type NewSolutionDialogProps = {
   open: boolean;
   onClose: () => void;
   onCreated: (solutionPath: string) => Promise<void> | void;
-  defaultProjectRoot?: string;
 };
 
-export function NewProjectDialog({
+export function NewSolutionDialog({
   open,
   onClose,
   onCreated,
-  defaultProjectRoot: _defaultProjectRoot,
-}: NewProjectDialogProps) {
-  const scope = "dialog:new-project";
+}: NewSolutionDialogProps) {
+  const scope = "dialog:new-solution";
   const isElectron = !!window.desktop?.isElectron;
   const [solutionName, setSolutionName] = useState("");
   const [savePath, setSavePath] = useState("");
+  const [settings, setSettings] = useState<SolutionSettingsValues>(defaultSettings);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showError, clearError } = useErrorSurface();
@@ -40,6 +48,7 @@ export function NewProjectDialog({
     if (!open) return;
     setSolutionName("");
     setSavePath("");
+    setSettings(defaultSettings);
     setError(null);
     clearError(scope);
   }, [clearError, open]);
@@ -47,7 +56,7 @@ export function NewProjectDialog({
   useEffect(() => {
     if (!open) return;
     if (error) {
-      showError(scope, { title: "Create failed", description: error });
+      showError(scope, { title: "Solution creation failed", description: error });
       return;
     }
     clearError(scope);
@@ -57,10 +66,10 @@ export function NewProjectDialog({
     const normalizedSolutionName = solutionName.trim();
     const normalizedSavePath = savePath.trim();
 
-    if (!normalizedSolutionName) return "Solution Name is required.";
-    if (!normalizedSavePath) return "Save Path is required.";
-    if (normalizedSolutionName.includes("\0")) return "Solution Name contains invalid characters.";
-    if (normalizedSavePath.includes("\0")) return "Save Path contains invalid characters.";
+    if (!normalizedSolutionName) return "Solution name is required.";
+    if (!normalizedSavePath) return "Solution directory is required.";
+    if ([".", ".."].includes(normalizedSolutionName) || /[\\/\0]/.test(normalizedSolutionName)) return "Solution name contains invalid characters.";
+    if (normalizedSavePath.includes("\0")) return "Solution directory contains invalid characters.";
     return null;
   };
 
@@ -78,6 +87,10 @@ export function NewProjectDialog({
       const result = await window.desktop.solution.createNew({
         saveDir: savePath.trim(),
         solutionName: solutionName.trim(),
+        settings: {
+          ...settings,
+          diagramPath: settings.diagramPath?.trim() || null,
+        },
       });
       const solutionPath = `${(result as any)?.solutionPath || ""}`.trim();
       if (!solutionPath) throw new Error("Solution path not returned");
@@ -105,21 +118,21 @@ export function NewProjectDialog({
         if (!creating && !next) onClose();
       }}
     >
-      <DialogContent className="new-solution-wizard flex max-h-[90vh] max-w-3xl flex-col overflow-hidden">
+      <DialogContent className="new-solution-wizard flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
+          <DialogTitle>Create New Solution</DialogTitle>
           <DialogDescription>
-            Choose a save directory and create a new solution with backend defaults.
+            Choose a directory and configure the initial solution paths and generator targets.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 space-y-4 overflow-y-auto pr-1">
           <div className="space-y-2">
-            <Label htmlFor="new-project-solution-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Solution Name
+            <Label htmlFor="new-solution-name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Solution name
             </Label>
             <Input
-              id="new-project-solution-name"
+              id="new-solution-name"
               value={solutionName}
               onChange={(e) => setSolutionName(e.target.value)}
               placeholder="MySolution"
@@ -130,15 +143,15 @@ export function NewProjectDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="new-project-save-path" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Save Path
+            <Label htmlFor="new-solution-save-path" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Solution directory
             </Label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
-                id="new-project-save-path"
+                id="new-solution-save-path"
                 value={savePath}
                 onChange={(e) => setSavePath(e.target.value)}
-                placeholder={isElectron ? "C:\\Projects" : "/workspace/projects"}
+                placeholder={isElectron ? "C:\\Solutions" : "/workspace/solutions"}
               />
               {isElectron && window.desktop?.solution?.pickDirectory ? (
                 <Button
@@ -160,7 +173,7 @@ export function NewProjectDialog({
               Creates <code>{savePath.trim() || "<save-path>"}/{solutionName.trim() || "SolutionName"}.dm8s</code>.
             </p>
           </div>
-
+          <SolutionSettingsFields value={settings} onChange={setSettings} />
         </div>
 
         <DialogFooter>

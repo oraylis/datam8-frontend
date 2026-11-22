@@ -21,9 +21,10 @@ import { GeneratorPanel } from "../features/generator/GeneratorPanel";
 import { RefreshSchemasDialog } from "../features/model/components/workspace/base-editor/RefreshSchemasDialog";
 import { SolutionDialog } from "./SolutionDialog";
 import { SolutionLoadingDialog } from "./SolutionLoadingDialog";
+import { SolutionSettingsPanel } from "../features/solution/SolutionSettingsPanel";
 import { CreateModelEntityWizard } from "../features/model/components/CreateModelEntityWizard";
 import { MoveEntitiesDialog } from "../features/model/components/MoveEntitiesDialog";
-import { NewProjectDialog } from "./NewProjectDialog";
+import { NewSolutionDialog } from "./NewSolutionDialog";
 import { WindowsTitleBar } from "./WindowsTitleBar";
 import { DeveloperTools } from "../features/developer/DeveloperTools";
 import { useDesktopUpdates } from "../features/updates/useDesktopUpdates";
@@ -275,7 +276,8 @@ export function AppShell() {
     loadSolution,
   } = useSolution();
   const [appMode, setAppMode] = useState<RuntimeAppMode>(config.mode);
-  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newSolutionOpen, setNewSolutionOpen] = useState(false);
+  const [showSolutionSettings, setShowSolutionSettings] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveTargets, setMoveTargets] = useState<string[]>([]);
@@ -289,7 +291,6 @@ export function AppShell() {
     itemName: string;
     token: number;
   } | null>(null);
-  const [projectRootHint, setProjectRootHint] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const appRootRef = useRef<HTMLDivElement | null>(null);
   const entityPersistRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -444,21 +445,6 @@ export function AppShell() {
       showAppError("Failed to load solution", error);
     }
   }, [error, showAppError]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("dm8_solution_path");
-    if (stored) {
-      const parts = stored.split(/[\\/]/).slice(0, -1);
-      setProjectRootHint(parts.join("/"));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (solutionPath) {
-      const parts = solutionPath.split(/[\\/]/).slice(0, -1);
-      setProjectRootHint(parts.join("/"));
-    }
-  }, [solutionPath]);
 
   useEffect(() => {
     if (!window.desktop?.isElectron || !window.desktop?.window?.setSolutionPath) return;
@@ -860,14 +846,14 @@ export function AppShell() {
     [browserLike, electronLike, pickElectronSolution, serverDialog, setPickerInput, setPickerOpen],
   );
 
-  const handleProjectCreated = useCallback(
+  const handleSolutionCreated = useCallback(
     async (createdSolutionPath: string) => {
       const result = await loadSolution({ kind: electronLike ? "electron-path" : "server-path", path: createdSolutionPath });
       if (!result) {
         throw new Error("Failed to load created solution");
       }
       applyLoadedSolution(result, { resetWorkspace: true });
-      setNewProjectOpen(false);
+      setNewSolutionOpen(false);
     },
     [applyLoadedSolution, loadSolution, electronLike],
   );
@@ -1835,6 +1821,13 @@ export function AppShell() {
 
   useEffect(() => window.desktop?.solution?.onReload?.((force) => { void handleReload(force); }), [handleReload]);
 
+  useEffect(() => window.desktop?.solution?.onOpenSettings?.(() => {
+    void (async () => {
+      if (!solution || !(await persistActiveEditorBeforeSwitch())) return;
+      setShowSolutionSettings((open) => !open);
+    })();
+  }), [persistActiveEditorBeforeSwitch, solution]);
+
   const activeTabId =
     activeWorkTab?.startsWith("base:")
       ? "base"
@@ -2179,7 +2172,7 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleDuplicate, handleDelete]);
 
-  const dialogOpen = serverDialog && (pickerOpen || (!solution && !newProjectOpen));
+  const dialogOpen = serverDialog && (pickerOpen || (!solution && !newSolutionOpen));
 
   return (
     <div
@@ -2211,11 +2204,10 @@ export function AppShell() {
           applyLoadedSolution({ modelEntities: model, baseEntities: base, folderEntities: folders }, { resetWorkspace: true });
         }}
       />
-      <NewProjectDialog
-        open={newProjectOpen}
-        onClose={() => setNewProjectOpen(false)}
-        onCreated={handleProjectCreated}
-        defaultProjectRoot={projectRootHint}
+      <NewSolutionDialog
+        open={newSolutionOpen}
+        onClose={() => setNewSolutionOpen(false)}
+        onCreated={handleSolutionCreated}
       />
       <CreateModelEntityWizard
         open={wizardOpen}
@@ -2275,6 +2267,7 @@ export function AppShell() {
                   const canSwitch = await persistActiveEditorBeforeSwitch();
                   if (!canSwitch) return;
                 }
+                setShowSolutionSettings(false);
                 toggleEntitySelection(relPath, multi);
                 setSelectedFolderPath(null);
                 if (!multi) {
@@ -2290,6 +2283,7 @@ export function AppShell() {
                   const canSwitch = await persistActiveEditorBeforeSwitch();
                   if (!canSwitch) return;
                 }
+                setShowSolutionSettings(false);
                 setSelectedFolderPath(normalized);
                 setSelectedRelPath(null);
                 setSelectedRelPaths(new Set());
@@ -2319,6 +2313,7 @@ export function AppShell() {
                   const canSwitch = await persistActiveEditorBeforeSwitch();
                   if (!canSwitch) return;
                 }
+                setShowSolutionSettings(false);
                 openBaseTab(rel, title);
               })();
             }}
@@ -2326,7 +2321,7 @@ export function AppShell() {
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
             onResizeStart={startResize}
-            onNew={() => setNewProjectOpen(true)}
+            onNew={() => setNewSolutionOpen(true)}
             onOpen={() => {
               void triggerSolutionSelect(false);
             }}
@@ -2440,7 +2435,15 @@ export function AppShell() {
             </div>
           </div>
           <div className="editor-panel">
-            {activeWorkTab?.startsWith("folder:") && selectedFolderPath ? (
+            {showSolutionSettings && solution ? (
+              <SolutionSettingsPanel
+                solution={solution}
+                onSaved={async () => {
+                  const refreshed = await refreshSolution();
+                  applyLoadedSolution(refreshed);
+                }}
+              />
+            ) : activeWorkTab?.startsWith("folder:") && selectedFolderPath ? (
               <FolderEditor
                 selectedFolderPath={selectedFolderPath}
                 folderEntity={selectedFolderEntity}

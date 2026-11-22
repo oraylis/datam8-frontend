@@ -36,6 +36,8 @@ describe("functionSourceBridge", () => {
           headers: { "Content-Type": "application/json" },
         });
       }
+      if (url.endsWith("/functions/1") && init?.method === "POST") return new Response(null, { status: 204 });
+      if (url.endsWith("/functions/1/2") && init?.method === "DELETE") return new Response(null, { status: 204 });
       throw new Error(`Unexpected fetch: ${url} ${init?.method || "GET"}`);
     }) as unknown as typeof fetch;
   });
@@ -93,42 +95,33 @@ describe("functionSourceBridge", () => {
     );
   });
 
-  it("creates a function source through the temporary Electron file bridge", async () => {
-    const saveFunctionSourceToDisk = vi.fn(async () => ({ path: "model/entity/clean_data.py" }));
-    vi.stubGlobal("window", {
-      desktop: {
-        isElectron: true,
-        solution: { saveFunctionSource: saveFunctionSourceToDisk },
-      },
-    });
-
+  it("creates a function transformation and source through POST /functions/{modelEntityId}", async () => {
     await createFunctionSource({
       relPath: "model/020_gold/entity.json",
       source: "clean_data.py",
+      modelEntityId: 1,
+      stepNo: 2,
+      name: "clean_data",
       entityName: "entity",
     });
 
-    expect(saveFunctionSourceToDisk).toHaveBeenCalledWith(
-      expect.objectContaining({ source: "clean_data.py", content: "", createOnly: true }),
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/functions\/1$/),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ stepNo: 2, name: "clean_data", source: "clean_data.py", sourceCode: "" }),
+      }),
     );
   });
 
-  it("deletes a function source through the temporary Electron file bridge", async () => {
-    const deleteFunctionSourceFromDisk = vi.fn(async () => ({ path: "model/entity/clean_data.py" }));
-    vi.stubGlobal("window", {
-      desktop: {
-        isElectron: true,
-        solution: { deleteFunctionSource: deleteFunctionSourceFromDisk },
-      },
-    });
-
+  it("deletes a function transformation and source through DELETE /functions/{modelEntityId}/{stepNo}", async () => {
     await deleteFunctionSource({
       relPath: "model/020_gold/entity.json",
       source: "clean_data.py",
+      modelEntityId: 1,
+      stepNo: 2,
     });
 
-    expect(deleteFunctionSourceFromDisk).toHaveBeenCalledWith(
-      expect.objectContaining({ source: "clean_data.py" }),
-    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/functions\/1\/2$/), expect.objectContaining({ method: "DELETE" }));
   });
 });

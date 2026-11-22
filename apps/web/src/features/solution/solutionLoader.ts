@@ -44,13 +44,6 @@ declare global {
         onTitleChanged?: (callback: (title: string) => void) => () => void;
       };
       solution?: {
-        requestFunctionApi?: (payload: {
-          path: string;
-          workspaceId?: string | null;
-          method?: "GET" | "POST";
-          body?: unknown;
-          legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
-        }) => Promise<unknown>;
         pickOpenPath?: () => Promise<string | null>;
         pickSavePath?: () => Promise<string | null>;
         pickDirectory?: () => Promise<string | null>;
@@ -62,13 +55,11 @@ declare global {
         onStartupChanged?: (callback: (starting: boolean) => void) => () => void;
         forceReload?: () => Promise<void>;
         onReload?: (callback: (force: boolean) => void) => () => void;
-        createNew?: (payload: { saveDir: string; solutionName: string; basePath?: string; modelPath?: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
+        onOpenSettings?: (callback: () => void) => () => void;
+        createNew?: (payload: { saveDir: string; solutionName: string; settings?: Record<string, unknown> }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         migrateV1ToV2?: (payload: { sourceSolutionPath: string; targetDir: string }) => Promise<{ solutionPath?: string; payload?: unknown } | null>;
         importPlugins?: (payload: { solutionPath: string; artifactPaths: string[] }) => Promise<{ imported?: number; plugins?: unknown } | null>;
         readFunctionSource?: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => Promise<{ content?: string } | null>;
-        saveFunctionSource?: (payload: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string; createOnly?: boolean }) => Promise<{ path?: string } | null>;
-        renameFunctionSource?: (payload: { relPath: string; fromSource: string; toSource: string; entityName?: string; solutionPath?: string }) => Promise<{ skipped?: boolean; fromPath?: string; toPath?: string } | null>;
-        deleteFunctionSource?: (payload: { relPath: string; source: string; entityName?: string; solutionPath?: string }) => Promise<{ path?: string } | null>;
         renameFolder?: (payload: { fromFolderPath: string; toFolderPath: string; solutionPath?: string }) => Promise<{ fromPath?: string; toPath?: string } | null>;
         generate?: (payload: { solutionPath: string; target: string; logLevel?: string; cleanOutput?: boolean }) => Promise<{ success?: boolean; message?: string; messages?: string[]; target?: string } | null>;
         onOpenPath?: (callback: (path: string) => void) => () => void;

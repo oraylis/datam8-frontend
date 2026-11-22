@@ -1,6 +1,4 @@
-import { apiBase } from "../../config";
-import { readBackendErrorMessage } from "../api/errorMessage";
-import { getWorkspaceId } from "../api/workspaceSession";
+import { requestBackendApi } from "../api/backendClient";
 
 type FunctionSourcePayload = {
   relPath: string;
@@ -24,36 +22,10 @@ function functionRefPath(payload: Pick<FunctionSourcePayload, "modelEntityId" | 
   return `/functions/${encodeURIComponent(modelEntityId)}/${encodeURIComponent(stepOrName)}`;
 }
 
-async function requestFunctionApi(
-  path: string,
-  init?: {
-    method?: "GET" | "POST";
-    body?: unknown;
-    legacySource?: { relPath: string; source: string; content: string; entityName?: string; solutionPath?: string };
-  },
-): Promise<any> {
-  const desktop = typeof window !== "undefined" ? window.desktop : undefined;
-  const desktopRequest = desktop?.isElectron ? desktop.solution?.requestFunctionApi : undefined;
-  if (desktopRequest) {
-    const workspaceId = getWorkspaceId();
-    const result = await desktopRequest({ path, method: init?.method, body: init?.body, legacySource: init?.legacySource, ...(workspaceId ? { workspaceId } : {}) });
-    if (workspaceId && workspaceId !== getWorkspaceId()) throw new DOMException("Request aborted because the workspace changed", "AbortError");
-    return result;
-  }
-  const response = await fetch(`${apiBase}${path}`, {
-    method: init?.method,
-    headers: init?.body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: init?.body === undefined ? undefined : JSON.stringify(init.body),
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(readBackendErrorMessage(body, `Function API request failed (${response.status})`));
-  return body;
-}
-
 export async function readFunctionSource(payload: FunctionSourcePayload): Promise<string> {
   const apiPath = functionRefPath(payload);
   if (apiPath) {
-    const json = await requestFunctionApi(apiPath);
+    const json = await requestBackendApi<{ item?: Record<string, unknown> }>(apiPath);
     const item = (json as { item?: Record<string, unknown> }).item;
     if (typeof item?.sourceCode === "string") return item.sourceCode;
     if (typeof item?.source_code === "string") return item.source_code;
@@ -69,37 +41,30 @@ export async function readFunctionSource(payload: FunctionSourcePayload): Promis
 }
 
 export async function createFunctionSource(payload: FunctionSourcePayload): Promise<void> {
-  if (hasDesktopBridge() && window.desktop?.solution?.saveFunctionSource) {
-    await window.desktop.solution.saveFunctionSource({ ...payload, content: "", createOnly: true });
-    return;
+  const modelEntityId = `${payload.modelEntityId ?? ""}`.trim();
+  const stepNo = Number(payload.stepNo);
+  if (!modelEntityId || !Number.isInteger(stepNo) || stepNo < 1) {
+    throw new Error("Function create requires a model entity ID and transformation step.");
   }
-
-  throw new Error("Function create currently requires the Electron file bridge.");
+  if (!payload.name?.trim()) throw new Error("Function create requires a transformation name.");
+  await requestBackendApi(`/functions/${encodeURIComponent(modelEntityId)}`, {
+    method: "POST",
+    body: {
+      stepNo,
+      name: payload.name,
+      source: payload.source,
+      sourceCode: "",
+    },
+  });
 }
 
 export async function saveFunctionSource(payload: FunctionSourcePayload & { content: string }): Promise<void> {
   const apiPath = functionRefPath(payload);
   if (apiPath) {
-    await requestFunctionApi(apiPath, {
-      method: "POST",
-      body: { sourceCode: payload.content },
-      legacySource: {
-        relPath: payload.relPath,
-        source: payload.source,
-        content: payload.content,
-        entityName: payload.entityName,
-        solutionPath: payload.solutionPath,
-      },
-    });
+    await requestBackendApi(apiPath, { method: "POST", body: { sourceCode: payload.content } });
     return;
   }
-
-  if (hasDesktopBridge() && window.desktop?.solution?.saveFunctionSource) {
-    await window.desktop.solution.saveFunctionSource(payload);
-    return;
-  }
-
-  throw new Error("Function update requires the Generator Function API. Function create is an API gap in browser mode.");
+  throw new Error("Function update requires a model entity ID and transformation step.");
 }
 
 export async function renameFunctionSource(payload: {
@@ -114,23 +79,14 @@ export async function renameFunctionSource(payload: {
 }): Promise<void> {
   const apiPath = functionRefPath(payload);
   if (apiPath) {
-    await requestFunctionApi(`${apiPath}/move`, { method: "POST", body: { newPath: payload.toSource, force: true } });
+    await requestBackendApi(`${apiPath}/move`, { method: "POST", body: { newPath: payload.toSource, force: true } });
     return;
   }
-
-  if (hasDesktopBridge() && window.desktop?.solution?.renameFunctionSource) {
-    await window.desktop.solution.renameFunctionSource(payload);
-    return;
-  }
-
   throw new Error("Function move requires the Generator Function API.");
 }
 
 export async function deleteFunctionSource(payload: FunctionSourcePayload): Promise<void> {
-  if (hasDesktopBridge() && window.desktop?.solution?.deleteFunctionSource) {
-    await window.desktop.solution.deleteFunctionSource(payload);
-    return;
-  }
-
-  throw new Error("Function delete currently requires the Electron file bridge.");
+  const apiPath = functionRefPath(payload);
+  if (!apiPath) throw new Error("Function delete requires a model entity ID and transformation step.");
+  await requestBackendApi(apiPath, { method: "DELETE" });
 }

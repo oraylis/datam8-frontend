@@ -79,6 +79,10 @@ test.beforeAll(async () => {
     properties: [],
     transformations: [{ stepNo: 1, name: "existing", kind: "builtin" }],
   });
+  writeJson("Model/Core/FunctionCreateEntity.json", {
+    ...readJson("Model/Core/Customer.json"), id: 13, name: "FunctionCreateEntity",
+    properties: [], transformations: [],
+  });
   writeFileSync(path.join(root, "Model/Core/existing.py"), "# keep existing content", "utf8");
   server = spawn(python, [
     "-u", "-m", "datam8", "serve", "--host", "127.0.0.1", "--port", "0", "--solution", path.join(root, "TestSolution.dm8s"),
@@ -336,21 +340,19 @@ test("entity rename retains functions and entity deletion removes them with a re
   expect(pageErrors).toEqual([]);
 });
 
-test("failed function creation leaves the transformation and existing file unchanged", async ({ page }) => {
+test("failed API function creation leaves the transformation and existing file unchanged", async ({ page }) => {
   const { serverErrors, pageErrors } = await openFixture(page);
   const entityFile = path.join(root, "Model/Core/CreationEntity.json");
   const original = readFileSync(entityFile, "utf8");
   let attempts = 0;
-  // Exercise the renderer's IPC rejection handling; the Desktop test covers real disk IPC.
-  await page.exposeFunction("testFunctionCreate", () => {
-    attempts += 1;
-    throw new Error("Function source already exists. Choose another name.");
-  });
-  await page.evaluate(() => {
-    Object.defineProperty(window, "desktop", {
-      value: { isElectron: true, solution: { saveFunctionSource: (window as unknown as { testFunctionCreate: () => Promise<void> }).testFunctionCreate } },
-      configurable: true,
-    });
+  await page.route("**/functions/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "POST" && /^\/functions\/\d+$/.test(url.pathname)) {
+      attempts += 1;
+      await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ message: "Function source already exists. Choose another name." }) });
+    } else {
+      await route.continue();
+    }
   });
   await page.getByRole("button", { name: "CreationEntity", exact: true }).click();
   await page.getByRole("button", { name: "Transformations", exact: true }).click();
@@ -363,6 +365,39 @@ test("failed function creation leaves the transformation and existing file uncha
   await page.getByRole("button", { name: "Customer", exact: true }).first().click();
   expect(readFileSync(entityFile, "utf8")).toBe(original);
   expect(readFileSync(path.join(root, "Model/Core/existing.py"), "utf8")).toBe("# keep existing content");
+  expect(serverErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test("function creation and deletion use the backend API", async ({ page }) => {
+  const { serverErrors, pageErrors } = await openFixture(page);
+  await page.getByRole("button", { name: "FunctionCreateEntity", exact: true }).click();
+  await page.getByRole("button", { name: "Transformations", exact: true }).click();
+  await page.getByRole("button", { name: "Add Step", exact: true }).click();
+
+  const createRequest = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === "/functions/13");
+  const row = page.locator(".value-row").last();
+  await row.getByRole("combobox").click();
+  await page.getByRole("option", { name: "function", exact: true }).click();
+  const create = await createRequest;
+  expect(create.postDataJSON()).toMatchObject({ stepNo: 1, name: "Step1", source: "Step1.py", sourceCode: "" });
+
+  const sourceFile = path.join(root, "Model/Core/Step1.py");
+  const transformations = () => {
+    try {
+      return readJson("Model/Core/FunctionCreateEntity.json").transformations;
+    } catch {
+      return undefined;
+    }
+  };
+  await expect.poll(() => existsSync(sourceFile)).toBe(true);
+  await expect.poll(() => transformations()?.[0]?.kind).toBe("function");
+
+  const deleteRequest = page.waitForRequest((request) => request.method() === "DELETE" && new URL(request.url()).pathname === "/functions/13/1");
+  await row.getByTitle("Remove").click();
+  await deleteRequest;
+  await expect.poll(() => existsSync(sourceFile)).toBe(false);
+  await expect.poll(() => transformations()).toEqual([]);
   expect(serverErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });

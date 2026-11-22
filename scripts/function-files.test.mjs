@@ -12,10 +12,13 @@ import { unusedLoopbackPort } from './test-port.mjs';
 const root = path.resolve(import.meta.dirname, '..');
 const require = createRequire(path.join(root, 'apps/desktop/package.json'));
 
-test('function creation and legacy deletion use real Desktop IPC without overwriting files', { timeout: 60_000 }, async () => {
+test('function source mutations are not exposed through Desktop IPC', { timeout: 60_000 }, async () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datam8-function-ipc-'));
   const solution = desktopFixture(temp, 'Solution');
   const directory = path.join(path.dirname(solution), 'Model/Core');
+  const legacyPath = path.join(directory, 'Customer/legacy.py');
+  fs.mkdirSync(path.dirname(legacyPath), { recursive: true });
+  fs.writeFileSync(legacyPath, '# keep legacy content');
   let app;
   const listener = spawn(process.execPath, ['-e', "require('node:http').createServer((_, res) => res.end('unrelated service')).listen(0, '127.0.0.1', function () { process.send(this.address().port); });"], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true });
   try {
@@ -40,34 +43,15 @@ test('function creation and legacy deletion use real Desktop IPC without overwri
     });
     await expect.poll(() => app.windows().some(window => window.url().startsWith('data:text/html'))).toBe(true);
     const page = app.windows().find(window => window.url().startsWith('data:text/html'));
-    await page.waitForFunction(() => !!window.desktop?.solution?.saveFunctionSource);
-    const payload = { relPath: 'Model/Core/Customer.json', entityName: 'Customer', solutionPath: solution, content: '', createOnly: true };
-    const create = source => page.evaluate(payload => window.desktop.solution.saveFunctionSource(payload), { ...payload, source });
-
-    const result = await create('new.py');
-    assert.equal(result.path, path.join(directory, 'new.py'));
-    assert.equal(fs.readFileSync(result.path, 'utf8'), '');
-    assert.equal(fs.existsSync(path.join(directory, 'Customer/new.py')), false);
-    // An empty existing source is also a collision.
-    await assert.rejects(create('new.py'), /already exists/);
-    fs.writeFileSync(path.join(directory, 'existing.py'), '# keep direct content');
-    await assert.rejects(create('existing.py'), /already exists/);
-    assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');
-    fs.mkdirSync(path.join(directory, 'Customer'));
-    fs.writeFileSync(path.join(directory, 'Customer/legacy.py'), '# keep legacy content');
-    await assert.rejects(create('legacy.py'), /already exists/);
-    await assert.rejects(create('Customer/legacy.py'), /already exists/);
-    assert.equal(fs.existsSync(path.join(directory, 'legacy.py')), false);
-    assert.equal(fs.readFileSync(path.join(directory, 'Customer/legacy.py'), 'utf8'), '# keep legacy content');
-
-    // Ordinary saves retain their overwrite semantics.
-    await page.evaluate(payload => window.desktop.solution.saveFunctionSource(payload), {
-      ...payload, createOnly: false, source: 'new.py', content: '# saved normally',
+    await page.waitForFunction(() => !!window.desktop?.solution?.readFunctionSource);
+    assert.equal(await page.evaluate(() => typeof window.desktop.solution.saveFunctionSource), 'undefined');
+    assert.equal(await page.evaluate(() => typeof window.desktop.solution.renameFunctionSource), 'undefined');
+    assert.equal(await page.evaluate(() => typeof window.desktop.solution.deleteFunctionSource), 'undefined');
+    const content = await page.evaluate(payload => window.desktop.solution.readFunctionSource(payload), {
+      relPath: 'Model/Core/Customer.json', entityName: 'Customer', solutionPath: solution, source: 'legacy.py',
     });
-    assert.equal(fs.readFileSync(path.join(directory, 'new.py'), 'utf8'), '# saved normally');
-    await page.evaluate(payload => window.desktop.solution.deleteFunctionSource(payload), { ...payload, source: 'legacy.py' });
-    assert.equal(fs.existsSync(path.join(directory, 'Customer/legacy.py')), false);
-    assert.equal(fs.readFileSync(path.join(directory, 'existing.py'), 'utf8'), '# keep direct content');
+    assert.equal(content.content, '# keep legacy content');
+    assert.equal(fs.readFileSync(legacyPath, 'utf8'), '# keep legacy content');
     // A port collision must fail without terminating an unrelated listener.
     await assert.rejects(page.evaluate(solution => window.desktop.solution.load(solution), solution), /Backend|open solution/i);
     assert.equal(await (await fetch(`http://127.0.0.1:${port}`)).text(), 'unrelated service');

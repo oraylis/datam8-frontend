@@ -160,7 +160,7 @@ test("autosave persists dirty base tabs without manual save", async ({ page }) =
   await expect(page.getByRole("button", { name: "Save All" })).toHaveCount(0);
 
   await expect
-    .poll(() => Object.keys(saveBodies).length > 0, { timeout: 10_000 })
+    .poll(() => Object.values(saveBodies).some((body) => body.pluginId === "sqlserver"), { timeout: 10_000 })
     .toBe(true);
 });
 

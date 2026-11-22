@@ -540,7 +540,13 @@ export const useEntityState = ({
   );
 
   useLayoutEffect(() => {
-    if (!selectedEntity) return;
+    if (!selectedEntity) {
+      originalRef.current = null;
+      originalRelRef.current = null;
+      baselineReadyRef.current = false;
+      hydratingRef.current = false;
+      return;
+    }
     hydratingRef.current = true;
     const previousRelPath = originalRelRef.current;
     if (previousRelPath && previousRelPath !== selectedEntity.relPath && baselineReadyRef.current) {

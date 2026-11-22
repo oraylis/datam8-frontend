@@ -59,18 +59,18 @@ describe("v2Client.moveEntities", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses /entities/move for model entity locators", async () => {
-    const result = await moveEntities("/modelEntities/ZoneA/Customer", "/modelEntities/ZoneB/Customer");
+  it.each([
+    ["model entity", "/modelEntities/ZoneA/Customer", "/modelEntities/ZoneB/Customer"],
+    ["folder", "/folders/ZoneA/ProductA", "/folders/ZoneB/ProductB"],
+  ])("moves %s locators and saves once", async (_kind, from, to) => {
+    const result = await moveEntities(from, to);
 
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       expect.stringMatching(/\/entities\/move$/),
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ from: "/modelEntities/ZoneA/Customer", to: "/modelEntities/ZoneB/Customer" }),
-      }),
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ from, to }) }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
@@ -78,21 +78,6 @@ describe("v2Client.moveEntities", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(result).toEqual([{ locator: "moved" }]);
-  });
-
-  it("uses /entities/move for folder locators", async () => {
-    await moveEntities("/folders/ZoneA/ProductA", "/folders/ZoneB/ProductB");
-
-    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      expect.stringMatching(/\/entities\/move$/),
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ from: "/folders/ZoneA/ProductA", to: "/folders/ZoneB/ProductB" }),
-      }),
-    );
   });
 
   it("uses /entities/rename for entity renames", async () => {
@@ -148,26 +133,16 @@ describe("v2Client.moveEntities", () => {
     expect(result).toEqual({ locator: "cloned" });
   });
 
-  it("uses DELETE /entities with model folder subtree locators", async () => {
-    await deleteEntity("/modelEntities/Raw/Sales/", { save: false });
+  it.each([
+    "/modelEntities/Raw/Sales/",
+    "/folders/Raw/Sales",
+  ])("deletes subtree or folder metadata locator %s without an extra save", async (locator) => {
+    await deleteEntity(locator, { save: false });
 
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      expect.stringMatching(/\/entities\/modelEntities\/Raw\/Sales\/$/),
-      expect.objectContaining({ method: "DELETE" }),
-    );
-  });
-
-  it("uses DELETE /entities with folder metadata locators", async () => {
-    await deleteEntity("/folders/Raw/Sales", { save: false });
-
-    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      expect.stringMatching(/\/entities\/folders\/Raw\/Sales$/),
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`/entities${locator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`)),
       expect.objectContaining({ method: "DELETE" }),
     );
   });

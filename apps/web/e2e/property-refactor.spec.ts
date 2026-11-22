@@ -120,5 +120,10 @@ test("saving renamed property applies refactor flow without apply dialog", async
 
   const savePill = page.locator(".sidebar__save-pill--bulk-saved", { hasText: "Saved" });
   await expect(savePill).toBeVisible({ timeout: 30_000 });
+  expect(entityWrites).toContainEqual({
+    method: "POST",
+    url: expect.stringMatching(/\/entities\/rename$/),
+    body: { from: "/properties/domain", to: "businessDomain" },
+  });
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

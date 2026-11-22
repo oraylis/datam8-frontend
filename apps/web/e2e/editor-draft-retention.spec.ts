@@ -61,9 +61,10 @@ function createMockSolutionPayload() {
   };
 }
 
-async function mockApi(page: import("@playwright/test").Page) {
+async function mockApi(page: import("@playwright/test").Page, options: { failEntitySaves?: boolean } = {}) {
   const payload = createMockSolutionPayload();
   let entityWrites = 0;
+  let failedEntityWrites = 0;
 
   await page.route("**/config", async (route) => {
     await route.fulfill({ json: { mode: "server" } });
@@ -85,6 +86,11 @@ async function mockApi(page: import("@playwright/test").Page) {
     const method = route.request().method();
     if (method === "PATCH" || method === "PUT") {
       entityWrites += 1;
+      if (options.failEntitySaves) {
+        failedEntityWrites += 1;
+        await route.fulfill({ status: 500, json: { message: "Save unavailable" } });
+        return;
+      }
       await route.fulfill({ json: { ok: true } });
       return;
     }
@@ -113,6 +119,7 @@ async function mockApi(page: import("@playwright/test").Page) {
 
   return {
     getEntityWrites: () => entityWrites,
+    getFailedEntityWrites: () => failedEntityWrites,
   };
 }
 
@@ -122,8 +129,6 @@ async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Load" }).click();
   await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
 }
-
-async function expandModelFolders(_page: import("@playwright/test").Page) {}
 
 async function openEntity(page: import("@playwright/test").Page, name: string) {
   await page.getByRole("textbox", { name: "Filter model entities" }).fill(name);
@@ -145,7 +150,6 @@ async function clickBaseItem(page: import("@playwright/test").Page, name: string
 test("entity draft survives switching", async ({ page }) => {
   await mockApi(page);
   await loadSolutionFromDialog(page);
-  await expandModelFolders(page);
 
   await openEntity(page, "Customer");
   await page.getByPlaceholder("Display name").fill("Customer Draft");
@@ -185,32 +189,20 @@ test("base draft survives switching", async ({ page }) => {
   await page.getByRole("tab", { name: "Base" }).click();
 
   await page.getByRole("button", { name: "Data Types", exact: true }).click();
-  await clickBaseItem(page, "string");
+  await clickBaseItem(page, "int");
   const displayNameInput = page.locator('label:has-text("Display Name")').first().locator("xpath=following-sibling::input[1]");
-  await displayNameInput.fill("String Draft");
+  await displayNameInput.fill("Integer Draft");
 
   const dataTypesTab = page.locator('.worktabs .worktab[title="Base/DataTypes.json"]').first();
   await expect(dataTypesTab).toBeVisible();
-
   await page.getByRole("button", { name: "Attribute Types", exact: true }).click();
+  await expect(page.locator(".tree__child--active")).toHaveText("Attribute Types");
   await page.getByRole("button", { name: "Data Types", exact: true }).click();
+  await expect(page.locator(".tree__child--active")).toHaveText("Data Types");
 
-  await expect(displayNameInput).toHaveValue("String Draft");
+  await expect(displayNameInput).toHaveValue("Integer Draft");
+  await expect(page.locator(".item-title").first()).toHaveText("int");
   await expect(dataTypesTab).toBeVisible();
-});
-
-test("base item selection survives switching", async ({ page }) => {
-  await mockApi(page);
-  await loadSolutionFromDialog(page);
-  await page.getByRole("tab", { name: "Base" }).click();
-
-  await page.getByRole("button", { name: "Data Types", exact: true }).click();
-  await clickBaseItem(page, "int");
-  await expect(page.locator(".item-title").first()).toHaveText("int");
-
-  await page.getByRole("button", { name: "Attribute Types", exact: true }).click();
-  await page.getByRole("button", { name: "Data Types", exact: true }).click();
-  await expect(page.locator(".item-title").first()).toHaveText("int");
 });
 
 test("base tab title stays humanized after autosave", async ({ page }) => {
@@ -231,22 +223,28 @@ test("base tab title stays humanized after autosave", async ({ page }) => {
   await expect(dataTypesTab.locator(".worktab__title")).toHaveText("Data Types");
 });
 
-test("closing a dirty tab discards the draft", async ({ page }) => {
-  await mockApi(page);
+test("closing a tab after a failed save can keep or discard its draft", async ({ page }) => {
+  const api = await mockApi(page, { failEntitySaves: true });
   await loadSolutionFromDialog(page);
-  await expandModelFolders(page);
 
   await openEntity(page, "Customer");
   await page.getByPlaceholder("Display name").fill("Discard Me");
+  await page.getByPlaceholder("Display name").press("Tab");
   const customerTab = page.locator('.worktabs .worktab[title="Model/010-Stage/Sales/Orders/Customer.json"]').first();
+  await expect.poll(api.getFailedEntityWrites).toBeGreaterThan(0);
 
   await customerTab.locator(".worktab__close").click();
-  const confirmClose = page.getByRole("button", { name: "Confirm" });
-  if (await confirmClose.count()) {
-    await confirmClose.click();
-  }
+  const pendingSync = page.getByRole("dialog", { name: "Pending Sync" });
+  await expect(pendingSync).toBeVisible();
+  await pendingSync.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByPlaceholder("Display name")).toHaveValue("Discard Me");
+
+  await customerTab.locator(".worktab__close").click();
+  await expect(pendingSync).toBeVisible();
+  await pendingSync.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(customerTab).toHaveCount(0);
 
   await openEntity(page, "Customer");
-  await expect(page.getByPlaceholder("Display name")).toHaveValue("Discard Me");
+  await expect(page.getByPlaceholder("Display name")).toHaveValue("Customer");
 });
 

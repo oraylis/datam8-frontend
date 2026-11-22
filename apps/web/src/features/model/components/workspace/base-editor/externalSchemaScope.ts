@@ -36,17 +36,6 @@ export function externalSchemaTriState(values: boolean[]): ExternalSchemaTriStat
   return selected === values.length ? true : "indeterminate";
 }
 
-export function needsExternalSchemaSourceContext<T extends ExternalSchemaUsage>(
-  usage: T,
-  siblings: T[],
-): boolean {
-  return siblings.filter((candidate) => candidate.entityRelPath === usage.entityRelPath).length > 1;
-}
-
-export function isSchemaChangeSuggested(changeType: string): boolean {
-  return changeType !== "REMOVED_COLUMN" && changeType !== "RELATIONSHIP_REMOVED";
-}
-
 export function keepRelationshipMappingsForColumns<T extends { target?: string }>(
   mappings: T[],
   columns: Array<{ name?: string }>,

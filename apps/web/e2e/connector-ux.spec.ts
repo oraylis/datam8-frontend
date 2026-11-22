@@ -2,14 +2,6 @@ import { expect, test } from "@playwright/test";
 
 type JsonObject = Record<string, unknown>;
 
-type SaveBodies = Record<string, JsonObject>;
-
-type ConnectionProperty = {
-  name: string;
-  required?: boolean;
-  description?: string;
-};
-
 type DataSource = {
   name: string;
   type: string;
@@ -18,14 +10,6 @@ type DataSource = {
 
 type ValidateError = { key: string; message: string; level?: string };
 type ValidateResult = { ok: boolean; errors: ValidateError[] };
-
-type Counters = {
-  connectors: number;
-  uiSchema: number;
-  validate: number;
-  secretsPut: number;
-  secretsDelete: number;
-};
 
 type MockConnector = {
   id: string;
@@ -56,36 +40,13 @@ type UiSchema = {
   }>;
 };
 
-function bindingConnectionProperties(connectorId: string, connectorVersion?: string | null) {
-  const out: ConnectionProperty[] = [
-    { name: `__connector.id=${connectorId}`, required: true, description: "Reserved: connector binding (do not render)." },
-  ];
-  const v = (connectorVersion || "").trim();
-  if (v) {
-    out.push({ name: `__connector.version=${v}`, required: false, description: "Reserved: connector version (do not render)." });
-  }
-  return out;
-}
-
-function pluginIdFromConnectionProperties(connectionProperties?: ConnectionProperty[] | null): string | null {
-  if (!Array.isArray(connectionProperties)) return null;
-  for (const entry of connectionProperties) {
-    const name = `${entry?.name || ""}`;
-    const match = /^__connector\.id=(.+)$/.exec(name);
-    if (match?.[1]) return match[1];
-  }
-  return null;
-}
-
 function createMockSolutionPayload(args: {
-  typeConnectionProperties?: ConnectionProperty[];
-  typePluginId?: string | null;
+  pluginId?: string;
   typeName?: string;
   typeDataTypeMapping?: Array<{ sourceType: string; targetType: string }>;
   dataSources?: DataSource[];
 }) {
   const typeName = args.typeName || "MyDbType";
-  const pluginId = args.typePluginId ?? pluginIdFromConnectionProperties(args.typeConnectionProperties);
   return {
     solution: {
       schemaVersion: "test",
@@ -104,10 +65,10 @@ function createMockSolutionPayload(args: {
               name: typeName,
               displayName: "My DB Type",
               description: "Test type",
-              pluginId: pluginId || undefined,
+              pluginId: args.pluginId,
               dataTypeMapping: args.typeDataTypeMapping || [{ sourceType: "string", targetType: "string" }],
               extendedProperties: {},
-              connectionProperties: args.typeConnectionProperties || [],
+              connectionProperties: [],
             },
           ],
         },
@@ -130,7 +91,7 @@ function createMockSolutionPayload(args: {
       {
         name: "DataTypes",
         relPath: "Base/DataTypes.json",
-        content: { dataTypes: ["string", "int"] },
+        content: { dataTypes: [{ name: "string" }, { name: "int" }] },
       },
     ],
     modelEntities: [],
@@ -139,7 +100,6 @@ function createMockSolutionPayload(args: {
 
 async function mockApi(
   page: import("@playwright/test").Page,
-  counters: Counters,
   args: {
     solutionPayload: unknown;
     connectors: MockConnector[];
@@ -149,7 +109,6 @@ async function mockApi(
     validateHandler?: (connectorId: string, body: JsonObject) => ValidateResult;
   },
 ) {
-  const saveBodies: SaveBodies = {};
   const entityWrites: Array<{ method: string; url: string; body: JsonObject }> = [];
   const secretPuts: JsonObject[] = [];
 
@@ -157,49 +116,15 @@ async function mockApi(
     await route.fulfill({ json: { mode: "server" } });
   });
 
-  await page.route("**/solution/inspect**", async (route) => {
-    await route.fulfill({ json: { version: "v2" } });
-  });
-
   await page.route("**/solution/full**", async (route) => {
     await route.fulfill({ json: args.solutionPayload });
   });
 
-  await page.route("**/fs/list**", async (route) => {
-    await route.fulfill({ json: { entries: [] } });
-  });
-
   await page.route("**/plugins", async (route) => {
-    counters.connectors += 1;
     await route.fulfill({ json: { items: args.connectors } });
   });
 
-  await page.route("**/plugins/**", async (route) => {
-    const method = route.request().method();
-    if (method === "GET" || method === "POST") {
-      const pluginItems = args.connectors.map((c) => ({
-        id: c.id,
-        name: c.displayName,
-        displayName: c.displayName,
-        version: c.version,
-        enabled: true,
-        capabilities: c.capabilities,
-      }));
-      await route.fulfill({
-        json: {
-          items: pluginItems,
-          pluginDir: "/tmp/plugins",
-          plugins: pluginItems,
-          errors: {},
-        },
-      });
-      return;
-    }
-    await route.fulfill({ status: 405, json: { error: "method not allowed" } });
-  });
-
   await page.route("**/plugins/*/ui-schema", async (route) => {
-    counters.uiSchema += 1;
     const url = new URL(route.request().url());
     const parts = url.pathname.split("/");
     const connectorId = parts[parts.length - 2] || "";
@@ -211,7 +136,6 @@ async function mockApi(
   });
 
   await page.route("**/sources/*/test", async (route) => {
-    counters.validate += 1;
     const url = new URL(route.request().url());
     const parts = url.pathname.split("/");
     const connectorId = parts[parts.length - 2] || "";
@@ -228,14 +152,8 @@ async function mockApi(
   });
 
   await page.route("**/secrets/set**", async (route) => {
-    counters.secretsPut += 1;
     const body = JSON.parse(route.request().postData() || "{}");
     secretPuts.push(body);
-    await route.fulfill({ status: 204, body: "" });
-  });
-
-  await page.route("**/secrets/runtime/key", async (route) => {
-    counters.secretsDelete += 1;
     await route.fulfill({ status: 204, body: "" });
   });
 
@@ -251,14 +169,11 @@ async function mockApi(
     }
     const raw = req.postData() || "{}";
     const body = (req.method() === "DELETE" ? {} : JSON.parse(raw)) as JsonObject;
-    const reqUrl = new URL(req.url());
-    const relPath = decodeURIComponent(reqUrl.pathname.replace(/^.*\/entities\//, "")) + ".json";
-    saveBodies[relPath] = body;
     entityWrites.push({ method: req.method(), url: req.url(), body });
     await route.fulfill({ status: 200, json: { item: { ok: true } } });
   });
 
-  return { saveBodies, secretPuts, entityWrites };
+  return { secretPuts, entityWrites };
 }
 
 async function loadSolutionFromDialog(page: import("@playwright/test").Page) {
@@ -278,66 +193,44 @@ async function clickBaseItem(page: import("@playwright/test").Page, name: string
     .click();
 }
 
-test("stores connector binding in DataSourceType.connectionProperties (Variant A) including connector version", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
-  const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: [],
-    typeDataTypeMapping: [{ sourceType: "legacy_type", targetType: "string" }],
-    dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
+test("linking a connector persists its plugin ID and suggested mapping", async ({ page }) => {
+  const mapping = [{ sourceType: "nvarchar", targetType: "string" }];
+  const { entityWrites } = await mockApi(page, {
+    solutionPayload: createMockSolutionPayload({
+      typeDataTypeMapping: [{ sourceType: "old_type", targetType: "string" }],
+    }),
+    connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true } }],
   });
-
-  const { entityWrites } = await mockApi(page, counters, {
-    solutionPayload,
-    connectors: [
-      {
-        id: "sqlserver",
-        displayName: "SQL Server",
-        version: "0.1.0",
-        capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } },
-        dataTypeMapping: [
-          { sourceType: "nvarchar", targetType: "string" },
-          { sourceType: "bit", targetType: "boolean" },
-        ],
-      },
-    ],
-    uiSchemasById: {
-      sqlserver: {
-        title: "SQL Server connection",
-        authModes: [
-          {
-            id: "basic",
-            label: "Username/Password",
-            fields: [{ key: "auth.mode", label: "Authentication", type: "hidden", required: true, default: "basic" }],
-          },
-        ],
-      },
-    },
-  });
+  await page.route("**/plugins/sqlserver/connection-properties", (route) =>
+    route.fulfill({ json: { items: [] } }),
+  );
+  await page.route("**/plugins/sqlserver/data-type-mappings", (route) =>
+    route.fulfill({ json: { items: mapping } }),
+  );
 
   await loadSolutionFromDialog(page);
-
   await page.getByRole("button", { name: "Data Source Types" }).click();
   await clickBaseItem(page, "My DB Type");
-
   await page.getByRole("button", { name: "Link Connector" }).click();
-  await expect(page.getByRole("heading", { name: "Link Connector" })).toBeVisible();
-  await page.locator("div").filter({ hasText: "sqlserver" }).getByRole("button", { name: /^Link$/ }).first().click();
-  await expect(page.getByText("SQL Server").first()).toBeVisible();
 
-  await expect
-    .poll(() => entityWrites.find((entry) => /\/entities\/dataSourceTypes\/MyDbType$/i.test(entry.url)))
-    .toBeTruthy();
+  const saved = page.waitForResponse("**/model/save", { timeout: 8000 });
+  await page.getByRole("dialog", { name: "Link Connector" }).getByRole("button", { name: "Link", exact: true }).click();
+  expect((await saved).ok()).toBe(true);
+  expect(entityWrites).toContainEqual(expect.objectContaining({
+    method: "PATCH",
+    url: expect.stringMatching(/\/entities\/dataSourceTypes\/MyDbType$/i),
+    body: expect.objectContaining({ pluginId: "sqlserver", dataTypeMapping: mapping }),
+  }));
 });
 
 test("renders connector-driven form from /ui-schema, saves ref secret, and surfaces validate-connection errors", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
+    pluginId: "sqlserver",
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
   });
 
   let validateCalls = 0;
-  const { entityWrites, secretPuts } = await mockApi(page, counters, {
+  const { entityWrites, secretPuts } = await mockApi(page, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } } }],
     uiSchemasById: {
@@ -376,6 +269,7 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
       return { ok: true, errors: [] };
     },
   });
+  await page.route("**/secrets/check", (route) => route.fulfill({ status: 204, body: "" }));
 
   await loadSolutionFromDialog(page);
 
@@ -383,7 +277,7 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
   await clickBaseItem(page, "MyDb");
 
   await expect(page.getByText("SQL Server connection")).toBeVisible();
-  await expect.poll(() => counters.uiSchema).toBeGreaterThan(0);
+  await expect(page.getByText("Schema v0.1.0")).toBeVisible();
 
   await page.getByRole("button", { name: "Validate connection" }).click();
   await expect(page.getByText("Host is required")).toBeVisible();
@@ -397,15 +291,17 @@ test("renders connector-driven form from /ui-schema, saves ref secret, and surfa
   const passwordRow = page.locator('label:has-text("Password")').locator("..");
   await passwordRow.locator("input").fill("supersecret");
   await passwordRow.getByRole("button", { name: "Save" }).click();
-  await expect.poll(() => counters.secretsPut).toBeGreaterThan(0);
-  expect(secretPuts[0]).toMatchObject({ path: "datasources/MyDb/password", value: "supersecret" });
+  await expect.poll(() => secretPuts).toEqual([{ path: "datasources/MyDb/password", value: "supersecret" }]);
+  await expect.poll(() => entityWrites.at(-1)?.body.extendedProperties).toMatchObject({
+    password: "ref://datasources/MyDb/password",
+  });
+  await expect(passwordRow.getByText("Secret available", { exact: true })).toBeVisible();
 });
 
 test("typing connection values keeps secret availability stable without rechecking", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const secretPath = "datasources/MyDb/password";
   const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
+    pluginId: "sqlserver",
     dataSources: [{
       name: "MyDb",
       type: "MyDbType",
@@ -413,7 +309,7 @@ test("typing connection values keeps secret availability stable without rechecki
     }],
   });
 
-  await mockApi(page, counters, {
+  await mockApi(page, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true } }],
     uiSchemasById: {
@@ -480,13 +376,12 @@ test("typing connection values keeps secret availability stable without rechecki
 });
 
 test("surfaces validation errors for hidden fields (e.g. auth.mode)", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
+    pluginId: "sqlserver",
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: { "auth.mode": "legacy_mode", host: "db.local" } }],
   });
 
-  await mockApi(page, counters, {
+  await mockApi(page, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } } }],
     uiSchemasById: {
@@ -519,14 +414,13 @@ test("surfaces validation errors for hidden fields (e.g. auth.mode)", async ({ p
   await expect(page.getByText("auth.mode: Unsupported auth.mode.")).toBeVisible();
 });
 
-test("switching auth modes updates auth.mode and clears fields not in the selected mode", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
+test("switching auth modes persists the mode and clears fields not in the selected mode", async ({ page }) => {
   const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
+    pluginId: "sqlserver",
     dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
   });
 
-  const { entityWrites } = await mockApi(page, counters, {
+  const { entityWrites } = await mockApi(page, {
     solutionPayload,
     connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } } }],
     uiSchemasById: {
@@ -571,6 +465,9 @@ test("switching auth modes updates auth.mode and clears fields not in the select
 
   await expect(page.getByText("Tenant ID")).toBeVisible();
   await expect(page.getByText("Username")).toBeHidden();
+  await expect.poll(() => entityWrites.at(-1)?.body.extendedProperties).toEqual({
+    authMode: "aad_client_credentials",
+  });
   await page.locator('label:has-text("Authentication")').locator("..").locator('button[role=\"combobox\"]').click();
   await page.getByRole("option", { name: "Username/Password" }).click();
   await expect(page.getByText("Username *")).toBeVisible();
@@ -578,7 +475,6 @@ test("switching auth modes updates auth.mode and clears fields not in the select
 });
 
 test("switching data sources with the same auth mode does not rewrite connector-specific fields", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const solutionPayload = createMockSolutionPayload({
     dataSources: [
       {
@@ -602,19 +498,17 @@ test("switching data sources with the same auth mode does not rewrite connector-
       name: "UnityType",
       displayName: "Unity Catalog",
       pluginId: "unity_catalog",
-      connectionProperties: bindingConnectionProperties("unity_catalog", null),
       dataTypeMapping: [],
     },
     {
       name: "SqlType",
       displayName: "SQL Server",
       pluginId: "sqlserver",
-      connectionProperties: bindingConnectionProperties("sqlserver", null),
       dataTypeMapping: [],
     },
   ];
 
-  const { entityWrites } = await mockApi(page, counters, {
+  const { entityWrites } = await mockApi(page, {
     solutionPayload,
     connectors: [
       { id: "unity_catalog", displayName: "Unity Catalog", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
@@ -666,7 +560,7 @@ test("switching data sources with the same auth mode does not rewrite connector-
   await clickBaseItem(page, "UnityDb");
   await expect(page.getByText("UC Name *")).toBeVisible();
   await expect(page.locator('label:has-text("UC Name")').locator("..").locator("input")).toHaveValue("dbr-mobilfunk-ingest");
-  await page.waitForTimeout(250);
+  await page.getByRole("button", { name: "Close Data Sources", exact: true }).click();
 
   expect(entityWrites).toHaveLength(0);
 });
@@ -676,7 +570,6 @@ test("late connector ui schema responses are ignored after selecting another dat
   const schemaCompleted = new Promise<void>(resolve => { completeSchema = resolve; });
   let releaseSchema!: () => void;
   const schemaWait = new Promise<void>(resolve => { releaseSchema = resolve; });
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
   const solutionPayload = createMockSolutionPayload({
     dataSources: [
       {
@@ -696,19 +589,17 @@ test("late connector ui schema responses are ignored after selecting another dat
       name: "SqlType",
       displayName: "SQL Server",
       pluginId: "sqlserver",
-      connectionProperties: bindingConnectionProperties("sqlserver", null),
       dataTypeMapping: [],
     },
     {
       name: "UnityType",
       displayName: "Unity Catalog",
       pluginId: "unity_catalog",
-      connectionProperties: bindingConnectionProperties("unity_catalog", null),
       dataTypeMapping: [],
     },
   ];
 
-  const { entityWrites } = await mockApi(page, counters, {
+  const { entityWrites } = await mockApi(page, {
     solutionPayload,
     connectors: [
       { id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true } },
@@ -764,72 +655,23 @@ test("late connector ui schema responses are ignored after selecting another dat
   expect(entityWrites).toHaveLength(0);
 });
 
-test("missing connector shows warning + read-only values", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
-  const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
-    dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: { host: "db.local" } }],
-  });
-
-  await mockApi(page, counters, {
-    solutionPayload,
+test("missing connector leaves connection values editable and identifies the missing plugin", async ({ page }) => {
+  await mockApi(page, {
+    solutionPayload: createMockSolutionPayload({
+      pluginId: "sqlserver",
+      dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: { host: "db.local" } }],
+    }),
     connectors: [],
   });
 
   await loadSolutionFromDialog(page);
-
   await page.getByRole("button", { name: "Data Sources", exact: true }).click();
   await clickBaseItem(page, "MyDb");
-
   await expect(page.getByText("No connector is installed. You can still edit connection values.")).toBeVisible();
-  await expect(page.locator('input[value="db.local"]')).toBeVisible();
-});
-
-test("Data Source Type shows missing connector state and Data Type Mapping title", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
-  const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", null),
-    dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: { host: "db.local" } }],
-  });
-
-  await mockApi(page, counters, {
-    solutionPayload,
-    connectors: [],
-  });
-
-  await loadSolutionFromDialog(page);
+  await expect(page.locator('input[value="db.local"]')).toBeEditable();
 
   await page.getByRole("button", { name: "Data Source Types" }).click();
   await clickBaseItem(page, "My DB Type");
-
   await expect(page.getByText("Connector missing")).toBeVisible();
   await expect(page.getByText("Data Type Mapping")).toBeVisible();
 });
-
-test("bound connector version requirement does not block rendering when connector is installed", async ({ page }) => {
-  const counters: Counters = { connectors: 0, uiSchema: 0, validate: 0, secretsPut: 0, secretsDelete: 0 };
-  const solutionPayload = createMockSolutionPayload({
-    typeConnectionProperties: bindingConnectionProperties("sqlserver", "^1.0.0"),
-    dataSources: [{ name: "MyDb", type: "MyDbType", extendedProperties: {} }],
-  });
-
-  await mockApi(page, counters, {
-    solutionPayload,
-    connectors: [{ id: "sqlserver", displayName: "SQL Server", version: "0.1.0", capabilities: { uiSchema: true, validateConnection: true, metadata: { getTableMetadata: true } } }],
-    uiSchemasById: {
-      sqlserver: {
-        title: "SQL Server connection",
-        authModes: [{ id: "basic", label: "Basic", fields: [{ key: "auth.mode", label: "Authentication", type: "hidden", required: true, default: "basic" }] }],
-      },
-    },
-  });
-
-  await loadSolutionFromDialog(page);
-
-  await page.getByRole("button", { name: "Data Sources", exact: true }).click();
-  await clickBaseItem(page, "MyDb");
-
-  await expect(page.getByText("SQL Server connection")).toBeVisible();
-  await expect(page.getByText("Schema v0.1.0")).toBeVisible();
-});
-

@@ -209,6 +209,6 @@ When adding a new editable control:
 ## Related tests
 
 - `apps/web/src/features/model/components/workspace/hooks/useEntityState.test.ts`
-- `apps/web/src/shared/ui/toast-notification-behavior.test.ts`
+- `apps/web/e2e/notifications.spec.ts`
 - `apps/web/src/features/model/refactor/baseSaveEffects.test.ts`
 

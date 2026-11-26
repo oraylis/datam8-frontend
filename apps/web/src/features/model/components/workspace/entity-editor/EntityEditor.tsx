@@ -1,5 +1,5 @@
 import type { Quality } from "../../../generated-schema-types";
-import { EntityQualityEditor } from "./EntityQualityEditor";
+import { EntityQualityEditor, type EntityQualityEditorHandle } from "./EntityQualityEditor";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyAssignment } from "@datam8/types";
@@ -156,6 +156,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
   const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [qualityRenameWarning, setQualityRenameWarning] = useState<string | null>(null);
+  const qualityEditorRef = useRef<EntityQualityEditorHandle>(null);
   useEffect(() => setQualityRenameWarning(null), [selectedEntity?.relPath]);
   const attributesRef = useRef<EntityAttribute[]>([]);
   const selectedAttributeIdsRef = useRef<Set<string>>(new Set());
@@ -694,6 +695,23 @@ export const EntityEditor = (props: EntityEditorProps) => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
+                {entitySection === "quality" ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <ActionButton variant="default">
+                        Add quality check <ChevronDown className="h-4 w-4" />
+                      </ActionButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => qualityEditorRef.current?.addSqlCheck()}>
+                        SQL expression
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => qualityEditorRef.current?.addNativeCheck()}>
+                        Native function
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
                 {entitySection === "transformations" ? (
                   <ActionButton
                     variant="default"
@@ -885,7 +903,7 @@ export const EntityEditor = (props: EntityEditorProps) => {
                   onDeleteRelationship={() => persistAfterStateFlush("delete-item")}
                 />
               )}
-              {entitySection === "quality" && <EntityQualityEditor modelEntities={modelEntities} quality={quality} saveError={saveError} onChange={(value) => {
+              {entitySection === "quality" && <EntityQualityEditor ref={qualityEditorRef} modelEntities={modelEntities} quality={quality} saveError={saveError} onChange={(value) => {
                 setQuality(value); markEntityDirty(); persistAfterStateFlush("dropdown-change");
               }} />}
               {entitySection === "attributes" && saveError && <p role="alert">{saveError}</p>}

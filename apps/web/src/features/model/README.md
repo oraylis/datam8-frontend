@@ -60,14 +60,26 @@ settings and rules participate in tab drafts and dirty detection. Invalid qualit
 blocks persistence; generation flushes editor saves first. Backend validation is
 canonical; see the [contract](../../../../../submodules/datam8-generator/docs/backend-contract.md#entity-quality-requirements).
 
+The overview reuses the Relationships card layout for each check, showing its
+ID, description, definition kind, execution and severity. Edit, duplicate and
+delete use the shared icon actions. SQL expressions, queries, function names
+and arguments appear only in the detail dialog; cards have no expandable editor.
 The rule dialog derives its definition type from `expression` or `function`.
 SQL keeps the existing text editor; native definitions have a function name and
-an arguments JSON object editor. Invalid JSON stays in the local dialog draft.
+typed argument rows for text, numbers, booleans, null, lists and nested objects.
+Lists support explicit ordering. The JSON view supports bulk entry and complex
+configurations; switching views preserves the same values and types. Incomplete
+rows, duplicate object keys and invalid JSON stay in the local dialog draft.
 Switching definition types persists only the selected variant. Function names
 and argument semantics are validated by DQX at runtime, without a frontend
 catalogue or function-specific forms. See the sample's
 [Quality reference](https://github.com/oraylis/datam8-sample-solution/blob/feature/quality-framework/generate/databricks-lake/quality.md)
 for SQL and native examples, including aggregate monitoring.
+
+The check list shows definitions, execution and severity together. The rule
+dialog separates the definition from execution/severity context; aggregate SQL
+appears only for monitoring. Both argument views use the same validation and
+commit through the existing Save check/autosave sequence.
 
 The argument editor blocks nonfinite numbers, integers outside JavaScript's safe
 integer range and decimal input that would round to a different JSON value. Such

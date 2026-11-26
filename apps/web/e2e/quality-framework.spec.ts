@@ -2,7 +2,34 @@ import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+test.use({ viewport: { width: 1440, height: 1000 } });
+
+async function selectOption(
+  page: Page,
+  dialog: Locator,
+  field: string,
+  value: string,
+) {
+  await dialog.getByRole("combobox", { name: field, exact: true }).click();
+  await page.getByRole("option", { name: value, exact: true }).click();
+}
+
+async function expectCompactCards(page: Page) {
+  const cards = page
+    .getByRole("region", { name: "Quality configuration" })
+    .getByRole("article");
+  await expect(cards.first()).toBeVisible();
+  await expect(
+    cards.locator("input, textarea, code, [aria-expanded]"),
+  ).toHaveCount(0);
+  await expect(
+    cards.getByText(
+      /Show arguments|Hide arguments|Add argument|Edit expression/,
+    ),
+  ).toHaveCount(0);
+}
 
 const backend = path.resolve(
   import.meta.dirname,
@@ -122,15 +149,19 @@ test("native definitions preserve JSON through editing, autosave and real genera
   await page
     .getByRole("button", { name: "Add quality check", exact: true })
     .click();
+  await page
+    .getByRole("menuitem", { name: "Native function", exact: true })
+    .click();
   let dialog = page.getByRole("dialog", {
     name: "Add quality check",
     exact: true,
   });
   await dialog.getByLabel("Check ID").fill("native_roundtrip");
-  await dialog.getByLabel("Definition type").selectOption("native");
+  await selectOption(page, dialog, "Definition", "Native function");
   await dialog
     .getByLabel("Function", { exact: true })
     .fill("future_dqx_function");
+  await dialog.getByRole("tab", { name: "JSON", exact: true }).click();
   const argumentsValue = {
     columns: ["Id"],
     nulls_distinct: false,
@@ -179,6 +210,21 @@ test("native definitions preserve JSON through editing, autosave and real genera
     ),
   ).not.toHaveProperty("expression");
 
+  await expectCompactCards(page);
+  const nativeCard = page.getByRole("article", {
+    name: "native_roundtrip",
+    exact: true,
+  });
+  await expect(nativeCard).toContainText("Native");
+  await expect(nativeCard).not.toContainText("future_dqx_function");
+  await expect(nativeCard).not.toContainText("nulls_distinct");
+  await page.screenshot({
+    path: path.join(
+      process.env.DATAM8_QUALITY_SCREENSHOT_DIR || tmpdir(),
+      "datam8-quality-cards.png",
+    ),
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: "Edit native_roundtrip", exact: true })
     .click();
@@ -186,11 +232,95 @@ test("native definitions preserve JSON through editing, autosave and real genera
     name: "Edit quality check",
     exact: true,
   });
-  await expect(dialog.getByLabel("Definition type")).toHaveValue("native");
+  await expect(
+    dialog.getByRole("tab", { name: "Fields", exact: true }),
+  ).toHaveAttribute("data-state", "active");
+  await expect(
+    dialog.getByLabel("Value for columns[0]", { exact: true }),
+  ).toHaveValue("Id");
+  await page.screenshot({
+    path: path.join(
+      process.env.DATAM8_QUALITY_SCREENSHOT_DIR || tmpdir(),
+      "datam8-quality-native-dialog.png",
+    ),
+    fullPage: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Add item to columns", exact: true })
+    .click();
+  await dialog
+    .getByLabel("Value for columns[1]", { exact: true })
+    .fill("Email");
+  await dialog
+    .getByRole("button", { name: "Move columns[1] up", exact: true })
+    .click();
+  await expect(
+    dialog.getByLabel("Value for columns[0]", { exact: true }),
+  ).toHaveValue("Email");
+  await dialog
+    .getByRole("checkbox", { name: "Value for nulls_distinct", exact: true })
+    .check();
+  await dialog
+    .getByRole("button", { name: "Add argument", exact: true })
+    .click();
+  await dialog.getByLabel("Name of argument 4", { exact: true }).fill("limit");
+  await dialog
+    .getByRole("combobox", { name: "Type for limit", exact: true })
+    .click();
+  await page.getByRole("option", { name: "Number", exact: true }).click();
+  await dialog.getByLabel("Value for limit", { exact: true }).fill("1e400");
+  await expect(
+    dialog.getByRole("button", { name: "Save check", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByRole("tab", { name: "JSON", exact: true }).click();
+  await expect(dialog.getByLabel("Arguments (JSON object)")).toHaveValue(
+    /1e400/,
+  );
+  await expect(
+    dialog.getByRole("tab", { name: "Fields", exact: true }),
+  ).toBeDisabled();
+  const structuredValue = {
+    ...argumentsValue,
+    columns: ["Email", "Id"],
+    nulls_distinct: true,
+    limit: 2.5,
+  };
+  await dialog
+    .getByLabel("Arguments (JSON object)")
+    .fill(JSON.stringify(structuredValue));
+  await dialog.getByRole("tab", { name: "Fields", exact: true }).click();
+  await expect(
+    dialog.getByLabel("Value for limit", { exact: true }),
+  ).toHaveValue("2.5");
+  await dialog
+    .getByLabel("Name of argument 4", { exact: true })
+    .fill("columns");
+  await expect(
+    dialog.getByRole("button", { name: "Save check", exact: true }),
+  ).toBeDisabled();
+  await expect(dialog.getByRole("alert")).toContainText("unique");
+  await dialog.getByLabel("Name of argument 4", { exact: true }).fill("limit");
+  await dialog.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        readQuality().checks.find(
+          (c: { id: string }) => c.id === "native_roundtrip",
+        )?.arguments,
+    )
+    .toEqual(structuredValue);
+  await page
+    .getByRole("button", { name: "Edit native_roundtrip", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", {
+    name: "Edit quality check",
+    exact: true,
+  });
+  await dialog.getByRole("tab", { name: "JSON", exact: true }).click();
   expect(
     JSON.parse(await dialog.getByLabel("Arguments (JSON object)").inputValue()),
-  ).toEqual(argumentsValue);
-  await dialog.getByLabel("Definition type").selectOption("sql");
+  ).toEqual(structuredValue);
+  await selectOption(page, dialog, "Definition", "SQL expression");
   await dialog
     .getByLabel("SQL Expression", { exact: true })
     .fill("Id IS NOT NULL");
@@ -217,10 +347,11 @@ test("native definitions preserve JSON through editing, autosave and real genera
       name: "Edit quality check",
       exact: true,
     });
-    await dialog.getByLabel("Definition type").selectOption("native");
+    await selectOption(page, dialog, "Definition", "Native function");
     await dialog
       .getByLabel("Function", { exact: true })
       .fill("is_not_less_than");
+    await dialog.getByRole("tab", { name: "JSON", exact: true }).click();
     await dialog.getByLabel("Arguments (JSON object)").fill(
       JSON.stringify({
         column: aggregate ? "measured_value" : "Id",
@@ -228,9 +359,7 @@ test("native definitions preserve JSON through editing, autosave and real genera
         allow_nulls: false,
       }),
     );
-    await dialog
-      .getByRole("radio", { name: "Monitoring", exact: true })
-      .check();
+    await selectOption(page, dialog, "Execution", "Monitoring");
     if (aggregate) {
       await dialog
         .getByRole("checkbox", { name: "Aggregated check with SQL" })
@@ -240,7 +369,10 @@ test("native definitions preserve JSON through editing, autosave and real genera
         .fill(
           "SELECT COUNT(*) AS checked_rows, COUNT(Id) AS measured_value FROM {target}",
         );
-      await dialog.getByLabel("On empty input").selectOption("no_data");
+      await dialog.getByRole("combobox", { name: "On empty input" }).click();
+      await page
+        .getByRole("option", { name: "Report NO_DATA", exact: true })
+        .click();
     }
     await dialog
       .getByRole("button", { name: "Save check", exact: true })
@@ -258,7 +390,9 @@ test("native definitions preserve JSON through editing, autosave and real genera
     .getByRole("button", { name: "Duplicate native_roundtrip", exact: true })
     .click();
   dialog = page.getByRole("dialog", { name: "Add quality check", exact: true });
-  await expect(dialog.getByLabel("Definition type")).toHaveValue("native");
+  await expect(
+    dialog.getByRole("combobox", { name: "Definition", exact: true }),
+  ).toHaveText("Native function");
   await expect(dialog.getByLabel("Check ID")).toHaveValue("native_roundtrip_1");
   await dialog.getByRole("button", { name: "Save check", exact: true }).click();
   await expect
@@ -335,6 +469,9 @@ test("multiple SQL checks use structured dialogs and real backend generation", a
   await page
     .getByRole("button", { name: "Add quality check", exact: true })
     .click();
+  await page
+    .getByRole("menuitem", { name: "SQL expression", exact: true })
+    .click();
   let dialog = page.getByRole("dialog", {
     name: "Add quality check",
     exact: true,
@@ -348,7 +485,7 @@ test("multiple SQL checks use structured dialogs and real backend generation", a
     .fill("Id IS NOT NULL");
   await expect(
     dialog.getByRole("checkbox", { name: "Aggregated check with SQL" }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save check", exact: true }).click();
   await expect
     .poll(() => readQuality()?.checks?.[0]?.id)
@@ -365,14 +502,18 @@ test("multiple SQL checks use structured dialogs and real backend generation", a
     "customer_id_required_1",
   );
   await dialog.getByLabel("Check ID").fill("id_completeness");
-  await dialog.getByRole("radio", { name: "Monitoring", exact: true }).check();
-  await dialog.getByRole("radio", { name: "Warning", exact: true }).check();
+  await selectOption(page, dialog, "Execution", "Monitoring");
+  await selectOption(page, dialog, "Severity", "Warning");
   await dialog
     .getByRole("checkbox", { name: "Aggregated check with SQL" })
     .check();
+  await dialog
+    .getByRole("combobox", { name: "Execution", exact: true })
+    .click();
   await expect(
-    dialog.getByRole("radio", { name: "Enforcement", exact: true }),
+    page.getByRole("option", { name: "Enforcement", exact: true }),
   ).toBeDisabled();
+  await page.keyboard.press("Escape");
   await expect(
     dialog.getByRole("button", { name: "Save check", exact: true }),
   ).toBeDisabled();
@@ -382,7 +523,10 @@ test("multiple SQL checks use structured dialogs and real backend generation", a
   await dialog
     .getByLabel("SQL Expression", { exact: true })
     .fill("measured_value >= 0.95");
-  await dialog.getByLabel("On empty input").selectOption("no_data");
+  await dialog.getByRole("combobox", { name: "On empty input" }).click();
+  await page
+    .getByRole("option", { name: "Report NO_DATA", exact: true })
+    .click();
   await page.screenshot({
     path: path.join(
       process.env.DATAM8_QUALITY_SCREENSHOT_DIR || tmpdir(),
@@ -411,6 +555,14 @@ test("multiple SQL checks use structured dialogs and real backend generation", a
     .fill("measured_value > 0");
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(readQuality().checks[1].expression).toBe("measured_value >= 0.95");
+  await expectCompactCards(page);
+  await expect(
+    page.getByRole("article", { name: "id_completeness", exact: true }),
+  ).not.toContainText("measured_value");
+  await expect(
+    page.getByRole("article", { name: "customer_id_required", exact: true }),
+  ).not.toContainText("Id IS NOT NULL");
+
   await page
     .getByRole("button", { name: "Edit customer_id_required", exact: true })
     .click();

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
-export type FormSelectOption = { label: string; value: string };
+export type FormSelectOption = { label: string; value: string; disabled?: boolean };
 
 export interface FormSelectProps {
   value?: string;
@@ -11,6 +11,7 @@ export interface FormSelectProps {
   disabled?: boolean;
   className?: string;
   allowUnknownValue?: boolean;
+  "aria-label"?: string;
 }
 
 export const FormSelect: React.FC<FormSelectProps> = ({
@@ -21,6 +22,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   disabled,
   className,
   allowUnknownValue = true,
+  "aria-label": ariaLabel,
 }) => {
   const [open, setOpen] = React.useState(false);
   const normalizedValue = value ?? "";
@@ -56,13 +58,13 @@ export const FormSelect: React.FC<FormSelectProps> = ({
 
   return (
     <Select value={stringValue} onValueChange={handleValueChange} disabled={disabled} open={open} onOpenChange={setOpen}>
-      <SelectTrigger className={className}>
+      <SelectTrigger className={className} aria-label={ariaLabel}>
         <SelectValue placeholder={placeholder}>{selectedLabel || undefined}</SelectValue>
       </SelectTrigger>
       {open ? (
         <SelectContent>
           {safeOptions.map((opt) => (
-            <SelectItem key={`${opt.value}`} value={`${opt.value}`}>
+            <SelectItem key={`${opt.value}`} value={`${opt.value}`} disabled={opt.disabled}>
               {opt.label}
             </SelectItem>
           ))}

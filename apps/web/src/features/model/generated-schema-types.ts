@@ -388,7 +388,17 @@ export interface QualityCheck {
   /**
    * Boolean SQL expression passed unchanged to the target engine. Define NULL handling explicitly, for example COALESCE(Amount >= 0, FALSE).
    */
-  expression: string;
+  expression?: string;
+  /**
+   * Native function name passed unchanged to the target engine. Mutually exclusive with expression; function availability is validated by the runtime.
+   */
+  function?: string;
+  /**
+   * Opaque native function arguments, including nested JSON values. Only with function; omitted arguments execute as an empty object.
+   */
+  arguments?: {
+    [k: string]: unknown;
+  };
   /**
    * Defaults to error when omitted.
    */
@@ -544,7 +554,7 @@ export interface ModelRelationship {
   attributes: [ModelAttributeMapping, ...ModelAttributeMapping[]];
 }
 /**
- * Fixed SQL quality contract. Solutions configure their target runtime and table bindings.
+ * Declarative SQL or native function quality checks. Solutions configure their target runtime and table bindings.
  */
 
 export interface Locator {

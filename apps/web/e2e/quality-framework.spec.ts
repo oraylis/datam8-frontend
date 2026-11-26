@@ -90,6 +90,220 @@ test.afterAll(async () => {
   if (root?.startsWith(path.join(tmpdir(), "datam8-quality-ui-")))
     rmSync(root, { recursive: true, force: true });
 });
+test("native definitions preserve JSON through editing, autosave and real generation", async ({
+  page,
+}) => {
+  const readQuality = () =>
+    JSON.parse(readFileSync(path.join(root, "model/Raw/Customer.json"), "utf8"))
+      .quality;
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      !/^\/(config|solution|model|entities|sources|plugins|version|health)(\/|\?|$)/.test(
+        url.pathname,
+      )
+    )
+      return route.continue();
+    const response = await route.fetch({
+      url: `${base}${url.pathname}${url.search}`,
+    });
+    await route.fulfill({ response });
+  });
+  await page.goto("/");
+  await page
+    .getByPlaceholder("Absolute path to .dm8s")
+    .fill(path.join(root, "Quality.dm8s"));
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
+  await page.getByText("Customer", { exact: true }).first().dblclick();
+  await page.getByRole("button", { name: "Quality", exact: true }).click();
+  // Tests share this disposable solution when Playwright runs a single worker.
+  const before = readQuality()?.checks?.length ?? 0;
+  await page
+    .getByRole("button", { name: "Add quality check", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog", {
+    name: "Add quality check",
+    exact: true,
+  });
+  await dialog.getByLabel("Check ID").fill("native_roundtrip");
+  await dialog.getByLabel("Definition type").selectOption("native");
+  await dialog
+    .getByLabel("Function", { exact: true })
+    .fill("future_dqx_function");
+  const argumentsValue = {
+    columns: ["Id"],
+    nulls_distinct: false,
+    nested: [
+      null,
+      2.5,
+      "text",
+      { enabled: true, limit: Number.MAX_SAFE_INTEGER },
+    ],
+  };
+  for (const invalid of [
+    "{",
+    "[]",
+    "null",
+    "3",
+    '{"limit":9007199254740993}',
+    '{"nested":[{"limit":1e400}]}',
+    '{"limit":1e-400}',
+    '{"limit":1.0000000000000001}',
+  ]) {
+    await dialog.getByLabel("Arguments (JSON object)").fill(invalid);
+    await expect(
+      dialog.getByRole("button", { name: "Save check", exact: true }),
+    ).toBeDisabled();
+    if (invalid.startsWith('{"'))
+      await expect(dialog.getByRole("alert")).toContainText(
+        "loss of precision",
+      );
+  }
+  expect(readQuality()?.checks?.length ?? 0).toBe(before);
+  await dialog
+    .getByLabel("Arguments (JSON object)")
+    .fill(JSON.stringify(argumentsValue, null, 2));
+  await dialog.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        readQuality()?.checks?.find(
+          (c: { id: string }) => c.id === "native_roundtrip",
+        )?.arguments,
+    )
+    .toEqual(argumentsValue);
+  expect(
+    readQuality().checks.find(
+      (c: { id: string }) => c.id === "native_roundtrip",
+    ),
+  ).not.toHaveProperty("expression");
+
+  await page
+    .getByRole("button", { name: "Edit native_roundtrip", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", {
+    name: "Edit quality check",
+    exact: true,
+  });
+  await expect(dialog.getByLabel("Definition type")).toHaveValue("native");
+  expect(
+    JSON.parse(await dialog.getByLabel("Arguments (JSON object)").inputValue()),
+  ).toEqual(argumentsValue);
+  await dialog.getByLabel("Definition type").selectOption("sql");
+  await dialog
+    .getByLabel("SQL Expression", { exact: true })
+    .fill("Id IS NOT NULL");
+  await dialog.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        readQuality().checks.find(
+          (c: { id: string }) => c.id === "native_roundtrip",
+        )?.expression,
+    )
+    .toBe("Id IS NOT NULL");
+  const sql = readQuality().checks.find(
+    (c: { id: string }) => c.id === "native_roundtrip",
+  );
+  expect(sql).not.toHaveProperty("function");
+  expect(sql).not.toHaveProperty("arguments");
+
+  for (const aggregate of [false, true]) {
+    await page
+      .getByRole("button", { name: "Edit native_roundtrip", exact: true })
+      .click();
+    dialog = page.getByRole("dialog", {
+      name: "Edit quality check",
+      exact: true,
+    });
+    await dialog.getByLabel("Definition type").selectOption("native");
+    await dialog
+      .getByLabel("Function", { exact: true })
+      .fill("is_not_less_than");
+    await dialog.getByLabel("Arguments (JSON object)").fill(
+      JSON.stringify({
+        column: aggregate ? "measured_value" : "Id",
+        limit: 0,
+        allow_nulls: false,
+      }),
+    );
+    await dialog
+      .getByRole("radio", { name: "Monitoring", exact: true })
+      .check();
+    if (aggregate) {
+      await dialog
+        .getByRole("checkbox", { name: "Aggregated check with SQL" })
+        .check();
+      await dialog
+        .getByLabel("SQL Query", { exact: true })
+        .fill(
+          "SELECT COUNT(*) AS checked_rows, COUNT(Id) AS measured_value FROM {target}",
+        );
+      await dialog.getByLabel("On empty input").selectOption("no_data");
+    }
+    await dialog
+      .getByRole("button", { name: "Save check", exact: true })
+      .click();
+    await expect
+      .poll(
+        () =>
+          readQuality().checks.find(
+            (c: { id: string }) => c.id === "native_roundtrip",
+          )?.arguments?.column,
+      )
+      .toBe(aggregate ? "measured_value" : "Id");
+  }
+  await page
+    .getByRole("button", { name: "Duplicate native_roundtrip", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", { name: "Add quality check", exact: true });
+  await expect(dialog.getByLabel("Definition type")).toHaveValue("native");
+  await expect(dialog.getByLabel("Check ID")).toHaveValue("native_roundtrip_1");
+  await dialog.getByRole("button", { name: "Save check", exact: true }).click();
+  await expect
+    .poll(() =>
+      readQuality().checks.some(
+        (c: { id: string }) => c.id === "native_roundtrip_1",
+      ),
+    )
+    .toBe(true);
+
+  await page.reload();
+  await page
+    .getByPlaceholder("Absolute path to .dm8s")
+    .fill(path.join(root, "Quality.dm8s"));
+  await page.getByRole("button", { name: "Load", exact: true }).click();
+  await expect(page.getByText("Select solution (.dm8s)")).toBeHidden();
+  await page.getByText("Customer", { exact: true }).first().dblclick();
+  await page.getByRole("button", { name: "Quality", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit native_roundtrip", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Toggle generator", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Generate", exact: true }).click();
+  await expect
+    .poll(() => {
+      try {
+        return JSON.parse(
+          readFileSync(path.join(root, "output/quality/Customer.json"), "utf8"),
+        );
+      } catch {
+        return null;
+      }
+    })
+    .toEqual(readQuality());
+  for (const id of ["native_roundtrip", "native_roundtrip_1"]) {
+    await page
+      .getByRole("button", { name: `Delete ${id}`, exact: true })
+      .click();
+    await expect
+      .poll(() => readQuality().checks.some((c: { id: string }) => c.id === id))
+      .toBe(false);
+  }
+});
 test("multiple SQL checks use structured dialogs and real backend generation", async ({
   page,
   request,

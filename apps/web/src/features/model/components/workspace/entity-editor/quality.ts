@@ -8,6 +8,55 @@ const identifier = (v: unknown): v is string =>
 const nonblank = (v: unknown): v is string =>
   typeof v === "string" && !!v.trim();
 
+const numberError =
+  "Arguments contain a number that cannot be saved without loss of precision.";
+
+function unsafeNumber(value: unknown): boolean {
+  if (typeof value === "number")
+    return (
+      !Number.isFinite(value) ||
+      (Number.isInteger(value) && !Number.isSafeInteger(value))
+    );
+  if (Array.isArray(value)) return value.some(unsafeNumber);
+  return record(value) && Object.values(value).some(unsafeNumber);
+}
+
+// Compare decimal values, allowing equivalent notation such as 1e3 and 1000.
+function decimalValue(token: string): string {
+  const [mantissa, exponent = "0"] = token.toLowerCase().split("e");
+  const [integer, fraction = ""] = mantissa.replace(/^-/, "").split(".");
+  const digits = (integer + fraction).replace(/^0+/, "");
+  if (!digits) return "0";
+  const significant = digits.replace(/0+$/, "");
+  const power =
+    BigInt(exponent) -
+    BigInt(fraction.length) +
+    BigInt(digits.length - significant.length);
+  return `${token.startsWith("-") ? "-" : ""}${significant}e${power}`;
+}
+
+export function parseQualityArguments(text: string): Record<string, unknown> {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error("Arguments must contain valid JSON.");
+  }
+  if (!record(value)) throw new Error("Arguments must be a JSON object.");
+  if (unsafeNumber(value)) throw new Error(numberError);
+  // JSON.parse has already checked the syntax. Skip strings before inspecting
+  // number tokens, including decimals that round to zero or to another value.
+  const numbers =
+    text
+      .replace(/"(?:\\.|[^"\\])*"/g, "")
+      .match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g) ?? [];
+  for (const token of numbers) {
+    if (decimalValue(token) !== decimalValue(JSON.stringify(Number(token))))
+      throw new Error(numberError);
+  }
+  return value;
+}
+
 export function qualityErrors(value: unknown): string[] {
   if (value === undefined) return [];
   if (!record(value) || !Array.isArray(value.checks))
@@ -68,6 +117,8 @@ export function qualityErrors(value: unknown): string[] {
             "id",
             "execution",
             "expression",
+            "function",
+            "arguments",
             "severity",
             "description",
             "sql",
@@ -78,8 +129,19 @@ export function qualityErrors(value: unknown): string[] {
       errors.push(`${label}: Unsupported check field.`);
     if (check.execution !== "enforcement" && check.execution !== "monitoring")
       errors.push(`${label}: Select an execution mode.`);
-    if (!nonblank(check.expression))
+    if ("expression" in check === "function" in check)
+      errors.push(`${label}: Define exactly one of expression or function.`);
+    if ("expression" in check && !nonblank(check.expression))
       errors.push(`${label}: Enter a SQL expression.`);
+    if ("function" in check && !nonblank(check.function))
+      errors.push(`${label}: Enter a native function name.`);
+    if (
+      "arguments" in check &&
+      (!("function" in check) || !record(check.arguments))
+    )
+      errors.push(`${label}: Arguments require a function and a JSON object.`);
+    if ("arguments" in check && unsafeNumber(check.arguments))
+      errors.push(`${label}: ${numberError}`);
     if (
       "severity" in check &&
       check.severity !== "error" &&

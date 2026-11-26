@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { qualityErrors } from "./quality";
+import { parseQualityArguments, qualityErrors } from "./quality";
 
 describe("fixed SQL quality contract", () => {
   const check = {
@@ -36,13 +36,7 @@ describe("fixed SQL quality contract", () => {
       expect(qualityErrors(quality)).toEqual([]);
   });
   it("rejects obsolete and unknown fields without compatibility", () => {
-    for (const field of [
-      "definition",
-      "type",
-      "function",
-      "arguments",
-      "parameters",
-    ])
+    for (const field of ["definition", "type", "parameters"])
       expect(
         qualityErrors({ checks: [{ ...check, [field]: {} }] }).length,
       ).toBeGreaterThan(0);
@@ -102,5 +96,84 @@ describe("fixed SQL quality contract", () => {
         ],
       }),
     ).toEqual([]);
+  });
+  it("accepts opaque native functions and validates only their structure", () => {
+    const native = {
+      id: "native",
+      execution: "enforcement",
+      function: "future_function",
+    };
+    for (const rule of [
+      native,
+      { ...native, arguments: {} },
+      {
+        ...native,
+        arguments: { column: "Id", nested: [null, true, 0, 2.5, "text", {}] },
+      },
+      {
+        ...native,
+        execution: "monitoring",
+        sql: "SELECT 1",
+        onEmpty: "no_data",
+      },
+    ])
+      expect(qualityErrors({ checks: [rule] })).toEqual([]);
+    for (const rule of [
+      { ...native, expression: "Id > 0" },
+      { id: "missing", execution: "enforcement" },
+      { ...check, arguments: {} },
+      { ...native, function: " " },
+      { ...native, function: null },
+      { ...native, arguments: [] },
+      { ...native, arguments: null },
+    ])
+      expect(qualityErrors({ checks: [rule] }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("native argument JSON integrity", () => {
+  it("rejects numeric rounding, overflow and underflow at any depth", () => {
+    for (const token of [
+      "9007199254740993",
+      "-9007199254740993",
+      "1e400",
+      "1e-400",
+      "1.0000000000000001",
+      "0.1234567890123456789",
+    ])
+      expect(() =>
+        parseQualityArguments(`{"nested": [{"limit": ${token}}]}`),
+      ).toThrow("loss of precision");
+  });
+  it("preserves ordinary JSON values and equivalent decimal notation", () => {
+    expect(
+      parseQualityArguments(
+        '{"limit": 9007199254740991, "nested": [null, false, 0.1000, 1e3, -2.5e-3], "text": "9007199254740993 \\\" 1e400"}',
+      ),
+    ).toEqual({
+      limit: Number.MAX_SAFE_INTEGER,
+      nested: [null, false, 0.1, 1000, -0.0025],
+      text: '9007199254740993 " 1e400',
+    });
+  });
+  it("reports malformed JSON and non-object arguments separately", () => {
+    expect(() => parseQualityArguments("{")).toThrow("valid JSON");
+    for (const text of ["[]", "null", "3"])
+      expect(() => parseQualityArguments(text)).toThrow("JSON object");
+  });
+  it("blocks unsafe numeric values already loaded into a native check", () => {
+    for (const limit of [Number.MAX_SAFE_INTEGER + 1, Infinity, -Infinity, NaN])
+      expect(
+        qualityErrors({
+          checks: [
+            {
+              id: "native",
+              execution: "enforcement",
+              function: "future_function",
+              arguments: { nested: [{ limit }] },
+            },
+          ],
+        }).join(),
+      ).toContain("loss of precision");
   });
 });

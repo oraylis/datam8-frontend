@@ -15,7 +15,11 @@ import {
 import type { Quality } from "../../../generated-schema-types";
 import type { ModelEntity } from "../../../model-types";
 import { IconBtn } from "../common/IconBtn";
-import { qualityErrors, type QualityCheck } from "./quality";
+import {
+  parseQualityArguments,
+  qualityErrors,
+  type QualityCheck,
+} from "./quality";
 
 type Draft = {
   id: string;
@@ -23,6 +27,9 @@ type Draft = {
   severity: "error" | "warning";
   description: string;
   expression: string;
+  definition: "sql" | "native";
+  function: string;
+  arguments: string;
   aggregate: boolean;
   sql: string;
   onEmpty: "evaluate" | "no_data";
@@ -68,17 +75,32 @@ export function EntityQualityEditor({
       severity: check?.severity || "error",
       description: check?.description || "",
       expression: check?.expression || "",
+      definition: check && "function" in check ? "native" : "sql",
+      function: check?.function || "",
+      arguments: JSON.stringify(check?.arguments ?? {}, null, 2),
       aggregate: check?.sql !== undefined,
       sql: check?.sql || "",
       onEmpty: check?.onEmpty || "evaluate",
     });
   };
+  let parsedArguments: Record<string, unknown> = {};
+  let argumentsError: string | null = null;
+  if (draft?.definition === "native") {
+    try {
+      parsedArguments = parseQualityArguments(draft.arguments);
+    } catch (error) {
+      argumentsError =
+        error instanceof Error ? error.message : "Invalid arguments.";
+    }
+  }
   const candidate: QualityCheck | null = draft
     ? {
         id: draft.id.trim(),
         execution: draft.execution,
         severity: draft.severity,
-        expression: draft.expression,
+        ...(draft.definition === "native"
+          ? { function: draft.function, arguments: parsedArguments }
+          : { expression: draft.expression }),
         ...(draft.description ? { description: draft.description } : {}),
         ...(draft.aggregate ? { sql: draft.sql, onEmpty: draft.onEmpty } : {}),
       }
@@ -91,6 +113,7 @@ export function EntityQualityEditor({
   const errors = candidate
     ? qualityErrors({ ...quality, checks: nextChecks })
     : [];
+  if (argumentsError) errors.push(argumentsError);
   const thresholdText = threshold ?? String(quality?.maxFailureRatePct ?? "");
   const thresholdValid =
     thresholdText === "" ||
@@ -253,8 +276,15 @@ export function EntityQualityEditor({
               </IconBtn>
             </div>
           </div>
-          <p className="truncate font-mono" title={check.expression}>
-            {check.expression}
+          <p
+            className="truncate font-mono"
+            title={
+              check.expression ??
+              `${check.function} ${JSON.stringify(check.arguments ?? {})}`
+            }
+          >
+            {check.expression ??
+              `${check.function} ${JSON.stringify(check.arguments ?? {})}`}
           </p>
           {check.description && <p>{check.description}</p>}
         </div>
@@ -274,8 +304,8 @@ export function EntityQualityEditor({
               {editing === null ? "Add quality check" : "Edit quality check"}
             </DialogTitle>
             <DialogDescription>
-              SQL is passed unchanged to the target engine. Define NULL handling
-              explicitly, for example COALESCE(Amount &gt;= 0, FALSE).
+              SQL expressions and native function arguments are passed unchanged
+              to the target engine. DQX validates native functions at execution.
             </DialogDescription>
           </DialogHeader>
           {draft && (
@@ -336,19 +366,69 @@ export function EntityQualityEditor({
                 </div>
               </fieldset>
               <label className="grid gap-1.5 text-foreground text-sm font-normal">
-                SQL Expression
-                <Textarea
-                  aria-label="SQL Expression"
-                  className="font-mono min-h-24"
-                  value={draft.expression}
-                  placeholder={
-                    draft.aggregate
-                      ? "measured_value >= 0.95"
-                      : "CustomerId IS NOT NULL"
+                Definition type
+                <select
+                  value={draft.definition}
+                  onChange={(e) =>
+                    updateDraft({
+                      definition: e.target.value as Draft["definition"],
+                    })
                   }
-                  onChange={(e) => updateDraft({ expression: e.target.value })}
-                />
+                >
+                  <option value="sql">SQL Expression</option>
+                  <option value="native">Native Function</option>
+                </select>
               </label>
+              {draft.definition === "sql" ? (
+                <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                  SQL Expression
+                  <Textarea
+                    aria-label="SQL Expression"
+                    className="font-mono min-h-24"
+                    value={draft.expression}
+                    placeholder={
+                      draft.aggregate
+                        ? "measured_value >= 0.95"
+                        : "CustomerId IS NOT NULL"
+                    }
+                    onChange={(e) =>
+                      updateDraft({ expression: e.target.value })
+                    }
+                  />
+                </label>
+              ) : (
+                <>
+                  <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                    Function
+                    <Input
+                      value={draft.function}
+                      placeholder="is_unique"
+                      onChange={(e) =>
+                        updateDraft({ function: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-foreground text-sm font-normal">
+                    Arguments (JSON object)
+                    <Textarea
+                      className="font-mono min-h-40"
+                      value={draft.arguments}
+                      placeholder={
+                        '{ "columns": ["CustomerId"], "nulls_distinct": true }'
+                      }
+                      onChange={(e) =>
+                        updateDraft({ arguments: e.target.value })
+                      }
+                    />
+                  </label>
+                </>
+              )}
+              {draft.definition === "sql" && (
+                <p>
+                  Define NULL handling explicitly, for example COALESCE(Amount
+                  &gt;= 0, FALSE).
+                </p>
+              )}
               <label className="flex gap-2 items-center">
                 <input
                   type="checkbox"
@@ -378,8 +458,7 @@ export function EntityQualityEditor({
                   <p>
                     The query must return exactly one row with{" "}
                     <code>checked_rows</code> and <code>measured_value</code>.
-                    SQL Expression evaluates this result, for example{" "}
-                    <code>measured_value &gt;= 0.95</code>.
+                    The selected definition evaluates this result.
                   </p>
                   <label className="grid gap-1.5 text-foreground text-sm font-normal">
                     On empty input
